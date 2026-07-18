@@ -195,6 +195,10 @@ pub enum RecordingRetentionPeriod {
 #[serde(rename_all = "snake_case")]
 pub enum KeyboardImplementation {
     Tauri,
+    // Backward-compat: older Coco Voice settings stores serialized this variant
+    // as "coco_keys" before the rebrand to "coco_voice_keys". Keep the alias so
+    // those stores still parse strictly on upgrade — no migration required.
+    #[serde(alias = "coco_keys")]
     CocoVoiceKeys,
 }
 
