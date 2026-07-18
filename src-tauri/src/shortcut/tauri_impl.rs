@@ -27,11 +27,21 @@ pub fn init_shortcuts(app: &AppHandle) {
         if id == "transcribe_with_post_process" && !user_settings.post_process_enabled {
             continue;
         }
+        // Skip the correction shortcut when iterative correction is disabled
+        if id == "correction" && !user_settings.iterative_correction_enabled {
+            continue;
+        }
         let binding = user_settings
             .bindings
             .get(&id)
             .cloned()
             .unwrap_or(default_binding);
+
+        // Skip bindings with no key assigned (e.g. the correction shortcut before
+        // the user picks a key) — there is nothing to register.
+        if binding.current_binding.trim().is_empty() {
+            continue;
+        }
 
         if let Err(e) = register_shortcut(app, binding) {
             error!("Failed to register shortcut {} during init: {}", id, e);

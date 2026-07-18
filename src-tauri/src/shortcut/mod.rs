@@ -398,11 +398,23 @@ fn register_all_shortcuts_for_implementation(
             continue;
         }
 
+        // Skip the correction shortcut when iterative correction is disabled.
+        if id == "correction" && !current_settings.iterative_correction_enabled {
+            continue;
+        }
+
         let mut binding = current_settings
             .bindings
             .get(id)
             .cloned()
             .unwrap_or_else(|| default_binding.clone());
+
+        // Skip bindings with no key assigned (e.g. the correction shortcut before
+        // the user picks a key): there is nothing to register, and an empty string
+        // would only fail validation and get pointlessly "reset" to another empty.
+        if binding.current_binding.trim().is_empty() {
+            continue;
+        }
 
         // Validate the shortcut for the target implementation
         if let Err(e) =
@@ -954,7 +966,21 @@ pub fn change_post_process_enabled_setting(app: AppHandle, enabled: bool) -> Res
 pub fn change_iterative_correction_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.iterative_correction_enabled = enabled;
-    settings::write_settings(&app, settings);
+    settings::write_settings(&app, settings.clone());
+
+    // Register or unregister the correction shortcut to match the setting. Only
+    // register when a key is actually assigned — the correction binding ships
+    // empty, so enabling the feature must not attempt to grab an empty shortcut.
+    if let Some(binding) = settings.bindings.get("correction").cloned() {
+        if enabled {
+            if !binding.current_binding.trim().is_empty() {
+                let _ = register_shortcut(&app, binding);
+            }
+        } else {
+            let _ = unregister_shortcut(&app, binding);
+        }
+    }
+
     Ok(())
 }
 

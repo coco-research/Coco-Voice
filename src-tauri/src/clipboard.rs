@@ -665,6 +665,72 @@ pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Maximum number of Backspace presses a single replace will emit. A prior output
+/// longer than this is treated as implausible — a real dictation is never 100k
+/// characters — so the replace is skipped and the new text is appended instead,
+/// rather than risk hammering Backspace across the user's whole document.
+pub const MAX_REPLACE_BACKSPACES: usize = 100_000;
+
+/// Given the character length of the previous output, returns how many Backspace
+/// presses a replace should emit before typing the new text: the count itself when
+/// it is within [`MAX_REPLACE_BACKSPACES`], or `0` (delete nothing, just append)
+/// when it is zero or implausibly large. Pure and deterministic so it can be
+/// unit-tested without simulating any keystrokes.
+pub fn backspaces_for_replace(prev_char_count: usize) -> usize {
+    if prev_char_count == 0 || prev_char_count > MAX_REPLACE_BACKSPACES {
+        0
+    } else {
+        prev_char_count
+    }
+}
+
+/// Sends `count` Backspace key presses via Enigo to delete `count` characters at
+/// the cursor. Used by [`replace_previous`] to remove the prior output before the
+/// corrected text is typed.
+fn send_backspaces(enigo: &mut Enigo, count: usize) -> Result<(), String> {
+    for _ in 0..count {
+        enigo
+            .key(Key::Backspace, Direction::Click)
+            .map_err(|e| format!("Failed to send Backspace key: {}", e))?;
+    }
+    Ok(())
+}
+
+/// Replace the previous output at the cursor with `new_text`.
+///
+/// When `prev_char_count` indicates a replace (see [`backspaces_for_replace`]),
+/// that many characters are deleted with Backspace and then `new_text` is pasted
+/// through the normal [`paste`] path; otherwise this is exactly an append paste
+/// (`prev_char_count == 0`). This is what fixes the iterative-correction
+/// double-paste: the corrected text overwrites the prior output instead of being
+/// appended after it.
+///
+/// NOTE: the Backspace deletion is real OS keystroke simulation via Enigo and can
+/// only be verified on-device. The unit tests cover the pure
+/// `backspaces_for_replace` decision, not the keystrokes themselves.
+pub fn replace_previous(
+    prev_char_count: usize,
+    new_text: String,
+    app_handle: AppHandle,
+) -> Result<(), String> {
+    let backspaces = backspaces_for_replace(prev_char_count);
+    if backspaces > 0 {
+        let enigo_state = app_handle
+            .try_state::<EnigoState>()
+            .ok_or("Enigo state not initialized")?;
+        // Scope the lock so it is released before `paste` re-locks EnigoState.
+        {
+            let mut enigo = enigo_state
+                .0
+                .lock()
+                .map_err(|e| format!("Failed to lock Enigo: {}", e))?;
+            send_backspaces(&mut enigo, backspaces)?;
+        }
+    }
+
+    paste(new_text, app_handle)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -686,5 +752,38 @@ mod tests {
         assert!(should_send_auto_submit(true, PasteMethod::Direct));
         assert!(should_send_auto_submit(true, PasteMethod::CtrlShiftV));
         assert!(should_send_auto_submit(true, PasteMethod::ShiftInsert));
+    }
+
+    #[test]
+    fn replace_deletes_one_backspace_per_character() {
+        // One Backspace per character, counted by Unicode scalar (`chars`) not
+        // bytes, so a replace deletes exactly the previous output.
+        assert_eq!(backspaces_for_replace("hello".chars().count()), 5);
+    }
+
+    #[test]
+    fn replace_counts_multibyte_characters_as_single_backspaces() {
+        // CJK, an astral-plane emoji, and a base char + combining mark each count
+        // as their number of `char`s (scalar values), not UTF-8 byte length.
+        assert_eq!(backspaces_for_replace("日本語".chars().count()), 3);
+        assert_eq!(backspaces_for_replace("\u{1F98A}".chars().count()), 1); // 🦊
+        assert_eq!(backspaces_for_replace("e\u{0301}".chars().count()), 2); // e + acute
+    }
+
+    #[test]
+    fn replace_with_no_prior_output_appends() {
+        // Nothing to delete → 0 backspaces → the paste path just appends.
+        assert_eq!(backspaces_for_replace(0), 0);
+    }
+
+    #[test]
+    fn replace_guards_against_implausibly_long_prior_output() {
+        // At the threshold we still replace; one char past it we bail to append
+        // rather than emit a runaway stream of Backspaces across the document.
+        assert_eq!(
+            backspaces_for_replace(MAX_REPLACE_BACKSPACES),
+            MAX_REPLACE_BACKSPACES
+        );
+        assert_eq!(backspaces_for_replace(MAX_REPLACE_BACKSPACES + 1), 0);
     }
 }

@@ -93,8 +93,11 @@ pub async fn retry_history_entry_transcription(
         return Err("Recording contains no speech".to_string());
     }
 
+    // Re-transcribing a saved recording is never a live spoken correction, so
+    // correction mode is off — this only re-runs transcription + post-processing.
     let processed =
-        process_transcription_output(&app, &transcription, entry.post_process_requested).await;
+        process_transcription_output(&app, &transcription, entry.post_process_requested, false)
+            .await;
     history_manager
         .update_transcription(
             id,

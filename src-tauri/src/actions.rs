@@ -31,11 +31,6 @@ const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
 /// fresh dictation rather than an edit of the previous result.
 const REFINE_BUFFER_TTL: Duration = Duration::from_secs(30);
 
-/// Leading phrases that mark a follow-up utterance as a spoken correction of the
-/// previous output (matched case-insensitively, anchored to the utterance start,
-/// on a whole-word boundary) rather than as a fresh dictation.
-const CORRECTION_PREFIXES: &[&str] = &["no", "actually", "change that", "make it", "i meant"];
-
 /// The last {raw transcript, produced output} pair, kept briefly so a follow-up
 /// correction can edit the previous result instead of transcribing fresh (see
 /// [`REFINE_BUFFER_TTL`]). Overwritten by each new dictation and expired on read.
@@ -73,6 +68,12 @@ pub trait ShortcutAction: Send + Sync {
 // Transcribe Action
 struct TranscribeAction {
     post_process: bool,
+    /// When `true`, this dictation is an explicit spoken CORRECTION of the last
+    /// output rather than a fresh dictation: after transcribing, the utterance is
+    /// used to edit the buffered previous output and the result REPLACES it at the
+    /// cursor (see [`process_transcription_output`]). Triggered only by the
+    /// dedicated "correction" hotkey — never inferred from the words spoken.
+    correction: bool,
 }
 
 /// Field name for structured output JSON schema
@@ -122,30 +123,15 @@ fn should_use_streaming_overlay(style: OverlayStyle, is_streaming: bool) -> bool
     style == OverlayStyle::Live && is_streaming
 }
 
-/// Returns `true` when `transcription` reads as a spoken correction of a prior
-/// result — i.e. it begins with one of [`CORRECTION_PREFIXES`] on a whole-word
-/// boundary. Leading punctuation/whitespace is ignored and matching is
-/// case-insensitive, so "No, make it a question." and "  actually — scratch that"
-/// both match, while "Normalize the numbers" (starts with "no" mid-word) does not.
-fn reads_as_correction(transcription: &str) -> bool {
-    let normalized = transcription
-        .trim_start_matches(|c: char| !c.is_alphanumeric())
-        .to_lowercase();
-
-    CORRECTION_PREFIXES
-        .iter()
-        .any(|prefix| match normalized.strip_prefix(*prefix) {
-            // Exact match, or the prefix is followed by a non-alphanumeric
-            // boundary so we never match inside a longer word ("nothing").
-            Some(rest) => rest.is_empty() || rest.starts_with(|c: char| !c.is_alphanumeric()),
-            None => false,
-        })
-}
-
-/// If the iterative correction loop is enabled and `transcription` reads as a
-/// correction of a recent, non-expired output, returns that previous output to
-/// use as the edit base. Also drops the buffer when it has expired.
-fn refine_base_if_correction(settings: &AppSettings, transcription: &str) -> Option<String> {
+/// Returns the most recent produced output to use as the edit base for an
+/// explicit spoken correction, provided iterative correction is enabled and a
+/// fresh (within [`REFINE_BUFFER_TTL`]) output is buffered. A stale buffer is
+/// expired on read.
+///
+/// Unlike the removed word-sniffing path, this does NOT inspect the utterance
+/// text: the dedicated "correction" hotkey is the sole trigger, so a normal
+/// dictation can never be silently reinterpreted as an edit.
+fn refine_base_for_correction(settings: &AppSettings) -> Option<String> {
     if !settings.iterative_correction_enabled {
         return None;
     }
@@ -153,7 +139,7 @@ fn refine_base_if_correction(settings: &AppSettings, transcription: &str) -> Opt
     // Recover a poisoned lock rather than panicking the transcription task.
     let mut guard = REFINE_BUFFER.lock().unwrap_or_else(|e| e.into_inner());
 
-    // Expire a stale buffer regardless of what the current utterance is.
+    // Expire a stale buffer so a correction never edits an ancient output.
     if guard
         .as_ref()
         .is_some_and(|buf| buf.created_at.elapsed() > REFINE_BUFFER_TTL)
@@ -161,13 +147,9 @@ fn refine_base_if_correction(settings: &AppSettings, transcription: &str) -> Opt
         *guard = None;
     }
 
-    if !reads_as_correction(transcription) {
-        return None;
-    }
-
     guard.as_ref().map(|buf| {
         debug!(
-            "Iterative correction detected; editing previous output (prior raw transcript: {:?})",
+            "Correction hotkey: editing previous output (prior raw transcript: {:?})",
             buf.raw_transcript
         );
         buf.produced_output.clone()
@@ -220,6 +202,28 @@ fn build_refine_legacy_prompt(previous_output: &str, correction: &str) -> String
         build_refine_system_prompt(),
         build_refine_user_content(previous_output, correction)
     )
+}
+
+/// Selects the `(system prompt, user content)` pair for the structured-output
+/// post-processing call. When `prior_output` is `Some`, the *edit* prompt is
+/// built (refine system prompt + PREVIOUS/CORRECTION user content) so the model
+/// edits that prior output using `transcription` as the spoken correction;
+/// otherwise the normal clean-up prompt is built from the user's template.
+fn build_post_process_messages(
+    prompt_template: &str,
+    transcription: &str,
+    prior_output: Option<&str>,
+) -> (String, String) {
+    match prior_output {
+        Some(previous) => (
+            build_refine_system_prompt(),
+            build_refine_user_content(previous, transcription),
+        ),
+        None => (
+            build_system_prompt(prompt_template),
+            transcription.to_string(),
+        ),
+    }
 }
 
 /// Post-processes `transcription`. When `prior_output` is `Some`, the call runs
@@ -315,13 +319,8 @@ async fn post_process_transcription(
     if provider.supports_structured_output {
         debug!("Using structured outputs for provider '{}'", provider.id);
 
-        let (system_prompt, user_content) = match prior_output {
-            Some(previous) => (
-                build_refine_system_prompt(),
-                build_refine_user_content(previous, transcription),
-            ),
-            None => (build_system_prompt(&prompt), transcription.to_string()),
-        };
+        let (system_prompt, user_content) =
+            build_post_process_messages(&prompt, transcription, prior_output);
 
         // Handle Apple Intelligence separately since it uses native Swift APIs
         if provider.id == APPLE_INTELLIGENCE_PROVIDER_ID {
@@ -529,6 +528,11 @@ pub(crate) struct ProcessedTranscription {
     pub final_text: String,
     pub post_processed_text: Option<String>,
     pub post_process_prompt: Option<String>,
+    /// Number of characters the paste path should delete (via Backspace) before
+    /// typing `final_text`. Non-zero only in correction mode, where it is the
+    /// length of the prior output being REPLACED by this edit; `0` means a normal
+    /// append paste with nothing to delete. See [`crate::utils::replace_previous`].
+    pub replace_char_count: usize,
 }
 
 /// Resolve the persisted language *intent* into the language the currently-loaded
@@ -556,11 +560,13 @@ pub(crate) async fn process_transcription_output(
     app: &AppHandle,
     transcription: &str,
     post_process: bool,
+    correction: bool,
 ) -> ProcessedTranscription {
     let settings = get_settings(app);
     let mut final_text = transcription.to_string();
     let mut post_processed_text: Option<String> = None;
     let mut post_process_prompt: Option<String> = None;
+    let mut replace_char_count: usize = 0;
 
     // Resolve the language the transcription actually ran in (the persisted
     // intent coerced against the loaded model's capabilities) so OpenCC keys off
@@ -572,12 +578,51 @@ pub(crate) async fn process_transcription_output(
         final_text = converted_text;
     }
 
-    if post_process {
-        // If this utterance reads as a correction of a recent prior output, edit
-        // that output rather than transcribing fresh (iterative correction loop).
-        let refine_base = refine_base_if_correction(&settings, transcription);
+    if correction {
+        // CORRECTION MODE (explicit hotkey): unconditionally treat this utterance
+        // as an edit of the last output. We never sniff the words — the dedicated
+        // "correction" hotkey is the only trigger.
+        if let Some(prior_output) = refine_base_for_correction(&settings) {
+            // The prior output is exactly what the previous dictation pasted, so
+            // its character length is how many characters the replace must delete
+            // before typing the edit. Count `chars`, not bytes, so multibyte /
+            // emoji delete as single Backspaces.
+            let prev_char_count = prior_output.chars().count();
+            match post_process_transcription(&settings, &final_text, Some(&prior_output)).await {
+                Some(edited) => {
+                    post_processed_text = Some(edited.clone());
+                    final_text = edited;
+                    // The guard clamps an implausibly long prior output to 0
+                    // (append instead of hammering Backspace across the document).
+                    replace_char_count = crate::utils::backspaces_for_replace(prev_char_count);
+
+                    if let Some(prompt_id) = &settings.post_process_selected_prompt_id {
+                        if let Some(prompt) = settings
+                            .post_process_prompts
+                            .iter()
+                            .find(|prompt| &prompt.id == prompt_id)
+                        {
+                            post_process_prompt = Some(prompt.prompt.clone());
+                        }
+                    }
+                }
+                None => {
+                    // No LLM edit was produced (e.g. no post-process provider or
+                    // prompt is configured). There is nothing reliable to replace
+                    // with, so fall back to appending the raw utterance.
+                    debug!("Correction mode produced no edit; appending transcription instead");
+                }
+            }
+        } else {
+            // No fresh prior output within the TTL — nothing to replace, so this
+            // utterance is pasted as a normal (append) dictation.
+            debug!("Correction mode has no fresh prior output; appending transcription");
+        }
+    } else if post_process {
+        // Normal post-processing. Word-sniffing has been removed, so a fresh
+        // dictation is NEVER silently reinterpreted as an edit of a prior output.
         if let Some(processed_text) =
-            post_process_transcription(&settings, &final_text, refine_base.as_deref()).await
+            post_process_transcription(&settings, &final_text, None).await
         {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
@@ -604,14 +649,17 @@ pub(crate) async fn process_transcription_output(
         final_text = crate::audio_toolkit::apply_corrections(&final_text, &settings.corrections);
     }
 
-    // Remember this dictation so a follow-up correction can edit it. Stored after
-    // every output transform so the buffer holds exactly what the user received.
+    // Remember this dictation so a later correction-hotkey press can edit it.
+    // Stored for BOTH plain and post-processed dictations, and updated after a
+    // correction too, so the buffer always holds exactly what the user last
+    // received and a subsequent correction deletes the right number of chars.
     store_refine_buffer(&settings, transcription, &final_text);
 
     ProcessedTranscription {
         final_text,
         post_processed_text,
         post_process_prompt,
+        replace_char_count,
     }
 }
 
@@ -800,6 +848,7 @@ impl ShortcutAction for TranscribeAction {
 
         let binding_id = binding_id.to_string(); // Clone binding_id for the async task
         let post_process = self.post_process;
+        let correction = self.correction;
         let cancel_generation = rm.cancel_generation();
 
         tauri::async_runtime::spawn(async move {
@@ -906,7 +955,12 @@ impl ShortcutAction for TranscribeAction {
                                 }
                             }
                             let Some(processed) = complete_unless_cancelled(
-                                process_transcription_output(&ah, &transcription, post_process),
+                                process_transcription_output(
+                                    &ah,
+                                    &transcription,
+                                    post_process,
+                                    correction,
+                                ),
                                 || rm.was_cancelled_since(cancel_generation),
                             )
                             .await
@@ -944,6 +998,10 @@ impl ShortcutAction for TranscribeAction {
                                 let ah_clone = ah.clone();
                                 let paste_time = Instant::now();
                                 let final_text = processed.final_text;
+                                // Non-zero only in correction mode: delete the
+                                // prior output before typing the edit so the
+                                // corrected text REPLACES it instead of appending.
+                                let replace_char_count = processed.replace_char_count;
                                 let rm_for_paste = Arc::clone(&rm);
                                 ah.run_on_main_thread(move || {
                                     if rm_for_paste.was_cancelled_since(cancel_generation) {
@@ -953,7 +1011,11 @@ impl ShortcutAction for TranscribeAction {
                                         return;
                                     }
 
-                                    match utils::paste(final_text, ah_clone.clone()) {
+                                    match utils::replace_previous(
+                                        replace_char_count,
+                                        final_text,
+                                        ah_clone.clone(),
+                                    ) {
                                         Ok(()) => debug!(
                                             "Text pasted successfully in {:?}",
                                             paste_time.elapsed()
@@ -1063,11 +1125,26 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
         "transcribe".to_string(),
         Arc::new(TranscribeAction {
             post_process: false,
+            correction: false,
         }) as Arc<dyn ShortcutAction>,
     );
     map.insert(
         "transcribe_with_post_process".to_string(),
-        Arc::new(TranscribeAction { post_process: true }) as Arc<dyn ShortcutAction>,
+        Arc::new(TranscribeAction {
+            post_process: true,
+            correction: false,
+        }) as Arc<dyn ShortcutAction>,
+    );
+    // Explicit spoken-correction hotkey: records like a normal dictation, but the
+    // utterance edits the last output and the result replaces it at the cursor.
+    // `post_process: true` so the "polishing" overlay shows while the LLM edits;
+    // the correction branch in `process_transcription_output` owns the behaviour.
+    map.insert(
+        "correction".to_string(),
+        Arc::new(TranscribeAction {
+            post_process: true,
+            correction: true,
+        }) as Arc<dyn ShortcutAction>,
     );
     map.insert(
         "cancel".to_string(),
@@ -1083,8 +1160,8 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
 #[cfg(test)]
 mod tests {
     use super::{
-        complete_unless_cancelled, is_blank_transcription, reads_as_correction,
-        should_use_streaming_overlay,
+        build_post_process_messages, complete_unless_cancelled, is_blank_transcription,
+        refine_base_for_correction, should_use_streaming_overlay, store_refine_buffer,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -1135,25 +1212,54 @@ mod tests {
     }
 
     #[test]
-    fn correction_utterances_are_detected() {
-        assert!(reads_as_correction("no, make it a question"));
-        assert!(reads_as_correction("No make it bold"));
-        assert!(reads_as_correction("actually, change that to Friday"));
-        assert!(reads_as_correction("Change that to next week"));
-        assert!(reads_as_correction("make it more formal"));
-        assert!(reads_as_correction("I meant Tuesday"));
-        assert!(reads_as_correction("  actually — scratch that"));
+    fn edit_mode_selects_refine_prompt_when_prior_output_present() {
+        // Correction mode (prior output present) must build the *edit* prompt —
+        // the refine system prompt plus PREVIOUS/CORRECTION user content — rather
+        // than the fresh clean-up prompt. This pins the branch selection that
+        // `post_process_transcription` relies on to enter edit mode.
+        let template = "Clean up the transcription: ${output}";
+
+        let (sys_fresh, user_fresh) = build_post_process_messages(template, "hello world", None);
+        assert_eq!(user_fresh, "hello world");
+        assert!(!sys_fresh.contains("spoken correction"));
+
+        let (sys_edit, user_edit) =
+            build_post_process_messages(template, "make it a question", Some("Hello world."));
+        assert!(sys_edit.contains("spoken correction"));
+        assert!(user_edit.contains("PREVIOUS:\nHello world."));
+        assert!(user_edit.contains("CORRECTION:\nmake it a question"));
     }
 
     #[test]
-    fn non_correction_utterances_are_ignored() {
-        // "no"/"make"/"actual" appear only inside longer words or mid-sentence.
-        assert!(!reads_as_correction("Normalize the numbers please"));
-        assert!(!reads_as_correction("Nothing else to add"));
-        assert!(!reads_as_correction("The actual results were good"));
-        assert!(!reads_as_correction("Making it work took a while"));
-        assert!(!reads_as_correction("Send this to the team"));
-        assert!(!reads_as_correction(""));
+    fn refine_buffer_updates_after_correction() {
+        // Touches the process-global REFINE_BUFFER; stores immediately before each
+        // read so it is deterministic regardless of test ordering/parallelism.
+        let mut settings = crate::settings::get_default_settings();
+        settings.iterative_correction_enabled = true;
+
+        // A first dictation records its output as the correction base.
+        store_refine_buffer(&settings, "raw one", "The quick brown fox");
+        assert_eq!(
+            refine_base_for_correction(&settings).as_deref(),
+            Some("The quick brown fox")
+        );
+
+        // After a correction, storing the new output REPLACES the base so a
+        // subsequent correction edits (and deletes the length of) the new text.
+        store_refine_buffer(&settings, "make it a dog", "The quick brown dog");
+        assert_eq!(
+            refine_base_for_correction(&settings).as_deref(),
+            Some("The quick brown dog")
+        );
+
+        // A blank output clears the base rather than storing an empty edit target.
+        store_refine_buffer(&settings, "whatever", "   ");
+        assert_eq!(refine_base_for_correction(&settings), None);
+
+        // With the feature disabled, no base is offered even if a buffer exists.
+        store_refine_buffer(&settings, "raw", "still here");
+        settings.iterative_correction_enabled = false;
+        assert_eq!(refine_base_for_correction(&settings), None);
     }
 
     #[test]

@@ -76,7 +76,10 @@ pub struct TranscriptionCoordinator {
 }
 
 pub fn is_transcribe_binding(id: &str) -> bool {
-    id == "transcribe" || id == "transcribe_with_post_process"
+    // "correction" is included so the explicit correction hotkey goes through the
+    // same record -> stop -> transcribe lifecycle as a normal dictation; its
+    // TranscribeAction then edits the last output instead of transcribing fresh.
+    id == "transcribe" || id == "transcribe_with_post_process" || id == "correction"
 }
 
 impl TranscriptionCoordinator {

@@ -436,11 +436,13 @@ pub struct AppSettings {
     pub post_process_prompts: Vec<LLMPrompt>,
     #[serde(default)]
     pub post_process_selected_prompt_id: Option<String>,
-    /// Enables the iterative correction loop: when a dictation shortly follows a
-    /// previous one and reads as a spoken correction (e.g. "no, make it a
-    /// question"), the previous output is re-run through post-processing as an
-    /// edit instead of being transcribed fresh. Only has an effect when
-    /// post-processing is enabled.
+    /// Enables the explicit iterative-correction feature. When on, the dedicated
+    /// "correction" hotkey (empty by default; assigned in settings) lets the user
+    /// speak a follow-up correction of the last dictation: the utterance is run
+    /// through post-processing as an *edit* of the previous output and the result
+    /// REPLACES that output at the cursor. Triggered only by the hotkey — never
+    /// inferred from the words spoken — and requires post-processing to be
+    /// configured so the LLM can apply the edit.
     #[serde(default = "default_iterative_correction_enabled")]
     pub iterative_correction_enabled: bool,
     #[serde(default)]
@@ -610,11 +612,16 @@ fn default_post_process_enabled() -> bool {
 }
 
 fn default_iterative_correction_enabled() -> bool {
-    // Coco: default OFF. The iterative-correction trigger words are common
-    // sentence openers (false positives) and the current implementation pastes
-    // the correction rather than replacing the prior paste (double-paste). Kept
-    // dormant until that design is fixed; opt-in only.
-    false
+    // Coco: default ON. The feature was redesigned to remove the two reasons it
+    // was previously dormant:
+    //   1. No more word-sniffing. Corrections are triggered ONLY by the explicit
+    //      "correction" hotkey, so a normal dictation is never misread as an edit.
+    //   2. No more double-paste. A correction now REPLACES the prior output at the
+    //      cursor (Backspace over its length, then paste the edit) instead of
+    //      appending after it (see `replace_previous`).
+    // Safe to default on because the "correction" hotkey ships with no default
+    // key: nothing fires until the user assigns one in settings.
+    true
 }
 
 fn default_app_language() -> String {
@@ -885,6 +892,24 @@ pub fn get_default_settings() -> AppSettings {
             description: "Cancels the current recording.".to_string(),
             default_binding: "escape".to_string(),
             current_binding: "escape".to_string(),
+        },
+    );
+    // Explicit spoken-correction hotkey. Intentionally has an EMPTY default so
+    // enabling iterative correction never grabs a global shortcut on its own — the
+    // user assigns a key in settings before it can fire. When pressed, it records
+    // like a normal dictation but edits the last output and REPLACES it at the
+    // cursor (see the "correction" action in actions.rs). Registered only while
+    // `iterative_correction_enabled` is true and a key has been assigned.
+    bindings.insert(
+        "correction".to_string(),
+        ShortcutBinding {
+            id: "correction".to_string(),
+            name: "Speak Correction".to_string(),
+            description:
+                "Speak a follow-up correction of your last dictation; the corrected text replaces it. Assign a key to enable."
+                    .to_string(),
+            default_binding: String::new(),
+            current_binding: String::new(),
         },
     );
 
