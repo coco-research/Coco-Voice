@@ -1,0 +1,61 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2C5BFF"/>
+      <stop offset="1" stop-color="#173CC4"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="300" x2="0" y2="800" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EAF1FF"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="232" fill="url(#bg)"/>
+
+  <g stroke="#0C1E3D" stroke-width="16" stroke-linejoin="round" stroke-linecap="round">
+    <!-- crest: three feathers fanning up above the head -->
+    <path d="M474 332 C430 262 428 206 440 172 C466 206 506 274 474 332 Z" fill="#FFFFFF"/>
+    <path d="M550 332 C594 262 596 206 584 172 C558 206 518 274 550 332 Z" fill="#FFFFFF"/>
+    <path d="M512 322 C484 244 492 188 512 148 C532 188 540 244 512 322 Z" fill="#23B5F5"/>
+    <!-- tail feathers (behind body) -->
+    <path d="M474 782 C458 852 458 882 476 894 C490 880 494 842 498 794 Z" fill="#FFFFFF"/>
+    <path d="M550 782 C566 852 566 882 548 894 C534 880 530 842 526 794 Z" fill="#FFFFFF"/>
+    <!-- body / head -->
+    <circle cx="512" cy="548" r="252" fill="url(#body)"/>
+  </g>
+
+  <ellipse cx="512" cy="632" rx="140" ry="120" fill="#DCE6FF"/>
+
+  <g stroke="#0C1E3D" stroke-width="16" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M372 520 C316 552 318 664 388 704 C380 642 388 566 416 540 Z" fill="#FFFFFF"/>
+    <path d="M652 520 C708 552 706 664 636 704 C644 642 636 566 608 540 Z" fill="#FFFFFF"/>
+  </g>
+  <g stroke="#0C1E3D" stroke-width="11" stroke-linecap="round" fill="none">
+    <path d="M356 582 Q386 592 402 566"/>
+    <path d="M362 626 Q392 634 406 606"/>
+    <path d="M668 582 Q638 592 622 566"/>
+    <path d="M662 626 Q632 634 618 606"/>
+  </g>
+
+  <circle cx="398" cy="560" r="32" fill="#86A9FF" opacity="0.6"/>
+  <circle cx="626" cy="560" r="32" fill="#86A9FF" opacity="0.6"/>
+
+  <g>
+    <circle cx="452" cy="468" r="34" fill="#0C1E3D"/>
+    <circle cx="572" cy="468" r="34" fill="#0C1E3D"/>
+    <circle cx="464" cy="458" r="11" fill="#FFFFFF"/>
+    <circle cx="584" cy="458" r="11" fill="#FFFFFF"/>
+  </g>
+
+  <g stroke="#0C1E3D" stroke-width="16" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M468 504 Q512 488 556 504 Q548 564 518 590 Q512 594 506 590 Q476 564 468 504 Z" fill="#F4B740"/>
+    <path d="M500 590 Q512 604 524 590 Q520 610 512 612 Q504 610 500 590 Z" fill="#E79A2E"/>
+    <circle cx="492" cy="518" r="6" fill="#0C1E3D" stroke="none"/>
+    <circle cx="532" cy="518" r="6" fill="#0C1E3D" stroke="none"/>
+  </g>
+
+  <g stroke="#0C1E3D" stroke-width="15" stroke-linecap="round" fill="none">
+    <path d="M466 794 l0 26 M466 820 l-16 15 M466 820 l16 15"/>
+    <path d="M558 794 l0 26 M558 820 l-16 15 M558 820 l16 15"/>
+  </g>
+</svg>

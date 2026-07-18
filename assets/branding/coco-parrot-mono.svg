@@ -1,0 +1,17 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <mask id="m">
+    <rect width="64" height="64" fill="#000"/>
+    <!-- crest -->
+    <path d="M27 22 C23.5 13 23.5 9 25.5 6.5 C29 10 31 16.5 27 22 Z" fill="#fff"/>
+    <path d="M37 22 C40.5 13 40.5 9 38.5 6.5 C35 10 33 16.5 37 22 Z" fill="#fff"/>
+    <path d="M32 21 C29.5 11.5 30.5 6 32 3.5 C33.5 6 34.5 11.5 32 21 Z" fill="#fff"/>
+    <!-- body -->
+    <circle cx="32" cy="37" r="22" fill="#fff"/>
+    <!-- eye holes -->
+    <circle cx="25.5" cy="34" r="4" fill="#000"/>
+    <circle cx="38.5" cy="34" r="4" fill="#000"/>
+    <!-- beak notch -->
+    <path d="M28.8 38.5 L35.2 38.5 L32 44 Z" fill="#000"/>
+  </mask>
+  <rect width="64" height="64" fill="#FFFFFF" mask="url(#m)"/>
+</svg>
