@@ -49,6 +49,18 @@ const IconButton: React.FC<{
 
 const PAGE_SIZE = 30;
 
+/**
+ * The text the user actually saw for a history entry: the post-processed text
+ * when post-processing produced output, otherwise the raw transcript. Display,
+ * copy, edit and auto-learn all key off this so learned correction pairs are
+ * the tokens as they appear in the final (post-processed) output that
+ * `apply_corrections` runs on at inference time.
+ */
+const displayTextFor = (e: HistoryEntry): string =>
+  e.post_processed_text && e.post_processed_text.trim().length > 0
+    ? e.post_processed_text
+    : e.transcription_text;
+
 interface OpenRecordingsButtonProps {
   onClick: () => void;
   label: string;
@@ -239,28 +251,37 @@ export const HistorySettings: React.FC = () => {
   // existing correction map (Feature 1's `update_corrections` command) so the
   // same fix is applied automatically to future transcriptions.
   const saveEditAndLearn = async (id: number, newText: string) => {
-    const original =
-      entriesRef.current.find((e) => e.id === id)?.transcription_text ?? "";
+    const entry = entriesRef.current.find((e) => e.id === id);
+    // Diff and persist against the text the user actually saw.
+    const original = entry ? displayTextFor(entry) : "";
+    // Write the edit back to the same field that was displayed: the
+    // post-processed text when post-processing produced output, otherwise the
+    // raw transcript. Keeping the field consistent means auto-learn diffs
+    // post-processed-vs-edited and the display stays in sync.
+    const usedPostProcessed = !!(
+      entry?.post_processed_text && entry.post_processed_text.trim().length > 0
+    );
     const trimmed = newText.trim();
     if (!trimmed || trimmed === original.trim()) {
       return;
     }
 
+    const applyText = (e: HistoryEntry, text: string): HistoryEntry =>
+      usedPostProcessed
+        ? { ...e, post_processed_text: text }
+        : { ...e, transcription_text: text };
+
     // Optimistic update; the backend also emits an "updated" event that resolves
     // to the same text, so this stays consistent on reload.
     setEntries((prev) =>
-      prev.map((e) =>
-        e.id === id ? { ...e, transcription_text: trimmed } : e,
-      ),
+      prev.map((e) => (e.id === id ? applyText(e, trimmed) : e)),
     );
 
     try {
       const result = await commands.updateHistoryEntryText(id, trimmed);
       if (result.status !== "ok") {
         setEntries((prev) =>
-          prev.map((e) =>
-            e.id === id ? { ...e, transcription_text: original } : e,
-          ),
+          prev.map((e) => (e.id === id ? applyText(e, original) : e)),
         );
         toast.error("Failed to save edit");
         return;
@@ -268,9 +289,7 @@ export const HistorySettings: React.FC = () => {
     } catch (error) {
       console.error("Failed to save transcription edit:", error);
       setEntries((prev) =>
-        prev.map((e) =>
-          e.id === id ? { ...e, transcription_text: original } : e,
-        ),
+        prev.map((e) => (e.id === id ? applyText(e, original) : e)),
       );
       toast.error(t("settings.history.editError"));
       return;
@@ -337,7 +356,7 @@ export const HistorySettings: React.FC = () => {
               key={entry.id}
               entry={entry}
               onToggleSaved={() => toggleSaved(entry.id)}
-              onCopyText={() => copyToClipboard(entry.transcription_text)}
+              onCopyText={() => copyToClipboard(displayTextFor(entry))}
               onSaveEdit={saveEditAndLearn}
               getAudioUrl={getAudioUrl}
               deleteAudio={deleteAudioEntry}
@@ -396,19 +415,19 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
   const [showCopied, setShowCopied] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(entry.transcription_text);
+  const [draft, setDraft] = useState(displayTextFor(entry));
   const [saving, setSaving] = useState(false);
 
   const hasTranscription = entry.transcription_text.trim().length > 0;
 
   const startEditing = () => {
-    setDraft(entry.transcription_text);
+    setDraft(displayTextFor(entry));
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
     setIsEditing(false);
-    setDraft(entry.transcription_text);
+    setDraft(displayTextFor(entry));
   };
 
   const handleSaveEdit = async () => {
@@ -582,7 +601,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
           {retrying
             ? t("settings.history.transcribing")
             : hasTranscription
-              ? entry.transcription_text
+              ? displayTextFor(entry)
               : t("settings.history.transcriptionFailed")}
         </p>
       )}

@@ -111,8 +111,13 @@ pub async fn retry_history_entry_transcription(
 /// Backs the auto-learn flow: when the user corrects a transcription in the
 /// history view, the new text is saved here (reusing `update_transcription`,
 /// which also emits the `Updated` event so the list stays in sync) and the
-/// word-level diff is turned into correction pairs on the frontend. The
-/// post-processed fields are preserved as-is.
+/// word-level diff is turned into correction pairs on the frontend.
+///
+/// The edit is written back to whichever field the history view displayed: the
+/// post-processed text when post-processing produced output, otherwise the raw
+/// transcript. This mirrors the frontend `displayTextFor` helper and keeps the
+/// displayed value, the persisted value, and the text auto-learn diffs against
+/// consistent. The other field and the post-process prompt are preserved as-is.
 #[tauri::command]
 #[specta::specta]
 pub async fn update_history_entry_text(
@@ -127,11 +132,23 @@ pub async fn update_history_entry_text(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("History entry {} not found", id))?;
 
+    let has_post_processed = entry
+        .post_processed_text
+        .as_deref()
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+
+    let (transcription_text, post_processed_text) = if has_post_processed {
+        (entry.transcription_text, Some(text))
+    } else {
+        (text, entry.post_processed_text)
+    };
+
     history_manager
         .update_transcription(
             id,
-            text,
-            entry.post_processed_text,
+            transcription_text,
+            post_processed_text,
             entry.post_process_prompt,
         )
         .map(|_| ())
