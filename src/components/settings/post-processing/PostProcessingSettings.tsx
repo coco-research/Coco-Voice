@@ -20,6 +20,7 @@ import { ApiKeyField } from "../PostProcessingSettingsApi/ApiKeyField";
 import { ModelSelect } from "../PostProcessingSettingsApi/ModelSelect";
 import { usePostProcessProviderState } from "../PostProcessingSettingsApi/usePostProcessProviderState";
 import { ShortcutInput } from "../ShortcutInput";
+import { IterativeCorrectionToggle } from "../IterativeCorrectionToggle";
 import { useSettings } from "../../../hooks/useSettings";
 
 const PostProcessingSettingsApiComponent: React.FC = () => {
@@ -426,6 +427,9 @@ PostProcessingSettingsPrompts.displayName = "PostProcessingSettingsPrompts";
 
 export const PostProcessingSettings: React.FC = () => {
   const { t } = useTranslation();
+  const { getSetting } = useSettings();
+  const iterativeCorrectionEnabled =
+    getSetting("iterative_correction_enabled") || false;
 
   return (
     <div className="max-w-3xl w-full mx-auto space-y-6">
@@ -435,6 +439,17 @@ export const PostProcessingSettings: React.FC = () => {
           descriptionMode="tooltip"
           grouped={true}
         />
+      </SettingsGroup>
+
+      <SettingsGroup title={t("settings.postProcessing.correction.title")}>
+        <IterativeCorrectionToggle descriptionMode="tooltip" grouped={true} />
+        {iterativeCorrectionEnabled && (
+          <ShortcutInput
+            shortcutId="correction"
+            descriptionMode="tooltip"
+            grouped={true}
+          />
+        )}
       </SettingsGroup>
 
       <SettingsGroup title={t("settings.postProcessing.api.title")}>
