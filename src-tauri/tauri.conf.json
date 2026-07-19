@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Coco Voice",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "identifier": "com.cocoresearch.cocovoice",
   "build": {
     "beforeDevCommand": "bun run dev",
@@ -40,7 +40,7 @@
       "files": {},
       "hardenedRuntime": true,
       "minimumSystemVersion": "10.15",
-      "signingIdentity": "-",
+      "signingIdentity": "Coco Research Code Signing",
       "entitlements": "Entitlements.plist"
     },
     "linux": {
