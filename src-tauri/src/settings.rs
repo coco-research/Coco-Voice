@@ -10,6 +10,9 @@ use tauri_plugin_store::StoreExt;
 pub const APPLE_INTELLIGENCE_PROVIDER_ID: &str = "apple_intelligence";
 pub const APPLE_INTELLIGENCE_DEFAULT_MODEL_ID: &str = "Apple Intelligence";
 
+pub const LOCAL_LLM_PROVIDER_ID: &str = "local_llm";
+pub const LOCAL_LLM_DEFAULT_MODEL_ID: &str = "Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf";
+
 #[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
@@ -729,6 +732,17 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
         supports_structured_output: true,
     });
 
+    // Local LLM via llama.cpp — runs entirely on-device using GGUF models
+    // downloaded through the standard model manager. No API key needed.
+    providers.push(PostProcessProvider {
+        id: "local_llm".to_string(),
+        label: "Local (llama.cpp)".to_string(),
+        base_url: "llama-cpp://local".to_string(),
+        allow_base_url_edit: false,
+        models_endpoint: None,
+        supports_structured_output: false,
+    });
+
     // Custom provider always comes last
     providers.push(PostProcessProvider {
         id: "custom".to_string(),
@@ -753,6 +767,9 @@ fn default_post_process_api_keys() -> SecretMap {
 fn default_model_for_provider(provider_id: &str) -> String {
     if provider_id == APPLE_INTELLIGENCE_PROVIDER_ID {
         return APPLE_INTELLIGENCE_DEFAULT_MODEL_ID.to_string();
+    }
+    if provider_id == LOCAL_LLM_PROVIDER_ID {
+        return LOCAL_LLM_DEFAULT_MODEL_ID.to_string();
     }
     String::new()
 }

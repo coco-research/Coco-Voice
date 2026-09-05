@@ -7,7 +7,7 @@ use crate::managers::history::HistoryManager;
 use crate::managers::model::ModelManager;
 use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
-use crate::settings::{get_settings, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID};
+use crate::settings::{get_settings, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID, LOCAL_LLM_PROVIDER_ID};
 use crate::shortcut;
 use crate::tray::{change_tray_icon, TrayIconState};
 use crate::utils::{
@@ -230,9 +230,11 @@ fn build_post_process_messages(
 /// in *edit mode*: instead of cleaning a fresh transcript, the model edits the
 /// previous output using `transcription` as the spoken correction instruction.
 async fn post_process_transcription(
+    app: &AppHandle,
     settings: &AppSettings,
     transcription: &str,
     prior_output: Option<&str>,
+    token_tx: Option<tokio::sync::mpsc::Sender<String>>,
 ) -> Option<String> {
     if is_blank_transcription(transcription) {
         debug!("Post-processing skipped because the transcription is empty");
@@ -316,11 +318,13 @@ async fn post_process_transcription(
         _ => (None, None),
     };
 
+    // Build messages once so all branches (structured output, local LLM,
+    // streaming, and legacy batch) can access system_prompt and user_content.
+    let (system_prompt, user_content) =
+        build_post_process_messages(&prompt, transcription, prior_output);
+
     if provider.supports_structured_output {
         debug!("Using structured outputs for provider '{}'", provider.id);
-
-        let (system_prompt, user_content) =
-            build_post_process_messages(&prompt, transcription, prior_output);
 
         // Handle Apple Intelligence separately since it uses native Swift APIs
         if provider.id == APPLE_INTELLIGENCE_PROVIDER_ID {
@@ -366,6 +370,49 @@ async fn post_process_transcription(
             }
         }
 
+        // Handle Local LLM (llama.cpp) separately since it uses native inference
+        // rather than HTTP API calls. Runs entirely on-device using GGUF models
+        // downloaded through the standard model manager.
+        if provider.id == LOCAL_LLM_PROVIDER_ID {
+            let model_manager = app.state::<Arc<ModelManager>>();
+            match model_manager.get_model_path(&model) {
+                Ok(model_path) => {
+                    let token_limit = model.trim().parse::<i32>().unwrap_or(512);
+                    return match crate::local_llm::generate_text(
+                        &model_path,
+                        &system_prompt,
+                        &user_content,
+                        token_limit,
+                        token_tx,
+                    )
+                    .await
+                    {
+                        Ok(result) => {
+                            if result.trim().is_empty() {
+                                debug!("Local LLM returned an empty response");
+                                None
+                            } else {
+                                let result = strip_invisible_chars(&result);
+                                debug!(
+                                    "Local LLM post-processing succeeded. Output length: {} chars",
+                                    result.len()
+                                );
+                                Some(result)
+                            }
+                        }
+                        Err(err) => {
+                            error!("Local LLM post-processing failed: {}", err);
+                            None
+                        }
+                    };
+                }
+                Err(err) => {
+                    error!("Failed to resolve local LLM model path: {}", err);
+                    return None;
+                }
+            }
+        }
+
         // Define JSON schema for transcription output
         let json_schema = serde_json::json!({
             "type": "object",
@@ -383,8 +430,8 @@ async fn post_process_transcription(
             &provider,
             api_key.clone(),
             &model,
-            user_content,
-            Some(system_prompt),
+            user_content.clone(),
+            Some(system_prompt.clone()),
             Some(json_schema),
             reasoning_effort.clone(),
             reasoning.clone(),
@@ -429,6 +476,49 @@ async fn post_process_transcription(
                     provider.id, e
                 );
                 // Fall through to legacy mode below
+            }
+        }
+    }
+
+    // Streaming path: when a token sender is provided and the provider is
+    // not Apple Intelligence or Local LLM (which use native inference), stream
+    // tokens to the overlay so the user sees text appear word-by-word during polishing.
+    if token_tx.is_some() && provider.id != APPLE_INTELLIGENCE_PROVIDER_ID && provider.id != LOCAL_LLM_PROVIDER_ID {
+        debug!(
+            "Using streaming post-processing for provider '{}'",
+            provider.id
+        );
+        match crate::llm_client::send_chat_completion_streaming(
+            &provider,
+            api_key.clone(),
+            &model,
+            user_content.clone(),
+            Some(system_prompt.clone()),
+            reasoning_effort.clone(),
+            reasoning.clone(),
+            token_tx.clone(),
+        )
+        .await
+        {
+            Ok(Some(content)) => {
+                let content = strip_invisible_chars(&content);
+                debug!(
+                    "Streaming LLM post-processing succeeded for provider '{}'. Output length: {} chars",
+                    provider.id,
+                    content.len()
+                );
+                return Some(content);
+            }
+            Ok(None) => {
+                error!("Streaming LLM API response has no content");
+                return None;
+            }
+            Err(e) => {
+                warn!(
+                    "Streaming post-processing failed for provider '{}': {}. Falling back to batch mode.",
+                    provider.id, e
+                );
+                // Fall through to batch mode below
             }
         }
     }
@@ -561,12 +651,22 @@ pub(crate) async fn process_transcription_output(
     transcription: &str,
     post_process: bool,
     correction: bool,
+    use_streaming_overlay: bool,
 ) -> ProcessedTranscription {
     let settings = get_settings(app);
     let mut final_text = transcription.to_string();
     let mut post_processed_text: Option<String> = None;
     let mut post_process_prompt: Option<String> = None;
     let mut replace_char_count: usize = 0;
+
+    // Obtain TranscriptionManager for streaming token emission during polishing.
+    // Only used when the live overlay is visible; otherwise tokens would be
+    // emitted to no listener.
+    let tm_for_stream = if use_streaming_overlay && post_process {
+        Some(Arc::clone(&app.state::<Arc<TranscriptionManager>>()))
+    } else {
+        None
+    };
 
     // Resolve the language the transcription actually ran in (the persisted
     // intent coerced against the loaded model's capabilities) so OpenCC keys off
@@ -588,7 +688,19 @@ pub(crate) async fn process_transcription_output(
             // before typing the edit. Count `chars`, not bytes, so multibyte /
             // emoji delete as single Backspaces.
             let prev_char_count = prior_output.chars().count();
-            match post_process_transcription(&settings, &final_text, Some(&prior_output)).await {
+            // Create streaming channel if overlay is active; spawn a receiver
+            // task that forwards tokens to the live overlay as tentative text.
+            let token_tx = tm_for_stream.as_ref().map(|tm| {
+                let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(32);
+                let tm = Arc::clone(tm);
+                tokio::spawn(async move {
+                    while let Some(token) = rx.recv().await {
+                        tm.emit_stream_text("", &token);
+                    }
+                });
+                tx
+            });
+            match post_process_transcription(app, &settings, &final_text, Some(&prior_output), token_tx).await {
                 Some(edited) => {
                     post_processed_text = Some(edited.clone());
                     final_text = edited;
@@ -621,8 +733,20 @@ pub(crate) async fn process_transcription_output(
     } else if post_process {
         // Normal post-processing. Word-sniffing has been removed, so a fresh
         // dictation is NEVER silently reinterpreted as an edit of a prior output.
+        // Create streaming channel if overlay is active; spawn a receiver
+        // task that forwards tokens to the live overlay as tentative text.
+        let token_tx = tm_for_stream.as_ref().map(|tm| {
+            let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(32);
+            let tm = Arc::clone(tm);
+            tokio::spawn(async move {
+                while let Some(token) = rx.recv().await {
+                    tm.emit_stream_text("", &token);
+                }
+            });
+            tx
+        });
         if let Some(processed_text) =
-            post_process_transcription(&settings, &final_text, None).await
+            post_process_transcription(app, &settings, &final_text, None, token_tx).await
         {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
@@ -960,6 +1084,7 @@ impl ShortcutAction for TranscribeAction {
                                     &transcription,
                                     post_process,
                                     correction,
+                                    use_streaming_overlay,
                                 ),
                                 || rm.was_cancelled_since(cancel_generation),
                             )

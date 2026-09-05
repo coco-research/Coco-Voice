@@ -526,6 +526,15 @@ impl TranscriptionManager {
         };
 
         let loaded_engine = match model_info.engine_type {
+            EngineType::LlamaCpp => {
+                // LLM synthesis models are not ASR engines and should never
+                // reach the transcription engine loader. This arm exists only
+                // to satisfy exhaustiveness; callers must filter them out
+                // before invoking this function.
+                return Err(anyhow::anyhow!(
+                    "LlamaCpp models are not transcription engines"
+                ));
+            }
             EngineType::TranscribeCpp => {
                 // The whisper backend is chosen at load time (transcribe-cpp has
                 // no runtime global). With an explicit `device_index` (the
@@ -1091,7 +1100,7 @@ impl TranscriptionManager {
         .emit(&self.app_handle);
     }
 
-    fn emit_stream_text(&self, committed: &str, tentative: &str) {
+    pub(crate) fn emit_stream_text(&self, committed: &str, tentative: &str) {
         let _ = StreamTextEvent {
             committed: committed.to_string(),
             tentative: tentative.to_string(),

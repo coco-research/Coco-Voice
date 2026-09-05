@@ -3376,6 +3376,45 @@
       "default_quant": "Q5_K_M",
       "recommended": false,
       "recommended_rank": null
+    },
+    {
+      "id": "Qwen/Qwen2.5-3B-Instruct-GGUF",
+      "name": "Qwen2.5 3B Instruct (Local LLM)",
+      "description": "Small instruction-tuned model for on-device transcription post-processing via llama.cpp. Runs entirely offline with Metal/Vulkan acceleration.",
+      "architecture": "qwen2",
+      "languages": ["en", "zh", "es", "fr", "de", "ja", "ko", "pt", "ru", "ar"],
+      "capabilities": {
+        "streaming": true,
+        "translate": false,
+        "lang_detect": false
+      },
+      "speed_score": 0.7,
+      "accuracy_score": 0.85,
+      "files": [
+        {
+          "filename": "qwen2.5-3b-instruct-q4_k_m.gguf",
+          "quant": "Q4_K_M",
+          "size_bytes": 2104932768
+        },
+        {
+          "filename": "qwen2.5-3b-instruct-q5_k_m.gguf",
+          "quant": "Q5_K_M",
+          "size_bytes": 2438740384
+        },
+        {
+          "filename": "qwen2.5-3b-instruct-q6_k.gguf",
+          "quant": "Q6_K",
+          "size_bytes": 2793410976
+        },
+        {
+          "filename": "qwen2.5-3b-instruct-q8_0.gguf",
+          "quant": "Q8_0",
+          "size_bytes": 3616088480
+        }
+      ],
+      "default_quant": "Q4_K_M",
+      "recommended": true,
+      "recommended_rank": 1
     }
   ]
 }

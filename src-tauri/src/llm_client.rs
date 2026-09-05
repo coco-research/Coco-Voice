@@ -1,4 +1,5 @@
 use crate::settings::PostProcessProvider;
+use futures_util::StreamExt;
 use log::debug;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, REFERER, USER_AGENT};
 use serde::{Deserialize, Serialize};
@@ -37,11 +38,31 @@ struct ChatCompletionRequest {
     model: String,
     messages: Vec<ChatMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    stream: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     response_format: Option<ResponseFormat>,
     #[serde(skip_serializing_if = "Option::is_none")]
     reasoning_effort: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     reasoning: Option<ReasoningConfig>,
+}
+
+/// A single delta chunk in a streaming SSE response.
+#[derive(Debug, Deserialize)]
+struct StreamDelta {
+    content: Option<String>,
+}
+
+/// A single choice within a streaming SSE chunk.
+#[derive(Debug, Deserialize)]
+struct StreamChoice {
+    delta: StreamDelta,
+}
+
+/// One SSE `data:` line parsed as JSON during streaming chat completion.
+#[derive(Debug, Deserialize)]
+struct StreamChunk {
+    choices: Vec<StreamChoice>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -182,6 +203,7 @@ pub async fn send_chat_completion_with_schema(
     let request_body = ChatCompletionRequest {
         model: model.to_string(),
         messages,
+        stream: None,
         response_format,
         reasoning_effort,
         reasoning,
@@ -275,4 +297,120 @@ pub async fn fetch_models(
     }
 
     Ok(models)
+}
+
+/// Send a streaming chat completion request to an OpenAI-compatible API.
+/// Parses SSE `data:` lines and sends each content delta through `token_tx`.
+/// Returns the fully accumulated response text on success.
+///
+/// Streaming is incompatible with structured outputs (JSON schema), so this
+/// function always sends a plain text request. Callers that need structured
+/// output should use [`send_chat_completion_with_schema`] instead.
+#[allow(clippy::too_many_arguments)]
+pub async fn send_chat_completion_streaming(
+    provider: &PostProcessProvider,
+    api_key: String,
+    model: &str,
+    user_content: String,
+    system_prompt: Option<String>,
+    reasoning_effort: Option<String>,
+    reasoning: Option<ReasoningConfig>,
+    token_tx: Option<tokio::sync::mpsc::Sender<String>>,
+) -> Result<Option<String>, String> {
+    let base_url = provider.base_url.trim_end_matches('/');
+    let url = format!("{}/chat/completions", base_url);
+
+    debug!("Sending streaming chat completion request to: {}", url);
+
+    let client = create_client(provider, &api_key)?;
+
+    let mut messages = Vec::new();
+    if let Some(system) = system_prompt {
+        messages.push(ChatMessage {
+            role: "system".to_string(),
+            content: system,
+        });
+    }
+    messages.push(ChatMessage {
+        role: "user".to_string(),
+        content: user_content,
+    });
+
+    let request_body = ChatCompletionRequest {
+        model: model.to_string(),
+        messages,
+        stream: Some(true),
+        response_format: None,
+        reasoning_effort,
+        reasoning,
+    };
+
+    let response = client
+        .post(&url)
+        .json(&request_body)
+        .send()
+        .await
+        .map_err(|e| format!("HTTP request failed: {}", e))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let error_text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Failed to read error response".to_string());
+        return Err(format!(
+            "API request failed with status {}: {}",
+            status, error_text
+        ));
+    }
+
+    let mut accumulated = String::new();
+    let mut stream = response.bytes_stream();
+    let mut line_buffer = String::new();
+
+    while let Some(chunk_result) = stream.next().await {
+        let chunk = chunk_result.map_err(|e| format!("Stream read error: {}", e))?;
+        let text = std::str::from_utf8(&chunk)
+            .map_err(|e| format!("Invalid UTF-8 in SSE stream: {}", e))?;
+        line_buffer.push_str(text);
+
+        while let Some(newline_pos) = line_buffer.find('\n') {
+            let line = line_buffer[..newline_pos].trim().to_string();
+            line_buffer = line_buffer[newline_pos + 1..].to_string();
+
+            if line.is_empty() || line.starts_with(':') {
+                continue;
+            }
+
+            if let Some(data) = line.strip_prefix("data:") {
+                let data = data.trim();
+                if data == "[DONE]" {
+                    break;
+                }
+                match serde_json::from_str::<StreamChunk>(data) {
+                    Ok(stream_chunk) => {
+                        if let Some(choice) = stream_chunk.choices.first() {
+                            if let Some(content) = &choice.delta.content {
+                                if !content.is_empty() {
+                                    accumulated.push_str(content);
+                                    if let Some(ref tx) = token_tx {
+                                        let _ = tx.send(content.clone()).await;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        debug!("Failed to parse SSE chunk as JSON: {} — raw: {}", e, data);
+                    }
+                }
+            }
+        }
+    }
+
+    if accumulated.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(accumulated))
+    }
 }

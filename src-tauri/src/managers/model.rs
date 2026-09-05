@@ -35,6 +35,9 @@ pub enum EngineType {
     GigaAM,
     Canary,
     Cohere,
+    /// Text generation via llama.cpp (Qwen, SmolLM, etc.). Loaded through
+    /// llama-cpp-2 with platform-specific ggml backends (Metal, Vulkan).
+    LlamaCpp,
 }
 
 /// Where a model comes from and how Coco Voice obtains it — the routing discriminant

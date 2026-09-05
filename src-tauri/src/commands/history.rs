@@ -96,7 +96,7 @@ pub async fn retry_history_entry_transcription(
     // Re-transcribing a saved recording is never a live spoken correction, so
     // correction mode is off — this only re-runs transcription + post-processing.
     let processed =
-        process_transcription_output(&app, &transcription, entry.post_process_requested, false)
+        process_transcription_output(&app, &transcription, entry.post_process_requested, false, false)
             .await;
     history_manager
         .update_transcription(

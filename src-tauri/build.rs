@@ -21,6 +21,7 @@ fn main() {
     // dynamic-backends posture used by Linux and Windows; it's a no-op for the
     // static macOS `metal` build, where there is nothing to ship.
     stage_transcribe_runtime_libs();
+    stage_llama_cpp_runtime_libs();
 
     // When ORT is dynamically linked (Windows CI sets ORT_LIB_LOCATION +
     // ORT_PREFER_DYNAMIC_LINK to a baseline ONNX Runtime), ship its onnxruntime.dll
@@ -223,6 +224,64 @@ fn stage_transcribe_runtime_libs() {
         );
     }
     println!("cargo:warning=Staged {copied} transcribe-cpp runtime library file(s)");
+}
+
+/// Stage llama-cpp-2 runtime libraries for dynamic-backends builds (Linux, Windows x86_64).
+/// On macOS with Metal, llama.cpp links statically so there is nothing to ship.
+/// This mirrors `stage_transcribe_runtime_libs` but targets the llama-cpp-sys-2
+/// environment variables that the llama-cpp-2 crate publishes.
+fn stage_llama_cpp_runtime_libs() {
+    use std::collections::BTreeSet;
+    use std::path::PathBuf;
+
+    println!("cargo:rerun-if-env-changed=DEP_LLAMA_CPP_SYS_2_RUNTIME_DIR");
+    println!("cargo:rerun-if-env-changed=DEP_LLAMA_CPP_SYS_2_MODULE_DIR");
+
+    let Some(runtime_dir) = std::env::var_os("DEP_LLAMA_CPP_SYS_2_RUNTIME_DIR") else {
+        // Static build (macOS Metal) — nothing to stage.
+        return;
+    };
+
+    let mut dirs = BTreeSet::new();
+    dirs.insert(PathBuf::from(runtime_dir));
+    if let Some(module_dir) = std::env::var_os("DEP_LLAMA_CPP_SYS_2_MODULE_DIR") {
+        dirs.insert(PathBuf::from(module_dir));
+    }
+
+    // Ship alongside transcribe-libs so both ggml runtimes are co-located.
+    let dest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("transcribe-libs");
+    std::fs::create_dir_all(&dest).expect("create transcribe-libs staging dir for llama-cpp");
+
+    let mut copied = 0usize;
+    for dir in &dirs {
+        println!("cargo:rerun-if-changed={}", dir.display());
+        for entry in std::fs::read_dir(dir)
+            .unwrap_or_else(|e| panic!("read llama-cpp runtime {}: {e}", dir.display()))
+            .flatten()
+        {
+            let src = entry.path();
+            let name = src.file_name().and_then(|s| s.to_str()).unwrap_or("");
+            let is_lib = name.ends_with(".dll")
+                || name.ends_with(".dylib")
+                || name.ends_with(".so")
+                || name.contains(".so.");
+            if is_lib {
+                // Skip files already staged by transcribe-cpp to avoid overwriting
+                // shared ggml-core libs with potentially incompatible versions.
+                let dest_path = dest.join(name);
+                if dest_path.exists() {
+                    continue;
+                }
+                std::fs::copy(&src, &dest_path)
+                    .unwrap_or_else(|e| panic!("copy llama-cpp lib {}: {e}", src.display()));
+                copied += 1;
+            }
+        }
+    }
+
+    if copied > 0 {
+        println!("cargo:warning=Staged {copied} llama-cpp-2 runtime library file(s)");
+    }
 }
 
 /// Generate tray menu translations from frontend locale files.

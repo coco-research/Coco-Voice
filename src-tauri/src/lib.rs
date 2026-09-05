@@ -10,6 +10,7 @@ mod commands;
 mod helpers;
 mod input;
 mod llm_client;
+mod local_llm;
 mod managers;
 mod overlay;
 pub mod portable;
