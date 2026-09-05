@@ -312,6 +312,22 @@ async updateCorrections(corrections: CorrectionPair[]) : Promise<Result<null, st
     else return { status: "error", error: e  as any };
 }
 },
+async getActiveAppInfo() : Promise<Result<ActiveAppInfo | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_active_app_info") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateAppProfiles(profiles: AppProfile[]) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_app_profiles", { profiles }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
  * Temporarily unregister a binding while the user is editing it in the UI.
  * This avoids firing the action while keys are being recorded.
@@ -962,6 +978,8 @@ export type ImplementationChangeResult = { success: boolean;
 reset_bindings: string[] }
 export type KeyboardImplementation = "tauri" | "handy_keys" | "coco_keys"
 export type CorrectionPair = { from: string; to: string }
+export type AppProfile = { id: string; name: string; app_identifier: string; prompt_id?: string | null; provider_id?: string | null; model?: string | null; corrections?: CorrectionPair[] }
+export type ActiveAppInfo = { app_name: string; process_path: string; title: string }
 export type LLMPrompt = { id: string; name: string; prompt: string }
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error"
 export type ModelInfo = { id: string; name: string; description: string; filename: string; source: ModelSource; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; is_directory: boolean; engine_type: EngineType; accuracy_score: number; speed_score: number; supports_translation: boolean; is_recommended: boolean; supported_languages: string[]; supports_language_selection: boolean; is_custom: boolean; supports_streaming: boolean; supports_language_detection: boolean }

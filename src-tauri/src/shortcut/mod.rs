@@ -1328,3 +1328,16 @@ pub async fn get_available_accelerators() -> crate::managers::transcription::Ava
         .await
         .expect("get_available_accelerators panicked")
 }
+
+/// Update the per-application profile list. Replaces the entire list atomically.
+#[tauri::command]
+#[specta::specta]
+pub fn update_app_profiles(
+    app: AppHandle,
+    profiles: Vec<crate::settings::AppProfile>,
+) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.app_profiles = profiles;
+    settings::write_settings(&app, settings);
+    Ok(())
+}

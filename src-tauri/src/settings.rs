@@ -490,6 +490,39 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    /// Per-application profile overrides. Each entry maps an app identifier
+    /// (bundle ID on macOS, process name on Windows/Linux) to optional
+    /// post-processing overrides. When the frontmost app matches a profile,
+    /// its overrides replace the global defaults for that dictation session.
+    #[serde(default)]
+    pub app_profiles: Vec<AppProfile>,
+}
+
+/// A per-application override set for post-processing. Fields are all optional;
+/// only non-`None` values replace the global default when the profile matches.
+#[derive(Serialize, Deserialize, Debug, Clone, Type)]
+pub struct AppProfile {
+    /// Unique identifier for this profile entry (user-editable label).
+    pub id: String,
+    /// Human-readable display name shown in settings UI.
+    pub name: String,
+    /// App identifier to match against the frontmost application.
+    /// On macOS this is the bundle identifier (e.g. `com.apple.Xcode`).
+    /// On Windows/Linux this is the process name or executable stem.
+    pub app_identifier: String,
+    /// Override the global post-process prompt for this app. `None` = use global.
+    #[serde(default)]
+    pub prompt_id: Option<String>,
+    /// Override the global post-process provider for this app. `None` = use global.
+    #[serde(default)]
+    pub provider_id: Option<String>,
+    /// Override the global post-process model for this app. `None` = use global.
+    #[serde(default)]
+    pub model: Option<String>,
+    /// Additional corrections applied only when this profile is active.
+    /// These are appended to (not replacing) the global corrections list.
+    #[serde(default)]
+    pub corrections: Vec<CorrectionPair>,
 }
 
 fn default_model() -> String {
@@ -542,6 +575,10 @@ fn default_overlay_position() -> OverlayPosition {
     // Position only matters when the overlay is shown; whether it shows at all is
     // `overlay_style` (Linux defaults that to None). So a single default suffices.
     OverlayPosition::Bottom
+}
+
+fn default_app_profiles() -> Vec<AppProfile> {
+    Vec::new()
 }
 
 fn default_overlay_style() -> OverlayStyle {
@@ -977,6 +1014,7 @@ pub fn get_default_settings() -> AppSettings {
         extra_recording_buffer_ms: 0,
         vad_enabled: default_vad_enabled(),
         overlay_style: default_overlay_style(),
+        app_profiles: default_app_profiles(),
     }
 }
 

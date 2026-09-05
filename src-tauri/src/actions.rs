@@ -90,6 +90,51 @@ fn build_system_prompt(prompt_template: &str) -> String {
     prompt_template.replace("${output}", "").trim().to_string()
 }
 
+/// Detects spoken formatting commands in the raw transcription and returns
+/// an instruction string to append to the user content. The LLM will honor
+/// these alongside the base prompt's formatting guidance. Returns `None` if
+/// no recognized formatting command is found.
+///
+/// Recognized phrases (case-insensitive):
+/// - "bullet points" / "bulleted list" / "make this a list" → bullet list
+/// - "numbered list" / "number this" → numbered list
+/// - "new paragraph" / "paragraph break" → paragraph separation
+/// - "code block" / "format as code" → code formatting
+/// - "heading" / "title" → heading formatting
+fn detect_formatting_commands(transcription: &str) -> Option<String> {
+    let lower = transcription.to_lowercase();
+    let mut instructions = Vec::new();
+
+    if lower.contains("bullet point")
+        || lower.contains("bulleted list")
+        || lower.contains("make this a list")
+        || lower.contains("bullet list")
+    {
+        instructions.push("Format the output as a Markdown bulleted list.");
+    }
+    if lower.contains("numbered list") || lower.contains("number this") {
+        instructions.push("Format the output as a Markdown numbered list.");
+    }
+    if lower.contains("new paragraph") || lower.contains("paragraph break") {
+        instructions.push("Separate distinct ideas with blank lines (paragraph breaks).");
+    }
+    if lower.contains("code block") || lower.contains("format as code") {
+        instructions.push("Wrap code or technical content in a fenced Markdown code block.");
+    }
+    if lower.contains("heading") || lower.contains("as a title") {
+        instructions.push("Use Markdown headings (# ## ###) for section titles.");
+    }
+
+    if instructions.is_empty() {
+        None
+    } else {
+        Some(format!(
+            "\n\n[Spoken formatting commands detected] {}",
+            instructions.join(" ")
+        ))
+    }
+}
+
 /// Returns `true` when a transcription has no meaningful content to
 /// post-process (empty or whitespace-only). Used to skip the post-processing
 /// LLM call when nothing was actually transcribed, which would otherwise make
@@ -319,8 +364,16 @@ async fn post_process_transcription(
     if provider.supports_structured_output {
         debug!("Using structured outputs for provider '{}'", provider.id);
 
-        let (system_prompt, user_content) =
+        let (system_prompt, mut user_content) =
             build_post_process_messages(&prompt, transcription, prior_output);
+
+        // Append spoken formatting command instructions if detected in the
+        // raw transcription. This augments the base prompt's formatting
+        // guidance with explicit directives the LLM will honor.
+        if let Some(fmt_instructions) = detect_formatting_commands(transcription) {
+            user_content.push_str(&fmt_instructions);
+            debug!("Spoken formatting commands detected and appended to user content");
+        }
 
         // Handle Apple Intelligence separately since it uses native Swift APIs
         if provider.id == APPLE_INTELLIGENCE_PROVIDER_ID {
@@ -436,10 +489,19 @@ async fn post_process_transcription(
     // Legacy mode: single user message. In edit mode we fold the refine
     // instruction + previous output + correction into one prompt; otherwise we
     // substitute the transcription into the user's ${output} template.
-    let processed_prompt = match prior_output {
+    let mut processed_prompt = match prior_output {
         Some(previous) => build_refine_legacy_prompt(previous, transcription),
         None => prompt.replace("${output}", transcription),
     };
+
+    // Append spoken formatting command instructions if detected in the
+    // raw transcription. This augments the base prompt's formatting
+    // guidance with explicit directives the LLM will honor.
+    if let Some(fmt_instructions) = detect_formatting_commands(transcription) {
+        processed_prompt.push_str(&fmt_instructions);
+        debug!("Spoken formatting commands detected and appended to legacy prompt");
+    }
+
     debug!("Processed prompt length: {} chars", processed_prompt.len());
 
     match crate::llm_client::send_chat_completion(
@@ -621,14 +683,64 @@ pub(crate) async fn process_transcription_output(
     } else if post_process {
         // Normal post-processing. Word-sniffing has been removed, so a fresh
         // dictation is NEVER silently reinterpreted as an edit of a prior output.
+
+        // Per-app profile matching: detect the frontmost application and apply
+        // any matching profile overrides to a cloned settings snapshot. The
+        // original settings remain untouched so global defaults are preserved.
+        let effective_settings = match active_win_pos_rs::get_active_window() {
+            Ok(active_window) => {
+                let app_identifier = active_window.process_path
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                let bundle_id = active_window.app_name.clone();
+
+                // Match by process name OR app name (bundle ID on macOS)
+                let matched_profile = settings.app_profiles.iter().find(|p| {
+                    p.app_identifier == app_identifier || p.app_identifier == bundle_id
+                });
+
+                if let Some(profile) = matched_profile {
+                    debug!(
+                        "Per-app profile '{}' matched for app '{}'",
+                        profile.name, app_identifier
+                    );
+                    let mut overridden = settings.clone();
+                    if let Some(ref prompt_id) = profile.prompt_id {
+                        overridden.post_process_selected_prompt_id = Some(prompt_id.clone());
+                    }
+                    if let Some(ref provider_id) = profile.provider_id {
+                        overridden.post_process_provider_id = provider_id.clone();
+                    }
+                    if let Some(ref model) = profile.model {
+                        overridden.post_process_models.insert(
+                            overridden.post_process_provider_id.clone(),
+                            model.clone(),
+                        );
+                    }
+                    // Append profile-specific corrections to global list
+                    if !profile.corrections.is_empty() {
+                        overridden.corrections.extend(profile.corrections.clone());
+                    }
+                    overridden
+                } else {
+                    settings.clone()
+                }
+            }
+            Err(_) => {
+                debug!("Active window detection failed; using global settings");
+                settings.clone()
+            }
+        };
+
         if let Some(processed_text) =
-            post_process_transcription(&settings, &final_text, None).await
+            post_process_transcription(&effective_settings, &final_text, None).await
         {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
 
-            if let Some(prompt_id) = &settings.post_process_selected_prompt_id {
-                if let Some(prompt) = settings
+            if let Some(prompt_id) = &effective_settings.post_process_selected_prompt_id {
+                if let Some(prompt) = effective_settings
                     .post_process_prompts
                     .iter()
                     .find(|prompt| &prompt.id == prompt_id)
