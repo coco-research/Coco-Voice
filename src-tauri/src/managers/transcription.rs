@@ -1091,7 +1091,7 @@ impl TranscriptionManager {
         .emit(&self.app_handle);
     }
 
-    fn emit_stream_text(&self, committed: &str, tentative: &str) {
+    pub(crate) fn emit_stream_text(&self, committed: &str, tentative: &str) {
         let _ = StreamTextEvent {
             committed: committed.to_string(),
             tentative: tentative.to_string(),
