@@ -44,6 +44,8 @@ bun run format:backend    # cargo fmt only
 
 ```bash
 mkdir -p src-tauri/resources/models
+# NOTE: Model host URL below is legacy upstream infrastructure.
+# TODO: Replace with models.coco.voice once mirror is live.
 curl -o src-tauri/resources/models/silero_vad_v4.onnx https://blob.handy.computer/silero_vad_v4.onnx
 ```
 

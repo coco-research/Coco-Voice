@@ -4,7 +4,7 @@
 //! multiple backend implementations:
 //!
 //! - `tauri`: Uses Tauri's built-in global-shortcut plugin
-//! - `coco_keys`: Uses the handy-keys library for more control
+//! - `coco_keys`: Uses the handy-keys crate for more control
 //!
 //! The active implementation is determined by the `keyboard_implementation`
 //! setting and can be changed at runtime.
@@ -41,7 +41,7 @@ pub fn init_shortcuts(app: &AppHandle) {
         }
         KeyboardImplementation::CocoVoiceKeys => {
             if let Err(e) = coco_keys::init_shortcuts(app) {
-                error!("Failed to initialize handy-keys shortcuts: {}", e);
+                error!("Failed to initialize coco_keys (handy-keys crate) shortcuts: {}", e);
                 // Fall back to Tauri implementation and persist this fallback
                 warn!("Falling back to Tauri global shortcut implementation and saving fallback to settings");
 

@@ -1,7 +1,7 @@
 //! Coco-keys based keyboard shortcut implementation
 //!
 //! This module provides an alternative to Tauri's global-shortcut plugin
-//! using the handy-keys library for more control over keyboard events.
+//! using the handy-keys crate for more control over keyboard events.
 //!
 //! ## Architecture
 //!
@@ -379,7 +379,7 @@ impl Drop for CocoVoiceKeysState {
     }
 }
 
-/// Convert handy-keys Modifiers to a list of strings
+/// Convert handy-keys crate Modifiers to a list of strings
 fn modifiers_to_strings(modifiers: handy_keys::Modifiers) -> Vec<String> {
     let mut result = Vec::new();
 
