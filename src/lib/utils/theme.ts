@@ -16,7 +16,7 @@ import { commands, type Theme } from "@/bindings";
  * avoiding a flash of the wrong palette.
  */
 
-export const THEME_STORAGE_KEY = "handy.theme";
+export const THEME_STORAGE_KEY = "coco-voice.theme";
 
 export const THEME_OPTIONS: Theme[] = ["system", "light", "dark"];
 
@@ -44,6 +44,17 @@ export const getStoredTheme = (): Theme => {
   try {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
     if (isTheme(stored)) return stored;
+
+    // One-time migration from legacy "handy.theme" key. Read the old value,
+    // write it under the new key, and delete the old one so this path only
+    // runs once per user.
+    const LEGACY_THEME_KEY = "handy.theme";
+    const legacy = localStorage.getItem(LEGACY_THEME_KEY);
+    if (isTheme(legacy)) {
+      localStorage.setItem(THEME_STORAGE_KEY, legacy);
+      localStorage.removeItem(LEGACY_THEME_KEY);
+      return legacy;
+    }
   } catch {
     // ignore
   }
