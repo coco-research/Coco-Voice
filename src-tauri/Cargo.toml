@@ -131,6 +131,10 @@ transcribe-cpp = { version = "0.1.2", default-features = false, features = [
   "dynamic-backends",
   "vulkan",
 ] }
+llama-cpp-2 = { version = "0.1.156", default-features = false, features = [
+  "dynamic-backends",
+  "vulkan",
+] }
 
 [target.'cfg(all(windows, target_arch = "aarch64"))'.dependencies]
 transcribe-cpp = { version = "0.1.2", default-features = false }
@@ -138,11 +142,16 @@ transcribe-cpp = { version = "0.1.2", default-features = false }
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
 transcribe-cpp = { version = "0.1.2", default-features = false, features = ["metal"] }
+llama-cpp-2 = { version = "0.1.156", default-features = false, features = ["metal"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk-layer-shell = { version = "0.8", features = ["v0_6"] }
 gtk = "0.18"
 transcribe-cpp = { version = "0.1.2", default-features = false, features = [
+  "dynamic-backends",
+  "vulkan",
+] }
+llama-cpp-2 = { version = "0.1.156", default-features = false, features = [
   "dynamic-backends",
   "vulkan",
 ] }
