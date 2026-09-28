@@ -271,6 +271,58 @@ fn build_post_process_messages(
     }
 }
 
+/// Applies the first matching per-app profile for the frontmost application as
+/// a settings override. Returns a clone of `settings` unchanged when there are
+/// no profiles, when nothing matches, or when the active window cannot be read.
+fn apply_app_profile_overrides(settings: &AppSettings) -> AppSettings {
+    if settings.app_profiles.is_empty() {
+        return settings.clone();
+    }
+
+    let Ok(active_window) = active_win_pos_rs::get_active_window() else {
+        debug!("Active window detection failed; using global settings");
+        return settings.clone();
+    };
+
+    let app_identifier = active_window
+        .process_path
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let bundle_id = active_window.app_name.clone();
+
+    // Match by process name OR app name (bundle ID on macOS)
+    let Some(profile) = settings
+        .app_profiles
+        .iter()
+        .find(|p| p.app_identifier == app_identifier || p.app_identifier == bundle_id)
+    else {
+        return settings.clone();
+    };
+
+    debug!(
+        "Per-app profile '{}' matched for app '{}'",
+        profile.name, app_identifier
+    );
+    let mut overridden = settings.clone();
+    if let Some(ref prompt_id) = profile.prompt_id {
+        overridden.post_process_selected_prompt_id = Some(prompt_id.clone());
+    }
+    if let Some(ref provider_id) = profile.provider_id {
+        overridden.post_process_provider_id = provider_id.clone();
+    }
+    if let Some(ref model) = profile.model {
+        overridden
+            .post_process_models
+            .insert(overridden.post_process_provider_id.clone(), model.clone());
+    }
+    // Append profile-specific corrections to the global list
+    if !profile.corrections.is_empty() {
+        overridden.corrections.extend(profile.corrections.clone());
+    }
+    overridden
+}
+
 /// Post-processes `transcription`. When `prior_output` is `Some`, the call runs
 /// in *edit mode*: instead of cleaning a fresh transcript, the model edits the
 /// previous output using `transcription` as the spoken correction instruction.
@@ -363,19 +415,63 @@ async fn post_process_transcription(
         _ => (None, None),
     };
 
+    let (system_prompt, mut user_content) =
+        build_post_process_messages(&prompt, transcription, prior_output);
+
+    // Append spoken formatting command instructions if detected in the
+    // raw transcription. This augments the base prompt's formatting
+    // guidance with explicit directives the LLM will honor.
+    if let Some(fmt_instructions) = detect_formatting_commands(transcription) {
+        user_content.push_str(&fmt_instructions);
+        debug!("Spoken formatting commands detected and appended to user content");
+    }
+
+    // Local LLM (llama.cpp) runs native on-device inference, not the JSON-schema
+    // HTTP API, so it is dispatched before the structured-output gate. The
+    // provider keeps `supports_structured_output: false`; hoisting the call is
+    // what makes local cleanup reachable, not flipping that flag.
+    if provider.id == LOCAL_LLM_PROVIDER_ID {
+        let model_manager = app.state::<Arc<ModelManager>>();
+        match model_manager.get_model_path(&model) {
+            Ok(model_path) => {
+                let token_limit = model.trim().parse::<i32>().unwrap_or(512);
+                return match crate::local_llm::generate_text(
+                    &model_path,
+                    &system_prompt,
+                    &user_content,
+                    token_limit,
+                    token_tx,
+                )
+                .await
+                {
+                    Ok(result) => {
+                        if result.trim().is_empty() {
+                            debug!("Local LLM returned an empty response");
+                            None
+                        } else {
+                            let result = strip_invisible_chars(&result);
+                            debug!(
+                                "Local LLM post-processing succeeded. Output length: {} chars",
+                                result.len()
+                            );
+                            Some(result)
+                        }
+                    }
+                    Err(err) => {
+                        error!("Local LLM post-processing failed: {}", err);
+                        None
+                    }
+                };
+            }
+            Err(err) => {
+                error!("Failed to resolve local LLM model path: {}", err);
+                return None;
+            }
+        }
+    }
+
     if provider.supports_structured_output {
         debug!("Using structured outputs for provider '{}'", provider.id);
-
-        let (system_prompt, mut user_content) =
-            build_post_process_messages(&prompt, transcription, prior_output);
-
-        // Append spoken formatting command instructions if detected in the
-        // raw transcription. This augments the base prompt's formatting
-        // guidance with explicit directives the LLM will honor.
-        if let Some(fmt_instructions) = detect_formatting_commands(transcription) {
-            user_content.push_str(&fmt_instructions);
-            debug!("Spoken formatting commands detected and appended to user content");
-        }
 
         // Handle Apple Intelligence separately since it uses native Swift APIs
         if provider.id == APPLE_INTELLIGENCE_PROVIDER_ID {
@@ -418,49 +514,6 @@ async fn post_process_transcription(
             {
                 debug!("Apple Intelligence provider selected on unsupported platform");
                 return None;
-            }
-        }
-
-        // Handle Local LLM (llama.cpp) separately since it uses native inference
-        // rather than HTTP API calls. Runs entirely on-device using GGUF models
-        // downloaded through the standard model manager.
-        if provider.id == LOCAL_LLM_PROVIDER_ID {
-            let model_manager = app.state::<Arc<ModelManager>>();
-            match model_manager.get_model_path(&model) {
-                Ok(model_path) => {
-                    let token_limit = model.trim().parse::<i32>().unwrap_or(512);
-                    return match crate::local_llm::generate_text(
-                        &model_path,
-                        &system_prompt,
-                        &user_content,
-                        token_limit,
-                        token_tx,
-                    )
-                    .await
-                    {
-                        Ok(result) => {
-                            if result.trim().is_empty() {
-                                debug!("Local LLM returned an empty response");
-                                None
-                            } else {
-                                let result = strip_invisible_chars(&result);
-                                debug!(
-                                    "Local LLM post-processing succeeded. Output length: {} chars",
-                                    result.len()
-                                );
-                                Some(result)
-                            }
-                        }
-                        Err(err) => {
-                            error!("Local LLM post-processing failed: {}", err);
-                            None
-                        }
-                    };
-                }
-                Err(err) => {
-                    error!("Failed to resolve local LLM model path: {}", err);
-                    return None;
-                }
             }
         }
 
@@ -671,6 +724,9 @@ pub(crate) async fn process_transcription_output(
     use_streaming_overlay: bool,
 ) -> ProcessedTranscription {
     let settings = get_settings(app);
+    // Apply the frontmost app's profile once, before either paste path, so the
+    // normal dictation and the correction hotkey share the same overrides.
+    let effective_settings = apply_app_profile_overrides(&settings);
     let mut final_text = transcription.to_string();
     let mut post_processed_text: Option<String> = None;
     let mut post_process_prompt: Option<String> = None;
@@ -699,7 +755,7 @@ pub(crate) async fn process_transcription_output(
         // CORRECTION MODE (explicit hotkey): unconditionally treat this utterance
         // as an edit of the last output. We never sniff the words — the dedicated
         // "correction" hotkey is the only trigger.
-        if let Some(prior_output) = refine_base_for_correction(&settings) {
+        if let Some(prior_output) = refine_base_for_correction(&effective_settings) {
             // The prior output is exactly what the previous dictation pasted, so
             // its character length is how many characters the replace must delete
             // before typing the edit. Count `chars`, not bytes, so multibyte /
@@ -717,7 +773,15 @@ pub(crate) async fn process_transcription_output(
                 });
                 tx
             });
-            match post_process_transcription(app, &settings, &final_text, Some(&prior_output), token_tx).await {
+            match post_process_transcription(
+                app,
+                &effective_settings,
+                &final_text,
+                Some(&prior_output),
+                token_tx,
+            )
+            .await
+            {
                 Some(edited) => {
                     post_processed_text = Some(edited.clone());
                     final_text = edited;
@@ -725,8 +789,8 @@ pub(crate) async fn process_transcription_output(
                     // (append instead of hammering Backspace across the document).
                     replace_char_count = crate::utils::backspaces_for_replace(prev_char_count);
 
-                    if let Some(prompt_id) = &settings.post_process_selected_prompt_id {
-                        if let Some(prompt) = settings
+                    if let Some(prompt_id) = &effective_settings.post_process_selected_prompt_id {
+                        if let Some(prompt) = effective_settings
                             .post_process_prompts
                             .iter()
                             .find(|prompt| &prompt.id == prompt_id)
@@ -750,55 +814,6 @@ pub(crate) async fn process_transcription_output(
     } else if post_process {
         // Normal post-processing. Word-sniffing has been removed, so a fresh
         // dictation is NEVER silently reinterpreted as an edit of a prior output.
-
-        // Per-app profile matching: detect the frontmost application and apply
-        // any matching profile overrides to a cloned settings snapshot. The
-        // original settings remain untouched so global defaults are preserved.
-        let effective_settings = match active_win_pos_rs::get_active_window() {
-            Ok(active_window) => {
-                let app_identifier = active_window.process_path
-                    .file_stem()
-                    .map(|s| s.to_string_lossy().to_string())
-                    .unwrap_or_default();
-                let bundle_id = active_window.app_name.clone();
-
-                // Match by process name OR app name (bundle ID on macOS)
-                let matched_profile = settings.app_profiles.iter().find(|p| {
-                    p.app_identifier == app_identifier || p.app_identifier == bundle_id
-                });
-
-                if let Some(profile) = matched_profile {
-                    debug!(
-                        "Per-app profile '{}' matched for app '{}'",
-                        profile.name, app_identifier
-                    );
-                    let mut overridden = settings.clone();
-                    if let Some(ref prompt_id) = profile.prompt_id {
-                        overridden.post_process_selected_prompt_id = Some(prompt_id.clone());
-                    }
-                    if let Some(ref provider_id) = profile.provider_id {
-                        overridden.post_process_provider_id = provider_id.clone();
-                    }
-                    if let Some(ref model) = profile.model {
-                        overridden.post_process_models.insert(
-                            overridden.post_process_provider_id.clone(),
-                            model.clone(),
-                        );
-                    }
-                    // Append profile-specific corrections to global list
-                    if !profile.corrections.is_empty() {
-                        overridden.corrections.extend(profile.corrections.clone());
-                    }
-                    overridden
-                } else {
-                    settings.clone()
-                }
-            }
-            Err(_) => {
-                debug!("Active window detection failed; using global settings");
-                settings.clone()
-            }
-        };
 
         // Create streaming channel if overlay is active; spawn a receiver
         // task that forwards tokens to the live overlay as tentative text.
@@ -837,8 +852,9 @@ pub(crate) async fn process_transcription_output(
     // Runs after LLM post-processing (above) and after apply_custom_words (which
     // runs earlier in the transcription pipeline), so the user always gets a
     // predictable last-word override via case-insensitive whole-word replacement.
-    if !settings.corrections.is_empty() {
-        final_text = crate::audio_toolkit::apply_corrections(&final_text, &settings.corrections);
+    if !effective_settings.corrections.is_empty() {
+        final_text =
+            crate::audio_toolkit::apply_corrections(&final_text, &effective_settings.corrections);
     }
 
     // Remember this dictation so a later correction-hotkey press can edit it.

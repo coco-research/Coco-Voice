@@ -951,7 +951,7 @@ whats_new_last_seen_version?: string; selected_model?: string; onboarding_comple
  * not gated on this — that follows model capability. Migrated from the old
  * `overlay_position` (position `none` → style `None`).
  */
-overlay_style?: OverlayStyle }
+overlay_style?: OverlayStyle; app_profiles?: AppProfile[] }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
 export type AvailableAccelerators = { transcribe: string[]; ort: string[]; gpu_devices: GpuDeviceOption[] }
