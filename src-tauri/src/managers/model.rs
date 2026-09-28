@@ -2105,6 +2105,7 @@ impl ModelManager {
         let final_dir = self.models_dir.join(&model_info.filename);
         if final_dir.is_dir() {
             self.update_download_status()?;
+            let _ = self.app_handle.emit("model-download-complete", &model_id);
             return Ok(());
         }
         let staging = self
