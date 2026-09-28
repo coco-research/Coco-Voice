@@ -37,7 +37,7 @@ pub enum EngineType {
     Cohere,
 }
 
-/// Where a model comes from and how Coco Voice obtains it.
+/// One pinned file inside a `ModelSource::Files` download.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct RemoteFile {
     pub url: String,
@@ -2189,7 +2189,9 @@ impl ModelManager {
             done += file.size;
         }
 
-        if final_dir.exists() {
+        if final_dir.is_file() {
+            fs::remove_file(&final_dir)?;
+        } else if final_dir.exists() {
             fs::remove_dir_all(&final_dir)?;
         }
         fs::rename(&staging, &final_dir)?;
