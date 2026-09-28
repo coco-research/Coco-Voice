@@ -2112,14 +2112,22 @@ impl ModelManager {
     async fn download_files(&self, model_info: &ModelInfo, files: &[RemoteFile]) -> Result<()> {
         let model_id = model_info.id.clone();
         let final_dir = self.models_dir.join(&model_info.filename);
+        let staging = self
+            .models_dir
+            .join(format!("{}.partial", model_info.filename));
         if final_dir.is_dir() {
+            // A leftover .partial (old tar, or an interrupted staging dir) makes
+            // get_model_path refuse this completed directory, and this return
+            // would otherwise never clear it.
+            if staging.is_dir() {
+                fs::remove_dir_all(&staging)?;
+            } else if staging.exists() {
+                fs::remove_file(&staging)?;
+            }
             self.update_download_status()?;
             let _ = self.app_handle.emit("model-download-complete", &model_id);
             return Ok(());
         }
-        let staging = self
-            .models_dir
-            .join(format!("{}.partial", model_info.filename));
         if staging.is_file() {
             warn!("Replacing leftover archive partial for {}", model_id);
             let _ = fs::remove_file(&staging);
