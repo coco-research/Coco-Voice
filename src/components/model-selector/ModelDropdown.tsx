@@ -54,7 +54,7 @@ const ModelDropdown: React.FC<ModelDropdownProps> = ({
                   <div>
                     <div className="text-sm text-text/80">
                       {getTranslatedModelName(model, t)}
-                      {notice && notice !== description && (
+                      {notice && (
                         <span className="ms-1.5 text-[10px] font-medium text-text/50">
                           {notice}
                         </span>
@@ -70,9 +70,11 @@ const ModelDropdown: React.FC<ModelDropdownProps> = ({
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-text/40 italic pe-4">
-                      {description}
-                    </div>
+                    {description !== notice && (
+                      <div className="text-xs text-text/40 italic pe-4">
+                        {description}
+                      </div>
+                    )}
                   </div>
                   {currentModelId === model.id && (
                     <div className="text-xs text-logo-primary">

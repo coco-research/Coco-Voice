@@ -183,9 +183,7 @@ const ModelCard: React.FC<ModelCardProps> = ({
             {isLegacySource(model) && (
               <Badge variant="secondary">{t("modelSelector.legacy")}</Badge>
             )}
-            {notice && notice !== displayDescription && (
-              <Badge variant="secondary">{notice}</Badge>
-            )}
+            {notice && <Badge variant="secondary">{notice}</Badge>}
             {status === "switching" && (
               <Badge variant="secondary">
                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />
@@ -193,9 +191,11 @@ const ModelCard: React.FC<ModelCardProps> = ({
               </Badge>
             )}
           </div>
-          <p className="text-text/60 text-sm leading-relaxed">
-            {displayDescription}
-          </p>
+          {displayDescription !== notice && (
+            <p className="text-text/60 text-sm leading-relaxed">
+              {displayDescription}
+            </p>
+          )}
         </div>
         {(model.accuracy_score > 0 || model.speed_score > 0) && (
           <div className="hidden sm:flex items-center ms-4">

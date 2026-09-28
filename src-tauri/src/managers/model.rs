@@ -2139,6 +2139,10 @@ impl ModelManager {
         let mut done = 0u64;
         let client = reqwest::Client::new();
         for file in files {
+            if cancel_token.is_cancelled() {
+                info!("Download cancelled for: {}", model_id);
+                return Ok(());
+            }
             let dest = staging.join(&file.local_name);
             let partial = staging.join(format!("{}.partial", file.local_name));
             if dest.is_file() && Self::staged_file_ok(&dest, &file.sha256, file.size).await {
