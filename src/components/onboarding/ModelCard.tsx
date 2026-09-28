@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { ModelInfo } from "@/bindings";
 import { formatModelSize } from "../../lib/utils/format";
+import { licenseNotice } from "../../lib/constants/restrictedModels";
 import {
   getTranslatedModelDescription,
   getTranslatedModelName,
@@ -39,10 +40,11 @@ const getLanguageDisplayText = (
   });
 };
 
-// Legacy = a blob (Url-sourced) .bin/ONNX model, kept runnable but no longer the
+// Legacy = a Url or Files .bin/ONNX model, kept runnable but no longer the
 // advertised download (catalog GGUFs supersede it).
 export const isLegacySource = (model: ModelInfo): boolean =>
-  typeof model.source === "object" && "Url" in model.source;
+  typeof model.source === "object" &&
+  ("Url" in model.source || "Files" in model.source);
 
 // Extract a GGUF quantization label from a filename, if present (e.g. "Q8_0").
 const getQuantLabel = (filename: string): string | null => {
@@ -91,6 +93,7 @@ const ModelCard: React.FC<ModelCardProps> = ({
   showRecommended = true,
 }) => {
   const { t } = useTranslation();
+  const notice = licenseNotice(model);
   const isFeatured = variant === "featured";
   const isClickable =
     status === "available" || status === "active" || status === "downloadable";
@@ -180,6 +183,7 @@ const ModelCard: React.FC<ModelCardProps> = ({
             {isLegacySource(model) && (
               <Badge variant="secondary">{t("modelSelector.legacy")}</Badge>
             )}
+            {notice && <Badge variant="secondary">{notice}</Badge>}
             {status === "switching" && (
               <Badge variant="secondary">
                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />
