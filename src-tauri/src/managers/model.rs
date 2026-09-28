@@ -2016,6 +2016,26 @@ impl ModelManager {
             resume_from = 0;
             response = client.get(url).send().await?;
         }
+        if resume_from > 0 && response.status() == reqwest::StatusCode::RANGE_NOT_SATISFIABLE {
+            // Partial already holds the full body (process died after the last
+            // byte, before rename). A Range past EOF is 416 and would stick
+            // forever if treated as a hard error. Caller checks size and sha256.
+            let downloaded = done_before + resume_from;
+            let _ = self.app_handle.emit(
+                "model-download-progress",
+                &DownloadProgress {
+                    model_id: model_id.to_string(),
+                    downloaded,
+                    total,
+                    percentage: if total > 0 {
+                        (downloaded as f64 / total as f64) * 100.0
+                    } else {
+                        100.0
+                    },
+                },
+            );
+            return Ok(false);
+        }
         if !response.status().is_success()
             && response.status() != reqwest::StatusCode::PARTIAL_CONTENT
         {
@@ -2064,6 +2084,19 @@ impl ModelManager {
             }
         }
         file.flush()?;
+        let _ = self.app_handle.emit(
+            "model-download-progress",
+            &DownloadProgress {
+                model_id: model_id.to_string(),
+                downloaded,
+                total,
+                percentage: if total > 0 {
+                    (downloaded as f64 / total as f64) * 100.0
+                } else {
+                    100.0
+                },
+            },
+        );
         Ok(false)
     }
 
@@ -2137,6 +2170,9 @@ impl ModelManager {
                     actual
                 ));
             }
+            let _ = self
+                .app_handle
+                .emit("model-verification-started", &model_id);
             let verify_path = partial.clone();
             let expected = file.sha256.clone();
             let verify_id = model_id.clone();
@@ -2146,6 +2182,9 @@ impl ModelManager {
             .await
             .map_err(|e| anyhow::anyhow!("SHA256 task panicked: {}", e))?;
             verified?;
+            let _ = self
+                .app_handle
+                .emit("model-verification-completed", &model_id);
             fs::rename(&partial, &dest)?;
             done += file.size;
         }
