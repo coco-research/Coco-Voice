@@ -362,18 +362,20 @@ fn hf_repo_dir(file: &Path) -> Option<PathBuf> {
 
 /// Drop the snapshot pointer and the blob it points at. A sha mismatch must not
 /// leave the blob, or the next hf-hub download reuses it by etag.
-fn delete_pointer_and_blob(pointer: &Path) {
+fn delete_pointer_and_blob(pointer: &Path) -> std::io::Result<()> {
     if let Ok(target) = fs::read_link(pointer) {
         let blob = if target.is_absolute() {
             target
         } else {
             pointer.parent().unwrap_or(pointer).join(target)
         };
-        let _ = fs::remove_file(pointer);
-        let _ = fs::remove_file(blob);
-    } else {
-        let _ = fs::remove_file(pointer);
+        fs::remove_file(pointer)?;
+        return match fs::remove_file(blob) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            other => other,
+        };
     }
+    fs::remove_file(pointer)
 }
 
 fn dir_bytes(path: &Path) -> u64 {
@@ -1941,7 +1943,14 @@ impl ModelManager {
                 match ModelManager::compute_sha256(&verify_path) {
                     Ok(actual) if actual == expected => Ok(()),
                     Ok(actual) => {
-                        delete_pointer_and_blob(&verify_path);
+                        delete_pointer_and_blob(&verify_path).map_err(|e| {
+                            anyhow::anyhow!(
+                                "Download verification failed for model {}: file is corrupt (got {}), and removing it failed: {}",
+                                verify_id,
+                                actual,
+                                e
+                            )
+                        })?;
                         Err(anyhow::anyhow!(
                             "Download verification failed for model {}: file is corrupt (got {}). Please retry.",
                             verify_id,
@@ -1949,7 +1958,7 @@ impl ModelManager {
                         ))
                     }
                     Err(e) => {
-                        delete_pointer_and_blob(&verify_path);
+                        delete_pointer_and_blob(&verify_path)?;
                         Err(anyhow::anyhow!(
                             "Failed to verify download for model {}: {}. Please retry.",
                             verify_id,
@@ -2594,7 +2603,9 @@ impl ModelManager {
             if let Some(file) = cache_file(&cache, repo_id, revision, primary_name) {
                 if repo_id == MIRROR_REPO {
                     info!("Deleting mirrored file at: {:?}", file);
-                    delete_pointer_and_blob(&file);
+                    delete_pointer_and_blob(&file).map_err(|e| {
+                        anyhow::anyhow!("Failed to delete model file: {}", e)
+                    })?;
                 } else if let Some(repo_dir) = hf_repo_dir(&file) {
                     info!("Deleting HF cache repo at: {:?}", repo_dir);
                     fs::remove_dir_all(repo_dir)?;
