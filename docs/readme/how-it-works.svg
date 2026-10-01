@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="260" viewBox="0 0 900 260" role="img">
+  <title>How Coco Voice transcribes speech on your computer</title>
+  <style>
+    .ink { fill: #0B0B0B; }
+    .muted { fill: #5B6478; }
+    .box { fill: #FFFFFF; stroke: #D9DEE8; }
+    .bound { fill: none; stroke: #D9DEE8; }
+    .chip { fill: #FFFFFF; }
+    .accent { fill: #1234FF; }
+    @media (prefers-color-scheme: dark) {
+      .ink { fill: #E8ECF4; }
+      .muted { fill: #9AA3B5; }
+      .box { fill: #121826; stroke: #2A3245; }
+      .bound { stroke: #2A3245; }
+      .chip { fill: #121826; }
+      .accent { fill: #8FA2FF; }
+    }
+  </style>
+  <rect class="bound" x="8" y="28" width="884" height="220" rx="14" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <rect class="chip" x="28" y="18" width="122" height="20" rx="4"/>
+  <text class="muted" x="36" y="32" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12">Your computer</text>
+
+  <rect class="box" x="24" y="78" width="92" height="112" rx="10" stroke-width="1.5"/>
+  <rect class="box" x="140" y="78" width="110" height="112" rx="10" stroke-width="1.5"/>
+  <rect class="box" x="274" y="78" width="124" height="112" rx="10" stroke-width="1.5"/>
+  <rect class="box" x="422" y="78" width="156" height="112" rx="10" stroke-width="1.5"/>
+  <rect class="box" x="602" y="78" width="118" height="112" rx="10" stroke-width="1.5"/>
+  <rect class="box" x="744" y="78" width="132" height="112" rx="10" stroke-width="1.5"/>
+
+  <polygon class="accent" points="124,129 132,134 124,139"/>
+  <polygon class="accent" points="258,129 266,134 258,139"/>
+  <polygon class="accent" points="406,129 414,134 406,139"/>
+  <polygon class="accent" points="586,129 594,134 586,139"/>
+  <polygon class="accent" points="728,129 736,134 728,139"/>
+
+  <text class="ink" x="70" y="124" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600">Hotkey</text>
+  <text class="muted" x="70" y="146" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11">hold or toggle</text>
+
+  <text class="ink" x="195" y="124" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600">Microphone</text>
+  <text class="muted" x="195" y="146" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11">cpal</text>
+
+  <text class="ink" x="336" y="118" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600">Voice activity</text>
+  <text class="ink" x="336" y="136" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600">detection</text>
+  <text class="muted" x="336" y="156" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11">Silero</text>
+
+  <text class="ink" x="500" y="118" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600">Local speech model</text>
+  <text class="muted" x="500" y="140" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11">transcribe-cpp</text>
+  <text class="muted" x="500" y="156" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11">/ ONNX</text>
+
+  <text class="ink" x="661" y="118" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600">Optional</text>
+  <text class="ink" x="661" y="136" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600">cleanup</text>
+  <text class="muted" x="661" y="156" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11">if you enable it</text>
+
+  <text class="ink" x="810" y="118" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600">Paste into the</text>
+  <text class="ink" x="810" y="136" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="600">focused app</text>
+</svg>
