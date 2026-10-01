@@ -32,22 +32,6 @@
 
 Talking is faster than typing, but most dictation tools record you, send the audio to a server, and bill you monthly. Coco Voice runs the speech model on your own computer. Hold a key, speak, and the text is pasted into whatever field you are in: a chat, an editor, an email. No account, no subscription, and recognition works offline once your model is downloaded.
 
-## Screenshots
-
-<p align="center">
-  <picture>
-    <source
-      media="(prefers-color-scheme: dark)"
-      srcset="docs/readme/screenshot-dark.png"
-    />
-    <img
-      src="docs/readme/screenshot-light.png"
-      alt="Coco Voice settings window"
-      width="820"
-    />
-  </picture>
-</p>
-
 ## Quick start
 
 ### For users
