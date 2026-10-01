@@ -1,12 +1,24 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { AppProfile, CorrectionPair } from "@/bindings";
 import { commands } from "@/bindings";
 import { useSettings } from "../../hooks/useSettings";
+import { useSettingsStore } from "../../stores/settingsStore";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { Dropdown, type DropdownOption } from "../ui/Dropdown";
 import { SettingContainer } from "../ui/SettingContainer";
+
+function isCocoVoiceApp(appName: string, processPath: string): boolean {
+  const fileName = processPath.split(/[/\\]/).pop() ?? "";
+  const stem = fileName.replace(/\.[^.]+$/, "");
+  const own = (value: string) => {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "coco voice" || normalized === "coco-voice";
+  };
+  return own(appName) || own(stem);
+}
 
 interface AppProfilesProps {
   descriptionMode?: "inline" | "tooltip";
@@ -15,17 +27,25 @@ interface AppProfilesProps {
 
 /**
  * Settings UI for per-application post-processing profiles. Each profile maps
- * a frontmost application identifier (bundle ID on macOS, process name on
- * Windows/Linux) to optional overrides for prompt, provider, model, and
- * corrections. When the active app matches a profile, its overrides replace
- * the global defaults for that dictation session.
+ * the frontmost application's name or process name to optional overrides for
+ * prompt, provider, model, and corrections. When the active app matches a
+ * profile, its overrides replace the global defaults for that dictation.
  */
 export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
   ({ descriptionMode = "tooltip", grouped = false }) => {
+    const { t } = useTranslation();
     const { getSetting, updateSetting, isUpdating } = useSettings();
     const [newName, setNewName] = useState("");
     const [newIdentifier, setNewIdentifier] = useState("");
     const [detecting, setDetecting] = useState(false);
+    const [detectHint, setDetectHint] = useState<string | null>(null);
+    const mounted = useRef(true);
+    useEffect(() => {
+      mounted.current = true;
+      return () => {
+        mounted.current = false;
+      };
+    }, []);
     const [correctionDrafts, setCorrectionDrafts] = useState<
       Record<string, { from: string; to: string }>
     >({});
@@ -50,10 +70,13 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
 
     const sanitize = (value: string) => value.replace(/[<>"']/g, "").trim();
 
+    const readProfiles = (): AppProfile[] =>
+      useSettingsStore.getState().settings?.app_profiles ?? [];
+
     const updateProfile = (id: string, patch: Partial<AppProfile>) => {
       updateSetting(
         "app_profiles",
-        profiles.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+        readProfiles().map((p) => (p.id === id ? { ...p, ...patch } : p)),
       );
     };
 
@@ -70,11 +93,20 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
       }));
     };
 
-    const handleAddCorrection = (profile: AppProfile) => {
+    const handleAddCorrection = (profileId: string) => {
+      const profile = readProfiles().find((p) => p.id === profileId);
+      if (!profile) return;
       const draft = getCorrectionDraft(profile.id);
       const from = sanitize(draft.from);
       const to = sanitize(draft.to);
-      if (!from || from.length > 100 || to.length > 100) {
+      if (!from) {
+        toast.error(
+          "That correction is empty after removing quotes and brackets",
+        );
+        return;
+      }
+      if (from.length > 100 || to.length > 100) {
+        toast.error("Corrections must be 100 characters or fewer");
         return;
       }
       const corrections = profile.corrections ?? [];
@@ -92,7 +124,9 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
       setCorrectionDraft(profile.id, { from: "", to: "" });
     };
 
-    const handleRemoveCorrection = (profile: AppProfile, from: string) => {
+    const handleRemoveCorrection = (profileId: string, from: string) => {
+      const profile = readProfiles().find((p) => p.id === profileId);
+      if (!profile) return;
       updateProfile(profile.id, {
         corrections: (profile.corrections ?? []).filter(
           (pair) => pair.from !== from,
@@ -102,9 +136,21 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
 
     const handleDetectActiveApp = async () => {
       setDetecting(true);
+      setDetectHint(null);
       try {
+        for (const seconds of [3, 2, 1]) {
+          if (!mounted.current) return;
+          setDetectHint(t("settings.appProfiles.detectCountdown", { seconds }));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+        if (!mounted.current) return;
         const result = await commands.getActiveAppInfo();
+        if (!mounted.current) return;
         if (result.status === "ok" && result.data) {
+          if (isCocoVoiceApp(result.data.app_name, result.data.process_path)) {
+            toast.error(t("settings.appProfiles.detectOwnApp"));
+            return;
+          }
           setNewIdentifier(result.data.app_name);
           toast.success(`Detected: ${result.data.app_name}`);
         } else {
@@ -113,7 +159,10 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
       } catch {
         toast.error("Failed to detect active application");
       } finally {
-        setDetecting(false);
+        if (mounted.current) {
+          setDetecting(false);
+          setDetectHint(null);
+        }
       }
     };
 
@@ -122,7 +171,12 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
       const identifier = newIdentifier.trim();
       if (!name || !identifier) return;
 
-      if (profiles.some((p) => p.app_identifier === identifier)) {
+      const current = readProfiles();
+      if (
+        current.some(
+          (p) => p.app_identifier.toLowerCase() === identifier.toLowerCase(),
+        )
+      ) {
         toast.error(`A profile for "${identifier}" already exists`);
         return;
       }
@@ -137,7 +191,7 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
         corrections: [],
       };
 
-      updateSetting("app_profiles", [...profiles, profile]);
+      updateSetting("app_profiles", [...current, profile]);
       setNewName("");
       setNewIdentifier("");
     };
@@ -145,7 +199,7 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
     const handleRemoveProfile = (id: string) => {
       updateSetting(
         "app_profiles",
-        profiles.filter((p) => p.id !== id),
+        readProfiles().filter((p) => p.id !== id),
       );
     };
 
@@ -160,47 +214,52 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
       <>
         <SettingContainer
           title="Per-App Profiles"
-          description="Override post-processing settings when specific applications are active. Match by app name or bundle identifier."
+          description="Override post-processing settings when specific applications are active. Matched against the active app's name or process name."
           descriptionMode={descriptionMode}
           grouped={grouped}
         >
-          <div className="flex items-center gap-2">
-            <Input
-              type="text"
-              className="max-w-40"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Profile name"
-              variant="compact"
-              disabled={disabled}
-            />
-            <Input
-              type="text"
-              className="max-w-48"
-              value={newIdentifier}
-              onChange={(e) => setNewIdentifier(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="App identifier"
-              variant="compact"
-              disabled={disabled}
-            />
-            <Button
-              onClick={handleDetectActiveApp}
-              disabled={detecting || disabled}
-              variant="secondary"
-              size="md"
-            >
-              {detecting ? "Detecting…" : "Detect"}
-            </Button>
-            <Button
-              onClick={handleAddProfile}
-              disabled={!newName.trim() || !newIdentifier.trim() || disabled}
-              variant="primary"
-              size="md"
-            >
-              Add
-            </Button>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Input
+                type="text"
+                className="max-w-40"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Profile name"
+                variant="compact"
+                disabled={disabled}
+              />
+              <Input
+                type="text"
+                className="max-w-48"
+                value={newIdentifier}
+                onChange={(e) => setNewIdentifier(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="App identifier"
+                variant="compact"
+                disabled={disabled}
+              />
+              <Button
+                onClick={handleDetectActiveApp}
+                disabled={detecting || disabled}
+                variant="secondary"
+                size="md"
+              >
+                {detecting ? "Detecting…" : "Detect"}
+              </Button>
+              <Button
+                onClick={handleAddProfile}
+                disabled={!newName.trim() || !newIdentifier.trim() || disabled}
+                variant="primary"
+                size="md"
+              >
+                {t("settings.appProfiles.add")}
+              </Button>
+            </div>
+            {detectHint ? (
+              <p className="text-xs text-mid-gray">{detectHint}</p>
+            ) : null}
           </div>
         </SettingContainer>
         {profiles.length > 0 && (
@@ -271,6 +330,7 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
                       className="min-w-[180px] flex-1"
                     />
                     <Input
+                      key={`${profile.id}:${profile.model ?? ""}`}
                       type="text"
                       className="min-w-[180px] flex-1"
                       defaultValue={profile.model ?? ""}
@@ -298,7 +358,7 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          handleAddCorrection(profile);
+                          handleAddCorrection(profile.id);
                         }
                       }}
                       placeholder="From"
@@ -316,7 +376,7 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          handleAddCorrection(profile);
+                          handleAddCorrection(profile.id);
                         }
                       }}
                       placeholder="To"
@@ -324,12 +384,12 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
                       disabled={disabled}
                     />
                     <Button
-                      onClick={() => handleAddCorrection(profile)}
+                      onClick={() => handleAddCorrection(profile.id)}
                       disabled={!draft.from.trim() || disabled}
                       variant="secondary"
                       size="sm"
                     >
-                      Add correction
+                      {t("settings.appProfiles.addCorrection")}
                     </Button>
                   </div>
 
@@ -339,7 +399,7 @@ export const AppProfiles: React.FC<AppProfilesProps> = React.memo(
                         <Button
                           key={pair.from}
                           onClick={() =>
-                            handleRemoveCorrection(profile, pair.from)
+                            handleRemoveCorrection(profile.id, pair.from)
                           }
                           disabled={disabled}
                           variant="secondary"

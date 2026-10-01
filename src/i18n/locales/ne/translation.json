@@ -178,6 +178,10 @@
           "transcribe_with_post_process": {
             "name": "पोस्ट-प्रोसेसिङ हटकी",
             "description": "वैकल्पिक: तपाईंको ट्रान्सक्रिप्सनमा सधैँ AI पोस्ट-प्रोसेसिङ लागू गर्ने छुट्टै हटकी।"
+          },
+          "correction": {
+            "name": "Speak Correction",
+            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
           }
         },
         "errors": {
@@ -369,9 +373,20 @@
         "description": "रेकर्डिङबाट मौनता हटाउँछ। स्ट्रिमिङ-सक्षम मोडेलहरूले लामो VAD टेल प्रयोग गर्छन्; VAD अफ गर्दा कच्चा अडियो रेकर्ड हुन्छ।"
       }
     },
+    "appProfiles": {
+      "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+      "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+      "add": "Add",
+      "addCorrection": "Add correction"
+    },
     "postProcessing": {
       "hotkey": {
         "title": "हटकी"
+      },
+      "correction": {
+        "title": "Iterative Correction",
+        "toggleLabel": "Speak Corrections",
+        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
       },
       "api": {
         "title": "API (OpenAI अनुकूल)",

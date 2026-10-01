@@ -4551,8 +4551,8 @@
         "translate": false,
         "lang_detect": false
       },
-      "speed_score": 0.7,
-      "accuracy_score": 0.85,
+      "speed_score": 70,
+      "accuracy_score": 85,
       "files": [
         {
           "filename": "qwen2.5-3b-instruct-q4_k_m.gguf",

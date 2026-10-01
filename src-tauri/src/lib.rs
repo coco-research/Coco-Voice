@@ -1,7 +1,6 @@
 mod actions;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
-mod local_llm;
 mod audio_feedback;
 pub mod audio_toolkit;
 mod catalog;
@@ -11,6 +10,7 @@ mod commands;
 mod helpers;
 mod input;
 mod llm_client;
+mod local_llm;
 mod managers;
 mod overlay;
 pub mod portable;

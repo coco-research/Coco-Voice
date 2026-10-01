@@ -76,7 +76,12 @@ impl From<CatalogModel> for ModelDescriptor {
             },
             name: m.name,
             description: m.description,
-            engine_type: EngineType::TranscribeCpp,
+            // qwen2 is the local post-processing GGUF, not a transcribe-cpp ASR arch.
+            engine_type: if m.architecture.as_deref() == Some("qwen2") {
+                EngineType::LlamaCpp
+            } else {
+                EngineType::TranscribeCpp
+            },
             caps: CapabilityProbe {
                 verdict: Compatibility::Compatible, // curated org models we ship support for
                 display_name: None,
@@ -150,8 +155,11 @@ mod tests {
 
     #[test]
     fn catalog_architectures_are_known_to_capability_probe() {
+        // KNOWN_ARCHES is the transcribe-cpp set. Local LLM entries (LlamaCpp)
+        // are not ASR models and are not offered as transcription engines.
         let missing: BTreeSet<&str> = CATALOG
             .iter()
+            .filter(|d| !matches!(d.engine_type, EngineType::LlamaCpp))
             .filter_map(|d| d.caps.architecture.as_deref())
             .filter(|arch| !KNOWN_ARCHES.contains(arch))
             .collect();
@@ -160,6 +168,21 @@ mod tests {
             missing.is_empty(),
             "catalog architecture(s) missing from KNOWN_ARCHES: {:?}",
             missing
+        );
+    }
+
+    #[test]
+    fn qwen2_entry_is_a_local_llm_not_a_transcription_model() {
+        let llm = CATALOG
+            .iter()
+            .find(|d| d.caps.architecture.as_deref() == Some("qwen2"))
+            .expect("qwen2 catalog entry");
+        assert!(matches!(llm.engine_type, EngineType::LlamaCpp));
+        assert!(
+            (0.5..=1.0).contains(&llm.speed_score) && (0.5..=1.0).contains(&llm.accuracy_score),
+            "catalog scores are 0-100 before normalisation, got {}/{}",
+            llm.speed_score,
+            llm.accuracy_score
         );
     }
 }

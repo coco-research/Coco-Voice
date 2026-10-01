@@ -924,6 +924,7 @@ dependencies = [
  "chrono",
  "clap",
  "cpal",
+ "encoding_rs",
  "enigo",
  "env_filter",
  "ferrous-opencc",

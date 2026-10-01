@@ -178,6 +178,10 @@
           "transcribe_with_post_process": {
             "name": "קיצור לעיבוד משלים",
             "description": "אופציונלי: קיצור מקשים ייעודי שתמיד מפעיל עיבוד AI על התמלול."
+          },
+          "correction": {
+            "name": "Speak Correction",
+            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
           }
         },
         "errors": {
@@ -369,9 +373,20 @@
         "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
       }
     },
+    "appProfiles": {
+      "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+      "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+      "add": "Add",
+      "addCorrection": "Add correction"
+    },
     "postProcessing": {
       "hotkey": {
         "title": "קיצור מקשים"
+      },
+      "correction": {
+        "title": "Iterative Correction",
+        "toggleLabel": "Speak Corrections",
+        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
       },
       "api": {
         "title": "API (תואם OpenAI)",

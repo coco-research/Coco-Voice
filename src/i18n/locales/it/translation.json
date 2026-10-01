@@ -196,6 +196,10 @@
           "transcribe_with_post_process": {
             "name": "Tasto di post-elaborazione",
             "description": "Facoltativo: Un tasto di scelta rapida dedicato che applica sempre la post-elaborazione IA alla trascrizione."
+          },
+          "correction": {
+            "name": "Speak Correction",
+            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
           }
         },
         "errors": {
@@ -369,9 +373,20 @@
         "description": "Filtra il silenzio dalle registrazioni. I modelli che supportano lo streaming utilizzano una coda VAD più lunga; disabilitando la VAD si registra l'audio grezzo."
       }
     },
+    "appProfiles": {
+      "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+      "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+      "add": "Add",
+      "addCorrection": "Add correction"
+    },
     "postProcessing": {
       "hotkey": {
         "title": "Tasto di scelta rapida"
+      },
+      "correction": {
+        "title": "Iterative Correction",
+        "toggleLabel": "Speak Corrections",
+        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
       },
       "api": {
         "title": "API (Compatibile con OpenAI)",

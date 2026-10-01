@@ -10,7 +10,8 @@ use tauri_plugin_store::StoreExt;
 pub const APPLE_INTELLIGENCE_PROVIDER_ID: &str = "apple_intelligence";
 pub const APPLE_INTELLIGENCE_DEFAULT_MODEL_ID: &str = "Apple Intelligence";
 pub const LOCAL_LLM_PROVIDER_ID: &str = "local_llm";
-pub const LOCAL_LLM_DEFAULT_MODEL_ID: &str = "Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf";
+pub const LOCAL_LLM_DEFAULT_MODEL_ID: &str =
+    "Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf";
 
 #[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
 #[serde(rename_all = "lowercase")]
@@ -492,10 +493,10 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
-    /// Per-application profile overrides. Each entry maps an app identifier
-    /// (bundle ID on macOS, process name on Windows/Linux) to optional
-    /// post-processing overrides. When the frontmost app matches a profile,
-    /// its overrides replace the global defaults for that dictation session.
+    /// Per-application profile overrides. Each entry matches the frontmost
+    /// application's name or process file stem (case-insensitive) and carries
+    /// optional post-processing overrides. When a profile matches, its
+    /// overrides replace the global defaults for that dictation session.
     #[serde(default)]
     pub app_profiles: Vec<AppProfile>,
 }
@@ -508,9 +509,8 @@ pub struct AppProfile {
     pub id: String,
     /// Human-readable display name shown in settings UI.
     pub name: String,
-    /// App identifier to match against the frontmost application.
-    /// On macOS this is the bundle identifier (e.g. `com.apple.Xcode`).
-    /// On Windows/Linux this is the process name or executable stem.
+    /// App name or process file stem to match against the frontmost application.
+    /// Compared case-insensitively. Not a bundle identifier.
     pub app_identifier: String,
     /// Override the global post-process prompt for this app. `None` = use global.
     #[serde(default)]

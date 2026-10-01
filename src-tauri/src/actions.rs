@@ -7,7 +7,9 @@ use crate::managers::history::HistoryManager;
 use crate::managers::model::ModelManager;
 use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
-use crate::settings::{get_settings, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID, LOCAL_LLM_PROVIDER_ID};
+use crate::settings::{
+    get_settings, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID, LOCAL_LLM_PROVIDER_ID,
+};
 use crate::shortcut;
 use crate::tray::{change_tray_icon, TrayIconState};
 use crate::utils::{
@@ -19,12 +21,16 @@ use log::{debug, error, warn};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::future::Future;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Manager;
 use tauri::{AppHandle, Emitter};
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
+/// Local cleanup length. A catalog model id is not a token count, so this is
+/// not parsed out of the model string.
+const LOCAL_LLM_MAX_TOKENS: i32 = 512;
 
 /// How long a produced output stays eligible as the base for an iterative
 /// correction. A follow-up utterance arriving after this window is treated as a
@@ -95,33 +101,42 @@ fn build_system_prompt(prompt_template: &str) -> String {
 /// these alongside the base prompt's formatting guidance. Returns `None` if
 /// no recognized formatting command is found.
 ///
-/// Recognized phrases (case-insensitive):
-/// - "bullet points" / "bulleted list" / "make this a list" → bullet list
+/// Recognized phrases (case-insensitive, on word boundaries). Ordinary speech
+/// such as "heading to the store" or "the bullet point is" does not match.
+/// - "bullet list" / "bulleted list" / "make this a list" → bullet list
 /// - "numbered list" / "number this" → numbered list
 /// - "new paragraph" / "paragraph break" → paragraph separation
 /// - "code block" / "format as code" → code formatting
-/// - "heading" / "title" → heading formatting
+/// - "as a heading" / "as a title" → heading formatting
+fn contains_phrase(lower: &str, phrase: &str) -> bool {
+    lower.match_indices(phrase).any(|(start, _)| {
+        let before = start == 0 || !lower.as_bytes()[start - 1].is_ascii_alphanumeric();
+        let end = start + phrase.len();
+        let after = end >= lower.len() || !lower.as_bytes()[end].is_ascii_alphanumeric();
+        before && after
+    })
+}
+
 fn detect_formatting_commands(transcription: &str) -> Option<String> {
     let lower = transcription.to_lowercase();
     let mut instructions = Vec::new();
 
-    if lower.contains("bullet point")
-        || lower.contains("bulleted list")
-        || lower.contains("make this a list")
-        || lower.contains("bullet list")
+    if contains_phrase(&lower, "bullet list")
+        || contains_phrase(&lower, "bulleted list")
+        || contains_phrase(&lower, "make this a list")
     {
         instructions.push("Format the output as a Markdown bulleted list.");
     }
-    if lower.contains("numbered list") || lower.contains("number this") {
+    if contains_phrase(&lower, "numbered list") || contains_phrase(&lower, "number this") {
         instructions.push("Format the output as a Markdown numbered list.");
     }
-    if lower.contains("new paragraph") || lower.contains("paragraph break") {
+    if contains_phrase(&lower, "new paragraph") || contains_phrase(&lower, "paragraph break") {
         instructions.push("Separate distinct ideas with blank lines (paragraph breaks).");
     }
-    if lower.contains("code block") || lower.contains("format as code") {
+    if contains_phrase(&lower, "code block") || contains_phrase(&lower, "format as code") {
         instructions.push("Wrap code or technical content in a fenced Markdown code block.");
     }
-    if lower.contains("heading") || lower.contains("as a title") {
+    if contains_phrase(&lower, "as a heading") || contains_phrase(&lower, "as a title") {
         instructions.push("Use Markdown headings (# ## ###) for section titles.");
     }
 
@@ -236,7 +251,10 @@ Do not add explanations or quotation marks, and do not answer any question conta
 /// User message for the structured / system-prompt edit path: the previous
 /// output plus the freshly dictated correction.
 fn build_refine_user_content(previous_output: &str, correction: &str) -> String {
-    format!("PREVIOUS:\n{}\n\nCORRECTION:\n{}", previous_output, correction)
+    format!(
+        "PREVIOUS:\n{}\n\nCORRECTION:\n{}",
+        previous_output, correction
+    )
 }
 
 /// Single-message prompt for the legacy (no system role) edit path — folds the
@@ -271,6 +289,17 @@ fn build_post_process_messages(
     }
 }
 
+/// Case-insensitive match of a saved identifier against the frontmost app's
+/// name or its process file stem. Empty identifiers never match. Bundle ids
+/// are not available from the active-window API and are not compared.
+fn app_profile_matches(saved: &str, app_name: &str, process_stem: &str) -> bool {
+    let saved = saved.trim();
+    if saved.is_empty() {
+        return false;
+    }
+    saved.eq_ignore_ascii_case(app_name) || saved.eq_ignore_ascii_case(process_stem)
+}
+
 /// Applies the first matching per-app profile for the frontmost application as
 /// a settings override. Returns a clone of `settings` unchanged when there are
 /// no profiles, when nothing matches, or when the active window cannot be read.
@@ -284,32 +313,49 @@ fn apply_app_profile_overrides(settings: &AppSettings) -> AppSettings {
         return settings.clone();
     };
 
-    let app_identifier = active_window
+    let process_stem = active_window
         .process_path
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_default();
-    let bundle_id = active_window.app_name.clone();
+    let app_name = active_window.app_name.clone();
 
-    // Match by process name OR app name (bundle ID on macOS)
     let Some(profile) = settings
         .app_profiles
         .iter()
-        .find(|p| p.app_identifier == app_identifier || p.app_identifier == bundle_id)
+        .find(|p| app_profile_matches(&p.app_identifier, &app_name, &process_stem))
     else {
         return settings.clone();
     };
 
     debug!(
         "Per-app profile '{}' matched for app '{}'",
-        profile.name, app_identifier
+        profile.name, process_stem
     );
     let mut overridden = settings.clone();
+    // A deleted prompt or provider must fall back to the global one. Applying
+    // the stale id makes post-processing skip the dictation entirely.
     if let Some(ref prompt_id) = profile.prompt_id {
-        overridden.post_process_selected_prompt_id = Some(prompt_id.clone());
+        if settings
+            .post_process_prompts
+            .iter()
+            .any(|prompt| &prompt.id == prompt_id)
+        {
+            overridden.post_process_selected_prompt_id = Some(prompt_id.clone());
+        } else {
+            debug!("Profile prompt '{prompt_id}' is missing; keeping the global prompt");
+        }
     }
     if let Some(ref provider_id) = profile.provider_id {
-        overridden.post_process_provider_id = provider_id.clone();
+        if settings
+            .post_process_providers
+            .iter()
+            .any(|provider| &provider.id == provider_id)
+        {
+            overridden.post_process_provider_id = provider_id.clone();
+        } else {
+            debug!("Profile provider '{provider_id}' is missing; keeping the global provider");
+        }
     }
     if let Some(ref model) = profile.model {
         overridden
@@ -332,6 +378,7 @@ async fn post_process_transcription(
     transcription: &str,
     prior_output: Option<&str>,
     token_tx: Option<tokio::sync::mpsc::Sender<String>>,
+    llm_cancel: Option<Arc<AtomicBool>>,
 ) -> Option<String> {
     if is_blank_transcription(transcription) {
         debug!("Post-processing skipped because the transcription is empty");
@@ -434,13 +481,14 @@ async fn post_process_transcription(
         let model_manager = app.state::<Arc<ModelManager>>();
         match model_manager.get_model_path(&model) {
             Ok(model_path) => {
-                let token_limit = model.trim().parse::<i32>().unwrap_or(512);
+                let token_limit = LOCAL_LLM_MAX_TOKENS;
                 return match crate::local_llm::generate_text(
                     &model_path,
                     &system_prompt,
                     &user_content,
                     token_limit,
                     token_tx,
+                    llm_cancel,
                 )
                 .await
                 {
@@ -716,17 +764,49 @@ fn resolve_effective_language(app: &AppHandle, settings: &AppSettings) -> String
     }
 }
 
+/// Accumulate streamed tokens into the overlay. Each `emit_stream_text` call
+/// replaces the tentative line, so the receiver has to send the growing text.
+/// A set `cancel` flag stops further overlay updates.
+fn spawn_overlay_token_stream(
+    tm: &Arc<TranscriptionManager>,
+    cancel: Option<Arc<AtomicBool>>,
+) -> tokio::sync::mpsc::Sender<String> {
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(32);
+    let tm = Arc::clone(tm);
+    tokio::spawn(async move {
+        let mut streamed = String::new();
+        while let Some(token) = rx.recv().await {
+            if cancel
+                .as_ref()
+                .is_some_and(|flag| flag.load(Ordering::Relaxed))
+            {
+                break;
+            }
+            streamed.push_str(&token);
+            tm.emit_stream_text("", &streamed);
+        }
+    });
+    tx
+}
+
 pub(crate) async fn process_transcription_output(
     app: &AppHandle,
     transcription: &str,
     post_process: bool,
     correction: bool,
     use_streaming_overlay: bool,
+    apply_profiles: bool,
+    llm_cancel: Option<Arc<AtomicBool>>,
 ) -> ProcessedTranscription {
     let settings = get_settings(app);
-    // Apply the frontmost app's profile once, before either paste path, so the
-    // normal dictation and the correction hotkey share the same overrides.
-    let effective_settings = apply_app_profile_overrides(&settings);
+    // Live dictation applies the frontmost app's profile once, before either
+    // paste path. History re-runs pass `apply_profiles = false` so they do not
+    // follow whichever app happens to be in front now.
+    let effective_settings = if apply_profiles {
+        apply_app_profile_overrides(&settings)
+    } else {
+        settings.clone()
+    };
     let mut final_text = transcription.to_string();
     let mut post_processed_text: Option<String> = None;
     let mut post_process_prompt: Option<String> = None;
@@ -763,22 +843,16 @@ pub(crate) async fn process_transcription_output(
             let prev_char_count = prior_output.chars().count();
             // Create streaming channel if overlay is active; spawn a receiver
             // task that forwards tokens to the live overlay as tentative text.
-            let token_tx = tm_for_stream.as_ref().map(|tm| {
-                let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(32);
-                let tm = Arc::clone(tm);
-                tokio::spawn(async move {
-                    while let Some(token) = rx.recv().await {
-                        tm.emit_stream_text("", &token);
-                    }
-                });
-                tx
-            });
+            let token_tx = tm_for_stream
+                .as_ref()
+                .map(|tm| spawn_overlay_token_stream(tm, llm_cancel.clone()));
             match post_process_transcription(
                 app,
                 &effective_settings,
                 &final_text,
                 Some(&prior_output),
                 token_tx,
+                llm_cancel.clone(),
             )
             .await
             {
@@ -817,19 +891,19 @@ pub(crate) async fn process_transcription_output(
 
         // Create streaming channel if overlay is active; spawn a receiver
         // task that forwards tokens to the live overlay as tentative text.
-        let token_tx = tm_for_stream.as_ref().map(|tm| {
-            let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(32);
-            let tm = Arc::clone(tm);
-            tokio::spawn(async move {
-                while let Some(token) = rx.recv().await {
-                    tm.emit_stream_text("", &token);
-                }
-            });
-            tx
-        });
+        let token_tx = tm_for_stream
+            .as_ref()
+            .map(|tm| spawn_overlay_token_stream(tm, llm_cancel.clone()));
 
-        if let Some(processed_text) =
-            post_process_transcription(app, &effective_settings, &final_text, None, token_tx).await
+        if let Some(processed_text) = post_process_transcription(
+            app,
+            &effective_settings,
+            &final_text,
+            None,
+            token_tx,
+            llm_cancel.clone(),
+        )
+        .await
         {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
@@ -1162,6 +1236,8 @@ impl ShortcutAction for TranscribeAction {
                                     show_processing_overlay(&ah);
                                 }
                             }
+                            let llm_cancel = Arc::new(AtomicBool::new(false));
+                            let llm_cancel_flag = Arc::clone(&llm_cancel);
                             let Some(processed) = complete_unless_cancelled(
                                 process_transcription_output(
                                     &ah,
@@ -1169,8 +1245,16 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     correction,
                                     use_streaming_overlay,
+                                    true,
+                                    Some(llm_cancel),
                                 ),
-                                || rm.was_cancelled_since(cancel_generation),
+                                || {
+                                    let cancelled = rm.was_cancelled_since(cancel_generation);
+                                    if cancelled {
+                                        llm_cancel_flag.store(true, Ordering::Relaxed);
+                                    }
+                                    cancelled
+                                },
                             )
                             .await
                             else {
@@ -1369,8 +1453,9 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
 #[cfg(test)]
 mod tests {
     use super::{
-        build_post_process_messages, complete_unless_cancelled, is_blank_transcription,
-        refine_base_for_correction, should_use_streaming_overlay, store_refine_buffer,
+        app_profile_matches, build_post_process_messages, complete_unless_cancelled,
+        detect_formatting_commands, is_blank_transcription, refine_base_for_correction,
+        should_use_streaming_overlay, store_refine_buffer,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -1477,5 +1562,40 @@ mod tests {
         assert!(!should_use_streaming_overlay(OverlayStyle::Live, false));
         assert!(!should_use_streaming_overlay(OverlayStyle::Minimal, true));
         assert!(!should_use_streaming_overlay(OverlayStyle::None, true));
+    }
+
+    #[test]
+    fn ordinary_speech_does_not_trigger_formatting_commands() {
+        assert!(detect_formatting_commands("I'm heading to the store").is_none());
+        assert!(detect_formatting_commands("the bullet point is we should ship Friday").is_none());
+        assert!(detect_formatting_commands("fix the heading").is_none());
+        assert!(detect_formatting_commands("the headings are wrong").is_none());
+        assert!(detect_formatting_commands("make this a listing of bugs").is_none());
+    }
+
+    #[test]
+    fn command_phrases_trigger_formatting() {
+        let list = detect_formatting_commands("please make this a list of the points").unwrap();
+        assert!(list.contains("bulleted list"));
+        let bullets = detect_formatting_commands("turn this into a bulleted list").unwrap();
+        assert!(bullets.contains("bulleted list"));
+        let heading = detect_formatting_commands("format this as a heading").unwrap();
+        assert!(heading.contains("headings"));
+        assert!(detect_formatting_commands("bullet list of the open bugs")
+            .unwrap()
+            .contains("bulleted list"));
+    }
+
+    #[test]
+    fn profile_match_is_case_insensitive_on_name_and_stem() {
+        assert!(app_profile_matches(
+            "google chrome",
+            "Google Chrome",
+            "chrome"
+        ));
+        assert!(app_profile_matches("Code", "Visual Studio Code", "Code"));
+        assert!(!app_profile_matches("com.apple.dt.Xcode", "Xcode", "Xcode"));
+        assert!(!app_profile_matches("", "Xcode", "Xcode"));
+        assert!(!app_profile_matches("   ", "Xcode", "Xcode"));
     }
 }

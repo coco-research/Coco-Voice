@@ -196,6 +196,10 @@
           "transcribe_with_post_process": {
             "name": "後処理のショートカット",
             "description": "文字起こしに常に AI 後処理を適用するキーボードショートカット。 (任意)"
+          },
+          "correction": {
+            "name": "Speak Correction",
+            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
           }
         },
         "errors": {
@@ -369,9 +373,20 @@
         "description": "録音から無音部分を除去します。ストリーミング対応モデルはより長い音声検出区間を使用します。VAD を無効にすると音声をそのまま録音します。"
       }
     },
+    "appProfiles": {
+      "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+      "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+      "add": "Add",
+      "addCorrection": "Add correction"
+    },
     "postProcessing": {
       "hotkey": {
         "title": "ショートカット"
+      },
+      "correction": {
+        "title": "Iterative Correction",
+        "toggleLabel": "Speak Corrections",
+        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
       },
       "api": {
         "title": "API (OpenAI 互換)",
