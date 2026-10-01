@@ -414,6 +414,16 @@
           "placeholderWithOptions": "Vyhledejte nebo vyberte model",
           "placeholderNoOptions": "Zadejte název modelu",
           "refreshModels": "Obnovit modely"
+        },
+        "localLlm": {
+          "title": "Místní model",
+          "description": "Model v zařízení, který čistí přepisy. Stáhněte ho jednou.",
+          "notDownloaded": "Nestaženo",
+          "downloading": "Stahování {{percent}} %",
+          "ready": "Připraveno",
+          "download": "Stáhnout",
+          "cancel": "Zrušit",
+          "unavailable": "Místní model není k dispozici."
         }
       },
       "prompts": {

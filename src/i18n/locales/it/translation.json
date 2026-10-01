@@ -414,6 +414,16 @@
           "placeholderWithOptions": "Cerca o scegli un modello",
           "placeholderNoOptions": "Digita il nome di un modello",
           "refreshModels": "Aggiorna modelli"
+        },
+        "localLlm": {
+          "title": "Modello locale",
+          "description": "Modello sul dispositivo che pulisce le trascrizioni. Scaricalo una volta.",
+          "notDownloaded": "Non scaricato",
+          "downloading": "Download {{percent}}%",
+          "ready": "Pronto",
+          "download": "Scarica",
+          "cancel": "Annulla",
+          "unavailable": "Il modello locale non è disponibile."
         }
       },
       "prompts": {

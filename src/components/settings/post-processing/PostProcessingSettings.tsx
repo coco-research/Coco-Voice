@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
+import { listen } from "@tauri-apps/api/event";
 import { RefreshCcw } from "lucide-react";
-import { commands } from "@/bindings";
+import { commands, type ModelInfo } from "@/bindings";
+import { useModelStore } from "@/stores/modelStore";
 
 import { Alert } from "../../ui/Alert";
 import {
@@ -24,9 +26,153 @@ import { IterativeCorrectionToggle } from "../IterativeCorrectionToggle";
 import { AppProfiles } from "../AppProfiles";
 import { useSettings } from "../../../hooks/useSettings";
 
+/** Registry id of the on-device post-process GGUF.
+ *  Same string as `LOCAL_LLM_DEFAULT_MODEL_ID`: `{catalog repo id}/{filename}`.
+ *  `get_model_path` looks that id up directly.
+ */
+const LOCAL_LLM_PROVIDER_ID = "local_llm";
+const LOCAL_LLM_DEFAULT_MODEL_ID =
+  "Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf";
+
+const LocalLlmModelRow: React.FC<{ modelId: string }> = ({ modelId }) => {
+  const { t } = useTranslation();
+  const [info, setInfo] = useState<ModelInfo | null | undefined>(undefined);
+  const progress = useModelStore((s) => s.downloadProgress[modelId]);
+  const downloading = useModelStore((s) => modelId in s.downloadingModels);
+  const verifying = useModelStore((s) => modelId in s.verifyingModels);
+  const downloadModel = useModelStore((s) => s.downloadModel);
+  const cancelDownload = useModelStore((s) => s.cancelDownload);
+
+  const refresh = useCallback(async () => {
+    try {
+      const result = await commands.getModelInfo(modelId);
+      setInfo(result.status === "ok" ? result.data : null);
+    } catch {
+      setInfo(null);
+    }
+  }, [modelId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    let active = true;
+    const unlisteners: Array<() => void> = [];
+    void Promise.all([
+      listen<string>("model-download-complete", (event) => {
+        if (event.payload === modelId) void refresh();
+      }),
+      listen<string>("model-download-cancelled", (event) => {
+        if (event.payload === modelId) void refresh();
+      }),
+      listen<{ model_id: string }>("model-download-failed", (event) => {
+        if (event.payload.model_id === modelId) void refresh();
+      }),
+    ])
+      .then((fns) => {
+        if (!active) {
+          fns.forEach((fn) => fn());
+          return;
+        }
+        unlisteners.push(...fns);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      unlisteners.forEach((fn) => fn());
+    };
+  }, [modelId, refresh]);
+
+  const busy = downloading || verifying || Boolean(info?.is_downloading);
+  const ready = Boolean(info?.is_downloaded) && !busy;
+  const percent = Math.max(
+    0,
+    Math.min(100, Math.round(progress?.percentage ?? 0)),
+  );
+
+  let status = "";
+  if (info === null) {
+    status = t("settings.postProcessing.api.localLlm.unavailable");
+  } else if (info) {
+    if (busy) {
+      status = t("settings.postProcessing.api.localLlm.downloading", {
+        percent,
+      });
+    } else if (ready) {
+      status = t("settings.postProcessing.api.localLlm.ready");
+    } else {
+      status = t("settings.postProcessing.api.localLlm.notDownloaded");
+    }
+  }
+
+  return (
+    <SettingContainer
+      title={t("settings.postProcessing.api.localLlm.title")}
+      description={t("settings.postProcessing.api.localLlm.description")}
+      descriptionMode="tooltip"
+      layout="horizontal"
+      grouped={true}
+    >
+      <div className="flex items-center gap-2">
+        {busy && (
+          <div
+            className="h-1.5 w-24 overflow-hidden rounded-full bg-mid-gray/20"
+            role="progressbar"
+            aria-valuenow={percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={status}
+          >
+            <div
+              className="h-full rounded-full bg-logo-primary motion-safe:transition-[width] motion-safe:duration-300"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        )}
+        <span
+          className="text-sm text-text/70 whitespace-nowrap"
+          aria-live="polite"
+        >
+          {status}
+        </span>
+        {busy ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void cancelDownload(modelId).finally(() => {
+                void refresh();
+              });
+            }}
+          >
+            {t("settings.postProcessing.api.localLlm.cancel")}
+          </Button>
+        ) : info && !ready ? (
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={() => {
+              void downloadModel(modelId).finally(() => {
+                void refresh();
+              });
+            }}
+          >
+            {t("settings.postProcessing.api.localLlm.download")}
+          </Button>
+        ) : null}
+      </div>
+    </SettingContainer>
+  );
+};
+
 const PostProcessingSettingsApiComponent: React.FC = () => {
   const { t } = useTranslation();
   const state = usePostProcessProviderState();
+  const isLocalLlm = state.selectedProvider?.id === LOCAL_LLM_PROVIDER_ID;
+  const localLlmModelId = state.model.trim() || LOCAL_LLM_DEFAULT_MODEL_ID;
 
   return (
     <>
@@ -52,6 +198,8 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
             {t("settings.postProcessing.api.appleIntelligence.unavailable")}
           </Alert>
         ) : null
+      ) : isLocalLlm ? (
+        <LocalLlmModelRow modelId={localLlmModelId} />
       ) : (
         <>
           {state.selectedProvider?.id === "custom" && (
@@ -98,7 +246,7 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
         </>
       )}
 
-      {!state.isAppleProvider && (
+      {!state.isAppleProvider && !isLocalLlm && (
         <SettingContainer
           title={t("settings.postProcessing.api.model.title")}
           description={
@@ -461,7 +609,12 @@ export const PostProcessingSettings: React.FC = () => {
         <PostProcessingSettingsPrompts />
       </SettingsGroup>
 
-      <SettingsGroup title={t("settings.postProcessing.appProfiles.title", "Per-App Profiles")}>
+      <SettingsGroup
+        title={t(
+          "settings.postProcessing.appProfiles.title",
+          "Per-App Profiles",
+        )}
+      >
         <AppProfiles />
       </SettingsGroup>
     </div>

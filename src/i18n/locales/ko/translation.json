@@ -414,6 +414,16 @@
           "placeholderWithOptions": "모델 검색 또는 선택",
           "placeholderNoOptions": "모델 이름 입력",
           "refreshModels": "모델 새로고침"
+        },
+        "localLlm": {
+          "title": "로컬 모델",
+          "description": "받아쓰기를 다듬는 기기 내 모델입니다. 한 번 다운로드하세요.",
+          "notDownloaded": "다운로드되지 않음",
+          "downloading": "다운로드 중 {{percent}}%",
+          "ready": "준비됨",
+          "download": "다운로드",
+          "cancel": "취소",
+          "unavailable": "로컬 모델을 사용할 수 없습니다."
         }
       },
       "prompts": {

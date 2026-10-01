@@ -414,6 +414,16 @@
           "placeholderWithOptions": "Tìm kiếm hoặc chọn một mô hình",
           "placeholderNoOptions": "Nhập tên mô hình",
           "refreshModels": "Làm mới mô hình"
+        },
+        "localLlm": {
+          "title": "Mô hình cục bộ",
+          "description": "Mô hình trên máy dùng để chỉnh bản chép lời. Tải một lần.",
+          "notDownloaded": "Chưa tải",
+          "downloading": "Đang tải {{percent}}%",
+          "ready": "Sẵn sàng",
+          "download": "Tải xuống",
+          "cancel": "Hủy",
+          "unavailable": "Không có mô hình cục bộ."
         }
       },
       "prompts": {

@@ -414,6 +414,16 @@
           "placeholderWithOptions": "Rechercher ou sélectionner un modèle",
           "placeholderNoOptions": "Tapez un nom de modèle",
           "refreshModels": "Actualiser les modèles"
+        },
+        "localLlm": {
+          "title": "Modèle local",
+          "description": "Modèle sur l'appareil qui nettoie les transcriptions. À télécharger une fois.",
+          "notDownloaded": "Non téléchargé",
+          "downloading": "Téléchargement {{percent}} %",
+          "ready": "Prêt",
+          "download": "Télécharger",
+          "cancel": "Annuler",
+          "unavailable": "Le modèle local n'est pas disponible."
         }
       },
       "prompts": {

@@ -414,6 +414,16 @@
           "placeholderWithOptions": "Търсене или избор на модел",
           "placeholderNoOptions": "Въведете име на модел",
           "refreshModels": "Опресняване на моделите"
+        },
+        "localLlm": {
+          "title": "Локален модел",
+          "description": "Модел на устройството, който почиства транскрипциите. Изтеглете го веднъж.",
+          "notDownloaded": "Не е изтеглен",
+          "downloading": "Изтегляне {{percent}}%",
+          "ready": "Готов",
+          "download": "Изтегли",
+          "cancel": "Отказ",
+          "unavailable": "Локалният модел не е наличен."
         }
       },
       "prompts": {

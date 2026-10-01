@@ -414,6 +414,16 @@
           "placeholderWithOptions": "Sök eller välj en modell",
           "placeholderNoOptions": "Ange ett modellnamn",
           "refreshModels": "Uppdatera modeller"
+        },
+        "localLlm": {
+          "title": "Lokal modell",
+          "description": "Modell på enheten som städar transkriptioner. Ladda ner den en gång.",
+          "notDownloaded": "Inte nedladdad",
+          "downloading": "Laddar ner {{percent}}%",
+          "ready": "Redo",
+          "download": "Ladda ner",
+          "cancel": "Avbryt",
+          "unavailable": "Den lokala modellen är inte tillgänglig."
         }
       },
       "prompts": {

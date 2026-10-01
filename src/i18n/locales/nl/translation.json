@@ -414,6 +414,16 @@
           "placeholderWithOptions": "Zoek of selecteer een model",
           "placeholderNoOptions": "Typ een modelnaam",
           "refreshModels": "Modellen verversen"
+        },
+        "localLlm": {
+          "title": "Lokaal model",
+          "description": "Model op het apparaat dat transcripties opschoont. Eenmalig downloaden.",
+          "notDownloaded": "Niet gedownload",
+          "downloading": "Downloaden {{percent}}%",
+          "ready": "Gereed",
+          "download": "Downloaden",
+          "cancel": "Annuleren",
+          "unavailable": "Het lokale model is niet beschikbaar."
         }
       },
       "prompts": {

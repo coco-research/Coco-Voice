@@ -414,6 +414,16 @@
           "placeholderWithOptions": "Buscar ou selecionar um modelo",
           "placeholderNoOptions": "Digite o nome de um modelo",
           "refreshModels": "Atualizar modelos"
+        },
+        "localLlm": {
+          "title": "Modelo local",
+          "description": "Modelo no dispositivo que limpa as transcrições. Transfira-o uma vez.",
+          "notDownloaded": "Não transferido",
+          "downloading": "A transferir {{percent}}%",
+          "ready": "Pronto",
+          "download": "Transferir",
+          "cancel": "Cancelar",
+          "unavailable": "O modelo local não está disponível."
         }
       },
       "prompts": {

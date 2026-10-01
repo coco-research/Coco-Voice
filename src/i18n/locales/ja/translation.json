@@ -414,6 +414,16 @@
           "placeholderWithOptions": "モデルを検索または選択",
           "placeholderNoOptions": "モデル名を入力",
           "refreshModels": "モデルを更新"
+        },
+        "localLlm": {
+          "title": "ローカルモデル",
+          "description": "文字起こしを整える端末内モデルです。一度ダウンロードしてください。",
+          "notDownloaded": "未ダウンロード",
+          "downloading": "ダウンロード中 {{percent}}%",
+          "ready": "準備完了",
+          "download": "ダウンロード",
+          "cancel": "キャンセル",
+          "unavailable": "ローカルモデルを利用できません。"
         }
       },
       "prompts": {

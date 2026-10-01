@@ -414,6 +414,16 @@
           "placeholderWithOptions": "Modell suchen oder auswählen",
           "placeholderNoOptions": "Modellnamen eingeben",
           "refreshModels": "Modelle aktualisieren"
+        },
+        "localLlm": {
+          "title": "Lokales Modell",
+          "description": "Modell auf dem Gerät, das Transkriptionen bereinigt. Einmal herunterladen.",
+          "notDownloaded": "Nicht heruntergeladen",
+          "downloading": "Wird heruntergeladen {{percent}}%",
+          "ready": "Bereit",
+          "download": "Herunterladen",
+          "cancel": "Abbrechen",
+          "unavailable": "Das lokale Modell ist nicht verfügbar."
         }
       },
       "prompts": {
