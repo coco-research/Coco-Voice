@@ -9,8 +9,8 @@
 //! The active implementation is determined by the `keyboard_implementation`
 //! setting and can be changed at runtime.
 
-mod handler;
 pub mod coco_keys;
+mod handler;
 mod tauri_impl;
 
 use log::{error, info, warn};
@@ -283,7 +283,9 @@ pub fn change_keyboard_implementation_setting(
     settings::write_settings(&app, settings);
 
     // Initialize new implementation if needed (CocoVoiceKeys needs state)
-    if new_impl == KeyboardImplementation::CocoVoiceKeys && initialize_handy_keys_with_rollback(&app)? {
+    if new_impl == KeyboardImplementation::CocoVoiceKeys
+        && initialize_handy_keys_with_rollback(&app)?
+    {
         // Shortcuts already registered during init
         return Ok(ImplementationChangeResult {
             success: true,

@@ -196,6 +196,10 @@
           "transcribe_with_post_process": {
             "name": "Son İşlem Kısayolu",
             "description": "İsteğe bağlı: Transkripsiyonunuza her zaman AI son işleme uygulayan özel bir kısayol tuşu."
+          },
+          "correction": {
+            "name": "Düzeltme söyle",
+            "description": "Son diktenizi değiştiren bir düzeltme söylemek için klavye kısayolu. Etkinleştirmek için bir tuş atayın."
           }
         },
         "errors": {
@@ -372,6 +376,11 @@
     "postProcessing": {
       "hotkey": {
         "title": "Kısayol Tuşu"
+      },
+      "correction": {
+        "title": "Yinelemeli düzeltme",
+        "toggleLabel": "Düzeltme söyle",
+        "toggleDescription": "Son diktenizi sesli bir düzeltmeyle değiştirmek için bastığınız açık bir kısayol ekler. Anahtar sözcüklerle asla kendiliğinden tetiklenmez. Atanan tuşa basın, düzeltmeyi söyleyin; önceki çıktı yerinde düzenlenir."
       },
       "api": {
         "title": "API (OpenAI Uyumlu)",

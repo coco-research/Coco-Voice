@@ -23,7 +23,9 @@ interface CocoVoiceKeysEvent {
   hotkey_string: string;
 }
 
-export const CocoVoiceKeysShortcutInput: React.FC<CocoVoiceKeysShortcutInputProps> = ({
+export const CocoVoiceKeysShortcutInput: React.FC<
+  CocoVoiceKeysShortcutInputProps
+> = ({
   descriptionMode = "tooltip",
   grouped = false,
   shortcutId,

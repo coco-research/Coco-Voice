@@ -196,6 +196,10 @@
           "transcribe_with_post_process": {
             "name": "Klávesa pro následné zpracování",
             "description": "Volitelné: Vyhrazená klávesová zkratka, která vždy použije AI následné zpracování na váš přepis."
+          },
+          "correction": {
+            "name": "Vyslovit opravu",
+            "description": "Klávesová zkratka pro vyslovení opravy, která nahradí váš poslední diktát. Přiřaďte klávesu, abyste ji zapnuli."
           }
         },
         "errors": {
@@ -372,6 +376,11 @@
     "postProcessing": {
       "hotkey": {
         "title": "Klávesová zkratka"
+      },
+      "correction": {
+        "title": "Iterativní oprava",
+        "toggleLabel": "Vyslovovat opravy",
+        "toggleDescription": "Přidá samostatnou klávesovou zkratku, kterou stisknete, abyste nahradili svůj poslední diktát vyslovenou opravou. Nikdy se nespustí automaticky podle klíčových slov. Stiskněte přiřazenou klávesu, vyslovte opravu a předchozí výstup se upraví na místě."
       },
       "api": {
         "title": "API (kompatibilní s OpenAI)",

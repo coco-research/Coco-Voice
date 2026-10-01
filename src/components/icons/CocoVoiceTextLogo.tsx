@@ -1,5 +1,7 @@
 import React from "react";
 
+const WORDMARK = "Coco Voice";
+
 const CocoVoiceTextLogo = ({
   width,
   height,
@@ -19,7 +21,14 @@ const CocoVoiceTextLogo = ({
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
-        <linearGradient id="coco-grad" x1="0" y1="0" x2="280" y2="0" gradientUnits="userSpaceOnUse">
+        <linearGradient
+          id="coco-grad"
+          x1="0"
+          y1="0"
+          x2="280"
+          y2="0"
+          gradientUnits="userSpaceOnUse"
+        >
           <stop stopColor="#4D7CFF" />
           <stop offset="0.5" stopColor="#2251FF" />
           <stop offset="1" stopColor="#4D7CFF" />
@@ -34,7 +43,7 @@ const CocoVoiceTextLogo = ({
         fill="url(#coco-grad)"
         letterSpacing="-0.5"
       >
-        Coco Voice
+        {WORDMARK}
       </text>
     </svg>
   );

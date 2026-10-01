@@ -61,10 +61,7 @@ export function learnCorrectionsFromEdit(
   }
 
   // No change at all, or too many changes (a rewrite) → learn nothing.
-  if (
-    changedIndexes.length === 0 ||
-    changedIndexes.length > MAX_WORD_CHANGES
-  ) {
+  if (changedIndexes.length === 0 || changedIndexes.length > MAX_WORD_CHANGES) {
     return [];
   }
 
