@@ -181,7 +181,7 @@
             };
           };
 
-          default = self.packages.$${system}.coco-voice;
+          default = self.packages.${system}.coco-voice;
         }
       );
 
