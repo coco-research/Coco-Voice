@@ -573,8 +573,14 @@ fn default_paste_delay_ms() -> u64 {
     60
 }
 
+/// How long to wait after the paste keystroke before the previous clipboard is
+/// restored. The target app reads the pasteboard on its own thread, so a busy app
+/// (heavy browser page, indexing IDE) can take well over 60ms to do it; restoring
+/// earlier makes it insert the old clipboard instead of the transcript.
+const DEFAULT_PASTE_DELAY_AFTER_MS: u64 = 300;
+
 fn default_paste_delay_after_ms() -> u64 {
-    60
+    DEFAULT_PASTE_DELAY_AFTER_MS
 }
 
 fn default_auto_submit() -> bool {
@@ -1334,6 +1340,15 @@ mod tests {
 
         // A current-format store must not be rewritten on every read.
         assert!(!apply_settings_migrations(&mut settings, &stored));
+    }
+
+    #[test]
+    fn default_paste_delay_after_lets_slow_targets_read_the_clipboard() {
+        // 60ms restored the clipboard before busy apps had pasted (#13).
+        assert!(get_default_settings().paste_delay_after_ms >= 300);
+        // An empty store (existing user without the key) gets the same default.
+        let settings: AppSettings = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(settings.paste_delay_after_ms, DEFAULT_PASTE_DELAY_AFTER_MS);
     }
 
     #[test]
