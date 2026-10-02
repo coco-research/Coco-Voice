@@ -12,7 +12,29 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 #[cfg(target_os = "linux")]
 use crate::utils::{is_kde_wayland, is_wayland};
 
-/// Pastes text using the clipboard: saves current content, writes text, sends paste keystroke, restores clipboard.
+/// How a clipboard paste treats whatever the clipboard currently holds.
+#[derive(Debug, PartialEq)]
+enum ClipboardPlan {
+    /// The clipboard holds text: save it, paste through the clipboard, restore it.
+    SwapAndRestore(String),
+    /// The clipboard holds something we cannot read back as text (an image, files,
+    /// or nothing). Overwriting it would destroy it, so the paste types the text
+    /// directly (ignoring the configured paste method and delays) instead.
+    TypeDirectly,
+}
+
+/// Decides how to paste from the result of reading the clipboard as text. A failed
+/// read must never be turned into an empty string and "restored" later, because
+/// that wipes a non-text clipboard (images, copied files).
+fn plan_clipboard_paste<E>(read: Result<String, E>) -> ClipboardPlan {
+    match read {
+        Ok(content) => ClipboardPlan::SwapAndRestore(content),
+        Err(_) => ClipboardPlan::TypeDirectly,
+    }
+}
+
+/// Pastes text using the clipboard: writes `text`, sends the paste keystroke, then restores
+/// `clipboard_content`, the text the caller saved beforehand. The clipboard is restored whether or not the keystroke succeeds.
 fn paste_via_clipboard(
     enigo: &mut Enigo,
     text: &str,
@@ -20,9 +42,9 @@ fn paste_via_clipboard(
     paste_method: &PasteMethod,
     paste_delay_ms: u64,
     paste_delay_after_ms: u64,
+    clipboard_content: &str,
 ) -> Result<(), String> {
     let clipboard = app_handle.clipboard();
-    let clipboard_content = clipboard.read_text().unwrap_or_default();
 
     // Write text to clipboard first
     // On Wayland, prefer wl-copy for better compatibility (especially with umlauts)
@@ -43,40 +65,43 @@ fn paste_via_clipboard(
 
     write_result?;
 
-    std::thread::sleep(Duration::from_millis(paste_delay_ms));
+    let key_result = (|| -> Result<(), String> {
+        std::thread::sleep(Duration::from_millis(paste_delay_ms));
 
-    // Send paste key combo
-    #[cfg(target_os = "linux")]
-    let key_combo_sent = try_send_key_combo_linux(paste_method)?;
+        // Send paste key combo
+        #[cfg(target_os = "linux")]
+        let key_combo_sent = try_send_key_combo_linux(paste_method)?;
 
-    #[cfg(not(target_os = "linux"))]
-    let key_combo_sent = false;
+        #[cfg(not(target_os = "linux"))]
+        let key_combo_sent = false;
 
-    // Fall back to enigo if no native tool handled it
-    if !key_combo_sent {
-        match paste_method {
-            PasteMethod::CtrlV => input::send_paste_ctrl_v(enigo)?,
-            PasteMethod::CtrlShiftV => input::send_paste_ctrl_shift_v(enigo)?,
-            PasteMethod::ShiftInsert => input::send_paste_shift_insert(enigo)?,
-            _ => return Err("Invalid paste method for clipboard paste".into()),
+        // Fall back to enigo if no native tool handled it
+        if !key_combo_sent {
+            match paste_method {
+                PasteMethod::CtrlV => input::send_paste_ctrl_v(enigo)?,
+                PasteMethod::CtrlShiftV => input::send_paste_ctrl_shift_v(enigo)?,
+                PasteMethod::ShiftInsert => input::send_paste_shift_insert(enigo)?,
+                _ => return Err("Invalid paste method for clipboard paste".into()),
+            }
         }
-    }
 
-    std::thread::sleep(Duration::from_millis(paste_delay_after_ms));
+        std::thread::sleep(Duration::from_millis(paste_delay_after_ms));
+        Ok(())
+    })();
 
     // Restore original clipboard content
     // On Wayland, prefer wl-copy for better compatibility
     #[cfg(target_os = "linux")]
     if is_wayland() && is_wl_copy_available() {
-        let _ = write_clipboard_via_wl_copy(&clipboard_content);
+        let _ = write_clipboard_via_wl_copy(clipboard_content);
     } else {
-        let _ = clipboard.write_text(&clipboard_content);
+        let _ = clipboard.write_text(clipboard_content);
     }
 
     #[cfg(not(target_os = "linux"))]
-    let _ = clipboard.write_text(&clipboard_content);
+    let _ = clipboard.write_text(clipboard_content);
 
-    Ok(())
+    key_result
 }
 
 /// Attempts to send a key combination using Linux-native tools.
@@ -630,14 +655,26 @@ pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
             )?;
         }
         PasteMethod::CtrlV | PasteMethod::CtrlShiftV | PasteMethod::ShiftInsert => {
-            paste_via_clipboard(
-                &mut enigo,
-                &text,
-                &app_handle,
-                &paste_method,
-                paste_delay_ms,
-                paste_delay_after_ms,
-            )?
+            match plan_clipboard_paste(app_handle.clipboard().read_text()) {
+                ClipboardPlan::SwapAndRestore(clipboard_content) => paste_via_clipboard(
+                    &mut enigo,
+                    &text,
+                    &app_handle,
+                    &paste_method,
+                    paste_delay_ms,
+                    paste_delay_after_ms,
+                    &clipboard_content,
+                )?,
+                ClipboardPlan::TypeDirectly => {
+                    info!("Clipboard holds non-text content; typing directly to preserve it");
+                    paste_direct(
+                        &mut enigo,
+                        &text,
+                        #[cfg(target_os = "linux")]
+                        settings.typing_tool,
+                    )?;
+                }
+            }
         }
         PasteMethod::ExternalScript => {
             let script_path = settings
@@ -734,6 +771,20 @@ pub fn replace_previous(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unreadable_clipboard_is_never_swapped() {
+        // A failed text read (image, files, empty) must not become an empty string
+        // that is later "restored" over the user's clipboard.
+        assert_eq!(
+            plan_clipboard_paste(Err::<String, _>("no text")),
+            ClipboardPlan::TypeDirectly
+        );
+        assert_eq!(
+            plan_clipboard_paste(Ok::<_, ()>("saved".to_string())),
+            ClipboardPlan::SwapAndRestore("saved".to_string())
+        );
+    }
 
     #[test]
     fn auto_submit_requires_setting_enabled() {
