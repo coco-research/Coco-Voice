@@ -707,6 +707,10 @@ impl TranscriptionManager {
         }
 
         *is_loading = true;
+        let loading_guard = LoadingGuard {
+            is_loading: self.is_loading.clone(),
+            loading_condvar: self.loading_condvar.clone(),
+        };
         let self_clone = self.clone();
         thread::spawn(move || {
             if reload_pending {
@@ -714,13 +718,12 @@ impl TranscriptionManager {
                     .reload_model_on_next_use
                     .store(false, Ordering::Release);
             }
+            // Clears the flag and wakes waiters on any exit, including a panic.
+            let _loading_guard = loading_guard;
             let settings = get_settings(&self_clone.app_handle);
             if let Err(e) = self_clone.load_model(&settings.selected_model) {
                 error!("Failed to load model: {}", e);
             }
-            let mut is_loading = self_clone.is_loading.lock().unwrap();
-            *is_loading = false;
-            self_clone.loading_condvar.notify_all();
         });
     }
 
@@ -1902,6 +1905,24 @@ mod tests {
         assert!(matches!(plan.task, Task::Transcribe));
         assert_eq!(plan.language.as_deref(), Some("zh"));
         assert_eq!(plan.target_language, None);
+    }
+
+    #[test]
+    fn loading_guard_clears_flag_when_load_panics() {
+        let flag = Arc::new(Mutex::new(true));
+        let condvar = Arc::new(Condvar::new());
+        let guard = LoadingGuard {
+            is_loading: flag.clone(),
+            loading_condvar: condvar,
+        };
+
+        let result = catch_unwind(AssertUnwindSafe(move || {
+            let _loading_guard = guard;
+            panic!("model loader panicked");
+        }));
+
+        assert!(result.is_err());
+        assert!(!*flag.lock().unwrap());
     }
 
     #[test]
