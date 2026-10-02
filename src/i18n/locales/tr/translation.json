@@ -373,6 +373,12 @@
         "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
       }
     },
+    "appProfiles": {
+      "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+      "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+      "add": "Add",
+      "addCorrection": "Add correction"
+    },
     "postProcessing": {
       "hotkey": {
         "title": "Kısayol Tuşu"
@@ -408,6 +414,16 @@
           "placeholderWithOptions": "Model ara veya seç",
           "placeholderNoOptions": "Model adı yazın",
           "refreshModels": "Modelleri Yenile"
+        },
+        "localLlm": {
+          "title": "Yerel model",
+          "description": "Yazıya dökmeleri temizleyen cihaz içi model. Bir kez indirin.",
+          "notDownloaded": "İndirilmedi",
+          "downloading": "İndiriliyor {{percent}}%",
+          "ready": "Hazır",
+          "download": "İndir",
+          "cancel": "İptal",
+          "unavailable": "Yerel model kullanılamıyor."
         }
       },
       "prompts": {

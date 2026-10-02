@@ -373,6 +373,12 @@
         "description": "録音から無音部分を除去します。ストリーミング対応モデルはより長い音声検出区間を使用します。VAD を無効にすると音声をそのまま録音します。"
       }
     },
+    "appProfiles": {
+      "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+      "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+      "add": "Add",
+      "addCorrection": "Add correction"
+    },
     "postProcessing": {
       "hotkey": {
         "title": "ショートカット"
@@ -408,6 +414,16 @@
           "placeholderWithOptions": "モデルを検索または選択",
           "placeholderNoOptions": "モデル名を入力",
           "refreshModels": "モデルを更新"
+        },
+        "localLlm": {
+          "title": "ローカルモデル",
+          "description": "文字起こしを整える端末内モデルです。一度ダウンロードしてください。",
+          "notDownloaded": "未ダウンロード",
+          "downloading": "ダウンロード中 {{percent}}%",
+          "ready": "準備完了",
+          "download": "ダウンロード",
+          "cancel": "キャンセル",
+          "unavailable": "ローカルモデルを利用できません。"
         }
       },
       "prompts": {

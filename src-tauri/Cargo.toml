@@ -53,6 +53,9 @@ anyhow = "1.0.95"
 rubato = "0.16.2"
 hound = "3.5.1"
 log = "0.4.25"
+# Direct dep so local_llm can keep one encoding_rs decoder across llama.cpp tokens.
+# Same version llama-cpp-2 0.1.156 already pins.
+encoding_rs = "0.8.35"
 env_filter = "0.1.0"
 tokio = "1.43.0"
 vad-rs = { git = "https://github.com/cjpais/vad-rs", default-features = false }
@@ -76,6 +79,7 @@ transcribe-rs = { version = "0.3.8", features = ["onnx"] }
 transcribe-cpp = { version = "0.1.2", default-features = false }
 handy-keys = "0.3.0"
 ferrous-opencc = "0.2.3"
+active-win-pos-rs = "0.11.0"
 clap = { version = "4", features = ["derive"] }
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
@@ -133,10 +137,13 @@ transcribe-cpp = { version = "0.1.2", default-features = false, features = [
 
 [target.'cfg(all(windows, target_arch = "aarch64"))'.dependencies]
 transcribe-cpp = { version = "0.1.2", default-features = false }
+# llama-cpp-2 is macOS only. Windows: llama-cpp-sys-2 and transcribe-cpp-sys each statically
+# link their own ggml (LNK2005). Linux: arm64 CMake config and AppImage/deb packaging break.
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
 transcribe-cpp = { version = "0.1.2", default-features = false, features = ["metal"] }
+llama-cpp-2 = { version = "0.1.156", default-features = false, features = ["metal"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk-layer-shell = { version = "0.8", features = ["v0_6"] }

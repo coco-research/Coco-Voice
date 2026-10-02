@@ -373,6 +373,12 @@
         "description": "रेकर्डिङबाट मौनता हटाउँछ। स्ट्रिमिङ-सक्षम मोडेलहरूले लामो VAD टेल प्रयोग गर्छन्; VAD अफ गर्दा कच्चा अडियो रेकर्ड हुन्छ।"
       }
     },
+    "appProfiles": {
+      "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+      "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+      "add": "Add",
+      "addCorrection": "Add correction"
+    },
     "postProcessing": {
       "hotkey": {
         "title": "हटकी"
@@ -408,6 +414,16 @@
           "placeholderWithOptions": "मोडेल खोज्नुहोस् वा चयन गर्नुहोस्",
           "placeholderNoOptions": "मोडेलको नाम टाइप गर्नुहोस्",
           "refreshModels": "मोडेलहरू रिफ्रेस गर्नुहोस्"
+        },
+        "localLlm": {
+          "title": "स्थानीय मोडेल",
+          "description": "ट्रान्सक्रिप्सन सफा गर्ने यन्त्रभित्रको मोडेल। एक पटक डाउनलोड गर्नुहोस्।",
+          "notDownloaded": "डाउनलोड भएको छैन",
+          "downloading": "डाउनलोड हुँदै {{percent}}%",
+          "ready": "तयार",
+          "download": "डाउनलोड",
+          "cancel": "रद्द",
+          "unavailable": "स्थानीय मोडेल उपलब्ध छैन।"
         }
       },
       "prompts": {

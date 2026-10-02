@@ -373,6 +373,12 @@
         "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
       }
     },
+    "appProfiles": {
+      "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+      "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+      "add": "Add",
+      "addCorrection": "Add correction"
+    },
     "postProcessing": {
       "hotkey": {
         "title": "Klávesová zkratka"
@@ -408,6 +414,16 @@
           "placeholderWithOptions": "Vyhledejte nebo vyberte model",
           "placeholderNoOptions": "Zadejte název modelu",
           "refreshModels": "Obnovit modely"
+        },
+        "localLlm": {
+          "title": "Místní model",
+          "description": "Model v zařízení, který čistí přepisy. Stáhněte ho jednou.",
+          "notDownloaded": "Nestaženo",
+          "downloading": "Stahování {{percent}} %",
+          "ready": "Připraveno",
+          "download": "Stáhnout",
+          "cancel": "Zrušit",
+          "unavailable": "Místní model není k dispozici."
         }
       },
       "prompts": {

@@ -373,6 +373,12 @@
         "description": "Filtra il silenzio dalle registrazioni. I modelli che supportano lo streaming utilizzano una coda VAD più lunga; disabilitando la VAD si registra l'audio grezzo."
       }
     },
+    "appProfiles": {
+      "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+      "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+      "add": "Add",
+      "addCorrection": "Add correction"
+    },
     "postProcessing": {
       "hotkey": {
         "title": "Tasto di scelta rapida"
@@ -408,6 +414,16 @@
           "placeholderWithOptions": "Cerca o scegli un modello",
           "placeholderNoOptions": "Digita il nome di un modello",
           "refreshModels": "Aggiorna modelli"
+        },
+        "localLlm": {
+          "title": "Modello locale",
+          "description": "Modello sul dispositivo che pulisce le trascrizioni. Scaricalo una volta.",
+          "notDownloaded": "Non scaricato",
+          "downloading": "Download {{percent}}%",
+          "ready": "Pronto",
+          "download": "Scarica",
+          "cancel": "Annulla",
+          "unavailable": "Il modello locale non è disponibile."
         }
       },
       "prompts": {

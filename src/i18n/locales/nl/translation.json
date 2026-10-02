@@ -373,6 +373,12 @@
         "description": "Filter stilte uit opnames. Streaming-modellen gebruiken een langere VAD-uitloop; het uitschakelen van VAD neemt de ruwe audio op."
       }
     },
+    "appProfiles": {
+      "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+      "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+      "add": "Add",
+      "addCorrection": "Add correction"
+    },
     "postProcessing": {
       "hotkey": {
         "title": "Sneltoets"
@@ -408,6 +414,16 @@
           "placeholderWithOptions": "Zoek of selecteer een model",
           "placeholderNoOptions": "Typ een modelnaam",
           "refreshModels": "Modellen verversen"
+        },
+        "localLlm": {
+          "title": "Lokaal model",
+          "description": "Model op het apparaat dat transcripties opschoont. Eenmalig downloaden.",
+          "notDownloaded": "Niet gedownload",
+          "downloading": "Downloaden {{percent}}%",
+          "ready": "Gereed",
+          "download": "Downloaden",
+          "cancel": "Annuleren",
+          "unavailable": "Het lokale model is niet beschikbaar."
         }
       },
       "prompts": {

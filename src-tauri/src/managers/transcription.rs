@@ -659,6 +659,19 @@ impl TranscriptionManager {
                 })?;
                 LoadedEngine::Cohere(engine)
             }
+            EngineType::LlamaCpp => {
+                // Local LLM models are loaded on-demand during post-processing
+                // via local_llm::generate_text(), not at transcription engine
+                // init time. This arm exists only to satisfy exhaustiveness;
+                // selecting a LlamaCpp model as the *transcription* engine is
+                // not supported and should never reach here in practice.
+                let error_msg = format!(
+                    "Model {} uses EngineType::LlamaCpp which is not a transcription engine",
+                    model_id
+                );
+                emit_loading_failed(&error_msg);
+                anyhow::bail!(error_msg)
+            }
         };
 
         // Update the current engine and model ID
@@ -1091,7 +1104,7 @@ impl TranscriptionManager {
         .emit(&self.app_handle);
     }
 
-    fn emit_stream_text(&self, committed: &str, tentative: &str) {
+    pub(crate) fn emit_stream_text(&self, committed: &str, tentative: &str) {
         let _ = StreamTextEvent {
             committed: committed.to_string(),
             tentative: tentative.to_string(),

@@ -373,6 +373,12 @@
         "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
       }
     },
+    "appProfiles": {
+      "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+      "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+      "add": "Add",
+      "addCorrection": "Add correction"
+    },
     "postProcessing": {
       "hotkey": {
         "title": "Горячая клавиша"
@@ -408,6 +414,16 @@
           "placeholderWithOptions": "Найдите или выберите модель",
           "placeholderNoOptions": "Введите название модели",
           "refreshModels": "Обновить модели"
+        },
+        "localLlm": {
+          "title": "Локальная модель",
+          "description": "Модель на устройстве, которая правит расшифровки. Скачайте её один раз.",
+          "notDownloaded": "Не скачана",
+          "downloading": "Скачивание {{percent}}%",
+          "ready": "Готово",
+          "download": "Скачать",
+          "cancel": "Отмена",
+          "unavailable": "Локальная модель недоступна."
         }
       },
       "prompts": {

@@ -9,6 +9,9 @@ use tauri_plugin_store::StoreExt;
 
 pub const APPLE_INTELLIGENCE_PROVIDER_ID: &str = "apple_intelligence";
 pub const APPLE_INTELLIGENCE_DEFAULT_MODEL_ID: &str = "Apple Intelligence";
+pub const LOCAL_LLM_PROVIDER_ID: &str = "local_llm";
+pub const LOCAL_LLM_DEFAULT_MODEL_ID: &str =
+    "Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf";
 
 #[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
 #[serde(rename_all = "lowercase")]
@@ -490,6 +493,38 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    /// Per-application profile overrides. Each entry matches the frontmost
+    /// application's name or process file stem (case-insensitive) and carries
+    /// optional post-processing overrides. When a profile matches, its
+    /// overrides replace the global defaults for that dictation session.
+    #[serde(default)]
+    pub app_profiles: Vec<AppProfile>,
+}
+
+/// A per-application override set for post-processing. Fields are all optional;
+/// only non-`None` values replace the global default when the profile matches.
+#[derive(Serialize, Deserialize, Debug, Clone, Type)]
+pub struct AppProfile {
+    /// Unique identifier for this profile entry (user-editable label).
+    pub id: String,
+    /// Human-readable display name shown in settings UI.
+    pub name: String,
+    /// App name or process file stem to match against the frontmost application.
+    /// Compared case-insensitively. Not a bundle identifier.
+    pub app_identifier: String,
+    /// Override the global post-process prompt for this app. `None` = use global.
+    #[serde(default)]
+    pub prompt_id: Option<String>,
+    /// Override the global post-process provider for this app. `None` = use global.
+    #[serde(default)]
+    pub provider_id: Option<String>,
+    /// Override the global post-process model for this app. `None` = use global.
+    #[serde(default)]
+    pub model: Option<String>,
+    /// Additional corrections applied only when this profile is active.
+    /// These are appended to (not replacing) the global corrections list.
+    #[serde(default)]
+    pub corrections: Vec<CorrectionPair>,
 }
 
 fn default_model() -> String {
@@ -542,6 +577,10 @@ fn default_overlay_position() -> OverlayPosition {
     // Position only matters when the overlay is shown; whether it shows at all is
     // `overlay_style` (Linux defaults that to None). So a single default suffices.
     OverlayPosition::Bottom
+}
+
+fn default_app_profiles() -> Vec<AppProfile> {
+    Vec::new()
 }
 
 fn default_overlay_style() -> OverlayStyle {
@@ -729,6 +768,19 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
         supports_structured_output: true,
     });
 
+    // Local LLM via llama.cpp — runs entirely on-device using GGUF models
+    // downloaded through the standard model manager. No API key needed.
+    // llama-cpp-2 ships on macOS only (Windows: duplicate static ggml; Linux: CMake and packaging issues).
+    #[cfg(target_os = "macos")]
+    providers.push(PostProcessProvider {
+        id: LOCAL_LLM_PROVIDER_ID.to_string(),
+        label: "Local (llama.cpp)".to_string(),
+        base_url: "llama-cpp://local".to_string(),
+        allow_base_url_edit: false,
+        models_endpoint: None,
+        supports_structured_output: false,
+    });
+
     // Custom provider always comes last
     providers.push(PostProcessProvider {
         id: "custom".to_string(),
@@ -753,6 +805,9 @@ fn default_post_process_api_keys() -> SecretMap {
 fn default_model_for_provider(provider_id: &str) -> String {
     if provider_id == APPLE_INTELLIGENCE_PROVIDER_ID {
         return APPLE_INTELLIGENCE_DEFAULT_MODEL_ID.to_string();
+    }
+    if provider_id == LOCAL_LLM_PROVIDER_ID {
+        return LOCAL_LLM_DEFAULT_MODEL_ID.to_string();
     }
     String::new()
 }
@@ -977,6 +1032,7 @@ pub fn get_default_settings() -> AppSettings {
         extra_recording_buffer_ms: 0,
         vad_enabled: default_vad_enabled(),
         overlay_style: default_overlay_style(),
+        app_profiles: default_app_profiles(),
     }
 }
 
