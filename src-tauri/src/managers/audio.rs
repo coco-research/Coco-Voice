@@ -120,6 +120,14 @@ pub enum RecordingState {
     Stopping,
 }
 
+impl RecordingState {
+    /// Swapping the input device restarts the stream and discards the buffer, so
+    /// it is only safe between takes.
+    pub fn allows_device_change(&self) -> bool {
+        matches!(self, RecordingState::Idle)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum MicrophoneMode {
     AlwaysOn,
@@ -514,6 +522,14 @@ impl AudioRecordingManager {
     }
 
     pub fn update_selected_device(&self) -> Result<(), anyhow::Error> {
+        // Hold the state lock for the whole restart so a take cannot begin
+        // half-way through it (try_start_recording takes this lock first too).
+        let state = self.state.lock().unwrap();
+        if !state.allows_device_change() {
+            return Err(anyhow::anyhow!(
+                "Cannot change the microphone while recording"
+            ));
+        }
         // Device settings changed; drop the cached resolution so the next
         // open re-enumerates. (The name-keyed cache would miss anyway; this
         // just avoids holding a stale cpal::Device alive.)
@@ -524,6 +540,7 @@ impl AudioRecordingManager {
             self.stop_microphone_stream();
             self.start_microphone_stream()?;
         }
+        drop(state);
         Ok(())
     }
 
@@ -648,5 +665,22 @@ impl AudioRecordingManager {
             }
             RecordingState::Idle => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn device_change_only_allowed_between_takes() {
+        // Restarting the stream mid-take drops the captured audio (#17), so only
+        // Idle may swap devices. The restart itself needs a real device.
+        assert!(RecordingState::Idle.allows_device_change());
+        assert!(!RecordingState::Recording {
+            binding_id: "transcribe".to_string()
+        }
+        .allows_device_change());
+        assert!(!RecordingState::Stopping.allows_device_change());
     }
 }
