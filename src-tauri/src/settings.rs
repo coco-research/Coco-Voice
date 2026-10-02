@@ -4,6 +4,11 @@ use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Set once a settings read fell back to defaults. After that, writes are
+/// refused so a read-modify-write can never save defaults over the user's file.
+static STORE_READ_FAILED: AtomicBool = AtomicBool::new(false);
 use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 
@@ -1024,6 +1029,7 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
         Err(e) => {
             // Keep the app running (and the hotkey thread alive) on defaults.
             error!("Failed to open settings store ({e}); using default settings");
+            STORE_READ_FAILED.store(true, Ordering::SeqCst);
             return get_default_settings();
         }
     };
@@ -1172,6 +1178,10 @@ fn apply_settings_migrations(
 }
 
 pub fn write_settings(app: &AppHandle, settings: AppSettings) {
+    if STORE_READ_FAILED.load(Ordering::SeqCst) {
+        error!("Settings were read as defaults this session; not saving over the store");
+        return;
+    }
     let store = match app.store(crate::portable::store_path(SETTINGS_STORE_PATH)) {
         Ok(store) => store,
         Err(e) => {
