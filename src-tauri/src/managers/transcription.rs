@@ -193,6 +193,41 @@ impl Drop for LoadingGuard {
     }
 }
 
+/// Whether the transcription engine can serve a batch transcription right now.
+#[derive(Debug, PartialEq, Eq)]
+enum EngineAvailability {
+    /// The engine sits in the pool.
+    Ready,
+    /// A stream worker holds the engine and has not returned it yet.
+    LeasedToStream,
+    /// No engine anywhere: the model is not loaded.
+    NotLoaded,
+}
+
+fn engine_availability(in_pool: bool, leased_to_stream: bool) -> EngineAvailability {
+    if in_pool {
+        EngineAvailability::Ready
+    } else if leased_to_stream {
+        EngineAvailability::LeasedToStream
+    } else {
+        EngineAvailability::NotLoaded
+    }
+}
+
+/// Polls `cond` every `interval` until it holds or `timeout` elapses.
+fn poll_until(timeout: Duration, interval: Duration, mut cond: impl FnMut() -> bool) -> bool {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if cond() {
+            return true;
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        thread::sleep(interval);
+    }
+}
+
 /// RAII guard that clears the streaming worker/lease flags on any worker exit -
 /// normal return, early return, or a panic in an engine call that unwinds the
 /// detached worker thread. Tokens prevent an older worker from clearing a newer
@@ -358,6 +393,28 @@ impl TranscriptionManager {
         self.engine.lock().unwrap_or_else(|poisoned| {
             warn!("Engine mutex was poisoned by a previous panic, recovering");
             poisoned.into_inner()
+        })
+    }
+
+    fn availability(&self) -> EngineAvailability {
+        engine_availability(
+            self.lock_engine().is_some(),
+            self.active_engine_lease.load(Ordering::Acquire) != 0,
+        )
+    }
+
+    /// True when the engine is back in the pool, so a batch transcription can
+    /// run. False while a stream worker still holds it (e.g. after a finalize
+    /// timeout) or when no model is loaded.
+    pub fn is_engine_available(&self) -> bool {
+        self.availability() == EngineAvailability::Ready
+    }
+
+    /// Waits up to `timeout` for the engine to be back in the pool, e.g. for a
+    /// stream worker that overran its finalize timeout to finish and return it.
+    pub fn wait_for_engine(&self, timeout: Duration) -> bool {
+        poll_until(timeout, Duration::from_millis(100), || {
+            self.is_engine_available()
         })
     }
 
@@ -1043,7 +1100,7 @@ impl TranscriptionManager {
     /// `Ok(None)` means no usable stream was active and the caller may fall back
     /// to batch transcription. `Err` means finalize itself failed or timed out.
     /// A timeout may still leave the worker holding the engine, so callers
-    /// should surface it instead of immediately starting a batch fallback.
+    /// should only fall back to batch once `wait_for_engine()` succeeds.
     pub fn finalize_stream(&self) -> Result<Option<String>> {
         let Some(tx) = self.router.take() else {
             return Ok(None);
@@ -1057,6 +1114,12 @@ impl TranscriptionManager {
             Ok(None) => return Ok(None),
             Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(None),
             Err(mpsc::RecvTimeoutError::Timeout) => {
+                // The worker is blocked in the native finalize call and cannot
+                // be interrupted (a queued Cancel would sit behind Finalize and
+                // never be read). The engine lease and worker id are
+                // deliberately left alone: the worker's guard clears them only
+                // after it has really returned the engine, and callers use
+                // `wait_for_engine()` before starting a batch fallback.
                 self.stream_active.store(false, Ordering::Release);
                 return Err(anyhow::anyhow!(
                     "Timed out waiting {:?} for live transcription to finalize",
@@ -1129,9 +1192,17 @@ impl TranscriptionManager {
                 is_loading = self.loading_condvar.wait(is_loading).unwrap();
             }
 
-            let engine_guard = self.lock_engine();
-            if engine_guard.is_none() {
-                return Err(anyhow::anyhow!("Model is not loaded for transcription."));
+            match self.availability() {
+                EngineAvailability::Ready => {}
+                EngineAvailability::LeasedToStream => {
+                    return Err(anyhow::anyhow!(
+                        "The transcription engine is still busy finishing the previous live \
+                         transcription. Please try again in a moment."
+                    ));
+                }
+                EngineAvailability::NotLoaded => {
+                    return Err(anyhow::anyhow!("Model is not loaded for transcription."));
+                }
             }
         }
 
@@ -1893,6 +1964,36 @@ mod tests {
 
     fn languages(codes: &[&str]) -> Vec<String> {
         codes.iter().map(|code| (*code).to_string()).collect()
+    }
+
+    #[test]
+    fn poll_until_waits_for_condition_and_gives_up() {
+        let mut calls = 0;
+        let ready = poll_until(Duration::from_secs(5), Duration::from_millis(1), || {
+            calls += 1;
+            calls >= 3
+        });
+        assert!(ready);
+        assert_eq!(calls, 3);
+        assert!(!poll_until(
+            Duration::from_millis(20),
+            Duration::from_millis(5),
+            || false
+        ));
+    }
+
+    #[test]
+    fn engine_availability_distinguishes_leased_from_unloaded() {
+        assert_eq!(engine_availability(true, false), EngineAvailability::Ready);
+        assert_eq!(engine_availability(true, true), EngineAvailability::Ready);
+        assert_eq!(
+            engine_availability(false, true),
+            EngineAvailability::LeasedToStream
+        );
+        assert_eq!(
+            engine_availability(false, false),
+            EngineAvailability::NotLoaded
+        );
     }
 
     #[test]
