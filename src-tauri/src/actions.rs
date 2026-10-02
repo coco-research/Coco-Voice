@@ -738,6 +738,9 @@ impl ShortcutAction for TranscribeAction {
         );
         debug!("Microphone mode - always_on: {}", is_always_on);
 
+        // Identifies this take, so a mute scheduled below is dropped if the take
+        // has already stopped by the time the start sound finishes.
+        let mute_token = rm.mute_token();
         let mut recording_error: Option<String> = None;
         if is_always_on {
             // Always-on mode: Play audio feedback immediately, then apply mute after sound finishes
@@ -748,7 +751,7 @@ impl ShortcutAction for TranscribeAction {
             // so we can always reuse this thread to ensure mute happens right after playback.
             std::thread::spawn(move || {
                 play_feedback_sound_blocking(&app_clone, SoundType::Start);
-                rm_clone.apply_mute();
+                rm_clone.apply_mute(mute_token);
             });
 
             if let Err(e) = rm.try_start_recording(&binding_id, vad_policy) {
@@ -772,7 +775,7 @@ impl ShortcutAction for TranscribeAction {
                         // Helper handles disabled audio feedback by returning early, so we reuse it
                         // to keep mute sequencing consistent in every mode.
                         play_feedback_sound_blocking(&app_clone, SoundType::Start);
-                        rm_clone.apply_mute();
+                        rm_clone.apply_mute(mute_token);
                     });
                 }
                 Err(e) => {
@@ -789,6 +792,8 @@ impl ShortcutAction for TranscribeAction {
             // Starting failed (for example due to blocked microphone permissions).
             // Revert UI state so we don't stay stuck in the recording overlay.
             tm.cancel_stream();
+            // Drop a pending start-sound mute: no stop will follow a failed start.
+            rm.remove_mute();
             utils::hide_recording_overlay(app);
             change_tray_icon(app, TrayIconState::Idle);
             if let Some(err) = recording_error {
