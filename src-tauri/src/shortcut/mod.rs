@@ -103,6 +103,33 @@ pub struct BindingResponse {
     error: Option<String>,
 }
 
+/// The response for a binding id that is in neither the stored settings nor the defaults.
+fn binding_not_found(id: &str) -> BindingResponse {
+    let error_msg = format!("Binding with id '{}' not found in defaults", id);
+    warn!("binding error: {}", error_msg);
+    BindingResponse {
+        success: false,
+        binding: None,
+        error: Some(error_msg),
+    }
+}
+
+#[cfg(test)]
+mod binding_not_found_tests {
+    use super::*;
+
+    #[test]
+    fn unknown_binding_id_returns_not_found_instead_of_panicking() {
+        let response = binding_not_found("missing");
+        assert!(!response.success);
+        assert!(response.binding.is_none());
+        assert_eq!(
+            response.error.as_deref(),
+            Some("Binding with id 'missing' not found in defaults")
+        );
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn change_binding(
@@ -131,15 +158,7 @@ pub fn change_binding(
                     );
                     default_binding.clone()
                 }
-                None => {
-                    let error_msg = format!("Binding with id '{}' not found in defaults", id);
-                    warn!("change_binding error: {}", error_msg);
-                    return Ok(BindingResponse {
-                        success: false,
-                        binding: None,
-                        error: Some(error_msg),
-                    });
-                }
+                None => return Ok(binding_not_found(&id)),
             }
         }
     };
@@ -204,8 +223,10 @@ pub fn change_binding(
 #[tauri::command]
 #[specta::specta]
 pub fn reset_binding(app: AppHandle, id: String) -> Result<BindingResponse, String> {
-    let binding = settings::get_stored_binding(&app, &id);
-    change_binding(app, id, binding.default_binding)
+    match settings::get_stored_binding(&app, &id) {
+        Some(binding) => change_binding(app, id, binding.default_binding),
+        None => Ok(binding_not_found(&id)),
+    }
 }
 
 /// Temporarily unregister a binding while the user is editing it in the UI.
