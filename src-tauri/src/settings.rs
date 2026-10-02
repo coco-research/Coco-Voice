@@ -1,9 +1,14 @@
-use log::{debug, warn};
+use log::{debug, error, warn};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Set once a settings read fell back to defaults. After that, writes are
+/// refused so a read-modify-write can never save defaults over the user's file.
+static STORE_READ_FAILED: AtomicBool = AtomicBool::new(false);
 use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 
@@ -1019,9 +1024,15 @@ pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
 }
 
 pub fn get_settings(app: &AppHandle) -> AppSettings {
-    let store = app
-        .store(crate::portable::store_path(SETTINGS_STORE_PATH))
-        .expect("Failed to initialize store");
+    let store = match app.store(crate::portable::store_path(SETTINGS_STORE_PATH)) {
+        Ok(store) => store,
+        Err(e) => {
+            // Keep the app running (and the hotkey thread alive) on defaults.
+            error!("Failed to open settings store ({e}); using default settings");
+            STORE_READ_FAILED.store(true, Ordering::SeqCst);
+            return get_default_settings();
+        }
+    };
 
     // Settings reads also persist one-time migrations. Migration helpers are
     // idempotent, so this converges after the first read of an older store.
@@ -1167,9 +1178,17 @@ fn apply_settings_migrations(
 }
 
 pub fn write_settings(app: &AppHandle, settings: AppSettings) {
-    let store = app
-        .store(crate::portable::store_path(SETTINGS_STORE_PATH))
-        .expect("Failed to initialize store");
+    if STORE_READ_FAILED.load(Ordering::SeqCst) {
+        error!("Settings were read as defaults this session; not saving over the store");
+        return;
+    }
+    let store = match app.store(crate::portable::store_path(SETTINGS_STORE_PATH)) {
+        Ok(store) => store,
+        Err(e) => {
+            error!("Failed to open settings store ({e}); settings were not saved");
+            return;
+        }
+    };
 
     store.set("settings", serde_json::to_value(&settings).unwrap());
 }
@@ -1180,12 +1199,8 @@ pub fn get_bindings(app: &AppHandle) -> HashMap<String, ShortcutBinding> {
     settings.bindings
 }
 
-pub fn get_stored_binding(app: &AppHandle, id: &str) -> ShortcutBinding {
-    let bindings = get_bindings(app);
-
-    let binding = bindings.get(id).unwrap().clone();
-
-    binding
+pub fn get_stored_binding(app: &AppHandle, id: &str) -> Option<ShortcutBinding> {
+    get_bindings(app).get(id).cloned()
 }
 
 pub fn get_history_limit(app: &AppHandle) -> usize {
