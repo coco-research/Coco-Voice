@@ -198,8 +198,8 @@
             "description": "Специальное сочетание клавиш для ИИ-постобработки вашей транскрипции."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "Произнести исправление",
+            "description": "Сочетание клавиш, чтобы произнести исправление, которое заменяет последнюю диктовку. Назначьте клавишу, чтобы включить его."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "Горячая клавиша"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "Итеративное исправление",
+        "toggleLabel": "Произносить исправления",
+        "toggleDescription": "Добавляет отдельное сочетание клавиш, которое вы нажимаете, чтобы заменить последнюю диктовку произнесённым исправлением. Оно никогда не срабатывает автоматически по ключевым словам. Нажмите назначенную клавишу, произнесите исправление, и предыдущий текст будет отредактирован на месте."
       },
       "api": {
         "title": "API (совместимый с OpenAI)",

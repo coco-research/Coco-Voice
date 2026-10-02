@@ -198,8 +198,8 @@
             "description": "Facultatif : Un raccourci dédié qui applique toujours le post-traitement IA à votre transcription."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "Dicter une correction",
+            "description": "Le raccourci clavier pour dicter une correction qui remplace votre dernière dictée. Attribuez une touche pour l'activer."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "Raccourci clavier"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "Correction itérative",
+        "toggleLabel": "Dicter des corrections",
+        "toggleDescription": "Ajoute un raccourci explicite sur lequel vous appuyez pour remplacer votre dernière dictée par une correction parlée. Il ne se déclenche jamais automatiquement à partir de mots-clés. Appuyez sur la touche attribuée, dictez la correction, et le texte précédent est modifié sur place."
       },
       "api": {
         "title": "API (Compatible OpenAI)",

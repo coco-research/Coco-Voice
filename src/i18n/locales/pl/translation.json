@@ -198,8 +198,8 @@
             "description": "Opcjonalnie: Dedykowany skrót klawiszowy, który zawsze stosuje postprocessing AI do transkrypcji."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "Dyktowanie poprawki",
+            "description": "Skrót klawiszowy do podyktowania poprawki, która zastępuje ostatnie dyktowanie. Przypisz klawisz, aby ją włączyć."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "Skrót klawiszowy"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "Korekta iteracyjna",
+        "toggleLabel": "Dyktuj poprawki",
+        "toggleDescription": "Dodaje jawny skrót, który naciskasz, aby zastąpić ostatnie dyktowanie wypowiedzią z poprawką. Nigdy nie uruchamia się automatycznie od słów kluczowych. Naciśnij przypisany klawisz, podyktuj poprawkę, a poprzedni tekst zostanie zmieniony w miejscu."
       },
       "api": {
         "title": "API (zgodne z OpenAI)",

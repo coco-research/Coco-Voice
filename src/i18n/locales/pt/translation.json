@@ -180,8 +180,8 @@
             "description": "Opcional: Uma tecla de atalho dedicada que sempre aplica pós-processamento com IA à sua transcrição."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "Falar correção",
+            "description": "O atalho de teclado para falar uma correção que substitui seu último ditado. Atribua uma tecla para ativá-lo."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "Tecla de atalho"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "Correção iterativa",
+        "toggleLabel": "Falar correções",
+        "toggleDescription": "Adiciona um atalho explícito que você pressiona para substituir seu último ditado por uma correção falada. Ele nunca é acionado automaticamente por palavras-chave. Pressione a tecla atribuída, fale a correção, e o texto anterior é editado no lugar."
       },
       "api": {
         "title": "API (Compatível com OpenAI)",

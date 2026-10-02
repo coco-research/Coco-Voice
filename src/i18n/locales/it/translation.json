@@ -198,8 +198,8 @@
             "description": "Facoltativo: Un tasto di scelta rapida dedicato che applica sempre la post-elaborazione IA alla trascrizione."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "Detta correzione",
+            "description": "La scorciatoia da tastiera per dettare una correzione che sostituisce l'ultima dettatura. Assegna un tasto per attivarla."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "Tasto di scelta rapida"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "Correzione iterativa",
+        "toggleLabel": "Detta correzioni",
+        "toggleDescription": "Aggiunge una scorciatoia esplicita da premere per sostituire l'ultima dettatura con una correzione parlata. Non si attiva mai automaticamente da parole chiave. Premere il tasto assegnato, dettare la correzione: l'output precedente viene modificato sul posto."
       },
       "api": {
         "title": "API (Compatibile con OpenAI)",

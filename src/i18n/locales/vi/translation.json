@@ -198,8 +198,8 @@
             "description": "Tùy chọn: Phím tắt chuyên dụng luôn áp dụng xử lý sau bằng AI cho bản chuyển đổi của bạn."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "Nói chỉnh sửa",
+            "description": "Phím tắt để nói một chỉnh sửa thay thế lần đọc chính tả gần nhất của bạn. Gán một phím để bật tính năng này."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "Phím tắt"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "Chỉnh sửa lặp",
+        "toggleLabel": "Nói chỉnh sửa",
+        "toggleDescription": "Thêm một phím tắt rõ ràng mà bạn nhấn để thay thế lần đọc chính tả gần nhất bằng một chỉnh sửa được nói. Nó không bao giờ tự kích hoạt từ từ khóa. Nhấn phím đã gán, nói phần sửa, và kết quả trước đó được sửa tại chỗ."
       },
       "api": {
         "title": "API (Tương thích OpenAI)",

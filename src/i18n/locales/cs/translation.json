@@ -198,8 +198,8 @@
             "description": "Volitelné: Vyhrazená klávesová zkratka, která vždy použije AI následné zpracování na váš přepis."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "Vyslovit opravu",
+            "description": "Klávesová zkratka pro vyslovení opravy, která nahradí váš poslední diktát. Přiřaďte klávesu, abyste ji zapnuli."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "Klávesová zkratka"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "Iterativní oprava",
+        "toggleLabel": "Vyslovovat opravy",
+        "toggleDescription": "Přidá samostatnou klávesovou zkratku, kterou stisknete, abyste nahradili svůj poslední diktát vyslovenou opravou. Nikdy se nespustí automaticky podle klíčových slov. Stiskněte přiřazenou klávesu, vyslovte opravu a předchozí výstup se upraví na místě."
       },
       "api": {
         "title": "API (kompatibilní s OpenAI)",

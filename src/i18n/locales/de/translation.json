@@ -198,8 +198,8 @@
             "description": "Optional: Ein dediziertes Tastenkürzel, das immer die KI-Nachbearbeitung auf deine Transkription anwendet."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "Korrektur sprechen",
+            "description": "Das Tastenkürzel, um eine Korrektur zu sprechen, die deine letzte Diktieraufnahme ersetzt. Weise eine Taste zu, um es zu aktivieren."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "Tastenkürzel"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "Iterative Korrektur",
+        "toggleLabel": "Korrekturen sprechen",
+        "toggleDescription": "Fügt ein eigenes Tastenkürzel hinzu, mit dem du deine letzte Diktieraufnahme durch eine gesprochene Korrektur ersetzt. Es wird nie automatisch durch Schlüsselwörter ausgelöst. Drücke die zugewiesene Taste, sprich die Korrektur, und deine vorherige Ausgabe wird direkt bearbeitet."
       },
       "api": {
         "title": "API (OpenAI-kompatibel)",

@@ -180,8 +180,8 @@
             "description": "可選：專用快捷鍵，使用時一律對轉錄結果套用 AI 後處理"
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "說出更正",
+            "description": "用來說出更正、以取代上一次聽寫的鍵盤快捷鍵。指定一個按鍵即可啟用。"
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "快捷鍵"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "迭代更正",
+        "toggleLabel": "說出更正",
+        "toggleDescription": "新增一個明確的快捷鍵，按下後以口述更正取代上一次聽寫。絕不會因關鍵字而自動觸發。按下已指定的按鍵、說出修改，先前的輸出會就地編輯。"
       },
       "api": {
         "title": "API（相容 OpenAI）",

@@ -180,8 +180,8 @@
             "description": "Optioneel: Een specifieke sneltoets die altijd AI-naverwerking toepast op je transcriptie."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "Correctie inspreken",
+            "description": "De sneltoets om een correctie in te spreken die je laatste dictaat vervangt. Wijs een toets toe om dit in te schakelen."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "Sneltoets"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "Iteratieve correctie",
+        "toggleLabel": "Correcties inspreken",
+        "toggleDescription": "Voegt een aparte sneltoets toe die je indrukt om je laatste dictaat te vervangen door een ingesproken correctie. Het start nooit automatisch door trefwoorden. Druk op de toegewezen toets, spreek de correctie in, en de vorige uitvoer wordt ter plaatse bewerkt."
       },
       "api": {
         "title": "API (OpenAI-compatibel)",

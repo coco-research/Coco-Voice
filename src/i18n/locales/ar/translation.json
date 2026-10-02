@@ -177,8 +177,8 @@
             "description": "اختياري: مفتاح اختصار مخصص يطبق دائماً المعالجة اللاحقة بالذكاء الاصطناعي على التفريغ الصوتي."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "تصحيح بالنطق",
+            "description": "اختصار لوحة المفاتيح لنطق تصحيح يستبدل إملاءك الأخير. عيّن مفتاحاً لتفعيله."
           }
         },
         "errors": {
@@ -363,9 +363,9 @@
         "title": "مفتاح الاختصار"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "تصحيح تكراري",
+        "toggleLabel": "نطق التصحيحات",
+        "toggleDescription": "يضيف مفتاح اختصار صريحاً تضغطه لاستبدال إملاءك الأخير بتصحيح منطوق. لا يُفعَّل تلقائياً من الكلمات المفتاحية أبداً. اضغط المفتاح المعيّن، انطق التصحيح، ويُعدَّل إخراجك السابق في مكانه."
       },
       "api": {
         "title": "API (متوافق مع OpenAI)",

@@ -6,16 +6,16 @@
      in App.css reference these, so a hex value lives in exactly one place. */
   --light-color-text: #0f0f0f;
   --light-color-background: #fbfbfb;
-  --light-color-logo-primary: #2251FF;
-  --light-color-logo-stroke: #051C2C;
+  --light-color-logo-primary: #2251ff;
+  --light-color-logo-stroke: #051c2c;
 
   --dark-color-text: #fbfbfb;
-  --dark-color-background: #051C2C;
-  --dark-color-logo-primary: #5B8CFF;
-  --dark-color-logo-stroke: #EAF0FF;
+  --dark-color-background: #051c2c;
+  --dark-color-logo-primary: #5b8cff;
+  --dark-color-logo-stroke: #eaf0ff;
 
   /* Tokens that do not change between light and dark */
-  --color-background-ui: #2251FF;
+  --color-background-ui: #2251ff;
   --color-text-stroke: #f6f6f6;
   --color-mid-gray: #808080;
 

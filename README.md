@@ -38,11 +38,11 @@ Most speech-to-text tools send your audio to the cloud. Coco Voice runs **everyt
 
 The pipeline runs entirely on your hardware:
 
-| Stage | Technology | What it does |
-|-------|-----------|-------------|
-| Voice detection | Silero VAD | Strips silence, only captures actual speech |
-| Speech recognition | Whisper / Parakeet V3 | Converts audio to text using your GPU or CPU |
-| Text output | System clipboard / keystroke simulation | Pastes directly into any app you're using |
+| Stage              | Technology                              | What it does                                 |
+| ------------------ | --------------------------------------- | -------------------------------------------- |
+| Voice detection    | Silero VAD                              | Strips silence, only captures actual speech  |
+| Speech recognition | Whisper / Parakeet V3                   | Converts audio to text using your GPU or CPU |
+| Text output        | System clipboard / keystroke simulation | Pastes directly into any app you're using    |
 
 ---
 
@@ -50,12 +50,12 @@ The pipeline runs entirely on your hardware:
 
 Pick the engine that fits your hardware:
 
-| Model | Best for | Speed | Hardware |
-|-------|----------|-------|----------|
-| **Parakeet V3** | Everyday use | ~5× real-time | CPU (any modern machine) |
-| **Whisper Turbo** | Maximum accuracy | GPU-accelerated | NVIDIA, AMD, Intel GPU |
-| **Whisper Large** | Highest quality | GPU required | Dedicated GPU recommended |
-| **Whisper Small/Medium** | Balance | Moderate | Most machines |
+| Model                    | Best for         | Speed           | Hardware                  |
+| ------------------------ | ---------------- | --------------- | ------------------------- |
+| **Parakeet V3**          | Everyday use     | ~5× real-time   | CPU (any modern machine)  |
+| **Whisper Turbo**        | Maximum accuracy | GPU-accelerated | NVIDIA, AMD, Intel GPU    |
+| **Whisper Large**        | Highest quality  | GPU required    | Dedicated GPU recommended |
+| **Whisper Small/Medium** | Balance          | Moderate        | Most machines             |
 
 Parakeet V3 auto-detects your language — no manual switching between English, Spanish, French, German, Japanese, and 90+ others.
 
@@ -120,12 +120,12 @@ coco-voice --transcribe-file recording.wav --model whisper-large-v3-turbo --json
 
 ## Platform Support
 
-| Platform | GPU Acceleration | Status |
-|----------|-----------------|--------|
-| macOS (Apple Silicon) | Metal | ✅ Fully supported |
-| macOS (Intel) | Metal | ✅ Fully supported |
-| Windows (x64) | Vulkan, CUDA | ✅ Fully supported |
-| Linux (x64) | Vulkan | ✅ Supported (see Linux notes) |
+| Platform              | GPU Acceleration | Status                         |
+| --------------------- | ---------------- | ------------------------------ |
+| macOS (Apple Silicon) | Metal            | ✅ Fully supported             |
+| macOS (Intel)         | Metal            | ✅ Fully supported             |
+| Windows (x64)         | Vulkan, CUDA     | ✅ Fully supported             |
+| Linux (x64)           | Vulkan           | ✅ Supported (see Linux notes) |
 
 ---
 

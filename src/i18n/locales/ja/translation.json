@@ -198,8 +198,8 @@
             "description": "文字起こしに常に AI 後処理を適用するキーボードショートカット。 (任意)"
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "訂正を話す",
+            "description": "直前の音声入力を置き換える訂正を話すためのキーボードショートカットです。有効にするにはキーを割り当ててください。"
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "ショートカット"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "反復訂正",
+        "toggleLabel": "訂正を話す",
+        "toggleDescription": "直前の音声入力を、話した訂正で置き換えるための専用ショートカットを追加します。キーワードでは自動的に起動しません。割り当てたキーを押し、修正を話すと、直前の出力がその場で編集されます。"
       },
       "api": {
         "title": "API (OpenAI 互換)",

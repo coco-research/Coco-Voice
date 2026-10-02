@@ -180,8 +180,8 @@
             "description": "По избор: отделна комбинация, която винаги прилага ИИ постобработка върху транскрипцията."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "Изговаряне на корекция",
+            "description": "Клавишната комбинация, с която изговаряте корекция, заменяща последната ви диктовка. Задайте клавиш, за да я включите."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "Бърз клавиш"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "Итеративна корекция",
+        "toggleLabel": "Изговаряне на корекции",
+        "toggleDescription": "Добавя отделна клавишна комбинация, която натискате, за да замените последната си диктовка с изговорена корекция. Никога не се задейства автоматично от ключови думи. Натиснете зададения клавиш, изговорете поправката и предишният резултат се редактира на място."
       },
       "api": {
         "title": "API (съвместим с OpenAI)",

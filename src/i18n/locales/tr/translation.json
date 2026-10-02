@@ -198,8 +198,8 @@
             "description": "İsteğe bağlı: Transkripsiyonunuza her zaman AI son işleme uygulayan özel bir kısayol tuşu."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "Düzeltme söyle",
+            "description": "Son diktenizi değiştiren bir düzeltme söylemek için klavye kısayolu. Etkinleştirmek için bir tuş atayın."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "Kısayol Tuşu"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "Yinelemeli düzeltme",
+        "toggleLabel": "Düzeltme söyle",
+        "toggleDescription": "Son diktenizi sesli bir düzeltmeyle değiştirmek için bastığınız açık bir kısayol ekler. Anahtar sözcüklerle asla kendiliğinden tetiklenmez. Atanan tuşa basın, düzeltmeyi söyleyin; önceki çıktı yerinde düzenlenir."
       },
       "api": {
         "title": "API (OpenAI Uyumlu)",

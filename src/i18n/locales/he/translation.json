@@ -180,8 +180,8 @@
             "description": "אופציונלי: קיצור מקשים ייעודי שתמיד מפעיל עיבוד AI על התמלול."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "אמירת תיקון",
+            "description": "קיצור המקלדת לאמירת תיקון שמחליף את ההכתבה האחרונה. יש להקצות מקש כדי להפעיל אותו."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "קיצור מקשים"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "תיקון איטרטיבי",
+        "toggleLabel": "אמירת תיקונים",
+        "toggleDescription": "מוסיף קיצור מקשים מפורש שלוחצים כדי להחליף את ההכתבה האחרונה בתיקון מדובר. הוא לא מופעל אף פעם אוטומטית ממילות מפתח. לוחצים על המקש שהוקצה, אומרים את התיקון, והפלט הקודם נערך במקום."
       },
       "api": {
         "title": "API (תואם OpenAI)",

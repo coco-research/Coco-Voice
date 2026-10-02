@@ -18,11 +18,11 @@ The graph confirmed the architecture described in `AGENTS.md`: a manager-based R
 
 A central finding is that most remaining occurrences of the string `handy` are **load-bearing** and must not be renamed, because they refer to upstream infrastructure the application still depends on.
 
-| Category | Examples | Action |
-|----------|----------|--------|
-| Load-bearing (must keep) | `handy-computer/*` Hugging Face repository IDs in `catalog.json`; `https://blob.handy.computer/*` model-download URLs in `model.rs`; the `handy-keys` crate; the `cjpais/tauri` fork branch `handy-2.10.2` in `Cargo.toml` | Preserved unchanged |
-| Cosmetic / internal | `THEME_STORAGE_KEY = "handy.theme"`; the "Handy Portable Mode" marker string; `HANDY_*` environment-variable names; the generated Tauri command names `start`/`stop_handy_keys_recording` | Left in place (safe to revisit later) |
-| False positives | `custom_words: ["handy"]` test data; the comment "still handy for composing" | Ignored (ordinary English) |
+| Category                 | Examples                                                                                                                                                                                                                   | Action                                |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Load-bearing (must keep) | `handy-computer/*` Hugging Face repository IDs in `catalog.json`; `https://blob.handy.computer/*` model-download URLs in `model.rs`; the `handy-keys` crate; the `cjpais/tauri` fork branch `handy-2.10.2` in `Cargo.toml` | Preserved unchanged                   |
+| Cosmetic / internal      | `THEME_STORAGE_KEY = "handy.theme"`; the "Handy Portable Mode" marker string; `HANDY_*` environment-variable names; the generated Tauri command names `start`/`stop_handy_keys_recording`                                  | Left in place (safe to revisit later) |
+| False positives          | `custom_words: ["handy"]` test data; the comment "still handy for composing"                                                                                                                                               | Ignored (ordinary English)            |
 
 Renaming any load-bearing reference would break model downloads or the build, so the rebrand deliberately leaves them intact. The application was verified to still download and load a `handy-computer` model successfully after the rebrand.
 

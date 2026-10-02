@@ -180,8 +180,8 @@
             "description": "Valfritt: En dedikerad snabbknapp som alltid tillämpar AI-efterbearbetning på din transkription."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "Säg en rättelse",
+            "description": "Kortkommandot för att säga en rättelse som ersätter din senaste diktering. Tilldela en tangent för att aktivera det."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "Snabbkommando"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "Iterativ rättelse",
+        "toggleLabel": "Säg rättelser",
+        "toggleDescription": "Lägger till ett särskilt kortkommando som du trycker på för att ersätta din senaste diktering med en talad rättelse. Det startar aldrig automatiskt av nyckelord. Tryck på den tilldelade tangenten, säg rättelsen, så redigeras den föregående texten på plats."
       },
       "api": {
         "title": "API (OpenAI-kompatibelt)",

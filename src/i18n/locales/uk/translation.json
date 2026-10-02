@@ -180,8 +180,8 @@
             "description": "Необов'язково: Спеціальна гаряча клавіша, яка завжди застосовує AI-постобробку до вашої транскрипції."
           },
           "correction": {
-            "name": "Speak Correction",
-            "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
+            "name": "Промовити виправлення",
+            "description": "Комбінація клавіш, щоб промовити виправлення, яке замінює вашу останню диктовку. Призначте клавішу, щоб увімкнути її."
           }
         },
         "errors": {
@@ -384,9 +384,9 @@
         "title": "Гаряча клавіша"
       },
       "correction": {
-        "title": "Iterative Correction",
-        "toggleLabel": "Speak Corrections",
-        "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
+        "title": "Ітеративне виправлення",
+        "toggleLabel": "Промовляти виправлення",
+        "toggleDescription": "Додає окрему комбінацію клавіш, яку ви натискаєте, щоб замінити останню диктовку промовленим виправленням. Вона ніколи не запускається автоматично за ключовими словами. Натисніть призначену клавішу, промовте виправлення, і попередній текст буде відредаговано на місці."
       },
       "api": {
         "title": "API (сумісний з OpenAI)",
