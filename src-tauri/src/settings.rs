@@ -770,8 +770,8 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
 
     // Local LLM via llama.cpp — runs entirely on-device using GGUF models
     // downloaded through the standard model manager. No API key needed.
-    // Only macOS/Linux build llama-cpp-2 (duplicate static ggml breaks the Windows link).
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    // llama-cpp-2 ships on macOS only (Windows: duplicate static ggml; Linux: CMake and packaging issues).
+    #[cfg(target_os = "macos")]
     providers.push(PostProcessProvider {
         id: LOCAL_LLM_PROVIDER_ID.to_string(),
         label: "Local (llama.cpp)".to_string(),

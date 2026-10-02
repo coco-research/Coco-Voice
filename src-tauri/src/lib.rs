@@ -10,7 +10,7 @@ mod commands;
 mod helpers;
 mod input;
 mod llm_client;
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(target_os = "macos")]
 mod local_llm;
 mod managers;
 mod overlay;

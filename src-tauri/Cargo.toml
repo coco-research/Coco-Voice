@@ -137,9 +137,8 @@ transcribe-cpp = { version = "0.1.2", default-features = false, features = [
 
 [target.'cfg(all(windows, target_arch = "aarch64"))'.dependencies]
 transcribe-cpp = { version = "0.1.2", default-features = false }
-# llama-cpp-2 is not built on Windows: llama-cpp-sys-2 and transcribe-cpp-sys each
-# statically link their own ggml, which breaks the Windows link (LNK2005). The
-# local LLM provider ships on macOS and Linux only.
+# llama-cpp-2 is macOS only. Windows: llama-cpp-sys-2 and transcribe-cpp-sys each statically
+# link their own ggml (LNK2005). Linux: arm64 CMake config and AppImage/deb packaging break.
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
@@ -150,10 +149,6 @@ llama-cpp-2 = { version = "0.1.156", default-features = false, features = ["meta
 gtk-layer-shell = { version = "0.8", features = ["v0_6"] }
 gtk = "0.18"
 transcribe-cpp = { version = "0.1.2", default-features = false, features = [
-  "dynamic-backends",
-  "vulkan",
-] }
-llama-cpp-2 = { version = "0.1.156", default-features = false, features = [
   "dynamic-backends",
   "vulkan",
 ] }
