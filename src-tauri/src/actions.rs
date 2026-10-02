@@ -30,6 +30,7 @@ use tauri::{AppHandle, Emitter};
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
 /// Local cleanup length. A catalog model id is not a token count, so this is
 /// not parsed out of the model string.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 const LOCAL_LLM_MAX_TOKENS: i32 = 512;
 
 /// How long a produced output stays eligible as the base for an iterative
@@ -477,6 +478,15 @@ async fn post_process_transcription(
     // HTTP API, so it is dispatched before the structured-output gate. The
     // provider keeps `supports_structured_output: false`; hoisting the call is
     // what makes local cleanup reachable, not flipping that flag.
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    if provider.id == LOCAL_LLM_PROVIDER_ID {
+        // llama-cpp-2 only builds on macOS/Linux (not Windows); behave like a missing provider.
+        warn!("Local LLM provider is not available on this platform; skipping post-processing");
+        let _ = (token_tx, llm_cancel);
+        return None;
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     if provider.id == LOCAL_LLM_PROVIDER_ID {
         let model_manager = app.state::<Arc<ModelManager>>();
         match model_manager.get_model_path(&model) {
