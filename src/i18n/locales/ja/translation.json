@@ -196,6 +196,10 @@
           "transcribe_with_post_process": {
             "name": "後処理のショートカット",
             "description": "文字起こしに常に AI 後処理を適用するキーボードショートカット。 (任意)"
+          },
+          "correction": {
+            "name": "訂正を話す",
+            "description": "直前の音声入力を置き換える訂正を話すためのキーボードショートカットです。有効にするにはキーを割り当ててください。"
           }
         },
         "errors": {
@@ -372,6 +376,11 @@
     "postProcessing": {
       "hotkey": {
         "title": "ショートカット"
+      },
+      "correction": {
+        "title": "反復訂正",
+        "toggleLabel": "訂正を話す",
+        "toggleDescription": "直前の音声入力を、話した訂正で置き換えるための専用ショートカットを追加します。キーワードでは自動的に起動しません。割り当てたキーを押し、修正を話すと、直前の出力がその場で編集されます。"
       },
       "api": {
         "title": "API (OpenAI 互換)",

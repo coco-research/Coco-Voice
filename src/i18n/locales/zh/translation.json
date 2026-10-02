@@ -196,6 +196,10 @@
           "transcribe_with_post_process": {
             "name": "后处理快捷键",
             "description": "可选：一个专用快捷键，始终对您的转录应用 AI 后处理。"
+          },
+          "correction": {
+            "name": "说出更正",
+            "description": "用于说出更正以替换上一次听写的键盘快捷键。分配一个按键即可启用。"
           }
         },
         "errors": {
@@ -372,6 +376,11 @@
     "postProcessing": {
       "hotkey": {
         "title": "快捷键"
+      },
+      "correction": {
+        "title": "迭代更正",
+        "toggleLabel": "说出更正",
+        "toggleDescription": "添加一个显式快捷键，按下后用口述更正替换上一次听写。它绝不会因关键词而自动触发。按下已分配的按键，说出修改，先前的输出会就地编辑。"
       },
       "api": {
         "title": "API（兼容 OpenAI）",

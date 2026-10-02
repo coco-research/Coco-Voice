@@ -561,7 +561,9 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
               className="flex items-center gap-1"
             >
               <Check width={14} height={14} />
-              <span>{t("settings.history.saveEdit", { defaultValue: "Save" })}</span>
+              <span>
+                {t("settings.history.saveEdit", { defaultValue: "Save" })}
+              </span>
             </Button>
             <Button
               onClick={cancelEditing}
@@ -571,7 +573,9 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
               className="flex items-center gap-1"
             >
               <X width={14} height={14} />
-              <span>{t("settings.history.cancelEdit", { defaultValue: "Cancel" })}</span>
+              <span>
+                {t("settings.history.cancelEdit", { defaultValue: "Cancel" })}
+              </span>
             </Button>
           </div>
         </div>

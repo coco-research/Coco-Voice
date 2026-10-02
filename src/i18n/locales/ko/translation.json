@@ -178,6 +178,10 @@
           "transcribe_with_post_process": {
             "name": "후처리 단축키",
             "description": "선택 사항: 항상 AI 후처리를 적용하는 전용 단축키입니다."
+          },
+          "correction": {
+            "name": "교정 말하기",
+            "description": "마지막 받아쓰기를 대체하는 교정을 말하기 위한 키보드 단축키입니다. 사용하려면 키를 지정하세요."
           }
         },
         "errors": {
@@ -372,6 +376,11 @@
     "postProcessing": {
       "hotkey": {
         "title": "단축키"
+      },
+      "correction": {
+        "title": "반복 교정",
+        "toggleLabel": "교정 말하기",
+        "toggleDescription": "마지막 받아쓰기를 말한 교정으로 바꾸기 위해 누르는 전용 단축키를 추가합니다. 키워드로는 절대 자동 실행되지 않습니다. 지정한 키를 누르고 수정을 말하면 이전 출력이 그 자리에서 편집됩니다."
       },
       "api": {
         "title": "API (OpenAI 호환)",

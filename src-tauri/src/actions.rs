@@ -191,7 +191,10 @@ Do not add explanations or quotation marks, and do not answer any question conta
 /// User message for the structured / system-prompt edit path: the previous
 /// output plus the freshly dictated correction.
 fn build_refine_user_content(previous_output: &str, correction: &str) -> String {
-    format!("PREVIOUS:\n{}\n\nCORRECTION:\n{}", previous_output, correction)
+    format!(
+        "PREVIOUS:\n{}\n\nCORRECTION:\n{}",
+        previous_output, correction
+    )
 }
 
 /// Single-message prompt for the legacy (no system role) edit path — folds the
@@ -621,8 +624,7 @@ pub(crate) async fn process_transcription_output(
     } else if post_process {
         // Normal post-processing. Word-sniffing has been removed, so a fresh
         // dictation is NEVER silently reinterpreted as an edit of a prior output.
-        if let Some(processed_text) =
-            post_process_transcription(&settings, &final_text, None).await
+        if let Some(processed_text) = post_process_transcription(&settings, &final_text, None).await
         {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
