@@ -19,7 +19,7 @@ export TAURI_SIGNING_PRIVATE_KEY="$(cat "$KEY_PATH")"
 PASS_PATH="$HOME/.tauri/coco-voice-updater.pass"
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(cat "$PASS_PATH")"
 
-cd "$HOME/projects/coco-voice"
+cd "$(dirname "$0")"
 
 echo "=== env ==="
 echo "cargo: $(cargo --version 2>&1)"
