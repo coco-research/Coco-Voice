@@ -150,7 +150,12 @@ The in-app updater installs a release only if it is signed with the private key 
 
 **Code-signing certificate:** `bundle.macOS.signingIdentity` is a self-signed certificate named "Coco Research Code Signing" in the maintainer's login keychain. macOS ties the Accessibility grant to it, so it must stay the same across releases.
 
-**Backup (do this once per key, before the first release signed with it):** copy both key files, plus the certificate exported from Keychain Access as a password-protected `.p12`, into the maintainer's password manager, in one entry named "Coco Voice updater key". The GitHub secret below is write-only and does not count as a backup.
+**Backup (do this once per key, before the first release signed with it):**
+
+1. Export the certificate from Keychain Access (right-click it, Export, File Format: Personal Information Exchange) as a password-protected `~/keys/coco-voice-codesign.p12`, so the key and the certificate sit together.
+2. Copy all four files (`.key`, `.pass`, `.key.pub`, `.p12`) and the `.p12` password into the maintainer's password manager, in one entry named "Coco Voice updater key". `~/keys` is on the same Mac, so step 2 is what survives a lost or wiped machine.
+
+The GitHub secret below is write-only and does not count as a backup.
 
 **CI signing:** set the repository secrets `TAURI_SIGNING_PRIVATE_KEY` (contents of the `.key` file) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (contents of the `.pass` file) from those files, for example `gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/keys/coco-voice-updater.key`.
 
