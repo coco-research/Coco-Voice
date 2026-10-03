@@ -48,6 +48,9 @@ struct CatalogModel {
     /// from `recommended_rank`, which only orders the full list.
     #[serde(default)]
     recommended: bool,
+    /// Pinned HF commit for publisher repos. Absent means the `main` branch.
+    #[serde(default)]
+    revision: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -57,6 +60,11 @@ struct CatalogCaps {
     lang_detect: bool,
     // `timestamps` (a string enum) is present in the catalog but has no
     // `CapabilityProbe` field yet — wire it through when the probe gains one.
+}
+
+/// Architectures served by llama.cpp for transcript cleanup.
+fn is_local_llm_arch(architecture: Option<&str>) -> bool {
+    matches!(architecture, Some("qwen2" | "qwen3"))
 }
 
 impl From<CatalogModel> for ModelDescriptor {
@@ -72,12 +80,16 @@ impl From<CatalogModel> for ModelDescriptor {
             id: format!("{}/{}", m.id, default_filename),
             source: ModelSource::HuggingFace {
                 repo_id: m.id,
-                revision: "main".to_string(),
+                revision: m
+                    .revision
+                    .filter(|r| !r.trim().is_empty())
+                    .unwrap_or_else(|| "main".to_string()),
             },
             name: m.name,
             description: m.description,
-            // qwen2 is the local post-processing GGUF, not a transcribe-cpp ASR arch.
-            engine_type: if m.architecture.as_deref() == Some("qwen2") {
+            // qwen2 and qwen3 are the local post-processing GGUFs, not
+            // transcribe-cpp ASR archs (those are `qwen3_asr`, `canary_qwen`).
+            engine_type: if is_local_llm_arch(m.architecture.as_deref()) {
                 EngineType::LlamaCpp
             } else {
                 EngineType::TranscribeCpp
@@ -172,17 +184,61 @@ mod tests {
     }
 
     #[test]
-    fn qwen2_entry_is_a_local_llm_not_a_transcription_model() {
-        let llm = CATALOG
+    fn qwen_cleanup_entries_are_local_llms_not_transcription_models() {
+        let llms: Vec<_> = CATALOG
             .iter()
-            .find(|d| d.caps.architecture.as_deref() == Some("qwen2"))
-            .expect("qwen2 catalog entry");
-        assert!(matches!(llm.engine_type, EngineType::LlamaCpp));
-        assert!(
-            (0.5..=1.0).contains(&llm.speed_score) && (0.5..=1.0).contains(&llm.accuracy_score),
-            "catalog scores are 0-100 before normalisation, got {}/{}",
-            llm.speed_score,
-            llm.accuracy_score
-        );
+            .filter(|d| matches!(d.caps.architecture.as_deref(), Some("qwen2" | "qwen3")))
+            .collect();
+        // Qwen3-4B (default), Qwen2.5-1.5B (fast), Qwen2.5-3B (opt-in).
+        assert_eq!(llms.len(), 3);
+        for llm in llms {
+            assert!(
+                matches!(llm.engine_type, EngineType::LlamaCpp),
+                "{}",
+                llm.id
+            );
+            assert!(
+                (0.5..=1.0).contains(&llm.speed_score) && (0.5..=1.0).contains(&llm.accuracy_score),
+                "catalog scores are 0-100 before normalisation, got {}/{} for {}",
+                llm.speed_score,
+                llm.accuracy_score,
+                llm.id
+            );
+        }
+        // The ASR arch that merely contains "qwen3" must stay a transcription engine.
+        let asr = CATALOG
+            .iter()
+            .find(|d| d.caps.architecture.as_deref() == Some("qwen3_asr"))
+            .expect("qwen3_asr catalog entry");
+        assert!(matches!(asr.engine_type, EngineType::TranscribeCpp));
+    }
+
+    #[test]
+    fn default_local_llm_is_the_apache_qwen3_entry() {
+        let id = crate::settings::LOCAL_LLM_DEFAULT_MODEL_ID;
+        let d = CATALOG
+            .iter()
+            .find(|d| d.id == id)
+            .expect("default in catalog");
+        assert_eq!(d.caps.architecture.as_deref(), Some("qwen3"));
+        assert!(d.recommended);
+        assert!(matches!(
+            &d.source,
+            ModelSource::HuggingFace { repo_id, revision }
+                if repo_id == "Qwen/Qwen3-4B-GGUF"
+                    && revision == "bc640142c66e1fdd12af0bd68f40445458f3869b"
+        ));
+    }
+
+    #[test]
+    fn only_the_default_local_llm_is_recommended() {
+        // Qwen2.5-3B (Qwen research licence) and the 1.5B stay opt-in.
+        for d in CATALOG
+            .iter()
+            .filter(|d| matches!(d.engine_type, EngineType::LlamaCpp))
+        {
+            let default = d.id == crate::settings::LOCAL_LLM_DEFAULT_MODEL_ID;
+            assert_eq!(d.recommended, default, "{}", d.id);
+        }
     }
 }

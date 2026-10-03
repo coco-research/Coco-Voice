@@ -98,13 +98,65 @@ fn prompt_budget(max_tokens: i32) -> usize {
         .max(1)
 }
 
+/// Qwen3 template tail for `enable_thinking=false`: an empty think block the
+/// model treats as already finished, so it answers without reasoning.
+const QWEN3_NO_THINK: &str = "<think>\n\n</think>\n\n";
+
+/// Whether `architecture` (GGUF `general.architecture`) or, when the metadata is
+/// missing, the file name says this is a Qwen3 chat model. The `asr` guard keeps
+/// the speech models (`qwen3_asr`) out; they are never loaded here anyway.
+fn is_qwen3(architecture: Option<&str>, file_name: &str) -> bool {
+    match architecture {
+        Some(arch) => arch == "qwen3",
+        None => {
+            let name = file_name.to_ascii_lowercase();
+            name.contains("qwen3") && !name.contains("asr")
+        }
+    }
+}
+
 /// ChatML pieces. Only the middle (the transcript) may be truncated.
-fn chat_template_parts(system_prompt: &str, user_content: &str) -> (String, String, String) {
+fn chat_template_parts(
+    system_prompt: &str,
+    user_content: &str,
+    qwen3: bool,
+) -> (String, String, String) {
+    let think = if qwen3 { QWEN3_NO_THINK } else { "" };
     (
         format!("<|im_start|>system\n{system_prompt}\n<|im_end|>\n<|im_start|>user\n"),
         user_content.to_string(),
-        "\n<|im_end|>\n<|im_start|>assistant\n".to_string(),
+        format!("\n<|im_end|>\n<|im_start|>assistant\n{think}"),
     )
+}
+
+/// Remove `<think>...</think>` blocks a Qwen3 model may still emit. An unclosed
+/// `<think>` (reasoning cut off by the token limit) drops the rest; a stray
+/// `</think>` (the opening tag was part of the prompt) drops everything before it.
+fn strip_think_blocks(text: &str) -> String {
+    if !text.contains("<think>") && !text.contains("</think>") {
+        return text.to_string();
+    }
+    let mut rest = text;
+    let mut out = String::with_capacity(text.len());
+    while let Some(open) = rest.find("<think>") {
+        // A close tag before the next open tag has no matching open.
+        if let Some(close) = rest[..open].find("</think>") {
+            out.clear();
+            rest = &rest[close + "</think>".len()..];
+            continue;
+        }
+        out.push_str(&rest[..open]);
+        match rest[open..].find("</think>") {
+            Some(close) => rest = &rest[open + close + "</think>".len()..],
+            None => return out.trim().to_string(),
+        }
+    }
+    if let Some(close) = rest.find("</think>") {
+        out.clear();
+        rest = &rest[close + "</think>".len()..];
+    }
+    out.push_str(rest);
+    out.trim().to_string()
 }
 
 /// Clamp a token list to `budget`, keeping a short head and the newest tail.
@@ -220,7 +272,13 @@ fn generate_text_blocking(
     // Tokenize the chat template and the transcript apart so a long transcript
     // cannot cut through `<|im_start|>` turn markers. BOS belongs on the prefix
     // only; a second BOS would land in the middle of the prompt.
-    let (prefix, transcript, suffix) = chat_template_parts(system_prompt, user_content);
+    let architecture = model.meta_val_str("general.architecture").ok();
+    let file_name = model_path
+        .file_name()
+        .map(|n| n.to_string_lossy())
+        .unwrap_or_default();
+    let qwen3 = is_qwen3(architecture.as_deref(), &file_name);
+    let (prefix, transcript, suffix) = chat_template_parts(system_prompt, user_content, qwen3);
     let prefix_tokens = model
         .str_to_token(&prefix, AddBos::Always)
         .map_err(|e| format!("Failed to tokenize prompt: {}", e))?;
@@ -329,12 +387,20 @@ fn generate_text_blocking(
         generated.len()
     );
 
-    Ok(generated)
+    // Only Qwen3 emits think blocks; other models keep their output verbatim.
+    Ok(if qwen3 {
+        strip_think_blocks(&generated)
+    } else {
+        generated
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{clamped_max_gen, fit_to_context, fit_transcript_tokens, prompt_budget, N_CTX};
+    use super::{
+        chat_template_parts, clamped_max_gen, fit_to_context, fit_transcript_tokens, is_qwen3,
+        prompt_budget, strip_think_blocks, N_CTX,
+    };
     use llama_cpp_2::token::LlamaToken;
 
     fn tokens(n: i32) -> Vec<LlamaToken> {
@@ -377,5 +443,52 @@ mod tests {
         assert_eq!(fitted.len(), 10);
         assert_eq!(&fitted[..8], &tokens(8)[..]);
         assert_eq!(&fitted[8..], &suffix[..]);
+    }
+
+    #[test]
+    fn qwen3_prompt_ends_with_an_empty_think_block() {
+        let (prefix, transcript, suffix) = chat_template_parts("sys", "hello", true);
+        assert_eq!(
+            prefix,
+            "<|im_start|>system\nsys\n<|im_end|>\n<|im_start|>user\n"
+        );
+        assert_eq!(transcript, "hello");
+        assert_eq!(
+            suffix,
+            "\n<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+        );
+        // Other models keep the plain ChatML tail.
+        let (_, _, plain) = chat_template_parts("sys", "hello", false);
+        assert_eq!(plain, "\n<|im_end|>\n<|im_start|>assistant\n");
+    }
+
+    #[test]
+    fn qwen3_is_detected_from_metadata_then_file_name() {
+        assert!(is_qwen3(Some("qwen3"), "anything.gguf"));
+        assert!(!is_qwen3(Some("qwen2"), "Qwen3-4B-Q4_K_M.gguf"));
+        assert!(!is_qwen3(Some("qwen3_asr"), "Qwen3-ASR-1.7B-Q5_K_M.gguf"));
+        assert!(is_qwen3(None, "Qwen3-4B-Q4_K_M.gguf"));
+        assert!(!is_qwen3(None, "qwen2.5-3b-instruct-q4_k_m.gguf"));
+        assert!(!is_qwen3(None, "Qwen3-ASR-0.6B-Q8_0.gguf"));
+    }
+
+    #[test]
+    fn think_blocks_are_stripped_from_output() {
+        assert_eq!(strip_think_blocks("Hello there."), "Hello there.");
+        assert_eq!(
+            strip_think_blocks("<think>\n\n</think>\n\nHello."),
+            "Hello."
+        );
+        assert_eq!(
+            strip_think_blocks("a <think>x</think>b<think>y</think> c"),
+            "a b c"
+        );
+        // Reasoning cut off by the token limit leaves nothing after it.
+        assert_eq!(strip_think_blocks("Hi <think>still thinking"), "Hi");
+        // Opening tag lived in the prompt.
+        assert_eq!(
+            strip_think_blocks("reasoning</think>\n\nAnswer."),
+            "Answer."
+        );
     }
 }

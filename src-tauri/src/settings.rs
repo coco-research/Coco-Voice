@@ -10,8 +10,7 @@ use tauri_plugin_store::StoreExt;
 pub const APPLE_INTELLIGENCE_PROVIDER_ID: &str = "apple_intelligence";
 pub const APPLE_INTELLIGENCE_DEFAULT_MODEL_ID: &str = "Apple Intelligence";
 pub const LOCAL_LLM_PROVIDER_ID: &str = "local_llm";
-pub const LOCAL_LLM_DEFAULT_MODEL_ID: &str =
-    "Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf";
+pub const LOCAL_LLM_DEFAULT_MODEL_ID: &str = "Qwen/Qwen3-4B-GGUF/Qwen3-4B-Q4_K_M.gguf";
 
 #[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
 #[serde(rename_all = "lowercase")]

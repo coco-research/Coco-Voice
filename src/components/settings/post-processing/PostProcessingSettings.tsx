@@ -31,8 +31,7 @@ import { useSettings } from "../../../hooks/useSettings";
  *  `get_model_path` looks that id up directly.
  */
 const LOCAL_LLM_PROVIDER_ID = "local_llm";
-const LOCAL_LLM_DEFAULT_MODEL_ID =
-  "Qwen/Qwen2.5-3B-Instruct-GGUF/qwen2.5-3b-instruct-q4_k_m.gguf";
+const LOCAL_LLM_DEFAULT_MODEL_ID = "Qwen/Qwen3-4B-GGUF/Qwen3-4B-Q4_K_M.gguf";
 
 const LocalLlmModelRow: React.FC<{ modelId: string }> = ({ modelId }) => {
   const { t } = useTranslation();
