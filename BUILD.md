@@ -142,6 +142,31 @@ sudo ldconfig
 
 Resources only need re-copying if they change upstream (new icons, sounds, models, etc.).
 
+## Releasing a signed update (macOS)
+
+The in-app updater installs a release only if it is signed with the private key that matches `plugins.updater.pubkey` in `src-tauri/tauri.conf.json`. Losing that key means every installed copy has to be reinstalled by hand, which is what happened between 0.9.4 and 0.9.5.
+
+**Where the key lives:** the maintainer's Mac, outside the repo: `~/keys/coco-voice-updater.key` and `~/keys/coco-voice-updater.pass` (both mode 600). The public half is `~/keys/coco-voice-updater.key.pub`. Never commit, paste or print the private key or the password.
+
+**Code-signing certificate:** `bundle.macOS.signingIdentity` is a self-signed certificate named "Coco Research Code Signing" in the maintainer's login keychain. macOS ties the Accessibility grant to it, so it must stay the same across releases.
+
+**Backup (do this once per key, before the first release signed with it):**
+
+1. Export the certificate from Keychain Access (right-click it, Export, File Format: Personal Information Exchange) as a password-protected `~/keys/coco-voice-codesign.p12`, so the key and the certificate sit together.
+2. Copy all four files (`.key`, `.pass`, `.key.pub`, `.p12`) and the `.p12` password into the maintainer's password manager, in one entry named "Coco Voice updater key". `~/keys` is on the same Mac, so step 2 is what survives a lost or wiped machine.
+
+The GitHub secret below is write-only and does not count as a backup.
+
+**CI signing:** set the repository secrets `TAURI_SIGNING_PRIVATE_KEY` (contents of the `.key` file) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (contents of the `.pass` file) from those files, for example `gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/keys/coco-voice-updater.key`.
+
+**Release steps:**
+
+1. Bump the version in `package.json`, `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`.
+2. Run `./build-updater.sh`. It loads the key from `~/keys` and produces the `.dmg`, the `.app.tar.gz` and its `.sig`.
+3. Publish a GitHub release with the `.dmg`, the `.app.tar.gz` and a `latest.json` that carries the `.sig` contents, so `releases/latest/download/latest.json` points at the new version.
+
+**If the key is lost:** generate a new pair with `bun tauri signer generate -w ~/keys/coco-voice-updater.key`, put the new public key in `tauri.conf.json`, back it up as above, and tell users to download that release by hand once.
+
 ## Troubleshooting
 
 ### AppImage build fails on Arch / rolling-release distros
