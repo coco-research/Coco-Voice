@@ -26,6 +26,10 @@ use tauri::{AppHandle, Emitter};
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
+/// How long to wait for a stream worker that overran its finalize timeout to
+/// return the engine before giving up on the batch fallback.
+const STREAM_ENGINE_RETURN_WAIT: Duration = Duration::from_secs(10);
+
 /// How long a produced output stays eligible as the base for an iterative
 /// correction. A follow-up utterance arriving after this window is treated as a
 /// fresh dictation rather than an edit of the previous result.
@@ -907,11 +911,16 @@ impl ShortcutAction for TranscribeAction {
                         // A finalized stream with usable text wins. An empty result
                         // (no active stream, produced nothing, or a finalize error
                         // after the engine was returned) falls back to a full batch
-                        // transcription of the same audio. A finalize timeout is
-                        // surfaced instead — the worker may still hold the engine,
-                        // so a batch fallback would contend with it.
+                        // transcription of the same audio. After a finalize timeout
+                        // the worker may still hold the engine: wait a bounded time
+                        // for it to come back and then fall back to batch, otherwise
+                        // surface the timeout error.
                         Ok(Some(text)) if !text.trim().is_empty() => Ok(text),
                         Ok(_) => tm.transcribe(samples),
+                        Err(err) if tm.wait_for_engine(STREAM_ENGINE_RETURN_WAIT) => {
+                            warn!("Stream finalize failed ({err}); falling back to batch");
+                            tm.transcribe(samples)
+                        }
                         Err(err) => Err(err),
                     };
 
