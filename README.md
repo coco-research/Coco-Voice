@@ -54,13 +54,13 @@ xattr -dr com.apple.quarantine "/Applications/Coco Voice.app"
 open "/Applications/Coco Voice.app"
 ```
 
-On first launch macOS asks for the microphone and for Accessibility. Accessibility is what lets the global shortcut and the paste keystroke work. After that, the app asks you to download a speech model. Nothing is transcribed until that download finishes. The default shortcut is hold Option+Space (push-to-talk). If you are moving to 0.9.4 from an older build, grant Accessibility once more: the signing certificate changed, and macOS ties that permission to the certificate.
+On first launch macOS asks for the microphone and for Accessibility. Accessibility is what lets the global shortcut and the paste keystroke work. After that, the app asks you to download a speech model. Nothing is transcribed until that download finishes. The default shortcut is hold Option+Space (push-to-talk). If you are moving to 0.9.5 from an older build, download it by hand once (0.9.5 is signed with a new update key, so older copies cannot update to it) and grant Accessibility once more: the signing certificate changed, and macOS ties that permission to the certificate.
 
 ### Build from source
 
 You need Rust (stable), [Bun](https://bun.sh/), and cmake.
 
-On macOS, install full Xcode and point the active developer directory at it (`sudo xcode-select -s /Applications/Xcode.app`). With only Command Line Tools, the Apple Intelligence bridge compiles as a stub. The published 0.9.4 disk image was built that way, so Apple Intelligence is unavailable in that download.
+On macOS, install full Xcode and point the active developer directory at it (`sudo xcode-select -s /Applications/Xcode.app`). With only Command Line Tools, the Apple Intelligence bridge compiles as a stub. The published 0.9.5 disk image was built that way, so Apple Intelligence is unavailable in that download.
 
 Windows also needs the Microsoft C++ build tools and the Vulkan SDK. Linux needs the libraries listed in [BUILD.md](BUILD.md), including cmake. Intel Macs have no prebuilt ONNX Runtime in this repo. [BUILD.md](BUILD.md) has the Homebrew link flags.
 
@@ -84,7 +84,7 @@ CMAKE_POLICY_VERSION_MINIMUM=3.5 bun run tauri dev
 - Hold a key to dictate, and the text lands in the focused app. Push-to-talk is the default (Option+Space on macOS, Ctrl+Space on Windows and Linux). Turn it off to toggle, or drive a running copy with `--toggle-transcription`.
 - You pick a local model: Whisper, Parakeet, Moonshine, and other architectures, through transcribe-cpp, with older ONNX models through transcribe-rs.
 - transcribe.cpp uses the GPU when one is there: Metal on macOS, Vulkan on Windows x64 and Linux, and the CPU otherwise. A Windows on ARM build of the speech engine is CPU only.
-- You can clean a transcript afterwards through an OpenAI-compatible API, or through Apple Intelligence on Apple Silicon when that provider was compiled in. The 0.9.4 download skips this step because the provider is a stub.
+- You can clean a transcript afterwards through an OpenAI-compatible API, or through Apple Intelligence on Apple Silicon when that provider was compiled in. The 0.9.5 download does not include Apple Intelligence because the provider is a stub.
 - Names and fixes stay local: custom words, whole-word corrections, and a transcript history stored in a database on disk.
 - The settings window is translated into 22 languages.
 
@@ -102,7 +102,7 @@ The shortcut opens the microphone through cpal. Silero voice activity detection 
 
 ## Status and roadmap
 
-This is a beta. The version in the tree and the latest release are 0.9.4. Today, on an Apple Silicon Mac, you can hold the shortcut, speak, and paste a local transcript, with history, custom words, and corrections. The app includes an updater that reads the latest GitHub release. The Mac build is self-signed and not notarized. Apple Intelligence is not in the 0.9.4 download.
+This is a beta. The version in the tree and the latest release are 0.9.5. See [CHANGELOG.md](CHANGELOG.md) for what changed. Today, on an Apple Silicon Mac, you can hold the shortcut, speak, and paste a local transcript, with history, custom words, and corrections. The app includes an updater that reads the latest GitHub release. The Mac build is self-signed and not notarized. Apple Intelligence is not in the 0.9.5 download.
 
 Next:
 
@@ -141,9 +141,9 @@ Key libraries: [transcribe-cpp](https://github.com/handy-computer/transcribe.cpp
 | Where you run it | What the code does                                                                                                              |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | macOS            | The published release is Apple Silicon only. transcribe.cpp uses Metal. First launch asks for the microphone and Accessibility. |
-| Windows x64      | Source builds with Vulkan for transcribe.cpp. Not in the 0.9.4 release.                                                         |
-| Windows on ARM   | The speech engine is compiled CPU-only. Not in the 0.9.4 release.                                                               |
-| Linux            | Source builds with Vulkan. The recording overlay is off by default. Not in the 0.9.4 release.                                   |
+| Windows x64      | Source builds with Vulkan for transcribe.cpp. Not in the 0.9.5 release.                                                         |
+| Windows on ARM   | The speech engine is compiled CPU-only. Not in the 0.9.5 release.                                                               |
+| Linux            | Source builds with Vulkan. The recording overlay is off by default. Not in the 0.9.5 release.                                   |
 
 On Linux, `HANDY_NO_GTK_LAYER_SHELL=1` skips the GTK layer-shell overlay. Wayland paste depends on a typing tool such as `wtype`, `ydotool`, `dotool`, or `xdotool`. Install notes and the long build troubleshooting (Windows path length, AppImage, Intel Mac ONNX Runtime) are in [BUILD.md](BUILD.md).
 
