@@ -590,11 +590,13 @@ pub(crate) async fn process_transcription_output(
         // as an edit of the last output. We never sniff the words — the dedicated
         // "correction" hotkey is the only trigger.
         if let Some(prior_output) = refine_base_for_correction(&settings) {
-            // The prior output is exactly what the previous dictation pasted, so
-            // its character length is how many characters the replace must delete
-            // before typing the edit. Count `chars`, not bytes, so multibyte /
-            // emoji delete as single Backspaces.
-            let prev_char_count = prior_output.chars().count();
+            // The prior output is what the previous dictation pasted (plus the
+            // trailing space `paste` appends when that setting is on), so its
+            // grapheme length is how many Backspaces the replace must send before
+            // typing the edit. Graphemes, not scalars or bytes: one Backspace
+            // deletes one grapheme cluster (combining marks, joined emoji).
+            let prev_char_count =
+                crate::utils::pasted_grapheme_count(&prior_output, settings.append_trailing_space);
             match post_process_transcription(&settings, &final_text, Some(&prior_output)).await {
                 Some(edited) => {
                     post_processed_text = Some(edited.clone());
