@@ -37,20 +37,43 @@ pub enum EngineType {
     Cohere,
 }
 
+/// One pinned file inside a `ModelSource::Files` download.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct RemoteFile {
+    pub url: String,
+    pub local_name: String,
+    pub sha256: String,
+    pub size: u64,
+}
+
 /// Where a model comes from and how Coco Voice obtains it — the routing discriminant
 /// for downloading and on-disk resolution.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum ModelSource {
-    /// Direct HTTP download from a URL (current blob.handy.computer hosting).
+    /// Direct HTTP download from a pinned URL.
     Url {
         url: String,
         /// Expected SHA-256 for integrity verification; `None` skips it.
         sha256: Option<String>,
     },
+    /// Several pinned files saved into `filename/` with the old tarball layout.
+    Files { files: Vec<RemoteFile> },
     /// A file inside a Hugging Face Hub repo, fetched via hf-hub into the shared
-    /// HF cache (so other tools reuse it). The file within the repo is
-    /// [`ModelInfo::filename`].
-    HuggingFace { repo_id: String, revision: String },
+    /// HF cache. The file within the repo is [`ModelInfo::filename`], unless
+    /// `path` is set.
+    HuggingFace {
+        repo_id: String,
+        revision: String,
+        /// Repo-relative path. Empty means [`ModelInfo::filename`].
+        #[serde(default)]
+        path: String,
+        /// Expected SHA-256. `None` skips verification (cache-discovered copies).
+        #[serde(default)]
+        sha256: Option<String>,
+        /// Previous repo id, so an already-downloaded copy still resolves.
+        #[serde(default)]
+        legacy_repo_id: Option<String>,
+    },
     /// Already present on disk — a user-provided custom model, or one discovered
     /// in a shared cache. Nothing to download.
     Local,
@@ -272,17 +295,106 @@ pub struct DownloadProgress {
     pub percentage: f64,
 }
 
-/// Resolve a Hugging Face model file in the shared HF cache, if already present.
-/// Uses hf-hub's stock location (HF_HOME or ~/.cache/huggingface/hub) so
-/// downloads are shared with other tools.
-fn hf_cached_path(repo_id: &str, revision: &str, filename: &str) -> Option<PathBuf> {
-    Cache::from_env()
-        .repo(Repo::with_revision(
-            repo_id.to_string(),
-            RepoType::Model,
-            revision.to_string(),
-        ))
-        .get(filename)
+/// Shared mirror repo. Deleting one model must not wipe the others.
+const MIRROR_REPO: &str = crate::catalog::MIRROR_REPO;
+
+/// Same lookup as hf-hub `CacheRepo::get`: `refs/<revision>` then
+/// `snapshots/<commit>/<filename>`. `filename` may contain slashes.
+fn cache_file(cache_root: &Path, repo_id: &str, revision: &str, filename: &str) -> Option<PathBuf> {
+    if repo_id.is_empty() || filename.is_empty() {
+        return None;
+    }
+    let folder = format!("models--{}", repo_id.replace('/', "--"));
+    let repo = cache_root.join(folder);
+    let commit = fs::read_to_string(repo.join("refs").join(revision)).ok()?;
+    let path = repo.join("snapshots").join(commit.trim()).join(filename);
+    path.exists().then_some(path)
+}
+
+/// Resolve a mirrored or publisher HF file. An already-downloaded legacy copy
+/// counts as present and is not re-hashed: older exports can differ in sha.
+fn resolve_hf_file(
+    cache_root: &Path,
+    repo_id: &str,
+    revision: &str,
+    repo_path: &str,
+    filename: &str,
+    legacy_repo_id: Option<&str>,
+) -> Option<PathBuf> {
+    let primary = if repo_path.is_empty() {
+        filename
+    } else {
+        repo_path
+    };
+    if let Some(path) = cache_file(cache_root, repo_id, revision, primary) {
+        return Some(path);
+    }
+    let legacy = legacy_repo_id.filter(|id| !id.is_empty() && *id != repo_id)?;
+    cache_file(cache_root, legacy, "main", filename)
+}
+
+fn resolve_hf_in_env(
+    repo_id: &str,
+    revision: &str,
+    repo_path: &str,
+    filename: &str,
+    legacy_repo_id: Option<&str>,
+) -> Option<PathBuf> {
+    resolve_hf_file(
+        Cache::from_env().path(),
+        repo_id,
+        revision,
+        repo_path,
+        filename,
+        legacy_repo_id,
+    )
+}
+
+fn hf_repo_dir(file: &Path) -> Option<PathBuf> {
+    file.ancestors()
+        .find(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with("models--"))
+        })
+        .map(|p| p.to_path_buf())
+}
+
+/// Drop the snapshot pointer and the blob it points at. A sha mismatch must not
+/// leave the blob, or the next hf-hub download reuses it by etag.
+fn delete_pointer_and_blob(pointer: &Path) -> std::io::Result<()> {
+    if let Ok(target) = fs::read_link(pointer) {
+        let blob = if target.is_absolute() {
+            target
+        } else {
+            pointer.parent().unwrap_or(pointer).join(target)
+        };
+        fs::remove_file(pointer)?;
+        return match fs::remove_file(blob) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            other => other,
+        };
+    }
+    fs::remove_file(pointer)
+}
+
+fn dir_bytes(path: &Path) -> u64 {
+    let mut total = 0u64;
+    let Ok(entries) = fs::read_dir(path) else {
+        return 0;
+    };
+    for entry in entries.flatten() {
+        if entry.path().is_file() {
+            total += entry.metadata().map(|m| m.len()).unwrap_or(0);
+        }
+    }
+    total
+}
+
+fn apply_license_notice(description: &mut String, repo_id: &str, filename: &str) {
+    if let Some(notice) = crate::catalog::license_notice(repo_id, filename) {
+        *description = notice;
+    }
 }
 
 /// Friendly name advertised by GGUF metadata, if present. Empty strings are not
@@ -490,7 +602,7 @@ impl ModelManager {
                 description: "Fast and fairly accurate.".to_string(),
                 filename: "ggml-small.bin".to_string(),
                 source: ModelSource::Url {
-                    url: "https://blob.handy.computer/ggml-small.bin".to_string(),
+                    url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small.bin".to_string(),
                     sha256: Some(
                         "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b"
                             .to_string(),
@@ -523,7 +635,7 @@ impl ModelManager {
                 description: "Good accuracy, medium speed".to_string(),
                 filename: "whisper-medium-q4_1.bin".to_string(),
                 source: ModelSource::Url {
-                    url: "https://blob.handy.computer/whisper-medium-q4_1.bin".to_string(),
+                    url: "https://huggingface.co/coco-research/coco-voice-models/resolve/3cb3e6de7c20f58fe5beaaab3d5159384feff3f0/medium/whisper-medium-q4_1.bin".to_string(),
                     sha256: Some(
                         "79283fc1f9fe12ca3248543fbd54b73292164d8df5a16e095e2bceeaaabddf57"
                             .to_string(),
@@ -555,7 +667,7 @@ impl ModelManager {
                 description: "Balanced accuracy and speed.".to_string(),
                 filename: "ggml-large-v3-turbo.bin".to_string(),
                 source: ModelSource::Url {
-                    url: "https://blob.handy.computer/ggml-large-v3-turbo.bin".to_string(),
+                    url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo.bin".to_string(),
                     sha256: Some(
                         "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69"
                             .to_string(),
@@ -587,7 +699,7 @@ impl ModelManager {
                 description: "Good accuracy, but slow.".to_string(),
                 filename: "ggml-large-v3-q5_0.bin".to_string(),
                 source: ModelSource::Url {
-                    url: "https://blob.handy.computer/ggml-large-v3-q5_0.bin".to_string(),
+                    url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-q5_0.bin".to_string(),
                     sha256: Some(
                         "d75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1"
                             .to_string(),
@@ -620,7 +732,7 @@ impl ModelManager {
                     .to_string(),
                 filename: "breeze-asr-q5_k.bin".to_string(),
                 source: ModelSource::Url {
-                    url: "https://blob.handy.computer/breeze-asr-q5_k.bin".to_string(),
+                    url: "https://huggingface.co/coco-research/coco-voice-models/resolve/3cb3e6de7c20f58fe5beaaab3d5159384feff3f0/breeze-asr/breeze-asr-q5_k.bin".to_string(),
                     sha256: Some(
                         "8efbf0ce8a3f50fe332b7617da787fb81354b358c288b008d3bdef8359df64c6"
                             .to_string(),
@@ -652,14 +764,10 @@ impl ModelManager {
                 name: "Parakeet V2".to_string(),
                 description: "English only. The best model for English speakers.".to_string(),
                 filename: "parakeet-tdt-0.6b-v2-int8".to_string(), // Directory name
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/parakeet-v2-int8.tar.gz".to_string(),
-                    sha256: Some(
-                        "ac9b9429984dd565b25097337a887bb7f0f8ac393573661c651f0e7d31563991"
-                            .to_string(),
-                    ),
+                source: ModelSource::Files {
+                    files: super::model_sources::files(super::model_sources::PARAKEET_V2),
                 },
-                size_mb: 451,
+                size_mb: super::model_sources::total_mb(super::model_sources::PARAKEET_V2),
                 is_downloaded: false,
                 is_downloading: false,
                 partial_size: 0,
@@ -694,14 +802,10 @@ impl ModelManager {
                 name: "Parakeet V3".to_string(),
                 description: "Fast and accurate. Supports 25 European languages.".to_string(),
                 filename: "parakeet-tdt-0.6b-v3-int8".to_string(), // Directory name
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/parakeet-v3-int8.tar.gz".to_string(),
-                    sha256: Some(
-                        "43d37191602727524a7d8c6da0eef11c4ba24320f5b4730f1a2497befc2efa77"
-                            .to_string(),
-                    ),
+                source: ModelSource::Files {
+                    files: super::model_sources::files(super::model_sources::PARAKEET_V3),
                 },
-                size_mb: 456,
+                size_mb: super::model_sources::total_mb(super::model_sources::PARAKEET_V3),
                 is_downloaded: false,
                 is_downloading: false,
                 partial_size: 0,
@@ -726,14 +830,10 @@ impl ModelManager {
                 name: "Moonshine Base".to_string(),
                 description: "Very fast, English only. Handles accents well.".to_string(),
                 filename: "moonshine-base".to_string(),
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/moonshine-base.tar.gz".to_string(),
-                    sha256: Some(
-                        "04bf6ab012cfceebd4ac7cf88c1b31d027bbdd3cd704649b692e2e935236b7e8"
-                            .to_string(),
-                    ),
+                source: ModelSource::Files {
+                    files: super::model_sources::files(super::model_sources::MOONSHINE_BASE),
                 },
-                size_mb: 55,
+                size_mb: super::model_sources::total_mb(super::model_sources::MOONSHINE_BASE),
                 is_downloaded: false,
                 is_downloading: false,
                 partial_size: 0,
@@ -759,7 +859,7 @@ impl ModelManager {
                 description: "Ultra-fast, English only".to_string(),
                 filename: "moonshine-tiny-streaming-en".to_string(),
                 source: ModelSource::Url {
-                    url: "https://blob.handy.computer/moonshine-tiny-streaming-en.tar.gz"
+                    url: "https://huggingface.co/coco-research/coco-voice-models/resolve/3cb3e6de7c20f58fe5beaaab3d5159384feff3f0/moonshine-tiny-streaming-en/moonshine-tiny-streaming-en.tar.gz"
                         .to_string(),
                     sha256: Some(
                         "465addcfca9e86117415677dfdc98b21edc53537210333a3ecdb58509a80abaf"
@@ -792,7 +892,7 @@ impl ModelManager {
                 description: "Fast, English only. Good balance of speed and accuracy.".to_string(),
                 filename: "moonshine-small-streaming-en".to_string(),
                 source: ModelSource::Url {
-                    url: "https://blob.handy.computer/moonshine-small-streaming-en.tar.gz"
+                    url: "https://huggingface.co/coco-research/coco-voice-models/resolve/3cb3e6de7c20f58fe5beaaab3d5159384feff3f0/moonshine-small-streaming-en/moonshine-small-streaming-en.tar.gz"
                         .to_string(),
                     sha256: Some(
                         "dbb3e1c1832bd88a4ac712f7449a136cc2c9a18c5fe33a12ed1b7cb1cfe9cdd5"
@@ -825,7 +925,7 @@ impl ModelManager {
                 description: "English only. High quality.".to_string(),
                 filename: "moonshine-medium-streaming-en".to_string(),
                 source: ModelSource::Url {
-                    url: "https://blob.handy.computer/moonshine-medium-streaming-en.tar.gz"
+                    url: "https://huggingface.co/coco-research/coco-voice-models/resolve/3cb3e6de7c20f58fe5beaaab3d5159384feff3f0/moonshine-medium-streaming-en/moonshine-medium-streaming-en.tar.gz"
                         .to_string(),
                     sha256: Some(
                         "07a66f3bff1c77e75a2f637e5a263928a08baae3c29c4c053fc968a9a9373d13"
@@ -864,14 +964,10 @@ impl ModelManager {
                 description: "Very fast. Chinese, English, Japanese, Korean, Cantonese."
                     .to_string(),
                 filename: "sense-voice-int8".to_string(),
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/sense-voice-int8.tar.gz".to_string(),
-                    sha256: Some(
-                        "171d611fe5d353a50bbb741b6f3ef42559b1565685684e9aa888ef563ba3e8a4"
-                            .to_string(),
-                    ),
+                source: ModelSource::Files {
+                    files: super::model_sources::files(super::model_sources::SENSE_VOICE),
                 },
-                size_mb: 152,
+                size_mb: super::model_sources::total_mb(super::model_sources::SENSE_VOICE),
                 is_downloaded: false,
                 is_downloading: false,
                 partial_size: 0,
@@ -899,14 +995,10 @@ impl ModelManager {
                 name: "GigaAM v3".to_string(),
                 description: "Russian speech recognition. Fast and accurate.".to_string(),
                 filename: "giga-am-v3-int8".to_string(),
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/giga-am-v3-int8.tar.gz".to_string(),
-                    sha256: Some(
-                        "d872462268430db140b69b72e0fc4b787b194c1dbe51b58de39444d55b6da45b"
-                            .to_string(),
-                    ),
+                source: ModelSource::Files {
+                    files: super::model_sources::files(super::model_sources::GIGAAM_V3),
                 },
-                size_mb: 151,
+                size_mb: super::model_sources::total_mb(super::model_sources::GIGAAM_V3),
                 is_downloaded: false,
                 is_downloading: false,
                 partial_size: 0,
@@ -938,14 +1030,10 @@ impl ModelManager {
                 description: "Very fast. English, German, Spanish, French. Supports translation."
                     .to_string(),
                 filename: "canary-180m-flash".to_string(),
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/canary-180m-flash.tar.gz".to_string(),
-                    sha256: Some(
-                        "6d9cfca6118b296e196eaedc1c8fa9788305a7b0f1feafdb6dc91932ab6e53f7"
-                            .to_string(),
-                    ),
+                source: ModelSource::Files {
+                    files: super::model_sources::files(super::model_sources::CANARY_180M),
                 },
-                size_mb: 146,
+                size_mb: super::model_sources::total_mb(super::model_sources::CANARY_180M),
                 is_downloaded: false,
                 is_downloading: false,
                 partial_size: 0,
@@ -981,14 +1069,10 @@ impl ModelManager {
                 description: "Accurate multilingual. 25 European languages. Supports translation."
                     .to_string(),
                 filename: "canary-1b-v2".to_string(),
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/canary-1b-v2.tar.gz".to_string(),
-                    sha256: Some(
-                        "02305b2a25f9cf3e7deaffa7f94df00efa44f442cd55c101c2cb9c000f904666"
-                            .to_string(),
-                    ),
+                source: ModelSource::Files {
+                    files: super::model_sources::files(super::model_sources::CANARY_1B_V2),
                 },
-                size_mb: 691,
+                size_mb: super::model_sources::total_mb(super::model_sources::CANARY_1B_V2),
                 is_downloaded: false,
                 is_downloading: false,
                 partial_size: 0,
@@ -1021,14 +1105,10 @@ impl ModelManager {
                 name: "Cohere".to_string(),
                 description: "A large, slower, but very accurate multilingual model.".to_string(),
                 filename: "cohere-int8".to_string(),
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/cohere-int8.tar.gz".to_string(),
-                    sha256: Some(
-                        "ea2257d52434f3644574f187dcdcf666e302cd11b92866116ab8e14cd9c887f0"
-                            .to_string(),
-                    ),
+                source: ModelSource::Files {
+                    files: super::model_sources::files(super::model_sources::COHERE),
                 },
-                size_mb: 1708,
+                size_mb: super::model_sources::total_mb(super::model_sources::COHERE),
                 is_downloaded: false,
                 is_downloading: false,
                 partial_size: 0,
@@ -1306,8 +1386,22 @@ impl ModelManager {
         let mut models = self.available_models.lock().unwrap();
 
         for model in models.values_mut() {
-            if let ModelSource::HuggingFace { repo_id, revision } = &model.source {
-                model.is_downloaded = hf_cached_path(repo_id, revision, &model.filename).is_some();
+            if let ModelSource::HuggingFace {
+                repo_id,
+                revision,
+                path,
+                legacy_repo_id,
+                ..
+            } = &model.source
+            {
+                model.is_downloaded = resolve_hf_in_env(
+                    repo_id,
+                    revision,
+                    path,
+                    &model.filename,
+                    legacy_repo_id.as_deref(),
+                )
+                .is_some();
                 model.is_downloading = false;
                 model.partial_size = 0;
                 continue;
@@ -1335,7 +1429,9 @@ impl ModelManager {
                 model.is_downloading = false;
 
                 // Get partial file size if it exists (for the .tar.gz being downloaded)
-                if partial_path.exists() {
+                if partial_path.is_dir() {
+                    model.partial_size = dir_bytes(&partial_path);
+                } else if partial_path.is_file() {
                     model.partial_size = partial_path.metadata().map(|m| m.len()).unwrap_or(0);
                 } else {
                     model.partial_size = 0;
@@ -1521,12 +1617,14 @@ impl ModelManager {
                 model_id, filename, size_mb, caps.supports_streaming
             );
 
+            let mut description = "Not officially supported".to_string();
+            apply_license_notice(&mut description, "", &filename);
             available_models.insert(
                 model_id.clone(),
                 ModelInfo {
                     id: model_id,
                     name: display_name,
-                    description: "Not officially supported".to_string(),
+                    description,
                     filename,
                     source: ModelSource::Local, // already on disk; nothing to download
                     size_mb,
@@ -1571,17 +1669,22 @@ impl ModelManager {
             return;
         }
 
-        // Repo+file pairs already represented (e.g. recommended/added models) so
-        // the same file is not listed twice.
-        let known_hf: HashSet<(String, String)> = available_models
-            .values()
-            .filter_map(|m| match &m.source {
-                ModelSource::HuggingFace { repo_id, .. } => {
-                    Some((repo_id.clone(), m.filename.clone()))
+        // Repo+file pairs already represented, including the pre-mirror
+        // handy-computer cache, so the same file is not listed twice.
+        let mut known_hf: HashSet<(String, String)> = HashSet::new();
+        for m in available_models.values() {
+            if let ModelSource::HuggingFace {
+                repo_id,
+                legacy_repo_id,
+                ..
+            } = &m.source
+            {
+                known_hf.insert((repo_id.clone(), m.filename.clone()));
+                if let Some(legacy) = legacy_repo_id {
+                    known_hf.insert((legacy.clone(), m.filename.clone()));
                 }
-                _ => None,
-            })
-            .collect();
+            }
+        }
 
         let prober = GgufHeaderProber;
 
@@ -1639,17 +1742,22 @@ impl ModelManager {
                 let display = probed_display_name(&probe)
                     .unwrap_or_else(|| fname.trim_end_matches(".gguf").to_string());
 
+                let mut description = format!("From Hugging Face cache: {}", repo_id);
+                apply_license_notice(&mut description, &repo_id, &fname);
                 info!("Discovered HF cache model: {} ({})", model_id, repo_id);
                 available_models.insert(
                     model_id.clone(),
                     ModelInfo {
                         id: model_id,
                         name: display,
-                        description: format!("From Hugging Face cache: {}", repo_id),
+                        description,
                         filename: fname,
                         source: ModelSource::HuggingFace {
                             repo_id: repo_id.clone(),
                             revision: revision.clone(),
+                            path: String::new(),
+                            sha256: None,
+                            legacy_repo_id: None,
                         },
                         size_mb,
                         is_downloaded: true,
@@ -1740,23 +1848,41 @@ impl ModelManager {
     /// hf-hub, reporting progress through the same `model-download-progress`
     /// event the URL path uses. Relies on hf-hub's stock token + cache (no
     /// custom environment wiring).
-    async fn download_hf_model(
-        &self,
-        model_info: &ModelInfo,
-        repo_id: String,
-        revision: String,
-    ) -> Result<()> {
+    async fn download_hf_model(&self, model_info: &ModelInfo) -> Result<()> {
+        let ModelSource::HuggingFace {
+            repo_id,
+            revision,
+            path,
+            sha256,
+            legacy_repo_id,
+        } = &model_info.source
+        else {
+            return Err(anyhow::anyhow!("Model is not a Hugging Face download"));
+        };
         let model_id = model_info.id.clone();
         let filename = model_info.filename.clone();
+        let file_path = if path.is_empty() {
+            filename.clone()
+        } else {
+            path.clone()
+        };
 
-        // Already in the shared cache (possibly from another tool)? Done.
-        if hf_cached_path(&repo_id, &revision, &filename).is_some() {
+        // Already present, including a pre-mirror handy-computer copy. Do not
+        // re-download and do not sha-check the legacy file.
+        if resolve_hf_in_env(
+            repo_id,
+            revision,
+            path,
+            &filename,
+            legacy_repo_id.as_deref(),
+        )
+        .is_some()
+        {
             self.update_download_status()?;
             let _ = self.app_handle.emit("model-download-complete", &model_id);
             return Ok(());
         }
 
-        // Mark downloading; the guard resets the flag on any error path.
         {
             let mut models = self.available_models.lock().unwrap();
             if let Some(model) = models.get_mut(&model_id) {
@@ -1764,8 +1890,6 @@ impl ModelManager {
             }
         }
 
-        // Register a cancellation token so `cancel_download` can abort this
-        // transfer promptly. The guard removes it on every exit path.
         let cancel_token = CancellationToken::new();
         {
             let mut flags = self.cancel_flags.lock().unwrap();
@@ -1781,38 +1905,74 @@ impl ModelManager {
 
         info!(
             "Downloading HF model {} from {}@{} ({})",
-            model_id, repo_id, revision, filename
+            model_id, repo_id, revision, file_path
         );
 
-        // Download chunks in parallel (default is 1 = sequential). Throughput
-        // scales near-linearly with this count because each connection is capped
-        // (~8 MB/s observed per stream), so we stack several to approach the
-        // link's real bandwidth. 8 stays light on CPU/RAM (~80 MB peak buffers)
-        // even on older machines and is browser-like in connection count.
         let api = ApiBuilder::from_env()
             .with_progress(false)
             .with_max_files(8)
             .build()
             .map_err(|e| anyhow::anyhow!("Failed to init Hugging Face API: {}", e))?;
-        let repo = api.repo(Repo::with_revision(repo_id, RepoType::Model, revision));
+        let repo = api.repo(Repo::with_revision(
+            repo_id.clone(),
+            RepoType::Model,
+            revision.clone(),
+        ));
         let progress = HfDownloadProgress::new(self.app_handle.clone(), model_id.clone());
-        match repo
-            .download_with_progress_cancellable(&filename, progress, cancel_token)
+        let pointer = match repo
+            .download_with_progress_cancellable(&file_path, progress, cancel_token)
             .await
         {
-            Ok(_) => {}
+            Ok(pointer) => pointer,
             Err(hf_hub::api::tokio::ApiError::Cancelled) => {
-                // User cancelled. hf-hub leaves the partially downloaded
-                // `.sync.part` in the shared cache, so a later attempt resumes
-                // instead of restarting. The guard resets is_downloading and
-                // drops the token; `cancel_download` already emitted
-                // `model-download-cancelled`.
                 info!("HF download cancelled for: {}", model_id);
                 return Ok(());
             }
             Err(e) => {
                 return Err(anyhow::anyhow!("Hugging Face download failed: {}", e));
             }
+        };
+
+        if let Some(expected) = sha256.clone() {
+            let _ = self
+                .app_handle
+                .emit("model-verification-started", &model_id);
+            let verify_path = pointer.clone();
+            let verify_id = model_id.clone();
+            let verify_result = tokio::task::spawn_blocking(move || {
+                match ModelManager::compute_sha256(&verify_path) {
+                    Ok(actual) if actual == expected => Ok(()),
+                    Ok(actual) => {
+                        delete_pointer_and_blob(&verify_path).map_err(|e| {
+                            anyhow::anyhow!(
+                                "Download verification failed for model {}: file is corrupt (got {}), and removing it failed: {}",
+                                verify_id,
+                                actual,
+                                e
+                            )
+                        })?;
+                        Err(anyhow::anyhow!(
+                            "Download verification failed for model {}: file is corrupt (got {}). Please retry.",
+                            verify_id,
+                            actual
+                        ))
+                    }
+                    Err(e) => {
+                        delete_pointer_and_blob(&verify_path)?;
+                        Err(anyhow::anyhow!(
+                            "Failed to verify download for model {}: {}. Please retry.",
+                            verify_id,
+                            e
+                        ))
+                    }
+                }
+            })
+            .await
+            .map_err(|e| anyhow::anyhow!("SHA256 task panicked: {}", e))?;
+            verify_result?;
+            let _ = self
+                .app_handle
+                .emit("model-verification-completed", &model_id);
         }
 
         cleanup.disarmed = true;
@@ -1820,6 +1980,254 @@ impl ModelManager {
         self.cancel_flags.lock().unwrap().remove(&model_id);
         let _ = self.app_handle.emit("model-download-complete", &model_id);
         info!("HF model {} downloaded", model_id);
+        Ok(())
+    }
+
+    async fn staged_file_ok(path: &Path, sha: &str, size: u64) -> bool {
+        if path.metadata().map(|m| m.len()).unwrap_or(0) != size {
+            return false;
+        }
+        let path = path.to_path_buf();
+        let sha = sha.to_string();
+        tokio::task::spawn_blocking(move || {
+            ModelManager::compute_sha256(&path)
+                .ok()
+                .is_some_and(|actual| actual == sha)
+        })
+        .await
+        .unwrap_or(false)
+    }
+
+    /// Download one file with Range resume. Returns true if the user cancelled.
+    async fn fetch_resumable(
+        &self,
+        client: &reqwest::Client,
+        url: &str,
+        partial_path: &Path,
+        model_id: &str,
+        cancel_token: &CancellationToken,
+        done_before: u64,
+        total: u64,
+    ) -> Result<bool> {
+        let mut resume_from = if partial_path.is_file() {
+            partial_path.metadata()?.len()
+        } else {
+            0
+        };
+        let mut request = client.get(url);
+        if resume_from > 0 {
+            request = request.header("Range", format!("bytes={}-", resume_from));
+        }
+        let mut response = request.send().await?;
+        if resume_from > 0 && response.status() == reqwest::StatusCode::OK {
+            drop(response);
+            let _ = fs::remove_file(partial_path);
+            resume_from = 0;
+            response = client.get(url).send().await?;
+        }
+        if resume_from > 0 && response.status() == reqwest::StatusCode::RANGE_NOT_SATISFIABLE {
+            // Partial already holds the full body (process died after the last
+            // byte, before rename). A Range past EOF is 416 and would stick
+            // forever if treated as a hard error. Caller checks size and sha256.
+            let downloaded = done_before + resume_from;
+            let _ = self.app_handle.emit(
+                "model-download-progress",
+                &DownloadProgress {
+                    model_id: model_id.to_string(),
+                    downloaded,
+                    total,
+                    percentage: if total > 0 {
+                        (downloaded as f64 / total as f64) * 100.0
+                    } else {
+                        100.0
+                    },
+                },
+            );
+            return Ok(false);
+        }
+        if !response.status().is_success()
+            && response.status() != reqwest::StatusCode::PARTIAL_CONTENT
+        {
+            return Err(anyhow::anyhow!(
+                "Failed to download model: HTTP {}",
+                response.status()
+            ));
+        }
+        let mut downloaded = done_before + resume_from;
+        let mut stream = response.bytes_stream();
+        let mut file = if resume_from > 0 {
+            std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(partial_path)?
+        } else {
+            if let Some(parent) = partial_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            std::fs::File::create(partial_path)?
+        };
+        let mut last_emit = Instant::now();
+        while let Some(chunk) = stream.next().await {
+            if cancel_token.is_cancelled() {
+                file.flush()?;
+                return Ok(true);
+            }
+            let chunk = chunk?;
+            file.write_all(&chunk)?;
+            downloaded += chunk.len() as u64;
+            if last_emit.elapsed() >= Duration::from_millis(100) {
+                let _ = self.app_handle.emit(
+                    "model-download-progress",
+                    &DownloadProgress {
+                        model_id: model_id.to_string(),
+                        downloaded,
+                        total,
+                        percentage: if total > 0 {
+                            (downloaded as f64 / total as f64) * 100.0
+                        } else {
+                            0.0
+                        },
+                    },
+                );
+                last_emit = Instant::now();
+            }
+        }
+        file.flush()?;
+        let _ = self.app_handle.emit(
+            "model-download-progress",
+            &DownloadProgress {
+                model_id: model_id.to_string(),
+                downloaded,
+                total,
+                percentage: if total > 0 {
+                    (downloaded as f64 / total as f64) * 100.0
+                } else {
+                    100.0
+                },
+            },
+        );
+        Ok(false)
+    }
+
+    async fn download_files(&self, model_info: &ModelInfo, files: &[RemoteFile]) -> Result<()> {
+        let model_id = model_info.id.clone();
+        let final_dir = self.models_dir.join(&model_info.filename);
+        let staging = self
+            .models_dir
+            .join(format!("{}.partial", model_info.filename));
+        if final_dir.is_dir() {
+            // A leftover .partial (old tar, or an interrupted staging dir) makes
+            // get_model_path refuse this completed directory, and this return
+            // would otherwise never clear it.
+            if staging.is_dir() {
+                fs::remove_dir_all(&staging)?;
+            } else if staging.exists() {
+                fs::remove_file(&staging)?;
+            }
+            self.update_download_status()?;
+            let _ = self.app_handle.emit("model-download-complete", &model_id);
+            return Ok(());
+        }
+        if staging.is_file() {
+            warn!("Replacing leftover archive partial for {}", model_id);
+            let _ = fs::remove_file(&staging);
+        }
+        fs::create_dir_all(&staging)?;
+
+        {
+            let mut models = self.available_models.lock().unwrap();
+            if let Some(model) = models.get_mut(&model_id) {
+                model.is_downloading = true;
+            }
+        }
+        let cancel_token = CancellationToken::new();
+        {
+            let mut flags = self.cancel_flags.lock().unwrap();
+            flags.insert(model_id.clone(), cancel_token.clone());
+        }
+        let mut cleanup = DownloadCleanup {
+            available_models: &self.available_models,
+            cancel_flags: &self.cancel_flags,
+            model_id: model_id.clone(),
+            disarmed: false,
+        };
+
+        let total: u64 = files.iter().map(|f| f.size).sum();
+        let mut done = 0u64;
+        let client = reqwest::Client::new();
+        for file in files {
+            if cancel_token.is_cancelled() {
+                info!("Download cancelled for: {}", model_id);
+                return Ok(());
+            }
+            let dest = staging.join(&file.local_name);
+            let partial = staging.join(format!("{}.partial", file.local_name));
+            if dest.is_file() && Self::staged_file_ok(&dest, &file.sha256, file.size).await {
+                done += file.size;
+                continue;
+            }
+            let _ = fs::remove_file(&dest);
+            if self
+                .fetch_resumable(
+                    &client,
+                    &file.url,
+                    &partial,
+                    &model_id,
+                    &cancel_token,
+                    done,
+                    total,
+                )
+                .await?
+            {
+                info!("Download cancelled for: {}", model_id);
+                return Ok(());
+            }
+            let actual = partial.metadata().map(|m| m.len()).unwrap_or(0);
+            if file.size > 0 && actual != file.size {
+                let _ = fs::remove_file(&partial);
+                return Err(anyhow::anyhow!(
+                    "Download incomplete for {}: expected {} bytes, got {}",
+                    file.local_name,
+                    file.size,
+                    actual
+                ));
+            }
+            let _ = self
+                .app_handle
+                .emit("model-verification-started", &model_id);
+            let verify_path = partial.clone();
+            let expected = file.sha256.clone();
+            let verify_id = model_id.clone();
+            let verified = tokio::task::spawn_blocking(move || {
+                ModelManager::verify_sha256(&verify_path, Some(&expected), &verify_id)
+            })
+            .await
+            .map_err(|e| anyhow::anyhow!("SHA256 task panicked: {}", e))?;
+            verified?;
+            let _ = self
+                .app_handle
+                .emit("model-verification-completed", &model_id);
+            fs::rename(&partial, &dest)?;
+            done += file.size;
+        }
+
+        if final_dir.is_file() {
+            fs::remove_file(&final_dir)?;
+        } else if final_dir.exists() {
+            fs::remove_dir_all(&final_dir)?;
+        }
+        fs::rename(&staging, &final_dir)?;
+        cleanup.disarmed = true;
+        {
+            let mut models = self.available_models.lock().unwrap();
+            if let Some(model) = models.get_mut(&model_id) {
+                model.is_downloading = false;
+                model.is_downloaded = true;
+                model.partial_size = 0;
+            }
+        }
+        self.cancel_flags.lock().unwrap().remove(&model_id);
+        let _ = self.app_handle.emit("model-download-complete", &model_id);
         Ok(())
     }
 
@@ -1833,11 +2241,12 @@ impl ModelManager {
             model_info.ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;
 
         let (url, expected_sha256) = match &model_info.source {
+            ModelSource::Files { files } => {
+                return self.download_files(&model_info, files).await;
+            }
             ModelSource::Url { url, sha256 } => (url.clone(), sha256.clone()),
-            ModelSource::HuggingFace { repo_id, revision } => {
-                return self
-                    .download_hf_model(&model_info, repo_id.clone(), revision.clone())
-                    .await;
+            ModelSource::HuggingFace { .. } => {
+                return self.download_hf_model(&model_info).await;
             }
             ModelSource::Local => {
                 return Err(anyhow::anyhow!("No download source for model"));
@@ -2184,19 +2593,37 @@ impl ModelManager {
 
         debug!("ModelManager: Found model info: {:?}", model_info);
 
-        if let ModelSource::HuggingFace { repo_id, revision } = &model_info.source {
-            // Cached at <cache>/models--org--name/snapshots/<rev>/<file>; remove
-            // the whole repo dir (blobs + refs + snapshots). Per product decision,
-            // delete hard-removes from the shared HF cache.
+        if let ModelSource::HuggingFace {
+            repo_id,
+            revision,
+            path,
+            legacy_repo_id,
+            ..
+        } = &model_info.source
+        {
+            let cache = Cache::from_env().path().to_path_buf();
+            let primary_name = if path.is_empty() {
+                model_info.filename.as_str()
+            } else {
+                path.as_str()
+            };
             let mut deleted = false;
-            if let Some(file) = hf_cached_path(repo_id, revision, &model_info.filename) {
-                if let Some(repo_dir) = file.ancestors().nth(3) {
-                    if repo_dir
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .is_some_and(|n| n.starts_with("models--"))
-                    {
-                        info!("Deleting HF cache repo at: {:?}", repo_dir);
+            if let Some(file) = cache_file(&cache, repo_id, revision, primary_name) {
+                if repo_id == MIRROR_REPO {
+                    info!("Deleting mirrored file at: {:?}", file);
+                    delete_pointer_and_blob(&file).map_err(|e| {
+                        anyhow::anyhow!("Failed to delete model file: {}", e)
+                    })?;
+                } else if let Some(repo_dir) = hf_repo_dir(&file) {
+                    info!("Deleting HF cache repo at: {:?}", repo_dir);
+                    fs::remove_dir_all(repo_dir)?;
+                }
+                deleted = true;
+            }
+            if let Some(legacy) = legacy_repo_id {
+                if let Some(file) = cache_file(&cache, legacy, "main", &model_info.filename) {
+                    if let Some(repo_dir) = hf_repo_dir(&file) {
+                        info!("Deleting legacy HF cache repo at: {:?}", repo_dir);
                         fs::remove_dir_all(repo_dir)?;
                         deleted = true;
                     }
@@ -2237,11 +2664,13 @@ impl ModelManager {
             }
         }
 
-        // Delete partial file if it exists (same for both types)
-        if partial_path.exists() {
+        if partial_path.is_dir() {
+            info!("Deleting partial directory at: {:?}", partial_path);
+            fs::remove_dir_all(&partial_path)?;
+            deleted_something = true;
+        } else if partial_path.is_file() {
             info!("Deleting partial file at: {:?}", partial_path);
             fs::remove_file(&partial_path)?;
-            info!("Partial file deleted successfully");
             deleted_something = true;
         }
 
@@ -2284,8 +2713,22 @@ impl ModelManager {
             ));
         }
 
-        if let ModelSource::HuggingFace { repo_id, revision } = &model_info.source {
-            return hf_cached_path(repo_id, revision, &model_info.filename).ok_or_else(|| {
+        if let ModelSource::HuggingFace {
+            repo_id,
+            revision,
+            path,
+            legacy_repo_id,
+            ..
+        } = &model_info.source
+        {
+            return resolve_hf_in_env(
+                repo_id,
+                revision,
+                path,
+                &model_info.filename,
+                legacy_repo_id.as_deref(),
+            )
+            .ok_or_else(|| {
                 anyhow::anyhow!("Complete model file not found in HF cache: {}", model_id)
             });
         }
@@ -2689,7 +3132,7 @@ mod tests {
         let m = models.get(id).expect("whisper gguf should be discovered");
         assert!(m.is_downloaded);
         assert!(
-            matches!(&m.source, ModelSource::HuggingFace { repo_id, revision }
+            matches!(&m.source, ModelSource::HuggingFace { repo_id, revision, .. }
             if repo_id == "handy-computer/whisper-test" && revision == "main")
         );
         assert_eq!(
@@ -2700,5 +3143,81 @@ mod tests {
             !models.contains_key("someone/llama-7b/llama-q8.gguf"),
             "non-ASR gguf must be ignored"
         );
+    }
+
+    #[test]
+    fn test_resolve_hf_file_falls_back_to_legacy_cache() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+        let repo = root.join("models--handy-computer--whisper-small-gguf");
+        fs::create_dir_all(repo.join("snapshots").join("abc")).unwrap();
+        fs::create_dir_all(repo.join("refs")).unwrap();
+        fs::write(repo.join("refs").join("main"), "abc\n").unwrap();
+        let file = repo
+            .join("snapshots")
+            .join("abc")
+            .join("whisper-small-Q8_0.gguf");
+        fs::write(&file, b"already-downloaded").unwrap();
+
+        let found = resolve_hf_file(
+            root,
+            "coco-research/coco-voice-models",
+            "3cb3e6de7c20f58fe5beaaab3d5159384feff3f0",
+            "whisper-small/whisper-small-Q8_0.gguf",
+            "whisper-small-Q8_0.gguf",
+            Some("handy-computer/whisper-small-gguf"),
+        );
+        assert_eq!(found.as_deref(), Some(file.as_path()));
+    }
+
+    #[test]
+    fn test_resolve_hf_file_prefers_pinned_mirror() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+        let legacy = root.join("models--handy-computer--whisper-small-gguf");
+        fs::create_dir_all(legacy.join("snapshots").join("old")).unwrap();
+        fs::create_dir_all(legacy.join("refs")).unwrap();
+        fs::write(legacy.join("refs").join("main"), "old").unwrap();
+        fs::write(
+            legacy
+                .join("snapshots")
+                .join("old")
+                .join("whisper-small-Q8_0.gguf"),
+            b"old",
+        )
+        .unwrap();
+
+        let mirror = root.join("models--coco-research--coco-voice-models");
+        let rev = "3cb3e6de7c20f58fe5beaaab3d5159384feff3f0";
+        fs::create_dir_all(mirror.join("snapshots").join(rev).join("whisper-small")).unwrap();
+        fs::create_dir_all(mirror.join("refs")).unwrap();
+        fs::write(mirror.join("refs").join(rev), rev).unwrap();
+        let file = mirror
+            .join("snapshots")
+            .join(rev)
+            .join("whisper-small/whisper-small-Q8_0.gguf");
+        fs::write(&file, b"new").unwrap();
+
+        let found = resolve_hf_file(
+            root,
+            "coco-research/coco-voice-models",
+            rev,
+            "whisper-small/whisper-small-Q8_0.gguf",
+            "whisper-small-Q8_0.gguf",
+            Some("handy-computer/whisper-small-gguf"),
+        );
+        assert_eq!(found.as_deref(), Some(file.as_path()));
+    }
+
+    #[test]
+    fn gigaam_files_keep_extracted_names() {
+        let files = crate::managers::model_sources::GIGAAM_V3;
+        assert_eq!(files[0].local_name, "model.int8.onnx");
+        assert!(files[0].url.ends_with("/v3_e2e_ctc.int8.onnx"));
+        assert!(files.iter().all(|f| {
+            f.url.contains("/resolve/")
+                && !f.url.contains("blob.handy.computer")
+                && !f.url.contains("/main/")
+        }));
     }
 }

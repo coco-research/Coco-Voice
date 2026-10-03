@@ -5,13 +5,11 @@
 """
 coco-voice model catalog generator.
 
-Merges three sources into one catalog.json:
-  1. HF card `transcribe_cpp` block  -> capabilities + benchmarks (canonical)
-  2. a tiny GGUF header range-read    -> display labels only
-  3. local CURATION (this file)       -> recommended set, editorial descriptions
-
-Emits catalog.json to be committed and `include_str!`'d into the Rust binary.
-Run:  HF_TOKEN=$(hf auth token) uv run gen_catalog.py [out_path]
+The committed catalog.json is pinned to coco-research/coco-voice-models at
+3cb3e6de7c20f58fe5beaaab3d5159384feff3f0. Do not regenerate it from
+handy-computer. This script still pulls live HF cards and will not emit the
+pinned mirror schema. It refuses to run unless CATALOG_ALLOW_REGEN=1, and
+always refuses author=handy-computer.
 """
 import json, os, re, sys, math, struct, datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -224,6 +222,12 @@ def build(repo):
     }
 
 def main():
+    if "handy-computer" in ORG:
+        raise SystemExit("refusing to generate a catalog from handy-computer")
+    if os.environ.get("CATALOG_ALLOW_REGEN") != "1":
+        raise SystemExit(
+            "catalog.json is pinned to the Coco mirror; set CATALOG_ALLOW_REGEN=1 to override"
+        )
     repos = [m.id for m in api.list_models(author=ORG, limit=500)]
     models = []
     failures = []

@@ -1,0 +1,28 @@
+{
+  "notices": {
+    "review": "License under review",
+    "noncommercial": "Non-commercial license, personal use only"
+  },
+  "review": [
+    "parakeet-unified-en-0.6b",
+    "nemotron-3.5-asr-streaming-0.6b",
+    "medasr",
+    "nemotron-speech-streaming-en-0.6b",
+    "SenseVoiceSmall"
+  ],
+  "noncommercial": [
+    "canary-1b",
+    "moonshine-tiny-vi",
+    "moonshine-tiny-uk",
+    "moonshine-tiny-ko",
+    "moonshine-tiny-zh",
+    "moonshine-tiny-ar",
+    "moonshine-tiny-ja",
+    "moonshine-base-ar",
+    "moonshine-base-ko",
+    "moonshine-base-uk",
+    "moonshine-base-ja",
+    "moonshine-base-vi",
+    "moonshine-base-zh"
+  ]
+}

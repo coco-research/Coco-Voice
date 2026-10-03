@@ -970,25 +970,17 @@ export type ModelLoadStatus = { is_loaded: boolean; current_model: string | null
  * Where a model comes from and how Coco Voice obtains it — the routing discriminant
  * for downloading and on-disk resolution.
  */
+export type RemoteFile = { url: string; local_name: string; sha256: string; size: number }
 export type ModelSource = 
-/**
- * Direct HTTP download from a URL (current blob.handy.computer hosting).
- */
+/** Direct HTTP download from a pinned URL. */
 { Url: { url: string; 
-/**
- * Expected SHA-256 for integrity verification; `None` skips it.
- */
+/** Expected SHA-256 for integrity verification; `None` skips it. */
 sha256: string | null } } | 
-/**
- * A file inside a Hugging Face Hub repo, fetched via hf-hub into the shared
- * HF cache (so other tools reuse it). The file within the repo is
- * [`ModelInfo::filename`].
- */
-{ HuggingFace: { repo_id: string; revision: string } } | 
-/**
- * Already present on disk — a user-provided custom model, or one discovered
- * in a shared cache. Nothing to download.
- */
+/** Several pinned files saved into the model directory. */
+{ Files: { files: RemoteFile[] } } | 
+/** A file inside a Hugging Face Hub repo. */
+{ HuggingFace: { repo_id: string; revision: string; path: string; sha256: string | null; legacy_repo_id: string | null } } | 
+/** Already present on disk. Nothing to download. */
 "Local"
 export type ModelUnloadTimeout = "never" | "immediately" | "min_2" | "min_5" | "min_10" | "min_15" | "hour_1" | "sec_15"
 export type OrtAcceleratorSetting = "auto" | "cpu" | "cuda" | "directml" | "rocm"
