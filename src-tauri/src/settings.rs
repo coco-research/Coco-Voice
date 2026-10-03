@@ -1174,6 +1174,41 @@ pub fn write_settings(app: &AppHandle, settings: AppSettings) {
     store.set("settings", serde_json::to_value(&settings).unwrap());
 }
 
+/// Serializes read-modify-write cycles of the settings document so two
+/// concurrent writers cannot overwrite each other's changes.
+static SETTINGS_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Runs `load -> f -> save` while holding the process-wide settings lock.
+/// Split out from `update_settings` so the locking can be unit tested without
+/// an `AppHandle`.
+fn locked_update<R>(
+    load: impl FnOnce() -> AppSettings,
+    save: impl FnOnce(AppSettings),
+    f: impl FnOnce(&mut AppSettings) -> R,
+) -> R {
+    // A poisoned lock only means another writer panicked; the guard protects
+    // no data, so keep going.
+    let _guard = SETTINGS_WRITE_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut settings = load();
+    let result = f(&mut settings);
+    save(settings);
+    result
+}
+
+/// Atomically re-reads the stored settings, applies `f`, and writes them back.
+/// Prefer this over `get_settings` + `write_settings` so a slow caller cannot
+/// clobber a change another caller saved in between. `f` must not call
+/// `update_settings` itself (the lock is not reentrant).
+pub fn update_settings<R>(app: &AppHandle, f: impl FnOnce(&mut AppSettings) -> R) -> R {
+    locked_update(
+        || get_settings(app),
+        |settings| write_settings(app, settings),
+        f,
+    )
+}
+
 pub fn get_bindings(app: &AppHandle) -> HashMap<String, ShortcutBinding> {
     let settings = get_settings(app);
 
@@ -1566,5 +1601,41 @@ mod tests {
         let out = format!("{:?}", map);
         assert!(!out.contains("secret"));
         assert!(out.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn locked_update_serializes_concurrent_writers() {
+        use std::sync::{Arc, Mutex};
+        use std::time::Duration;
+
+        let store = Arc::new(Mutex::new(get_default_settings()));
+        let handles: Vec<_> = (0..8)
+            .map(|i| {
+                let store = Arc::clone(&store);
+                std::thread::spawn(move || {
+                    let (load, save) = (Arc::clone(&store), Arc::clone(&store));
+                    locked_update(
+                        || load.lock().unwrap().clone(),
+                        |s| {
+                            // Widen the read-to-write window so an unlocked
+                            // writer would overwrite its neighbours.
+                            std::thread::sleep(Duration::from_millis(5));
+                            *save.lock().unwrap() = s;
+                        },
+                        |s| {
+                            let binding = s.bindings["transcribe"].clone();
+                            s.bindings.insert(format!("test_{i}"), binding);
+                        },
+                    );
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+        let stored = store.lock().unwrap();
+        for i in 0..8 {
+            assert!(stored.bindings.contains_key(&format!("test_{i}")));
+        }
     }
 }
