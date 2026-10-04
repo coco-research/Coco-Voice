@@ -20,14 +20,17 @@ use tauri::Manager;
 const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 const VAD_THRESHOLD: f32 = 0.3;
 
-fn set_mute(mute: bool) {
-    // Expected behavior:
-    // - Windows: works on most systems using standard audio drivers.
-    // - Linux: works on many systems (PipeWire, PulseAudio, ALSA),
-    //   but some distros may lack the tools used.
-    // - macOS: works on most standard setups via AppleScript.
-    // If unsupported, fails silently.
-
+/// Sets the default output mute. Returns whether the mute command succeeded.
+///
+/// Expected behavior:
+/// - Windows: works on most systems using standard audio drivers.
+/// - Linux: works on many systems (PipeWire, PulseAudio, ALSA),
+///   but some distros may lack the tools used.
+/// - macOS: works on most standard setups via AppleScript.
+///
+/// If unsupported, returns false.
+#[allow(unreachable_code)]
+fn set_mute(mute: bool) -> bool {
     #[cfg(target_os = "windows")]
     {
         unsafe {
@@ -43,7 +46,7 @@ fn set_mute(mute: bool) {
                 ($expr:expr) => {
                     match $expr {
                         Ok(val) => val,
-                        Err(_) => return,
+                        Err(_) => return false,
                     }
                 };
             }
@@ -60,7 +63,7 @@ fn set_mute(mute: bool) {
                 default_device.Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None)
             );
 
-            let _ = volume_interface.SetMute(mute, std::ptr::null());
+            return volume_interface.SetMute(mute, std::ptr::null()).is_ok();
         }
     }
 
@@ -79,7 +82,7 @@ fn set_mute(mute: bool) {
             .map(|o| o.status.success())
             .unwrap_or(false)
         {
-            return;
+            return true;
         }
 
         // 2. PulseAudio (pactl)
@@ -89,13 +92,15 @@ fn set_mute(mute: bool) {
             .map(|o| o.status.success())
             .unwrap_or(false)
         {
-            return;
+            return true;
         }
 
         // 3. ALSA (amixer)
-        let _ = Command::new("amixer")
+        return Command::new("amixer")
             .args(["set", "Master", amixer_state])
-            .output();
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
     }
 
     #[cfg(target_os = "macos")]
@@ -105,7 +110,120 @@ fn set_mute(mute: bool) {
             "set volume output muted {}",
             if mute { "true" } else { "false" }
         );
-        let _ = Command::new("osascript").args(["-e", &script]).output();
+        return Command::new("osascript")
+            .args(["-e", &script])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+    }
+
+    false
+}
+
+/// Reads the current default output mute, or `None` when it cannot be read.
+#[allow(unreachable_code)]
+fn get_mute() -> Option<bool> {
+    #[cfg(target_os = "windows")]
+    {
+        unsafe {
+            use windows::Win32::{
+                Media::Audio::{
+                    eMultimedia, eRender, Endpoints::IAudioEndpointVolume, IMMDeviceEnumerator,
+                    MMDeviceEnumerator,
+                },
+                System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_ALL, COINIT_MULTITHREADED},
+            };
+
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+
+            let all_devices: IMMDeviceEnumerator =
+                CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).ok()?;
+            let default_device = all_devices
+                .GetDefaultAudioEndpoint(eRender, eMultimedia)
+                .ok()?;
+            let volume_interface = default_device
+                .Activate::<IAudioEndpointVolume>(CLSCTX_ALL, None)
+                .ok()?;
+
+            return volume_interface.GetMute().ok().map(|m| m.as_bool());
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        use std::process::Command;
+
+        let run = |cmd: &str, args: &[&str]| {
+            Command::new(cmd)
+                .args(args)
+                .output()
+                .ok()
+                .filter(|o| o.status.success())
+                .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        };
+
+        // PipeWire prints "Volume: 0.50 [MUTED]" when muted.
+        if let Some(out) = run("wpctl", &["get-volume", "@DEFAULT_AUDIO_SINK@"]) {
+            return Some(out.contains("[MUTED]"));
+        }
+        // PulseAudio prints "Mute: yes" / "Mute: no".
+        if let Some(out) = run("pactl", &["get-sink-mute", "@DEFAULT_SINK@"]) {
+            return Some(out.contains("yes"));
+        }
+        return None;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        let out = Command::new("osascript")
+            .args(["-e", "output muted of (get volume settings)"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())?;
+        // Prints "true" or "false"; some outputs report "missing value", which stays None.
+        return match String::from_utf8_lossy(&out.stdout).trim() {
+            "true" => Some(true),
+            "false" => Some(false),
+            _ => None,
+        };
+    }
+
+    None
+}
+
+/// Bookkeeping for the "mute while recording" protocol, kept free of I/O so the
+/// decisions can be unit tested.
+#[derive(Debug, Default)]
+struct MuteTracker {
+    /// Bumped every time a take ends. A mute scheduled during an earlier take
+    /// carries the old value and is rejected.
+    epoch: u64,
+    /// `Some(previous)` once this app muted the output, holding the mute state
+    /// from before the take. This is what gets restored.
+    restore_to: Option<bool>,
+}
+
+impl MuteTracker {
+    /// Whether a mute scheduled with `token` may still be started.
+    fn may_apply(&self, token: u64, stream_open: bool) -> bool {
+        stream_open && self.epoch == token && self.restore_to.is_none()
+    }
+
+    /// Records a mute that succeeded. Returns false when the take ended while
+    /// the mute command ran; the caller must then put `previous` back itself.
+    fn record_applied(&mut self, token: u64, stream_open: bool, previous: bool) -> bool {
+        if !self.may_apply(token, stream_open) {
+            return false;
+        }
+        self.restore_to = Some(previous);
+        true
+    }
+
+    /// Ends the take: invalidates pending mutes and hands back the state to restore.
+    fn release(&mut self) -> Option<bool> {
+        self.epoch += 1;
+        self.restore_to.take()
     }
 }
 
@@ -190,7 +308,7 @@ pub struct AudioRecordingManager {
     recorder: Arc<Mutex<Option<AudioRecorder>>>,
     is_open: Arc<Mutex<bool>>,
     is_recording: Arc<Mutex<bool>>,
-    did_mute: Arc<Mutex<bool>>,
+    did_mute: Arc<Mutex<MuteTracker>>,
     close_generation: Arc<AtomicU64>,
     cancel_generation: Arc<AtomicU64>,
     stream_router: Arc<StreamRouter>,
@@ -225,7 +343,7 @@ impl AudioRecordingManager {
             recorder: Arc::new(Mutex::new(None)),
             is_open: Arc::new(Mutex::new(false)),
             is_recording: Arc::new(Mutex::new(false)),
-            did_mute: Arc::new(Mutex::new(false)),
+            did_mute: Arc::new(Mutex::new(MuteTracker::default())),
             close_generation: Arc::new(AtomicU64::new(0)),
             cancel_generation: Arc::new(AtomicU64::new(0)),
             stream_router,
@@ -332,24 +450,61 @@ impl AudioRecordingManager {
 
     /* ---------- microphone life-cycle -------------------------------------- */
 
-    /// Applies mute if mute_while_recording is enabled and stream is open
-    pub fn apply_mute(&self) {
-        let settings = get_settings(&self.app_handle);
-        let mut did_mute_guard = self.did_mute.lock().unwrap();
+    /// Token identifying the current take. Capture it when the take starts and
+    /// pass it to `apply_mute`, so a mute that runs after the take ended is dropped.
+    pub fn mute_token(&self) -> u64 {
+        self.did_mute.lock().unwrap().epoch
+    }
 
-        if settings.mute_while_recording && *self.is_open.lock().unwrap() {
-            set_mute(true);
-            *did_mute_guard = true;
+    /// Applies mute if mute_while_recording is enabled and stream is open.
+    /// Lock order is always `is_open` then `did_mute`, and neither lock is held
+    /// while the mute command runs.
+    pub fn apply_mute(&self, token: u64) {
+        let settings = get_settings(&self.app_handle);
+        if !settings.mute_while_recording {
+            return;
+        }
+
+        let may_apply = {
+            let open = *self.is_open.lock().unwrap();
+            self.did_mute.lock().unwrap().may_apply(token, open)
+        };
+        if !may_apply {
+            return;
+        }
+
+        // Remember the speaker state from before the take so it can be restored.
+        let previous = get_mute().unwrap_or(false);
+        if !set_mute(true) {
+            warn!("Mute command failed; not tracking a mute");
+            return;
+        }
+
+        let recorded = {
+            let open = *self.is_open.lock().unwrap();
+            self.did_mute
+                .lock()
+                .unwrap()
+                .record_applied(token, open, previous)
+        };
+        if recorded {
             debug!("Mute applied");
+        } else {
+            // The take ended while the mute command ran; put the speakers back,
+            // unless a newer take has already taken over the tracker.
+            let orphaned = self.did_mute.lock().unwrap().restore_to.is_none();
+            if orphaned {
+                set_mute(previous);
+                debug!("Mute landed after the take ended; reverted");
+            }
         }
     }
 
-    /// Removes mute if it was applied
+    /// Restores the speaker mute from before the take, if this app muted
     pub fn remove_mute(&self) {
-        let mut did_mute_guard = self.did_mute.lock().unwrap();
-        if *did_mute_guard {
-            set_mute(false);
-            *did_mute_guard = false;
+        let restore = self.did_mute.lock().unwrap().release();
+        if let Some(previous) = restore {
+            set_mute(previous);
             debug!("Mute removed");
         }
     }
@@ -384,8 +539,6 @@ impl AudioRecordingManager {
         let start_time = Instant::now();
 
         // Don't mute immediately - caller will handle muting after audio feedback
-        let mut did_mute_guard = self.did_mute.lock().unwrap();
-        *did_mute_guard = false;
 
         // Get the selected device from settings, considering clamshell mode.
         // No pre-flight enumeration here: when nothing is configured the
@@ -442,11 +595,9 @@ impl AudioRecordingManager {
             return;
         }
 
-        let mut did_mute_guard = self.did_mute.lock().unwrap();
-        if *did_mute_guard {
-            set_mute(false);
-        }
-        *did_mute_guard = false;
+        // Lock order is `is_open` then `did_mute`; the mute is restored after
+        // the stream closes, outside both locks.
+        let restore = self.did_mute.lock().unwrap().release();
 
         if let Some(rec) = self.recorder.lock().unwrap().as_mut() {
             // If still recording, stop first.
@@ -458,6 +609,10 @@ impl AudioRecordingManager {
         }
 
         *open_flag = false;
+        drop(open_flag);
+        if let Some(previous) = restore {
+            set_mute(previous);
+        }
         debug!("Microphone stream stopped");
     }
 
@@ -650,6 +805,9 @@ impl AudioRecordingManager {
                 }
 
                 *self.is_recording.lock().unwrap() = false;
+                // A cancelled take must not leave the speakers muted (always-on
+                // mode never closes the stream, which would otherwise restore it).
+                self.remove_mute();
 
                 // In on-demand mode, close the mic (lazily if the setting is enabled)
                 if matches!(*self.mode.lock().unwrap(), MicrophoneMode::OnDemand) {
@@ -682,5 +840,38 @@ mod tests {
         }
         .allows_device_change());
         assert!(!RecordingState::Stopping.allows_device_change());
+    }
+
+    #[test]
+    fn mute_after_take_ended_is_not_recorded() {
+        let mut t = MuteTracker::default();
+        let token = t.epoch;
+        // Stop runs before the delayed mute lands.
+        assert_eq!(t.release(), None);
+        assert!(!t.may_apply(token, true));
+        assert!(!t.record_applied(token, true, false));
+        assert_eq!(t.release(), None);
+    }
+
+    #[test]
+    fn restores_mute_state_from_before_the_take() {
+        let mut t = MuteTracker::default();
+        // User had already muted; release must put it back to muted, not unmute.
+        assert!(t.record_applied(t.epoch, true, true));
+        assert_eq!(t.release(), Some(true));
+        // Released once: nothing left to restore.
+        assert_eq!(t.release(), None);
+
+        assert!(t.record_applied(t.epoch, true, false));
+        assert_eq!(t.release(), Some(false));
+    }
+
+    #[test]
+    fn mute_requires_open_stream_and_applies_once() {
+        let mut t = MuteTracker::default();
+        let token = t.epoch;
+        assert!(!t.record_applied(token, false, false));
+        assert!(t.record_applied(token, true, false));
+        assert!(!t.may_apply(token, true));
     }
 }

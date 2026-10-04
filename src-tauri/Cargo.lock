@@ -804,7 +804,7 @@ dependencies = [
 
 [[package]]
 name = "coco-voice"
-version = "0.9.4"
+version = "0.9.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -860,6 +860,7 @@ dependencies = [
  "tokio",
  "transcribe-cpp",
  "transcribe-rs",
+ "unicode-segmentation",
  "vad-rs",
  "windows 0.61.3",
  "winreg 0.55.0",
