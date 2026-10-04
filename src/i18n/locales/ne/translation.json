@@ -430,6 +430,30 @@
         "cancel": "रद्द गर्नुहोस्",
         "selectToEdit": "विवरण हेर्न र सम्पादन गर्न माथिबाट प्रम्प्ट चयन गर्नुहोस्।",
         "createFirst": "आफ्नो पहिलो पोस्ट-प्रोसेसिङ प्रम्प्ट बनाउन माथिको 'नयाँ प्रम्प्ट बनाउनुहोस्' क्लिक गर्नुहोस्।"
+      },
+      "appProfiles": {
+        "title": "Per-App Profiles",
+        "addProfile": "Add profile",
+        "description": "Override post-processing settings when specific applications are active. Matched against the active app's name or process name.",
+        "namePlaceholder": "Profile name",
+        "identifierPlaceholder": "App identifier",
+        "detect": "Detect",
+        "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+        "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+        "detected": "Detected: {{name}}",
+        "detectedWithStem": "Detected: {{name}} ({{stem}})",
+        "detectFailed": "Could not detect the active application",
+        "profileLimit": "Profile limit reached ({{max}}).",
+        "duplicateProfile": "A profile for \"{{identifier}}\" already exists",
+        "globalDefault": "Global default",
+        "modelPlaceholder": "Model",
+        "modelRequired": "This provider has no model set. Enter one here, or the global provider is used.",
+        "fromPlaceholder": "From",
+        "toPlaceholder": "To",
+        "addCorrection": "Add correction",
+        "correctionLimit": "Correction limit reached ({{max}}).",
+        "correctionExists": "A correction for \"{{from}}\" already exists",
+        "removeText": "(remove)"
       }
     },
     "history": {

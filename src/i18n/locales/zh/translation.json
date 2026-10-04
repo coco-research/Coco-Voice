@@ -430,6 +430,30 @@
         "cancel": "取消",
         "selectToEdit": "选择上方的提示词以查看和编辑其详细信息。",
         "createFirst": "点击上方的「创建新提示词」来创建您的第一个后处理提示词。"
+      },
+      "appProfiles": {
+        "title": "Per-App Profiles",
+        "addProfile": "Add profile",
+        "description": "Override post-processing settings when specific applications are active. Matched against the active app's name or process name.",
+        "namePlaceholder": "Profile name",
+        "identifierPlaceholder": "App identifier",
+        "detect": "Detect",
+        "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+        "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+        "detected": "Detected: {{name}}",
+        "detectedWithStem": "Detected: {{name}} ({{stem}})",
+        "detectFailed": "Could not detect the active application",
+        "profileLimit": "Profile limit reached ({{max}}).",
+        "duplicateProfile": "A profile for \"{{identifier}}\" already exists",
+        "globalDefault": "Global default",
+        "modelPlaceholder": "Model",
+        "modelRequired": "This provider has no model set. Enter one here, or the global provider is used.",
+        "fromPlaceholder": "From",
+        "toPlaceholder": "To",
+        "addCorrection": "Add correction",
+        "correctionLimit": "Correction limit reached ({{max}}).",
+        "correctionExists": "A correction for \"{{from}}\" already exists",
+        "removeText": "(remove)"
       }
     },
     "history": {

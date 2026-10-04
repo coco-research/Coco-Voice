@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { listen } from "@tauri-apps/api/event";
 import type {
+  AppProfile,
   AppSettings as Settings,
   AudioDevice,
   CorrectionPair,
@@ -23,10 +24,15 @@ interface SettingsStore {
   // Actions
   initialize: () => Promise<void>;
   loadDefaultSettings: () => Promise<void>;
+  // Resolves true if the setting was saved, false if the save failed and was
+  // rolled back.
   updateSetting: <K extends keyof Settings>(
     key: K,
     value: Settings[K],
-  ) => Promise<void>;
+  ) => Promise<boolean>;
+  updateAppProfiles: (
+    mutate: (current: AppProfile[]) => AppProfile[] | null,
+  ) => Promise<boolean>;
   resetSetting: (key: keyof Settings) => Promise<void>;
   refreshSettings: () => Promise<void>;
   refreshAudioDevices: () => Promise<void>;
@@ -73,6 +79,27 @@ const DEFAULT_AUDIO_DEVICE: AudioDevice = {
   name: "Default",
   is_default: true,
 };
+
+// Tauri rejects a failed command with its Err payload (a string here), not an
+// Error, so the tauri-specta wrappers resolve with { status: "error" } instead
+// of throwing. A real Error (IPC failure) is thrown and reaches the catch below.
+function commandError(result: unknown): Error | null {
+  if (typeof result !== "object" || result === null || !("status" in result)) {
+    return null;
+  }
+  if (result.status !== "error") {
+    return null;
+  }
+  const message =
+    "error" in result && typeof result.error === "string"
+      ? result.error
+      : "Setting update failed";
+  return new Error(message);
+}
+
+// Each profile edit replaces the whole list, so it has to start from the list
+// the previous edit left behind. Running them one at a time guarantees that.
+let appProfilesQueue: Promise<unknown> = Promise.resolve();
 
 const settingUpdaters: {
   [K in keyof Settings]?: (value: Settings[K]) => Promise<unknown>;
@@ -156,6 +183,7 @@ const settingUpdaters: {
     commands.changeLazyStreamCloseSetting(value as boolean),
   overlay_style: (value) => commands.changeOverlayStyleSetting(value as string),
   vad_enabled: (value) => commands.changeVadEnabledSetting(value as boolean),
+  app_profiles: (value) => commands.updateAppProfiles(value as AppProfile[]),
   show_tray_icon: (value) =>
     commands.changeShowTrayIconSetting(value as boolean),
   transcribe_accelerator: (value) =>
@@ -300,18 +328,47 @@ export const useSettingsStore = create<SettingsStore>()(
 
         const updater = settingUpdaters[key];
         if (updater) {
-          await updater(value);
+          const failure = commandError(await updater(value));
+          if (failure) {
+            throw failure;
+          }
         } else if (key !== "bindings" && key !== "selected_model") {
           console.warn(`No handler for setting: ${String(key)}`);
         }
+        return true;
       } catch (error) {
         console.error(`Failed to update setting ${String(key)}:`, error);
+        // Restore only this key. Putting the whole pre-update snapshot back
+        // would also undo other settings changed while this save was running.
+        // With no snapshot there was no optimistic write to undo.
         if (settings) {
-          set({ settings: { ...settings, [key]: originalValue } });
+          set((state) => ({
+            settings: state.settings
+              ? { ...state.settings, [key]: originalValue }
+              : null,
+          }));
         }
+        return false;
       } finally {
         setUpdating(updateKey, false);
       }
+    },
+
+    // Read-modify-write of the per-app profile list. `mutate` gets the latest
+    // list once earlier edits have settled and returns the new list, or null to
+    // change nothing. Resolves true only if the new list was saved.
+    updateAppProfiles: (mutate) => {
+      const run = appProfilesQueue.then(async () => {
+        const settings = get().settings;
+        // Until settings load the real list is unknown, and editing the empty
+        // default would overwrite the saved profiles.
+        if (!settings) return false;
+        const next = mutate(settings.app_profiles ?? []);
+        if (next === null) return false;
+        return get().updateSetting("app_profiles", next);
+      });
+      appProfilesQueue = run.catch(() => undefined);
+      return run;
     },
 
     // Reset a setting to its default value
