@@ -7,7 +7,9 @@ use crate::managers::history::HistoryManager;
 use crate::managers::model::ModelManager;
 use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
-use crate::settings::{get_settings, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID};
+use crate::settings::{
+    get_settings, AppProfile, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID,
+};
 use crate::shortcut;
 use crate::tray::{change_tray_icon, TrayIconState};
 use crate::utils::{
@@ -34,6 +36,10 @@ const STREAM_ENGINE_RETURN_WAIT: Duration = Duration::from_secs(10);
 /// correction. A follow-up utterance arriving after this window is treated as a
 /// fresh dictation rather than an edit of the previous result.
 const REFINE_BUFFER_TTL: Duration = Duration::from_secs(30);
+
+/// Window queries can block on an accessibility prompt. The live dictation
+/// path waits at most this long, then continues with the global settings.
+const ACTIVE_WINDOW_QUERY_TIMEOUT: Duration = Duration::from_millis(500);
 
 /// The last {raw transcript, produced output} pair, kept briefly so a follow-up
 /// correction can edit the previous result instead of transcribing fresh (see
@@ -231,6 +237,150 @@ fn build_post_process_messages(
             transcription.to_string(),
         ),
     }
+}
+
+/// Case-insensitive match of a saved identifier against the frontmost app's
+/// name or its process file stem. Empty identifiers never match. Bundle ids
+/// are not available from the active-window API and are not compared.
+fn app_profile_matches(saved: &str, app_name: &str, process_stem: &str) -> bool {
+    let saved = saved.trim();
+    if saved.is_empty() {
+        return false;
+    }
+    saved.eq_ignore_ascii_case(app_name) || saved.eq_ignore_ascii_case(process_stem)
+}
+
+/// Reads the frontmost app name and process file stem. Logs and returns `None`
+/// when the platform query fails. Must run on a blocking thread.
+fn read_frontmost_app() -> Option<(String, String)> {
+    match active_win_pos_rs::get_active_window() {
+        Ok(window) => {
+            let process_stem = window
+                .process_path
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().to_string())
+                .unwrap_or_default();
+            Some((window.app_name, process_stem))
+        }
+        // active-win-pos-rs 0.11 returns Err(()) with no platform message.
+        Err(err) => {
+            debug!("Active window detection failed; using global settings: {err:?}");
+            None
+        }
+    }
+}
+
+/// Off the async worker, and abandoned after [`ACTIVE_WINDOW_QUERY_TIMEOUT`].
+/// Dropping the join handle does not cancel the blocking thread.
+async fn query_frontmost_app() -> Option<(String, String)> {
+    let query = tauri::async_runtime::spawn_blocking(read_frontmost_app);
+    match tokio::time::timeout(ACTIVE_WINDOW_QUERY_TIMEOUT, query).await {
+        Ok(Ok(app)) => app,
+        Ok(Err(err)) => {
+            debug!("Active window detection task failed; using global settings: {err}");
+            None
+        }
+        Err(_) => {
+            debug!("Active window detection timed out after 500ms; using global settings");
+            None
+        }
+    }
+}
+
+/// Non-empty trimmed model from the profile, if it supplied one.
+fn profile_model_override(profile: &AppProfile) -> Option<String> {
+    profile
+        .model
+        .as_deref()
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+        .map(str::to_string)
+}
+
+/// Applies a profile's provider and model onto `settings`.
+///
+/// The provider changes only when it exists and a model will be available for
+/// it (settings already store a non-empty model, or the profile supplies one).
+/// The model is inserted, trimmed, only when that value is non-empty and the
+/// profile named no provider or that provider override was accepted.
+fn apply_profile_provider_and_model(settings: &mut AppSettings, profile: &AppProfile) {
+    let profile_model = profile_model_override(profile);
+    let mut provider_accepted = profile.provider_id.is_none();
+
+    if let Some(provider_id) = profile.provider_id.as_deref() {
+        let provider_exists = settings
+            .post_process_providers
+            .iter()
+            .any(|provider| provider.id == provider_id);
+        let has_configured_model = settings
+            .post_process_models
+            .get(provider_id)
+            .is_some_and(|model| !model.trim().is_empty());
+        if provider_exists && (has_configured_model || profile_model.is_some()) {
+            settings.post_process_provider_id = provider_id.to_string();
+            provider_accepted = true;
+        } else if !provider_exists {
+            debug!("Profile provider '{provider_id}' is missing; keeping the global provider");
+        } else {
+            debug!("Profile provider '{provider_id}' has no model; keeping the global provider");
+        }
+    }
+
+    if let Some(model) = profile_model {
+        if provider_accepted {
+            settings
+                .post_process_models
+                .insert(settings.post_process_provider_id.clone(), model);
+        } else {
+            debug!("Profile model ignored because its provider override was not applied");
+        }
+    }
+}
+
+/// Applies the first matching per-app profile for the frontmost application as
+/// a settings override. Returns a clone of `settings` unchanged when there are
+/// no profiles, when nothing matches, or when the active window cannot be read.
+async fn apply_app_profile_overrides(settings: &AppSettings) -> AppSettings {
+    if settings.app_profiles.is_empty() {
+        return settings.clone();
+    }
+
+    let Some((app_name, process_stem)) = query_frontmost_app().await else {
+        return settings.clone();
+    };
+
+    let Some(profile) = settings
+        .app_profiles
+        .iter()
+        .find(|p| app_profile_matches(&p.app_identifier, &app_name, &process_stem))
+    else {
+        return settings.clone();
+    };
+
+    debug!(
+        "Per-app profile '{}' matched for app '{}'",
+        profile.name, process_stem
+    );
+    let mut overridden = settings.clone();
+    // A deleted prompt must fall back to the global one. Applying the stale id
+    // makes post-processing skip the dictation entirely.
+    if let Some(ref prompt_id) = profile.prompt_id {
+        if settings
+            .post_process_prompts
+            .iter()
+            .any(|prompt| &prompt.id == prompt_id)
+        {
+            overridden.post_process_selected_prompt_id = Some(prompt_id.clone());
+        } else {
+            debug!("Profile prompt '{prompt_id}' is missing; keeping the global prompt");
+        }
+    }
+    apply_profile_provider_and_model(&mut overridden, profile);
+    // Append profile-specific corrections to the global list
+    if !profile.corrections.is_empty() {
+        overridden.corrections.extend(profile.corrections.clone());
+    }
+    overridden
 }
 
 /// Post-processes `transcription`. When `prior_output` is `Some`, the call runs
@@ -568,8 +718,17 @@ pub(crate) async fn process_transcription_output(
     transcription: &str,
     post_process: bool,
     correction: bool,
+    apply_profiles: bool,
 ) -> ProcessedTranscription {
     let settings = get_settings(app);
+    // Live dictation applies the frontmost app's profile once, before either
+    // paste path. History re-runs pass `apply_profiles = false` so they do not
+    // follow whichever app happens to be in front now.
+    let effective_settings = if apply_profiles {
+        apply_app_profile_overrides(&settings).await
+    } else {
+        settings.clone()
+    };
     let mut final_text = transcription.to_string();
     let mut post_processed_text: Option<String> = None;
     let mut post_process_prompt: Option<String> = None;
@@ -589,15 +748,19 @@ pub(crate) async fn process_transcription_output(
         // CORRECTION MODE (explicit hotkey): unconditionally treat this utterance
         // as an edit of the last output. We never sniff the words — the dedicated
         // "correction" hotkey is the only trigger.
-        if let Some(prior_output) = refine_base_for_correction(&settings) {
+        if let Some(prior_output) = refine_base_for_correction(&effective_settings) {
             // The prior output is what the previous dictation pasted (plus the
             // trailing space `paste` appends when that setting is on), so its
             // grapheme length is how many Backspaces the replace must send before
             // typing the edit. Graphemes, not scalars or bytes: one Backspace
             // deletes one grapheme cluster (combining marks, joined emoji).
-            let prev_char_count =
-                crate::utils::pasted_grapheme_count(&prior_output, settings.append_trailing_space);
-            match post_process_transcription(&settings, &final_text, Some(&prior_output)).await {
+            let prev_char_count = crate::utils::pasted_grapheme_count(
+                &prior_output,
+                effective_settings.append_trailing_space,
+            );
+            match post_process_transcription(&effective_settings, &final_text, Some(&prior_output))
+                .await
+            {
                 Some(edited) => {
                     post_processed_text = Some(edited.clone());
                     final_text = edited;
@@ -605,8 +768,8 @@ pub(crate) async fn process_transcription_output(
                     // (append instead of hammering Backspace across the document).
                     replace_char_count = crate::utils::backspaces_for_replace(prev_char_count);
 
-                    if let Some(prompt_id) = &settings.post_process_selected_prompt_id {
-                        if let Some(prompt) = settings
+                    if let Some(prompt_id) = &effective_settings.post_process_selected_prompt_id {
+                        if let Some(prompt) = effective_settings
                             .post_process_prompts
                             .iter()
                             .find(|prompt| &prompt.id == prompt_id)
@@ -630,13 +793,14 @@ pub(crate) async fn process_transcription_output(
     } else if post_process {
         // Normal post-processing. Word-sniffing has been removed, so a fresh
         // dictation is NEVER silently reinterpreted as an edit of a prior output.
-        if let Some(processed_text) = post_process_transcription(&settings, &final_text, None).await
+        if let Some(processed_text) =
+            post_process_transcription(&effective_settings, &final_text, None).await
         {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
 
-            if let Some(prompt_id) = &settings.post_process_selected_prompt_id {
-                if let Some(prompt) = settings
+            if let Some(prompt_id) = &effective_settings.post_process_selected_prompt_id {
+                if let Some(prompt) = effective_settings
                     .post_process_prompts
                     .iter()
                     .find(|prompt| &prompt.id == prompt_id)
@@ -653,8 +817,9 @@ pub(crate) async fn process_transcription_output(
     // Runs after LLM post-processing (above) and after apply_custom_words (which
     // runs earlier in the transcription pipeline), so the user always gets a
     // predictable last-word override via case-insensitive whole-word replacement.
-    if !settings.corrections.is_empty() {
-        final_text = crate::audio_toolkit::apply_corrections(&final_text, &settings.corrections);
+    if !effective_settings.corrections.is_empty() {
+        final_text =
+            crate::audio_toolkit::apply_corrections(&final_text, &effective_settings.corrections);
     }
 
     // Remember this dictation so a later correction-hotkey press can edit it.
@@ -978,6 +1143,7 @@ impl ShortcutAction for TranscribeAction {
                                     &transcription,
                                     post_process,
                                     correction,
+                                    true,
                                 ),
                                 || rm.was_cancelled_since(cancel_generation),
                             )
@@ -1178,8 +1344,9 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
 #[cfg(test)]
 mod tests {
     use super::{
-        build_post_process_messages, complete_unless_cancelled, is_blank_transcription,
-        refine_base_for_correction, should_use_streaming_overlay, store_refine_buffer,
+        app_profile_matches, apply_profile_provider_and_model, build_post_process_messages,
+        complete_unless_cancelled, is_blank_transcription, refine_base_for_correction,
+        should_use_streaming_overlay, store_refine_buffer,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -1286,5 +1453,149 @@ mod tests {
         assert!(!should_use_streaming_overlay(OverlayStyle::Live, false));
         assert!(!should_use_streaming_overlay(OverlayStyle::Minimal, true));
         assert!(!should_use_streaming_overlay(OverlayStyle::None, true));
+    }
+
+    #[test]
+    fn profile_match_is_case_insensitive_on_name_and_stem() {
+        assert!(app_profile_matches(
+            "google chrome",
+            "Google Chrome",
+            "chrome"
+        ));
+        assert!(app_profile_matches("Code", "Visual Studio Code", "Code"));
+        assert!(!app_profile_matches("com.apple.dt.Xcode", "Xcode", "Xcode"));
+        assert!(!app_profile_matches("", "Xcode", "Xcode"));
+        assert!(!app_profile_matches("   ", "Xcode", "Xcode"));
+    }
+
+    fn settings_with_openai() -> crate::settings::AppSettings {
+        let mut settings = crate::settings::get_default_settings();
+        settings.post_process_provider_id = "openai".to_string();
+        settings
+            .post_process_models
+            .insert("openai".to_string(), "gpt-4o-mini".to_string());
+        settings
+    }
+
+    fn apply_override(
+        settings: &mut crate::settings::AppSettings,
+        provider_id: Option<&str>,
+        model: Option<&str>,
+    ) {
+        let profile = crate::settings::AppProfile {
+            id: "profile".to_string(),
+            name: "Profile".to_string(),
+            app_identifier: "App".to_string(),
+            prompt_id: None,
+            provider_id: provider_id.map(str::to_string),
+            model: model.map(str::to_string),
+            corrections: Vec::new(),
+        };
+        apply_profile_provider_and_model(settings, &profile);
+    }
+
+    #[test]
+    fn provider_without_model_is_ignored() {
+        let mut settings = settings_with_openai();
+        settings
+            .post_process_models
+            .insert("groq".to_string(), "   ".to_string());
+
+        apply_override(&mut settings, Some("groq"), None);
+
+        assert_eq!(settings.post_process_provider_id, "openai");
+        assert_eq!(
+            settings
+                .post_process_models
+                .get("openai")
+                .map(String::as_str),
+            Some("gpt-4o-mini")
+        );
+        assert_eq!(
+            settings.post_process_models.get("groq").map(String::as_str),
+            Some("   ")
+        );
+    }
+
+    #[test]
+    fn provider_with_profile_model_is_applied() {
+        let mut settings = settings_with_openai();
+
+        apply_override(&mut settings, Some("groq"), Some("  llama-3.3-70b  "));
+
+        assert_eq!(settings.post_process_provider_id, "groq");
+        assert_eq!(
+            settings.post_process_models.get("groq").map(String::as_str),
+            Some("llama-3.3-70b")
+        );
+        assert_eq!(
+            settings
+                .post_process_models
+                .get("openai")
+                .map(String::as_str),
+            Some("gpt-4o-mini")
+        );
+    }
+
+    #[test]
+    fn blank_profile_model_is_ignored() {
+        let mut settings = settings_with_openai();
+
+        apply_override(&mut settings, None, Some("   "));
+
+        assert_eq!(settings.post_process_provider_id, "openai");
+        assert_eq!(
+            settings
+                .post_process_models
+                .get("openai")
+                .map(String::as_str),
+            Some("gpt-4o-mini")
+        );
+
+        // A provider that already has a model is selected, but a blank profile
+        // model does not replace that model.
+        settings
+            .post_process_models
+            .insert("groq".to_string(), "llama-3.3-70b".to_string());
+        apply_override(&mut settings, Some("groq"), Some(" \t "));
+
+        assert_eq!(settings.post_process_provider_id, "groq");
+        assert_eq!(
+            settings.post_process_models.get("groq").map(String::as_str),
+            Some("llama-3.3-70b")
+        );
+    }
+
+    #[test]
+    fn model_is_ignored_when_provider_override_is_rejected() {
+        let mut settings = settings_with_openai();
+
+        apply_override(&mut settings, Some("not-a-provider"), Some("sneaky-model"));
+
+        assert_eq!(settings.post_process_provider_id, "openai");
+        assert_eq!(
+            settings
+                .post_process_models
+                .get("openai")
+                .map(String::as_str),
+            Some("gpt-4o-mini")
+        );
+        assert!(settings.post_process_models.get("not-a-provider").is_none());
+    }
+
+    #[test]
+    fn profile_model_without_provider_overrides_global_model() {
+        let mut settings = settings_with_openai();
+
+        apply_override(&mut settings, None, Some("  gpt-4.1-mini  "));
+
+        assert_eq!(settings.post_process_provider_id, "openai");
+        assert_eq!(
+            settings
+                .post_process_models
+                .get("openai")
+                .map(String::as_str),
+            Some("gpt-4.1-mini")
+        );
     }
 }

@@ -1361,6 +1361,96 @@ pub async fn get_available_accelerators() -> crate::managers::transcription::Ava
         .expect("get_available_accelerators panicked")
 }
 
+const MAX_APP_PROFILES: usize = 64;
+const MAX_PROFILE_ID: usize = 80;
+const MAX_PROFILE_NAME: usize = 120;
+const MAX_APP_IDENTIFIER: usize = 256;
+const MAX_PROFILE_REF: usize = 256;
+const MAX_PROFILE_CORRECTIONS: usize = 50;
+const MAX_CORRECTION_TEXT: usize = 100;
+
+fn clamp_chars(value: &str, max: usize) -> String {
+    value.chars().take(max).collect()
+}
+
+fn blank_to_none(value: Option<String>, max: usize) -> Option<String> {
+    value.and_then(|text| {
+        let trimmed = clamp_chars(text.trim(), max);
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    })
+}
+
+/// Cap the list, drop blank identifiers, and keep the first copy of each id
+/// and app identifier (compared case-insensitively). Prompt and provider ids
+/// that are not in the current settings are cleared so a deleted prompt cannot
+/// turn post-processing off for that app. Oversized strings are cut by
+/// character so a save from the settings UI still succeeds.
+fn normalize_app_profiles(
+    profiles: Vec<crate::settings::AppProfile>,
+    prompt_ids: &std::collections::HashSet<String>,
+    provider_ids: &std::collections::HashSet<String>,
+) -> Vec<crate::settings::AppProfile> {
+    let mut seen_ids = std::collections::HashSet::new();
+    let mut seen_apps = std::collections::HashSet::new();
+    let mut kept = Vec::new();
+    for mut profile in profiles {
+        let id = clamp_chars(profile.id.trim(), MAX_PROFILE_ID);
+        if id.is_empty() || !seen_ids.insert(id.to_ascii_lowercase()) {
+            continue;
+        }
+        let app_identifier = clamp_chars(profile.app_identifier.trim(), MAX_APP_IDENTIFIER);
+        if app_identifier.is_empty() || !seen_apps.insert(app_identifier.to_ascii_lowercase()) {
+            continue;
+        }
+        profile.id = id;
+        profile.name = clamp_chars(profile.name.trim(), MAX_PROFILE_NAME);
+        profile.app_identifier = app_identifier;
+        profile.prompt_id = blank_to_none(profile.prompt_id.take(), MAX_PROFILE_REF)
+            .filter(|id| prompt_ids.contains(id));
+        profile.provider_id = blank_to_none(profile.provider_id.take(), MAX_PROFILE_REF)
+            .filter(|id| provider_ids.contains(id));
+        profile.model = blank_to_none(profile.model.take(), MAX_PROFILE_REF);
+        profile.corrections.truncate(MAX_PROFILE_CORRECTIONS);
+        for pair in &mut profile.corrections {
+            pair.from = clamp_chars(pair.from.trim(), MAX_CORRECTION_TEXT);
+            pair.to = clamp_chars(pair.to.trim(), MAX_CORRECTION_TEXT);
+        }
+        profile.corrections.retain(|pair| !pair.from.is_empty());
+        kept.push(profile);
+        if kept.len() == MAX_APP_PROFILES {
+            break;
+        }
+    }
+    kept
+}
+
+/// Update the per-application profile list. Replaces the entire list atomically.
+#[tauri::command]
+#[specta::specta]
+pub fn update_app_profiles(
+    app: AppHandle,
+    profiles: Vec<crate::settings::AppProfile>,
+) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    let prompt_ids = settings
+        .post_process_prompts
+        .iter()
+        .map(|prompt| prompt.id.clone())
+        .collect();
+    let provider_ids = settings
+        .post_process_providers
+        .iter()
+        .map(|provider| provider.id.clone())
+        .collect();
+    settings.app_profiles = normalize_app_profiles(profiles, &prompt_ids, &provider_ids);
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1415,5 +1505,44 @@ mod tests {
         );
         assert!(result.is_ok());
         assert_eq!(*calls.borrow(), ["new"]);
+    }
+}
+
+#[cfg(test)]
+mod app_profile_normalize_tests {
+    use super::normalize_app_profiles;
+    use crate::settings::AppProfile;
+    use std::collections::HashSet;
+
+    fn profile(id: &str, app: &str, prompt: Option<&str>, provider: Option<&str>) -> AppProfile {
+        AppProfile {
+            id: id.to_string(),
+            name: id.to_string(),
+            app_identifier: app.to_string(),
+            prompt_id: prompt.map(str::to_string),
+            provider_id: provider.map(str::to_string),
+            model: None,
+            corrections: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn drops_duplicates_and_unknown_prompt_or_provider_ids() {
+        let prompts = HashSet::from(["keep".to_string()]);
+        let providers = HashSet::from(["local".to_string()]);
+        let kept = normalize_app_profiles(
+            vec![
+                profile("a", "Code", Some("keep"), Some("local")),
+                profile("A", "Other", Some("keep"), None),
+                profile("b", "code", Some("gone"), Some("nope")),
+                profile("c", "  ", None, None),
+            ],
+            &prompts,
+            &providers,
+        );
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].id, "a");
+        assert_eq!(kept[0].prompt_id.as_deref(), Some("keep"));
+        assert_eq!(kept[0].provider_id.as_deref(), Some("local"));
     }
 }
