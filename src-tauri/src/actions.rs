@@ -2,6 +2,7 @@
 use crate::apple_intelligence;
 use crate::audio_feedback::{play_feedback_sound, play_feedback_sound_blocking, SoundType};
 use crate::audio_toolkit::{is_microphone_access_denied, is_no_input_device_error, VadPolicy};
+use crate::commands::app_profile::{query_active_app, ActiveAppInfo};
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::history::HistoryManager;
 use crate::managers::model::ModelManager;
@@ -21,6 +22,7 @@ use log::{debug, error, warn};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::future::Future;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Manager;
@@ -36,10 +38,6 @@ const STREAM_ENGINE_RETURN_WAIT: Duration = Duration::from_secs(10);
 /// correction. A follow-up utterance arriving after this window is treated as a
 /// fresh dictation rather than an edit of the previous result.
 const REFINE_BUFFER_TTL: Duration = Duration::from_secs(30);
-
-/// Window queries can block on an accessibility prompt. The live dictation
-/// path waits at most this long, then continues with the global settings.
-const ACTIVE_WINDOW_QUERY_TIMEOUT: Duration = Duration::from_millis(500);
 
 /// The last {raw transcript, produced output} pair, kept briefly so a follow-up
 /// correction can edit the previous result instead of transcribing fresh (see
@@ -250,41 +248,28 @@ fn app_profile_matches(saved: &str, app_name: &str, process_stem: &str) -> bool 
     saved.eq_ignore_ascii_case(app_name) || saved.eq_ignore_ascii_case(process_stem)
 }
 
-/// Reads the frontmost app name and process file stem. Logs and returns `None`
-/// when the platform query fails. Must run on a blocking thread.
-fn read_frontmost_app() -> Option<(String, String)> {
-    match active_win_pos_rs::get_active_window() {
-        Ok(window) => {
-            let process_stem = window
-                .process_path
-                .file_stem()
-                .map(|stem| stem.to_string_lossy().to_string())
-                .unwrap_or_default();
-            Some((window.app_name, process_stem))
+/// Starts reading the app the user is dictating into. Called when recording
+/// stops, before any transcription or overlay work, so the profile follows that
+/// app even if the user switches windows while the take is transcribed and
+/// cleaned up. Resolves to `None`, meaning global settings, when no profiles are
+/// configured (nothing to match, so no window query) or when the read fails or
+/// times out.
+fn capture_frontmost_app(
+    settings: &AppSettings,
+) -> tauri::async_runtime::JoinHandle<Option<ActiveAppInfo>> {
+    let has_profiles = !settings.app_profiles.is_empty();
+    tauri::async_runtime::spawn(async move {
+        if !has_profiles {
+            return None;
         }
-        // active-win-pos-rs 0.11 returns Err(()) with no platform message.
-        Err(err) => {
-            debug!("Active window detection failed; using global settings: {err:?}");
-            None
+        match query_active_app().await {
+            Ok(app) => app,
+            Err(err) => {
+                debug!("{err}; applying no per-app profile");
+                None
+            }
         }
-    }
-}
-
-/// Off the async worker, and abandoned after [`ACTIVE_WINDOW_QUERY_TIMEOUT`].
-/// Dropping the join handle does not cancel the blocking thread.
-async fn query_frontmost_app() -> Option<(String, String)> {
-    let query = tauri::async_runtime::spawn_blocking(read_frontmost_app);
-    match tokio::time::timeout(ACTIVE_WINDOW_QUERY_TIMEOUT, query).await {
-        Ok(Ok(app)) => app,
-        Ok(Err(err)) => {
-            debug!("Active window detection task failed; using global settings: {err}");
-            None
-        }
-        Err(_) => {
-            debug!("Active window detection timed out after 500ms; using global settings");
-            None
-        }
-    }
+    })
 }
 
 /// Non-empty trimmed model from the profile, if it supplied one.
@@ -299,60 +284,63 @@ fn profile_model_override(profile: &AppProfile) -> Option<String> {
 
 /// Applies a profile's provider and model onto `settings`.
 ///
-/// The provider changes only when it exists and a model will be available for
-/// it (settings already store a non-empty model, or the profile supplies one).
-/// The model is inserted, trimmed, only when that value is non-empty and the
-/// profile named no provider or that provider override was accepted.
+/// A profile model only applies together with the provider the profile names:
+/// - no provider named: no model override at all (the global provider and
+///   model stay);
+/// - provider missing from the settings: the global provider and its model stay;
+/// - provider found: it is selected and the profile's trimmed non-empty model,
+///   if any, is stored for it, otherwise its already stored model is used. When
+///   neither is non-empty the provider is not switched.
 fn apply_profile_provider_and_model(settings: &mut AppSettings, profile: &AppProfile) {
     let profile_model = profile_model_override(profile);
-    let mut provider_accepted = profile.provider_id.is_none();
-
-    if let Some(provider_id) = profile.provider_id.as_deref() {
-        let provider_exists = settings
-            .post_process_providers
-            .iter()
-            .any(|provider| provider.id == provider_id);
-        let has_configured_model = settings
-            .post_process_models
-            .get(provider_id)
-            .is_some_and(|model| !model.trim().is_empty());
-        if provider_exists && (has_configured_model || profile_model.is_some()) {
-            settings.post_process_provider_id = provider_id.to_string();
-            provider_accepted = true;
-        } else if !provider_exists {
-            debug!("Profile provider '{provider_id}' is missing; keeping the global provider");
-        } else {
-            debug!("Profile provider '{provider_id}' has no model; keeping the global provider");
+    let Some(provider_id) = profile.provider_id.as_deref() else {
+        if profile_model.is_some() {
+            debug!("Profile model ignored because the profile names no provider");
         }
+        return;
+    };
+
+    if !settings
+        .post_process_providers
+        .iter()
+        .any(|provider| provider.id == provider_id)
+    {
+        debug!(
+            "Profile provider '{provider_id}' is missing; keeping the global provider and model"
+        );
+        return;
     }
 
+    let has_stored_model = settings
+        .post_process_models
+        .get(provider_id)
+        .is_some_and(|model| !model.trim().is_empty());
+    if profile_model.is_none() && !has_stored_model {
+        debug!("Profile provider '{provider_id}' has no model; keeping the global provider");
+        return;
+    }
+
+    settings.post_process_provider_id = provider_id.to_string();
     if let Some(model) = profile_model {
-        if provider_accepted {
-            settings
-                .post_process_models
-                .insert(settings.post_process_provider_id.clone(), model);
-        } else {
-            debug!("Profile model ignored because its provider override was not applied");
-        }
+        settings
+            .post_process_models
+            .insert(provider_id.to_string(), model);
     }
 }
 
-/// Applies the first matching per-app profile for the frontmost application as
-/// a settings override. Returns a clone of `settings` unchanged when there are
-/// no profiles, when nothing matches, or when the active window cannot be read.
-async fn apply_app_profile_overrides(settings: &AppSettings) -> AppSettings {
-    if settings.app_profiles.is_empty() {
-        return settings.clone();
-    }
-
-    let Some((app_name, process_stem)) = query_frontmost_app().await else {
-        return settings.clone();
-    };
+/// Applies the first per-app profile matching `app`, the app captured when the
+/// dictation stopped, as a settings override. Returns a clone of `settings`
+/// unchanged when no profile matches.
+fn apply_app_profile_overrides(settings: &AppSettings, app: &ActiveAppInfo) -> AppSettings {
+    let process_stem = Path::new(&app.process_path)
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().to_string())
+        .unwrap_or_default();
 
     let Some(profile) = settings
         .app_profiles
         .iter()
-        .find(|p| app_profile_matches(&p.app_identifier, &app_name, &process_stem))
+        .find(|p| app_profile_matches(&p.app_identifier, &app.app_name, &process_stem))
     else {
         return settings.clone();
     };
@@ -718,16 +706,17 @@ pub(crate) async fn process_transcription_output(
     transcription: &str,
     post_process: bool,
     correction: bool,
-    apply_profiles: bool,
+    captured_app: Option<&ActiveAppInfo>,
 ) -> ProcessedTranscription {
     let settings = get_settings(app);
-    // Live dictation applies the frontmost app's profile once, before either
-    // paste path. History re-runs pass `apply_profiles = false` so they do not
-    // follow whichever app happens to be in front now.
-    let effective_settings = if apply_profiles {
-        apply_app_profile_overrides(&settings).await
-    } else {
-        settings.clone()
+    // Live dictation applies the profile of the app captured when recording
+    // stopped, once, before either paste path. It never re-reads the frontmost
+    // window here: the user may have switched apps while this ran. History
+    // re-runs pass `None` (no profile) so they do not follow whichever app
+    // happens to be in front now, and a failed or timed-out capture is `None`.
+    let effective_settings = match captured_app {
+        Some(captured) => apply_app_profile_overrides(&settings, captured),
+        None => settings.clone(),
     };
     let mut final_text = transcription.to_string();
     let mut post_processed_text: Option<String> = None;
@@ -992,6 +981,11 @@ impl ShortcutAction for TranscribeAction {
     }
 
     fn stop(&self, app: &AppHandle, binding_id: &str, _shortcut_str: &str) {
+        // Snapshot the app being dictated into before any tray, overlay or
+        // transcription work, so its profile applies even if the user switches
+        // windows before the text is ready.
+        let frontmost_capture = capture_frontmost_app(&get_settings(app));
+
         // Unregister the cancel shortcut when transcription stops
         shortcut::unregister_cancel_shortcut(app);
 
@@ -1137,13 +1131,15 @@ impl ShortcutAction for TranscribeAction {
                                     show_processing_overlay(&ah);
                                 }
                             }
+                            // Started in `stop`, so it has finished or timed out by now.
+                            let captured_app = frontmost_capture.await.ok().flatten();
                             let Some(processed) = complete_unless_cancelled(
                                 process_transcription_output(
                                     &ah,
                                     &transcription,
                                     post_process,
                                     correction,
-                                    true,
+                                    captured_app.as_ref(),
                                 ),
                                 || rm.was_cancelled_since(cancel_generation),
                             )
@@ -1344,10 +1340,11 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
 #[cfg(test)]
 mod tests {
     use super::{
-        app_profile_matches, apply_profile_provider_and_model, build_post_process_messages,
-        complete_unless_cancelled, is_blank_transcription, refine_base_for_correction,
-        should_use_streaming_overlay, store_refine_buffer,
+        app_profile_matches, apply_app_profile_overrides, apply_profile_provider_and_model,
+        build_post_process_messages, complete_unless_cancelled, is_blank_transcription,
+        refine_base_for_correction, should_use_streaming_overlay, store_refine_buffer,
     };
+    use crate::commands::app_profile::ActiveAppInfo;
     use crate::settings::OverlayStyle;
     use std::future;
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -1584,8 +1581,9 @@ mod tests {
     }
 
     #[test]
-    fn profile_model_without_provider_overrides_global_model() {
+    fn model_only_profile_leaves_global_model_unchanged() {
         let mut settings = settings_with_openai();
+        let models_before = settings.post_process_models.clone();
 
         apply_override(&mut settings, None, Some("  gpt-4.1-mini  "));
 
@@ -1595,7 +1593,112 @@ mod tests {
                 .post_process_models
                 .get("openai")
                 .map(String::as_str),
-            Some("gpt-4.1-mini")
+            Some("gpt-4o-mini")
         );
+        // No provider was named, so the model is not stored for any provider.
+        assert_eq!(settings.post_process_models, models_before);
+    }
+
+    #[test]
+    fn provider_with_stored_model_is_applied_without_a_profile_model() {
+        let mut settings = settings_with_openai();
+        settings
+            .post_process_models
+            .insert("groq".to_string(), "llama-3.3-70b".to_string());
+
+        apply_override(&mut settings, Some("groq"), None);
+
+        assert_eq!(settings.post_process_provider_id, "groq");
+        assert_eq!(
+            settings.post_process_models.get("groq").map(String::as_str),
+            Some("llama-3.3-70b")
+        );
+    }
+
+    fn app_info(app_name: &str, process_path: &str) -> ActiveAppInfo {
+        ActiveAppInfo {
+            app_name: app_name.to_string(),
+            process_path: process_path.to_string(),
+            title: String::new(),
+        }
+    }
+
+    fn correction_profile(
+        app_identifier: &str,
+        from: &str,
+        to: &str,
+    ) -> crate::settings::AppProfile {
+        crate::settings::AppProfile {
+            id: app_identifier.to_string(),
+            name: app_identifier.to_string(),
+            app_identifier: app_identifier.to_string(),
+            prompt_id: None,
+            provider_id: None,
+            model: None,
+            corrections: vec![crate::settings::CorrectionPair {
+                from: from.to_string(),
+                to: to.to_string(),
+            }],
+        }
+    }
+
+    fn correction_pairs(settings: &crate::settings::AppSettings) -> Vec<(&str, &str)> {
+        settings
+            .corrections
+            .iter()
+            .map(|pair| (pair.from.as_str(), pair.to.as_str()))
+            .collect()
+    }
+
+    #[test]
+    fn override_follows_the_captured_app() {
+        let mut settings = crate::settings::get_default_settings();
+        settings.app_profiles = vec![
+            correction_profile("Mail", "teh", "the"),
+            correction_profile("Xcode", "nil", "null"),
+        ];
+
+        let mail = app_info("Mail", "/System/Applications/Mail.app/Contents/MacOS/Mail");
+        let xcode = app_info("Xcode", "/Applications/Xcode.app/Contents/MacOS/Xcode");
+
+        // The result depends only on the identity passed in, so a later window
+        // switch cannot change which profile a finished dictation uses.
+        assert_eq!(
+            correction_pairs(&apply_app_profile_overrides(&settings, &mail)),
+            vec![("teh", "the")]
+        );
+        assert_eq!(
+            correction_pairs(&apply_app_profile_overrides(&settings, &xcode)),
+            vec![("nil", "null")]
+        );
+    }
+
+    #[test]
+    fn override_matches_the_process_stem_of_the_captured_path() {
+        let mut settings = crate::settings::get_default_settings();
+        settings.app_profiles = vec![correction_profile("code", "teh", "the")];
+
+        let vscode = app_info(
+            "Visual Studio Code",
+            "/Applications/Visual Studio Code.app/Contents/MacOS/Code",
+        );
+
+        assert_eq!(
+            correction_pairs(&apply_app_profile_overrides(&settings, &vscode)),
+            vec![("teh", "the")]
+        );
+    }
+
+    #[test]
+    fn unmatched_captured_app_gets_the_global_settings() {
+        let mut settings = crate::settings::get_default_settings();
+        settings.app_profiles = vec![correction_profile("Mail", "teh", "the")];
+
+        let notes = app_info(
+            "Notes",
+            "/System/Applications/Notes.app/Contents/MacOS/Notes",
+        );
+
+        assert!(correction_pairs(&apply_app_profile_overrides(&settings, &notes)).is_empty());
     }
 }

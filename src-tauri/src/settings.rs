@@ -517,7 +517,9 @@ pub struct AppProfile {
     /// Override the global post-process provider for this app. `None` = use global.
     #[serde(default)]
     pub provider_id: Option<String>,
-    /// Override the global post-process model for this app. `None` = use global.
+    /// Model to use with `provider_id`. Ignored when `provider_id` is `None`,
+    /// since a model only makes sense for the provider it belongs to.
+    /// `None` = that provider's stored model.
     #[serde(default)]
     pub model: Option<String>,
     /// Additional corrections applied only when this profile is active.

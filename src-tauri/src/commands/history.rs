@@ -95,13 +95,14 @@ pub async fn retry_history_entry_transcription(
 
     // Re-transcribing a saved recording is never a live spoken correction, and
     // it must not pick up whichever app is frontmost now. Profile overrides stay
-    // off; correction mode is off. This only re-runs transcription + post-processing.
+    // off (no captured app); correction mode is off. This only re-runs
+    // transcription + post-processing.
     let processed = process_transcription_output(
         &app,
         &transcription,
         entry.post_process_requested,
         false,
-        false,
+        None,
     )
     .await;
     history_manager
