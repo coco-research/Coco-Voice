@@ -430,6 +430,30 @@
         "cancel": "취소",
         "selectToEdit": "세부 정보를 보고 편집하려면 위에서 프롬프트를 선택하세요.",
         "createFirst": "첫 번째 후처리 프롬프트를 만들려면 위의 '새 프롬프트 만들기'를 클릭하세요."
+      },
+      "appProfiles": {
+        "title": "Per-App Profiles",
+        "addProfile": "Add profile",
+        "description": "Override post-processing settings when specific applications are active. Matched against the active app's name or process name.",
+        "namePlaceholder": "Profile name",
+        "identifierPlaceholder": "App identifier",
+        "detect": "Detect",
+        "detectCountdown": "Switch to the target app. Detecting in {{seconds}}s.",
+        "detectOwnApp": "That window is Coco Voice. Switch to the app you dictate into, then detect again.",
+        "detected": "Detected: {{name}}",
+        "detectedWithStem": "Detected: {{name}} ({{stem}})",
+        "detectFailed": "Could not detect the active application",
+        "profileLimit": "Profile limit reached ({{max}}).",
+        "duplicateProfile": "A profile for \"{{identifier}}\" already exists",
+        "globalDefault": "Global default",
+        "modelPlaceholder": "Model",
+        "modelRequired": "This provider has no model set. Enter one here, or the global provider is used.",
+        "fromPlaceholder": "From",
+        "toPlaceholder": "To",
+        "addCorrection": "Add correction",
+        "correctionLimit": "Correction limit reached ({{max}}).",
+        "correctionExists": "A correction for \"{{from}}\" already exists",
+        "removeText": "(remove)"
       }
     },
     "history": {
