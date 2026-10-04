@@ -45,7 +45,7 @@ jobs:
       target: ${{ matrix.target }}
       # No signing key or certificate is available here, so skip updater
       # artifacts ad-hoc sign on macOS, and skip Windows signing.
-      build-args: "${{ matrix.args }} --config '{\"bundle\":{\"createUpdaterArtifacts\":false,\"macOS\":{\"signingIdentity\":\"-\"},\"windows\":{\"signCommand\":null}}}'"
+      build-args: '${{ matrix.args }} --config ''{"bundle":{"createUpdaterArtifacts":false,"macOS":{"signingIdentity":"-"},"windows":{"signCommand":null}}}'''
       sign-binaries: false
       asset-prefix: "coco-voice-pr-${{ inputs.pr_number }}"
       upload-artifacts: true
