@@ -1,8 +1,8 @@
 use crate::actions::ACTION_MAP;
 use crate::managers::audio::AudioRecordingManager;
 use log::{debug, error, warn};
-use std::sync::mpsc::{self, Sender};
-use std::sync::Arc;
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex, PoisonError, Weak};
 use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
@@ -72,7 +72,8 @@ fn classify_ptt_event(
 /// to eliminate race conditions between keyboard shortcuts, signals, and
 /// the async transcribe-paste pipeline.
 pub struct TranscriptionCoordinator {
-    tx: Sender<Command>,
+    /// Shared with the worker so it can swap in a fresh channel after a panic.
+    tx: Arc<Mutex<Sender<Command>>>,
 }
 
 pub fn is_transcribe_binding(id: &str) -> bool {
@@ -85,7 +86,14 @@ pub fn is_transcribe_binding(id: &str) -> bool {
 impl TranscriptionCoordinator {
     pub fn new(app: AppHandle) -> Self {
         let (tx, rx) = mpsc::channel();
+        let tx = Arc::new(Mutex::new(tx));
+        Self::spawn_worker(app, Arc::downgrade(&tx), rx);
+        Self { tx }
+    }
 
+    /// Runs the coordinator loop on its own thread. If the loop panics, a new
+    /// channel and worker are installed so the hotkey keeps working.
+    fn spawn_worker(app: AppHandle, tx: Weak<Mutex<Sender<Command>>>, rx: Receiver<Command>) {
         thread::spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let mut stage = Stage::Idle;
@@ -211,10 +219,31 @@ impl TranscriptionCoordinator {
             }));
             if let Err(e) = result {
                 error!("Transcription coordinator panicked: {e:?}");
+                // Reset recording/overlay state left behind by the interrupted take
+                // before the fresh worker can act on new input. Guarded: the cause
+                // of the panic may recur here.
+                if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    crate::utils::cancel_current_operation(&app)
+                }))
+                .is_err()
+                {
+                    error!("Resetting state after coordinator panic panicked too");
+                }
+                // The old loop is gone: give the sender a fresh channel and start a
+                // new worker (stage Idle). A dropped coordinator ends the chain.
+                if let Some(tx) = tx.upgrade() {
+                    let new_rx = replace_channel(&tx);
+                    Self::spawn_worker(app, Arc::downgrade(&tx), new_rx);
+                }
             }
         });
+    }
 
-        Self { tx }
+    fn send(&self, cmd: Command) -> Result<(), mpsc::SendError<Command>> {
+        self.tx
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .send(cmd)
     }
 
     /// Send a keyboard/signal input event for a transcribe binding.
@@ -227,7 +256,6 @@ impl TranscriptionCoordinator {
         push_to_talk: bool,
     ) {
         if self
-            .tx
             .send(Command::Input {
                 binding_id: binding_id.to_string(),
                 hotkey_string: hotkey_string.to_string(),
@@ -242,7 +270,6 @@ impl TranscriptionCoordinator {
 
     pub fn notify_cancel(&self, recording_was_active: bool) {
         if self
-            .tx
             .send(Command::Cancel {
                 recording_was_active,
             })
@@ -253,10 +280,17 @@ impl TranscriptionCoordinator {
     }
 
     pub fn notify_processing_finished(&self) {
-        if self.tx.send(Command::ProcessingFinished).is_err() {
+        if self.send(Command::ProcessingFinished).is_err() {
             warn!("Transcription coordinator channel closed");
         }
     }
+}
+
+/// Installs a fresh channel in `tx` and returns its receiver, for a new worker.
+fn replace_channel(tx: &Mutex<Sender<Command>>) -> Receiver<Command> {
+    let (new_tx, new_rx) = mpsc::channel();
+    *tx.lock().unwrap_or_else(PoisonError::into_inner) = new_tx;
+    new_rx
 }
 
 fn start(app: &AppHandle, stage: &mut Stage, binding_id: &str, hotkey_string: &str) {
@@ -287,6 +321,28 @@ fn stop(app: &AppHandle, stage: &mut Stage, binding_id: &str, hotkey_string: &st
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn replace_channel_revives_a_closed_sender() {
+        let (tx, rx) = mpsc::channel();
+        let tx = Mutex::new(tx);
+        drop(rx); // the panicked worker's receiver is gone
+        assert!(tx
+            .lock()
+            .unwrap()
+            .send(Command::ProcessingFinished)
+            .is_err());
+
+        let new_rx = replace_channel(&tx);
+        tx.lock()
+            .unwrap()
+            .send(Command::ProcessingFinished)
+            .unwrap();
+        assert!(matches!(
+            new_rx.recv().unwrap(),
+            Command::ProcessingFinished
+        ));
+    }
 
     #[test]
     fn push_to_talk_release_while_recording_defers_release() {

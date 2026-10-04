@@ -9,8 +9,8 @@
 //! The active implementation is determined by the `keyboard_implementation`
 //! setting and can be changed at runtime.
 
-mod handler;
 pub mod coco_keys;
+mod handler;
 mod tauri_impl;
 
 use log::{error, info, warn};
@@ -103,6 +103,36 @@ pub struct BindingResponse {
     error: Option<String>,
 }
 
+/// Replaces the registration of `old` with `new`. If registering `new` fails,
+/// `old` is registered again so the user is never left without a working hotkey.
+fn swap_registration<B>(
+    old: &B,
+    new: &B,
+    unregister: impl Fn(&B) -> Result<(), String>,
+    register: impl Fn(&B) -> Result<(), String>,
+) -> Result<(), String> {
+    // The old binding may already be unregistered (suspended while editing).
+    let old_was_registered = match unregister(old) {
+        Ok(()) => true,
+        Err(e) => {
+            error!("Failed to unregister old shortcut: {}", e);
+            false
+        }
+    };
+    register(new).map_err(|e| {
+        // Best effort. If `old` could not be unregistered it may still be active,
+        // so a failed restore then says nothing about the hotkey being lost.
+        match register(old) {
+            Ok(()) => e,
+            Err(restore_err) if old_was_registered => {
+                warn!("Could not restore the previous shortcut: {}", restore_err);
+                format!("{e} (the previous shortcut could not be restored: {restore_err})")
+            }
+            Err(_) => e,
+        }
+    })
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn change_binding(
@@ -159,13 +189,8 @@ pub fn change_binding(
         }
     }
 
-    // Unregister the existing binding
-    if let Err(e) = unregister_shortcut(&app, binding_to_modify.clone()) {
-        let error_msg = format!("Failed to unregister shortcut: {}", e);
-        error!("change_binding error: {}", error_msg);
-    }
-
-    // Validate the new shortcut for the current keyboard implementation
+    // Validate the new shortcut first, so a rejected combo leaves the old
+    // hotkey registered.
     if let Err(e) = validate_shortcut_for_implementation(&binding, settings.keyboard_implementation)
     {
         warn!("change_binding validation error: {}", e);
@@ -173,11 +198,16 @@ pub fn change_binding(
     }
 
     // Create an updated binding
-    let mut updated_binding = binding_to_modify;
+    let mut updated_binding = binding_to_modify.clone();
     updated_binding.current_binding = binding;
 
-    // Register the new binding
-    if let Err(e) = register_shortcut(&app, updated_binding.clone()) {
+    // Swap the registration; if the new combo fails, the old one is put back.
+    if let Err(e) = swap_registration(
+        &binding_to_modify,
+        &updated_binding,
+        |b| unregister_shortcut(&app, b.clone()),
+        |b| register_shortcut(&app, b.clone()),
+    ) {
         let error_msg = format!("Failed to register shortcut: {}", e);
         error!("change_binding error: {}", error_msg);
         return Ok(BindingResponse {
@@ -283,7 +313,9 @@ pub fn change_keyboard_implementation_setting(
     settings::write_settings(&app, settings);
 
     // Initialize new implementation if needed (CocoVoiceKeys needs state)
-    if new_impl == KeyboardImplementation::CocoVoiceKeys && initialize_handy_keys_with_rollback(&app)? {
+    if new_impl == KeyboardImplementation::CocoVoiceKeys
+        && initialize_handy_keys_with_rollback(&app)?
+    {
         // Shortcuts already registered during init
         return Ok(ImplementationChangeResult {
             success: true,
@@ -1327,4 +1359,61 @@ pub async fn get_available_accelerators() -> crate::managers::transcription::Ava
     tauri::async_runtime::spawn_blocking(crate::managers::transcription::get_available_accelerators)
         .await
         .expect("get_available_accelerators panicked")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+
+    #[test]
+    fn failed_register_restores_old_binding() {
+        let calls = RefCell::new(Vec::new());
+        let result = swap_registration(
+            &"old",
+            &"new",
+            |b| {
+                calls.borrow_mut().push(format!("unregister {b}"));
+                Ok(())
+            },
+            |b| {
+                calls.borrow_mut().push(format!("register {b}"));
+                if *b == "new" {
+                    Err("rejected".to_string())
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert_eq!(result, Err("rejected".to_string()));
+        assert_eq!(
+            *calls.borrow(),
+            ["unregister old", "register new", "register old"]
+        );
+    }
+
+    #[test]
+    fn failed_restore_is_reported() {
+        let result = swap_registration(&"old", &"new", |_| Ok(()), |_| Err("busy".to_string()));
+        assert_eq!(
+            result,
+            Err("busy (the previous shortcut could not be restored: busy)".to_string())
+        );
+    }
+
+    #[test]
+    fn successful_swap_does_not_reregister_old() {
+        let calls = RefCell::new(Vec::new());
+        let result = swap_registration(
+            &"old",
+            &"new",
+            |_| Ok(()),
+            |b| {
+                calls.borrow_mut().push(*b);
+                Ok(())
+            },
+        );
+        assert!(result.is_ok());
+        assert_eq!(*calls.borrow(), ["new"]);
+    }
 }

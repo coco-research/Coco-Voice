@@ -693,6 +693,9 @@ mod tests {
         assert_eq!(apply_corrections("hello world", &[]), "hello world");
         // An empty `from` is skipped rather than matching everything.
         let corrections = vec![pair("", "x")];
-        assert_eq!(apply_corrections("hello world", &corrections), "hello world");
+        assert_eq!(
+            apply_corrections("hello world", &corrections),
+            "hello world"
+        );
     }
 }

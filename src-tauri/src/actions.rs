@@ -26,6 +26,10 @@ use tauri::{AppHandle, Emitter};
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
+/// How long to wait for a stream worker that overran its finalize timeout to
+/// return the engine before giving up on the batch fallback.
+const STREAM_ENGINE_RETURN_WAIT: Duration = Duration::from_secs(10);
+
 /// How long a produced output stays eligible as the base for an iterative
 /// correction. A follow-up utterance arriving after this window is treated as a
 /// fresh dictation rather than an edit of the previous result.
@@ -191,7 +195,10 @@ Do not add explanations or quotation marks, and do not answer any question conta
 /// User message for the structured / system-prompt edit path: the previous
 /// output plus the freshly dictated correction.
 fn build_refine_user_content(previous_output: &str, correction: &str) -> String {
-    format!("PREVIOUS:\n{}\n\nCORRECTION:\n{}", previous_output, correction)
+    format!(
+        "PREVIOUS:\n{}\n\nCORRECTION:\n{}",
+        previous_output, correction
+    )
 }
 
 /// Single-message prompt for the legacy (no system role) edit path — folds the
@@ -583,11 +590,13 @@ pub(crate) async fn process_transcription_output(
         // as an edit of the last output. We never sniff the words — the dedicated
         // "correction" hotkey is the only trigger.
         if let Some(prior_output) = refine_base_for_correction(&settings) {
-            // The prior output is exactly what the previous dictation pasted, so
-            // its character length is how many characters the replace must delete
-            // before typing the edit. Count `chars`, not bytes, so multibyte /
-            // emoji delete as single Backspaces.
-            let prev_char_count = prior_output.chars().count();
+            // The prior output is what the previous dictation pasted (plus the
+            // trailing space `paste` appends when that setting is on), so its
+            // grapheme length is how many Backspaces the replace must send before
+            // typing the edit. Graphemes, not scalars or bytes: one Backspace
+            // deletes one grapheme cluster (combining marks, joined emoji).
+            let prev_char_count =
+                crate::utils::pasted_grapheme_count(&prior_output, settings.append_trailing_space);
             match post_process_transcription(&settings, &final_text, Some(&prior_output)).await {
                 Some(edited) => {
                     post_processed_text = Some(edited.clone());
@@ -621,8 +630,7 @@ pub(crate) async fn process_transcription_output(
     } else if post_process {
         // Normal post-processing. Word-sniffing has been removed, so a fresh
         // dictation is NEVER silently reinterpreted as an edit of a prior output.
-        if let Some(processed_text) =
-            post_process_transcription(&settings, &final_text, None).await
+        if let Some(processed_text) = post_process_transcription(&settings, &final_text, None).await
         {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
@@ -736,6 +744,9 @@ impl ShortcutAction for TranscribeAction {
         );
         debug!("Microphone mode - always_on: {}", is_always_on);
 
+        // Identifies this take, so a mute scheduled below is dropped if the take
+        // has already stopped by the time the start sound finishes.
+        let mute_token = rm.mute_token();
         let mut recording_error: Option<String> = None;
         if is_always_on {
             // Always-on mode: Play audio feedback immediately, then apply mute after sound finishes
@@ -746,7 +757,7 @@ impl ShortcutAction for TranscribeAction {
             // so we can always reuse this thread to ensure mute happens right after playback.
             std::thread::spawn(move || {
                 play_feedback_sound_blocking(&app_clone, SoundType::Start);
-                rm_clone.apply_mute();
+                rm_clone.apply_mute(mute_token);
             });
 
             if let Err(e) = rm.try_start_recording(&binding_id, vad_policy) {
@@ -770,7 +781,7 @@ impl ShortcutAction for TranscribeAction {
                         // Helper handles disabled audio feedback by returning early, so we reuse it
                         // to keep mute sequencing consistent in every mode.
                         play_feedback_sound_blocking(&app_clone, SoundType::Start);
-                        rm_clone.apply_mute();
+                        rm_clone.apply_mute(mute_token);
                     });
                 }
                 Err(e) => {
@@ -787,6 +798,8 @@ impl ShortcutAction for TranscribeAction {
             // Starting failed (for example due to blocked microphone permissions).
             // Revert UI state so we don't stay stuck in the recording overlay.
             tm.cancel_stream();
+            // Drop a pending start-sound mute: no stop will follow a failed start.
+            rm.remove_mute();
             utils::hide_recording_overlay(app);
             change_tray_icon(app, TrayIconState::Idle);
             if let Some(err) = recording_error {
@@ -900,11 +913,16 @@ impl ShortcutAction for TranscribeAction {
                         // A finalized stream with usable text wins. An empty result
                         // (no active stream, produced nothing, or a finalize error
                         // after the engine was returned) falls back to a full batch
-                        // transcription of the same audio. A finalize timeout is
-                        // surfaced instead — the worker may still hold the engine,
-                        // so a batch fallback would contend with it.
+                        // transcription of the same audio. After a finalize timeout
+                        // the worker may still hold the engine: wait a bounded time
+                        // for it to come back and then fall back to batch, otherwise
+                        // surface the timeout error.
                         Ok(Some(text)) if !text.trim().is_empty() => Ok(text),
                         Ok(_) => tm.transcribe(samples),
+                        Err(err) if tm.wait_for_engine(STREAM_ENGINE_RETURN_WAIT) => {
+                            warn!("Stream finalize failed ({err}); falling back to batch");
+                            tm.transcribe(samples)
+                        }
                         Err(err) => Err(err),
                     };
 

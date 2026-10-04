@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { CorrectionPair } from "@/bindings";
 import { useSettings } from "../../hooks/useSettings";
@@ -18,6 +19,7 @@ interface CorrectionsProps {
  */
 export const Corrections: React.FC<CorrectionsProps> = React.memo(
   ({ descriptionMode = "tooltip", grouped = false }) => {
+    const { t } = useTranslation();
     const { getSetting, updateSetting, isUpdating } = useSettings();
     const [newFrom, setNewFrom] = useState("");
     const [newTo, setNewTo] = useState("");
@@ -32,7 +34,9 @@ export const Corrections: React.FC<CorrectionsProps> = React.memo(
         return;
       }
       if (
-        corrections.some((pair) => pair.from.toLowerCase() === from.toLowerCase())
+        corrections.some(
+          (pair) => pair.from.toLowerCase() === from.toLowerCase(),
+        )
       ) {
         toast.error(`A correction for "${from}" already exists`);
         return;
@@ -90,11 +94,13 @@ export const Corrections: React.FC<CorrectionsProps> = React.memo(
             />
             <Button
               onClick={handleAddPair}
-              disabled={!newFrom.trim() || newFrom.trim().length > 100 || disabled}
+              disabled={
+                !newFrom.trim() || newFrom.trim().length > 100 || disabled
+              }
               variant="primary"
               size="md"
             >
-              Add
+              {t("settings.advanced.customWords.add")}
             </Button>
           </div>
         </SettingContainer>

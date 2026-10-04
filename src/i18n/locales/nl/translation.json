@@ -178,6 +178,10 @@
           "transcribe_with_post_process": {
             "name": "Sneltoets voor naverwerking",
             "description": "Optioneel: Een specifieke sneltoets die altijd AI-naverwerking toepast op je transcriptie."
+          },
+          "correction": {
+            "name": "Correctie inspreken",
+            "description": "De sneltoets om een correctie in te spreken die je laatste dictaat vervangt. Wijs een toets toe om dit in te schakelen."
           }
         },
         "errors": {
@@ -372,6 +376,11 @@
     "postProcessing": {
       "hotkey": {
         "title": "Sneltoets"
+      },
+      "correction": {
+        "title": "Iteratieve correctie",
+        "toggleLabel": "Correcties inspreken",
+        "toggleDescription": "Voegt een aparte sneltoets toe die je indrukt om je laatste dictaat te vervangen door een ingesproken correctie. Het start nooit automatisch door trefwoorden. Druk op de toegewezen toets, spreek de correctie in, en de vorige uitvoer wordt ter plaatse bewerkt."
       },
       "api": {
         "title": "API (OpenAI-compatibel)",

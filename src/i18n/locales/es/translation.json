@@ -196,6 +196,10 @@
           "transcribe_with_post_process": {
             "name": "Tecla de Post Procesamiento",
             "description": "Opcional: Una tecla de acceso rápido dedicada que siempre aplica post procesamiento con IA a tu transcripción."
+          },
+          "correction": {
+            "name": "Decir corrección",
+            "description": "El atajo de teclado para decir una corrección que reemplaza tu último dictado. Asigna una tecla para activarlo."
           }
         },
         "errors": {
@@ -372,6 +376,11 @@
     "postProcessing": {
       "hotkey": {
         "title": "Tecla de acceso rápido"
+      },
+      "correction": {
+        "title": "Corrección iterativa",
+        "toggleLabel": "Decir correcciones",
+        "toggleDescription": "Añade un atajo explícito que pulsas para reemplazar tu último dictado con una corrección hablada. Nunca se activa solo por palabras clave. Pulsa la tecla asignada, di la corrección y el texto anterior se edita en el mismo lugar."
       },
       "api": {
         "title": "API (Compatible con OpenAI)",

@@ -22,7 +22,10 @@ export const ShortcutInput: React.FC<ShortcutInputProps> = (props) => {
   const keyboardImplementation = getSetting("keyboard_implementation");
 
   // Default to Tauri implementation if not set. Accept "coco_keys" or legacy "handy_keys"
-  if (keyboardImplementation === "coco_keys" || keyboardImplementation === "handy_keys") {
+  if (
+    keyboardImplementation === "coco_keys" ||
+    keyboardImplementation === "handy_keys"
+  ) {
     return <CocoVoiceKeysShortcutInput {...props} />;
   }
 

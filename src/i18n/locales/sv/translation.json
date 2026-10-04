@@ -178,6 +178,10 @@
           "transcribe_with_post_process": {
             "name": "Snabbkommando för efterbearbetning",
             "description": "Valfritt: En dedikerad snabbknapp som alltid tillämpar AI-efterbearbetning på din transkription."
+          },
+          "correction": {
+            "name": "Säg en rättelse",
+            "description": "Kortkommandot för att säga en rättelse som ersätter din senaste diktering. Tilldela en tangent för att aktivera det."
           }
         },
         "errors": {
@@ -372,6 +376,11 @@
     "postProcessing": {
       "hotkey": {
         "title": "Snabbkommando"
+      },
+      "correction": {
+        "title": "Iterativ rättelse",
+        "toggleLabel": "Säg rättelser",
+        "toggleDescription": "Lägger till ett särskilt kortkommando som du trycker på för att ersätta din senaste diktering med en talad rättelse. Det startar aldrig automatiskt av nyckelord. Tryck på den tilldelade tangenten, säg rättelsen, så redigeras den föregående texten på plats."
       },
       "api": {
         "title": "API (OpenAI-kompatibelt)",
