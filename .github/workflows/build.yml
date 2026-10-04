@@ -32,6 +32,11 @@ on:
         required: false
         type: boolean
         default: false
+      sign-updater:
+        description: Give this build the Tauri updater minisign key even when OS signing is off. Only trusted release callers set it.
+        required: false
+        type: boolean
+        default: false
       repository:
         required: false
         type: string
@@ -47,6 +52,33 @@ on:
         required: false
         type: boolean
         default: false
+    # Every secret is optional. Trusted callers use `secrets: inherit`.
+    # release-please passes only the updater key.
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_ID_PASSWORD:
+        required: false
+      APPLE_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_CLIENT_SECRET:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      KEYCHAIN_PASSWORD:
+        required: false
+      TAURI_SIGNING_PRIVATE_KEY:
+        required: false
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
+        required: false
 
 env:
   TSC_VERSION: "0.9.0"
@@ -508,8 +540,11 @@ jobs:
           AZURE_CLIENT_ID: ${{ inputs.sign-binaries && secrets.AZURE_CLIENT_ID || '' }}
           AZURE_CLIENT_SECRET: ${{ inputs.sign-binaries && secrets.AZURE_CLIENT_SECRET || '' }}
           AZURE_TENANT_ID: ${{ inputs.sign-binaries && secrets.AZURE_TENANT_ID || '' }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.sign-binaries && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.sign-binaries && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          # OS certificates stay empty unless sign-binaries is true. The updater
+          # key reaches only callers that opt in with sign-binaries or
+          # sign-updater, and PR builds never get it.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ (inputs.sign-binaries || inputs.sign-updater) && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ (inputs.sign-binaries || inputs.sign-updater) && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
         with:
           tagName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
           releaseName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
