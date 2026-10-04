@@ -901,9 +901,9 @@
     url = "https://registry.npmjs.org/escape-string-regexp/-/escape-string-regexp-5.0.0.tgz";
     hash = "sha512-/veY75JbMK4j1yjvuUxuVsiS/hr/4iHs9FTT6cgTexxdE0Ly/glccBAkloH/DofkjRbZU3bnoj38mOmhkZ0lHw==";
   };
-  "eslint-plugin-i18next@6.1.3" = fetchurl {
-    url = "https://registry.npmjs.org/eslint-plugin-i18next/-/eslint-plugin-i18next-6.1.3.tgz";
-    hash = "sha512-z/h4oBRd9wI1ET60HqcLSU6XPeAh/EPOrBBTyCdkWeMoYrWAaUVA+DOQkWTiNIyCltG4NTmy62SQisVXxoXurw==";
+  "eslint-plugin-i18next@6.1.5" = fetchurl {
+    url = "https://registry.npmjs.org/eslint-plugin-i18next/-/eslint-plugin-i18next-6.1.5.tgz";
+    hash = "sha512-xCTfstbK9ZpQ6UFT5S1s6zbZMhKn2o2jRSQYiU2UkV7wt8y1m3WjkUYGkGlipgRdFInYI9+LAqE+JQU/L73HmA==";
   };
   "eslint-scope@8.4.0" = fetchurl {
     url = "https://registry.npmjs.org/eslint-scope/-/eslint-scope-8.4.0.tgz";
@@ -1212,10 +1212,6 @@
   "lodash.merge@4.6.2" = fetchurl {
     url = "https://registry.npmjs.org/lodash.merge/-/lodash.merge-4.6.2.tgz";
     hash = "sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==";
-  };
-  "lodash@4.17.21" = fetchurl {
-    url = "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz";
-    hash = "sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==";
   };
   "longest-streak@3.1.0" = fetchurl {
     url = "https://registry.npmjs.org/longest-streak/-/longest-streak-3.1.0.tgz";
