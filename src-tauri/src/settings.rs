@@ -496,7 +496,7 @@ fn default_model() -> String {
     "".to_string()
 }
 
-const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 1;
+const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 2;
 
 fn default_settings_schema_version() -> u32 {
     CURRENT_SETTINGS_SCHEMA_VERSION
@@ -573,8 +573,17 @@ fn default_paste_delay_ms() -> u64 {
     60
 }
 
+/// How long to wait after the paste keystroke before the previous clipboard is
+/// restored. The target app reads the pasteboard on its own thread, so a busy app
+/// (heavy browser page, indexing IDE) can take well over 60ms to do it; restoring
+/// earlier makes it insert the old clipboard instead of the transcript.
+const DEFAULT_PASTE_DELAY_AFTER_MS: u64 = 300;
+/// Shipped default before schema v2. Existing installs persisted this value,
+/// so raising [`DEFAULT_PASTE_DELAY_AFTER_MS`] never reached them.
+const LEGACY_PASTE_DELAY_AFTER_MS: u64 = 60;
+
 fn default_paste_delay_after_ms() -> u64 {
-    60
+    DEFAULT_PASTE_DELAY_AFTER_MS
 }
 
 fn default_auto_submit() -> bool {
@@ -1145,6 +1154,23 @@ fn apply_settings_migrations(
         updated = true;
     }
 
+    // Schema v2: clipboard-restore default moved from 60ms to 300ms. A stored
+    // 60 is that old default, not a user choice. Any other value stays. The
+    // schema version makes this run once, so a later explicit 60 is kept.
+    // A user who deliberately picked 60 on v1 is reset once too: the release
+    // notes for this version must say so.
+    if stored_schema_version < 2 {
+        if settings_value
+            .get("paste_delay_after_ms")
+            .and_then(|v| v.as_u64())
+            == Some(LEGACY_PASTE_DELAY_AFTER_MS)
+        {
+            settings.paste_delay_after_ms = DEFAULT_PASTE_DELAY_AFTER_MS;
+        }
+        settings.settings_schema_version = CURRENT_SETTINGS_SCHEMA_VERSION;
+        updated = true;
+    }
+
     // One-time overlay migration (only while the new key is absent): the retired
     // overlay_position `none` meant "hide the overlay" → OverlayStyle::None; any
     // other position had it visible → Live. The position enum no longer has a
@@ -1220,7 +1246,8 @@ mod tests {
 
     /// Frozen snapshot of a real v0.9.0-era settings store, as written to
     /// disk. This pins backwards compatibility: it must always parse strictly
-    /// (no salvage) and require no migration rewrite.
+    /// (no salvage). A one-time schema migration may rewrite it; a second
+    /// pass must not.
     ///
     /// If a schema change breaks this test, do NOT just update the fixture —
     /// it stands in for the stores on users' machines. Add a
@@ -1228,7 +1255,7 @@ mod tests {
     /// `apply_settings_migrations` so old values keep loading, and only extend
     /// the fixture alongside that.
     #[test]
-    fn frozen_v0_9_store_parses_strictly_without_migration() {
+    fn frozen_v0_9_store_parses_strictly_then_migrates_once() {
         // Note "log_level": 2 — the legacy numeric format, kept deliberately.
         let stored: serde_json::Value = serde_json::from_str(
             r##"{
@@ -1332,8 +1359,82 @@ mod tests {
         assert_eq!(settings.log_level, LogLevel::Debug);
         assert_eq!(settings.sound_theme, SoundTheme::Pop);
 
-        // A current-format store must not be rewritten on every read.
-        assert!(!apply_settings_migrations(&mut settings, &stored));
+        // Schema v1 (this fixture) is rewritten once to v2. It has no
+        // paste_delay_after_ms, so the delay stays the serde default.
+        assert!(apply_settings_migrations(&mut settings, &stored));
+        assert_eq!(settings.paste_delay_after_ms, DEFAULT_PASTE_DELAY_AFTER_MS);
+        assert_eq!(
+            settings.settings_schema_version,
+            CURRENT_SETTINGS_SCHEMA_VERSION
+        );
+        let migrated = serde_json::to_value(&settings).unwrap();
+        assert!(!apply_settings_migrations(&mut settings, &migrated));
+    }
+
+    #[test]
+    fn default_paste_delay_after_lets_slow_targets_read_the_clipboard() {
+        // 60ms restored the clipboard before busy apps had pasted (#13).
+        assert!(get_default_settings().paste_delay_after_ms >= 300);
+        assert_eq!(DEFAULT_PASTE_DELAY_AFTER_MS, 300);
+        // An empty store (existing user without the key) gets the same default.
+        let settings: AppSettings = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(settings.paste_delay_after_ms, DEFAULT_PASTE_DELAY_AFTER_MS);
+    }
+
+    #[test]
+    fn paste_delay_after_migration_maps_stored_60_to_300() {
+        let mut settings = get_default_settings();
+        settings.paste_delay_after_ms = LEGACY_PASTE_DELAY_AFTER_MS;
+        settings.settings_schema_version = 1;
+
+        let raw = serde_json::json!({
+            "settings_schema_version": 1,
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": "0.9.0",
+            "overlay_style": "live",
+            "paste_delay_after_ms": LEGACY_PASTE_DELAY_AFTER_MS
+        });
+
+        assert!(apply_settings_migrations(&mut settings, &raw));
+        assert_eq!(settings.paste_delay_after_ms, DEFAULT_PASTE_DELAY_AFTER_MS);
+        assert_eq!(
+            settings.settings_schema_version,
+            CURRENT_SETTINGS_SCHEMA_VERSION
+        );
+
+        // Already migrated: a later explicit 60 is a user choice and stays.
+        settings.paste_delay_after_ms = LEGACY_PASTE_DELAY_AFTER_MS;
+        let chosen = serde_json::json!({
+            "settings_schema_version": CURRENT_SETTINGS_SCHEMA_VERSION,
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": "0.9.0",
+            "overlay_style": "live",
+            "paste_delay_after_ms": LEGACY_PASTE_DELAY_AFTER_MS
+        });
+        assert!(!apply_settings_migrations(&mut settings, &chosen));
+        assert_eq!(settings.paste_delay_after_ms, LEGACY_PASTE_DELAY_AFTER_MS);
+    }
+
+    #[test]
+    fn paste_delay_after_migration_keeps_stored_150() {
+        let mut settings = get_default_settings();
+        settings.paste_delay_after_ms = 150;
+        settings.settings_schema_version = 1;
+
+        let raw = serde_json::json!({
+            "settings_schema_version": 1,
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": "0.9.0",
+            "overlay_style": "live",
+            "paste_delay_after_ms": 150
+        });
+
+        assert!(apply_settings_migrations(&mut settings, &raw));
+        assert_eq!(settings.paste_delay_after_ms, 150);
+        assert_eq!(
+            settings.settings_schema_version,
+            CURRENT_SETTINGS_SCHEMA_VERSION
+        );
     }
 
     #[test]
