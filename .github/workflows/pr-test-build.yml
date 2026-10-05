@@ -47,6 +47,8 @@ jobs:
       # artifacts ad-hoc sign on macOS, and skip Windows signing.
       build-args: '${{ matrix.args }} --config ''{"bundle":{"createUpdaterArtifacts":false,"macOS":{"signingIdentity":"-"},"windows":{"signCommand":null}}}'''
       sign-binaries: false
+      # PR code must never write a cache that main builds restore later.
+      no-cache: true
       asset-prefix: "coco-voice-pr-${{ inputs.pr_number }}"
       upload-artifacts: true
       is-debug-build: ${{ contains(matrix.args, '--debug') }}
