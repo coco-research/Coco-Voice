@@ -188,9 +188,17 @@ fn prompt_over_budget(template_tokens: usize, transcript_tokens: usize, budget: 
     template_tokens.saturating_add(transcript_tokens) > budget
 }
 
-/// `true` when generation stopped on the token cap instead of an end-of-sequence token.
-fn capped_without_eos(tokens_generated: usize, max_gen: usize, saw_eos: bool) -> bool {
-    !saw_eos && tokens_generated >= max_gen
+/// Decide what a finished generation loop may return. Only a run that ended on
+/// an end-of-sequence token is complete. Any other stop (token cap, full context,
+/// receiver gone) is partial text and is refused, so the raw transcript is pasted.
+fn stop_outcome(saw_eos: bool, cancelled: bool) -> Result<(), &'static str> {
+    if cancelled {
+        Err("Local LLM cleanup was cancelled")
+    } else if !saw_eos {
+        Err("Local LLM stopped without an end-of-sequence token; pasting the raw transcript")
+    } else {
+        Ok(())
+    }
 }
 
 /// Qwen3 template tail for `enable_thinking=false`: an empty think block the
@@ -417,6 +425,7 @@ fn generate_with_model(
 
     // Create greedy sampler for deterministic output
     let mut sampler = LlamaSampler::greedy();
+    let mut stream = token_tx.as_ref();
 
     while tokens_generated < max_gen && n_past < N_CTX as i32 - 1 {
         if cancelled() {
@@ -445,9 +454,13 @@ fn generate_with_model(
         }
         if !token_str.is_empty() {
             generated.push_str(&token_str);
-            if let Some(ref tx) = token_tx {
-                if tx.blocking_send(token_str).is_err() {
-                    break;
+            // Never block while holding the model mutex: a full channel only
+            // stops streaming, a closed one stops generating.
+            if let Some(tx) = stream {
+                match tx.try_send(token_str) {
+                    Ok(()) => {}
+                    Err(mpsc::error::TrySendError::Full(_)) => stream = None,
+                    Err(mpsc::error::TrySendError::Closed(_)) => break,
                 }
             }
         }
@@ -470,21 +483,14 @@ fn generate_with_model(
 
     // Context (`ctx`) drops at the end of this function. The model stays until
     // the idle watcher unloads it.
-    if capped_without_eos(tokens_generated, max_gen, saw_eos) {
-        return Err(
-            "Local LLM hit the token cap without an end-of-sequence token; pasting the raw transcript"
-                .to_string(),
-        );
-    }
+    stop_outcome(saw_eos, cancelled()).map_err(str::to_string)?;
 
-    if !cancelled() {
-        let mut tail = String::with_capacity(8);
-        let _ = decoder.decode_to_string(&[], &mut tail, true);
-        if !tail.is_empty() {
-            generated.push_str(&tail);
-            if let Some(ref tx) = token_tx {
-                let _ = tx.blocking_send(tail);
-            }
+    let mut tail = String::with_capacity(8);
+    let _ = decoder.decode_to_string(&[], &mut tail, true);
+    if !tail.is_empty() {
+        generated.push_str(&tail);
+        if let Some(tx) = stream {
+            let _ = tx.try_send(tail);
         }
     }
 
@@ -505,8 +511,8 @@ fn generate_with_model(
 #[cfg(test)]
 mod tests {
     use super::{
-        capped_without_eos, chat_template_parts, clamped_max_gen, idle_should_unload, is_qwen3,
-        prompt_budget, prompt_over_budget, strip_think_blocks, N_CTX,
+        chat_template_parts, clamped_max_gen, idle_should_unload, is_qwen3, prompt_budget,
+        prompt_over_budget, stop_outcome, strip_think_blocks, N_CTX,
     };
     use std::time::{Duration, Instant};
 
@@ -525,10 +531,13 @@ mod tests {
     }
 
     #[test]
-    fn capped_without_eos_refuses_and_eos_before_cap_keeps() {
-        assert!(capped_without_eos(512, 512, false));
-        assert!(!capped_without_eos(100, 512, true));
-        assert!(!capped_without_eos(511, 512, true));
+    fn only_a_run_that_ended_on_eos_is_kept() {
+        // Token cap or full context: no end-of-sequence token, so refuse.
+        assert!(stop_outcome(false, false).is_err());
+        assert!(stop_outcome(true, false).is_ok());
+        // A cancel is never pasted, finished or not.
+        assert!(stop_outcome(true, true).is_err());
+        assert!(stop_outcome(false, true).is_err());
     }
 
     #[test]
