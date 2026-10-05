@@ -35,6 +35,8 @@ pub enum EngineType {
     GigaAM,
     Canary,
     Cohere,
+    /// Local text generation via llama.cpp (llama-cpp-2) using GGUF models.
+    LlamaCpp,
 }
 
 /// Where a model comes from and how Coco Voice obtains it — the routing discriminant
@@ -1088,7 +1090,13 @@ impl ModelManager {
     pub fn get_available_models(&self) -> Vec<ModelInfo> {
         let mut list: Vec<ModelInfo> = {
             let models = self.available_models.lock().unwrap();
-            models.values().cloned().collect()
+            // LlamaCpp models stay in the registry for local post-processing
+            // (path lookup and download by id) but are not transcription engines.
+            models
+                .values()
+                .filter(|model| !matches!(model.engine_type, EngineType::LlamaCpp))
+                .cloned()
+                .collect()
         };
         // Stable, reasonable order: catalog editorial rank first (lower = higher
         // priority), then any other recommended model, then by accuracy, speed,
@@ -1367,12 +1375,18 @@ impl ModelManager {
         // in available_models (e.g. deleted custom model file)
         if !settings.selected_model.is_empty() {
             let models = self.available_models.lock().unwrap();
-            let exists = models.contains_key(&settings.selected_model);
+            let selected = models.get(&settings.selected_model);
+            // A local LLM is not a transcription model, even though it lives in
+            // the registry for post-processing.
+            let unusable = match selected {
+                None => true,
+                Some(info) => matches!(info.engine_type, EngineType::LlamaCpp),
+            };
             drop(models);
 
-            if !exists {
+            if unusable {
                 info!(
-                    "Selected model '{}' not found in available models, clearing selection",
+                    "Selected model '{}' is missing or not a transcription model, clearing selection",
                     settings.selected_model
                 );
                 settings.selected_model = String::new();

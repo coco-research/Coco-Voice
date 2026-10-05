@@ -716,6 +716,16 @@ impl TranscriptionManager {
                 })?;
                 LoadedEngine::Cohere(engine)
             }
+            EngineType::LlamaCpp => {
+                // Loaded on the first cleanup request by local_llm::generate_text,
+                // not as a transcription engine. This arm keeps the match exhaustive.
+                let error_msg = format!(
+                    "Model {} uses EngineType::LlamaCpp which is not a transcription engine",
+                    model_id
+                );
+                emit_loading_failed(&error_msg);
+                anyhow::bail!(error_msg)
+            }
         };
 
         // Update the current engine and model ID
