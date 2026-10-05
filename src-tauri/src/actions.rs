@@ -10,6 +10,7 @@ use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
 use crate::settings::{
     get_settings, AppProfile, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID,
+    LOCAL_LLM_PROVIDER_ID,
 };
 use crate::shortcut;
 use crate::tray::{change_tray_icon, TrayIconState};
@@ -29,6 +30,10 @@ use tauri::Manager;
 use tauri::{AppHandle, Emitter};
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
+/// Local cleanup length. A catalog model id is not a token count, so this is
+/// not parsed out of the model string.
+#[cfg(target_os = "macos")]
+const LOCAL_LLM_MAX_TOKENS: i32 = 512;
 
 /// How long to wait for a stream worker that overran its finalize timeout to
 /// return the engine before giving up on the batch fallback.
@@ -375,10 +380,15 @@ fn apply_app_profile_overrides(settings: &AppSettings, app: &ActiveAppInfo) -> A
 /// in *edit mode*: instead of cleaning a fresh transcript, the model edits the
 /// previous output using `transcription` as the spoken correction instruction.
 async fn post_process_transcription(
+    app: &AppHandle,
     settings: &AppSettings,
     transcription: &str,
     prior_output: Option<&str>,
 ) -> Option<String> {
+    // The handle only resolves the on-device GGUF path, which is macOS-only.
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
+
     if is_blank_transcription(transcription) {
         debug!("Post-processing skipped because the transcription is empty");
         return None;
@@ -460,6 +470,59 @@ async fn post_process_transcription(
         ),
         _ => (None, None),
     };
+
+    // Local LLM runs llama.cpp on device, not the JSON-schema HTTP API, so it
+    // is dispatched before the structured-output gate. The provider keeps
+    // `supports_structured_output: false`; hoisting the call is what makes
+    // local cleanup reachable.
+    #[cfg(not(target_os = "macos"))]
+    if provider.id == LOCAL_LLM_PROVIDER_ID {
+        warn!("Local LLM provider is not available on this platform; skipping post-processing");
+        return None;
+    }
+
+    #[cfg(target_os = "macos")]
+    if provider.id == LOCAL_LLM_PROVIDER_ID {
+        let (system_prompt, user_content) =
+            build_post_process_messages(&prompt, transcription, prior_output);
+        let model_manager = app.state::<Arc<ModelManager>>();
+        match model_manager.get_model_path(&model) {
+            Ok(model_path) => {
+                return match crate::local_llm::generate_text(
+                    &model_path,
+                    &system_prompt,
+                    &user_content,
+                    LOCAL_LLM_MAX_TOKENS,
+                    None,
+                    None,
+                )
+                .await
+                {
+                    Ok(result) => {
+                        if result.trim().is_empty() {
+                            debug!("Local LLM returned an empty response");
+                            None
+                        } else {
+                            let result = strip_invisible_chars(&result);
+                            debug!(
+                                "Local LLM post-processing succeeded. Output length: {} chars",
+                                result.len()
+                            );
+                            Some(result)
+                        }
+                    }
+                    Err(err) => {
+                        error!("Local LLM post-processing failed: {}", err);
+                        None
+                    }
+                };
+            }
+            Err(err) => {
+                error!("Failed to resolve local LLM model path: {}", err);
+                return None;
+            }
+        }
+    }
 
     if provider.supports_structured_output {
         debug!("Using structured outputs for provider '{}'", provider.id);
@@ -747,8 +810,13 @@ pub(crate) async fn process_transcription_output(
                 &prior_output,
                 effective_settings.append_trailing_space,
             );
-            match post_process_transcription(&effective_settings, &final_text, Some(&prior_output))
-                .await
+            match post_process_transcription(
+                app,
+                &effective_settings,
+                &final_text,
+                Some(&prior_output),
+            )
+            .await
             {
                 Some(edited) => {
                     post_processed_text = Some(edited.clone());
@@ -783,7 +851,7 @@ pub(crate) async fn process_transcription_output(
         // Normal post-processing. Word-sniffing has been removed, so a fresh
         // dictation is NEVER silently reinterpreted as an edit of a prior output.
         if let Some(processed_text) =
-            post_process_transcription(&effective_settings, &final_text, None).await
+            post_process_transcription(app, &effective_settings, &final_text, None).await
         {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;

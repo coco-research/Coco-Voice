@@ -1210,6 +1210,11 @@ pub async fn fetch_post_process_models(
         }
     }
 
+    // Local models come from the catalog; there is no endpoint and no API key.
+    if provider.id == crate::settings::LOCAL_LLM_PROVIDER_ID {
+        return Ok(crate::catalog::local_llm_model_ids());
+    }
+
     // Get API key
     let api_key = settings
         .post_process_api_keys

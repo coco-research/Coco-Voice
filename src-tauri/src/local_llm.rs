@@ -7,9 +7,10 @@
 //! memory can be returned. A request that arrives while that drop is in
 //! progress waits on the same mutex, sees an empty slot, and loads again.
 //!
-//! A transcript that does not fit in the prompt budget, or a generation that
-//! hits the token cap without an end-of-sequence token, is refused. The caller
-//! then pastes the raw transcript.
+//! A transcript that does not fit in the prompt budget is refused, and so is any
+//! generation that stops without an end-of-sequence token (token cap, full
+//! context, receiver gone) or is cancelled. The caller then pastes the raw
+//! transcript.
 
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
@@ -122,8 +123,9 @@ fn idle_watch_loop() {
 ///
 /// If `token_tx` is provided, streams generated tokens as they are produced.
 /// Returns the full generated text on success. Returns an error when the
-/// prompt does not fit or generation hits the token cap without an
-/// end-of-sequence token; the caller pastes the raw transcript.
+/// prompt does not fit, when generation stops without an end-of-sequence token
+/// (token cap, full context, receiver gone), or when it is cancelled; the
+/// caller pastes the raw transcript.
 pub async fn generate_text(
     model_path: &Path,
     system_prompt: &str,
@@ -459,7 +461,10 @@ fn generate_with_model(
             if let Some(tx) = stream {
                 match tx.try_send(token_str) {
                     Ok(()) => {}
-                    Err(mpsc::error::TrySendError::Full(_)) => stream = None,
+                    Err(mpsc::error::TrySendError::Full(_)) => {
+                        warn!("Local LLM token stream is full; live preview stops, the result is unchanged");
+                        stream = None;
+                    }
                     Err(mpsc::error::TrySendError::Closed(_)) => break,
                 }
             }
