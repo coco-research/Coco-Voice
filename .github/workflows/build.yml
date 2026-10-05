@@ -85,9 +85,14 @@ env:
 
 jobs:
   build:
-    # Permissions come from the caller: release and main builds grant
-    # contents: write, while PR test builds stay read-only.
+    # Permissions come from the caller: release builds grant contents: write
+    # to upload assets. Main and PR test builds are read-only and unsigned.
+    # The manual Build Test is read-only (it uploads workflow artifacts, not
+    # release assets) but still signs with inherited secrets.
     runs-on: ${{ inputs.platform }}
+    # Callers of a reusable workflow cannot set a timeout, so it lives here.
+    # Release builds skip the Rust cache, so leave room for a cold build.
+    timeout-minutes: 180
     steps:
       - name: Enable long paths (Windows)
         if: runner.os == 'Windows'
