@@ -10,6 +10,8 @@ mod commands;
 mod helpers;
 mod input;
 mod llm_client;
+#[cfg(target_os = "macos")]
+mod local_llm;
 mod managers;
 mod overlay;
 pub mod portable;
