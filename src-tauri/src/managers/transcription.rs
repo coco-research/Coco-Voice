@@ -554,6 +554,25 @@ impl TranscriptionManager {
             return Err(anyhow::anyhow!(error_msg));
         }
 
+        // A local cleanup model is not a speech model. Refuse it before the
+        // current engine is dropped, so the next dictation needs no reload.
+        if matches!(model_info.engine_type, EngineType::LlamaCpp) {
+            let error_msg = format!(
+                "Model {} is a local post-processing model, not a transcription model",
+                model_id
+            );
+            let _ = self.app_handle.emit(
+                "model-state-changed",
+                ModelStateEvent {
+                    event_type: "loading_failed".to_string(),
+                    model_id: Some(model_id.to_string()),
+                    model_name: Some(model_info.name.clone()),
+                    error: Some(error_msg.clone()),
+                },
+            );
+            return Err(anyhow::anyhow!(error_msg));
+        }
+
         let model_path = self.model_manager.get_model_path(model_id)?;
 
         // Drop the current engine BEFORE building the new one so transcribe-cpp

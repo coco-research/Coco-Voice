@@ -771,18 +771,6 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
         supports_structured_output: true,
     });
 
-    // Local LLM via llama.cpp. GGUF models download through the model manager.
-    // No API key. llama-cpp-2 ships on macOS only.
-    #[cfg(target_os = "macos")]
-    providers.push(PostProcessProvider {
-        id: LOCAL_LLM_PROVIDER_ID.to_string(),
-        label: "Local (llama.cpp)".to_string(),
-        base_url: "llama-cpp://local".to_string(),
-        allow_base_url_edit: false,
-        models_endpoint: None,
-        supports_structured_output: false,
-    });
-
     // Custom provider always comes last
     providers.push(PostProcessProvider {
         id: "custom".to_string(),

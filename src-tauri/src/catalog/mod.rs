@@ -82,7 +82,8 @@ impl From<CatalogModel> for ModelDescriptor {
                 repo_id: m.id,
                 revision: m
                     .revision
-                    .filter(|r| !r.trim().is_empty())
+                    .map(|r| r.trim().to_string())
+                    .filter(|r| !r.is_empty())
                     .unwrap_or_else(|| "main".to_string()),
             },
             name: m.name,
@@ -188,7 +189,7 @@ mod tests {
     fn qwen_cleanup_entries_are_local_llms_not_transcription_models() {
         let llms: Vec<_> = CATALOG
             .iter()
-            .filter(|d| matches!(d.caps.architecture.as_deref(), Some("qwen2" | "qwen3")))
+            .filter(|d| is_local_llm_arch(d.caps.architecture.as_deref()))
             .collect();
         // Qwen3-4B (default) and Qwen2.5-1.5B (opt-in).
         assert_eq!(llms.len(), 2);
