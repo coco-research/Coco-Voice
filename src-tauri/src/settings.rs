@@ -823,6 +823,10 @@ fn upgrade_unchanged_default_prompts(settings: &mut AppSettings) {
             _ => continue,
         };
         if prompt.prompt != previous {
+            debug!(
+                "Skipping v2 backtrack migration for prompt '{}': stored text differs from stock v1 text",
+                prompt.id
+            );
             continue;
         }
         if let Some(replacement) = defaults.iter().find(|candidate| candidate.id == prompt.id) {
@@ -1288,7 +1292,7 @@ mod tests {
     /// `apply_settings_migrations` so old values keep loading, and only extend
     /// the fixture alongside that.
     #[test]
-    fn frozen_v0_9_store_parses_strictly_without_migration() {
+    fn frozen_v0_9_store_parses_strictly_and_migrates_once() {
         // Note "log_level": 2 — the legacy numeric format, kept deliberately.
         let stored: serde_json::Value = serde_json::from_str(
             r##"{
