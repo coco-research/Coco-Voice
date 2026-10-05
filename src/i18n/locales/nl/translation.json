@@ -408,6 +408,16 @@
           "placeholderWithOptions": "Zoek of selecteer een model",
           "placeholderNoOptions": "Typ een modelnaam",
           "refreshModels": "Modellen verversen"
+        },
+        "localLlm": {
+          "title": "Local model",
+          "description": "On-device model used to clean transcriptions. Download it once.",
+          "notDownloaded": "Not downloaded",
+          "downloading": "Downloading {{percent}}%",
+          "ready": "Ready",
+          "download": "Download",
+          "cancel": "Cancel",
+          "unavailable": "Local model is not available."
         }
       },
       "prompts": {

@@ -408,6 +408,16 @@
           "placeholderWithOptions": "Tìm kiếm hoặc chọn một mô hình",
           "placeholderNoOptions": "Nhập tên mô hình",
           "refreshModels": "Làm mới mô hình"
+        },
+        "localLlm": {
+          "title": "Local model",
+          "description": "On-device model used to clean transcriptions. Download it once.",
+          "notDownloaded": "Not downloaded",
+          "downloading": "Downloading {{percent}}%",
+          "ready": "Ready",
+          "download": "Download",
+          "cancel": "Cancel",
+          "unavailable": "Local model is not available."
         }
       },
       "prompts": {

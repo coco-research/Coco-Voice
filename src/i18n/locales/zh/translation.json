@@ -408,6 +408,16 @@
           "placeholderWithOptions": "搜索或选择模型",
           "placeholderNoOptions": "输入模型名称",
           "refreshModels": "刷新模型"
+        },
+        "localLlm": {
+          "title": "Local model",
+          "description": "On-device model used to clean transcriptions. Download it once.",
+          "notDownloaded": "Not downloaded",
+          "downloading": "Downloading {{percent}}%",
+          "ready": "Ready",
+          "download": "Download",
+          "cancel": "Cancel",
+          "unavailable": "Local model is not available."
         }
       },
       "prompts": {

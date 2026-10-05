@@ -408,6 +408,16 @@
           "placeholderWithOptions": "모델 검색 또는 선택",
           "placeholderNoOptions": "모델 이름 입력",
           "refreshModels": "모델 새로고침"
+        },
+        "localLlm": {
+          "title": "Local model",
+          "description": "On-device model used to clean transcriptions. Download it once.",
+          "notDownloaded": "Not downloaded",
+          "downloading": "Downloading {{percent}}%",
+          "ready": "Ready",
+          "download": "Download",
+          "cancel": "Cancel",
+          "unavailable": "Local model is not available."
         }
       },
       "prompts": {

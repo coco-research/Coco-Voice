@@ -132,8 +132,6 @@ static RANK_BY_ID: Lazy<HashMap<String, u32>> = Lazy::new(|| {
         .collect()
 });
 
-/// Recommended rank for a model id (lower = higher priority). Returns
-/// `u32::MAX` for unranked/unknown ids so they sort last in an ascending sort.
 /// Catalog ids of the on-device post-processing (LlamaCpp) models.
 pub fn local_llm_model_ids() -> Vec<String> {
     CATALOG
@@ -143,6 +141,8 @@ pub fn local_llm_model_ids() -> Vec<String> {
         .collect()
 }
 
+/// Recommended rank for a model id (lower = higher priority). Returns
+/// `u32::MAX` for unranked/unknown ids so they sort last in an ascending sort.
 pub fn rank_of(model_id: &str) -> u32 {
     RANK_BY_ID.get(model_id).copied().unwrap_or(u32::MAX)
 }

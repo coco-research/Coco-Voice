@@ -408,6 +408,16 @@
           "placeholderWithOptions": "मोडेल खोज्नुहोस् वा चयन गर्नुहोस्",
           "placeholderNoOptions": "मोडेलको नाम टाइप गर्नुहोस्",
           "refreshModels": "मोडेलहरू रिफ्रेस गर्नुहोस्"
+        },
+        "localLlm": {
+          "title": "Local model",
+          "description": "On-device model used to clean transcriptions. Download it once.",
+          "notDownloaded": "Not downloaded",
+          "downloading": "Downloading {{percent}}%",
+          "ready": "Ready",
+          "download": "Download",
+          "cancel": "Cancel",
+          "unavailable": "Local model is not available."
         }
       },
       "prompts": {
