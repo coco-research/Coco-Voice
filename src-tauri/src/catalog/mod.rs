@@ -48,6 +48,8 @@ struct CatalogModel {
     /// from `recommended_rank`, which only orders the full list.
     #[serde(default)]
     recommended: bool,
+    #[serde(default)]
+    license: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -98,11 +100,48 @@ impl From<CatalogModel> for ModelDescriptor {
     }
 }
 
+/// Models held from the catalog for compliance reasons.
+pub const LEGAL_HOLD_IDS: &[&str] = &[
+    // held for legal review (custom licences)
+    "handy-computer/parakeet-unified-en-0.6b-gguf",
+    "handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf",
+    "handy-computer/nemotron-speech-streaming-en-0.6b-gguf",
+    "handy-computer/medasr-gguf",
+    "handy-computer/SenseVoiceSmall-gguf",
+    // non-commercial
+    "handy-computer/canary-1b-gguf",
+    "handy-computer/moonshine-tiny-vi-gguf",
+    "handy-computer/moonshine-tiny-uk-gguf",
+    "handy-computer/moonshine-tiny-ko-gguf",
+    "handy-computer/moonshine-tiny-zh-gguf",
+    "handy-computer/moonshine-tiny-ar-gguf",
+    "handy-computer/moonshine-tiny-ja-gguf",
+    "handy-computer/moonshine-base-ar-gguf",
+    "handy-computer/moonshine-base-ko-gguf",
+    "handy-computer/moonshine-base-uk-gguf",
+    "handy-computer/moonshine-base-ja-gguf",
+    "handy-computer/moonshine-base-vi-gguf",
+    "handy-computer/moonshine-base-zh-gguf",
+];
+
+/// A catalog entry that must never be listed or downloaded: on the legal-hold
+/// list, or under a non-commercial licence.
+fn is_legal_hold(id: &str, license: Option<&str>) -> bool {
+    LEGAL_HOLD_IDS.contains(&id)
+        || license.is_some_and(|l| {
+            l.eq_ignore_ascii_case("cc-by-nc-4.0") || l.eq_ignore_ascii_case("qwen-research")
+        })
+}
+
 /// The bundled catalog, parsed once and normalised into descriptors.
 pub static CATALOG: Lazy<Vec<ModelDescriptor>> = Lazy::new(|| {
     let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json"))
         .expect("bundled catalog.json is valid JSON matching the catalog schema");
-    root.models.into_iter().map(ModelDescriptor::from).collect()
+    root.models
+        .into_iter()
+        .filter(|m| !is_legal_hold(&m.id, m.license.as_deref()))
+        .map(ModelDescriptor::from)
+        .collect()
 });
 
 /// Editorial recommended rank keyed by descriptor id (the same id the model
@@ -161,5 +200,30 @@ mod tests {
             "catalog architecture(s) missing from KNOWN_ARCHES: {:?}",
             missing
         );
+    }
+
+    #[test]
+    fn compliance_gated_models_are_dropped() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        // Every held id must exist in catalog.json, so a typo fails here.
+        for id in LEGAL_HOLD_IDS {
+            assert!(
+                root.models.iter().any(|m| m.id == *id),
+                "LEGAL_HOLD_IDS entry {id} is not in catalog.json"
+            );
+            assert!(
+                !CATALOG.iter().any(|d| d.id.starts_with(&format!("{id}/"))),
+                "catalog must not offer gated id {id}"
+            );
+        }
+        // Nothing non-commercial survives, and only held entries are dropped.
+        let held = root
+            .models
+            .iter()
+            .filter(|m| is_legal_hold(&m.id, m.license.as_deref()))
+            .count();
+        assert_eq!(root.models.len() - CATALOG.len(), held);
+        assert!(is_legal_hold("any/model", Some("CC-BY-NC-4.0")));
+        assert!(!is_legal_hold("any/model", Some("apache-2.0")));
     }
 }

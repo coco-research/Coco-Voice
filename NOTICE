@@ -1,0 +1,10 @@
+Coco Voice is a fork of Handy (https://github.com/cjpais/Handy), Copyright (c) 2025 CJ Pais, used under the MIT License (see LICENSE).
+
+Speech and cleanup models
+Models are downloaded at runtime and are NOT bundled; each keeps its own license, shown in the app's model list. The remaining models use the following licenses:
+- MIT
+- Apache-2.0
+- CC-BY-4.0
+- Other (handy-computer/Fun-ASR-MLT-Nano-2512-gguf, handy-computer/Fun-ASR-Nano-2512-gguf): terms are available in the model card.
+
+Models under non-commercial or uncleared licenses are not offered (refer to LEGAL_HOLD_IDS in src-tauri/src/catalog/mod.rs).
