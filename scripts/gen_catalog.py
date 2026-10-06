@@ -10,12 +10,14 @@ Merges three sources into one catalog.json:
   2. a tiny GGUF header range-read    -> display labels only
   3. local CURATION (this file)       -> recommended set, editorial descriptions
 
+Third-party GGUFs that are not in the coco-research org are listed in
+EXTRA_MODELS and appended as-is (revision and sha256 included).
+
 Emits catalog.json to be committed and `include_str!`'d into the Rust binary.
 Run:  HF_TOKEN=$(hf auth token) uv run gen_catalog.py [out_path]
 """
 import json, os, re, sys, math, struct, datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from huggingface_hub import HfApi, HfFileSystem
 
 ORG = "coco-research"
 CATALOG_VERSION = 1
@@ -55,6 +57,54 @@ OVERRIDES = {
     "granite-4.0-1b-speech": {"timestamps": "none"},
     "granite-speech-4.1-2b": {"timestamps": "none"},
 }
+
+# Third-party GGUFs. Not in the coco-research org, so list_models(author=ORG)
+# never returns them. Copied from catalog.json; appended after the org models.
+# Key order matches the committed objects so a regeneration reprints them.
+EXTRA_MODELS = [
+    {
+        "id": "Qwen/Qwen3-4B-GGUF",
+        "name": "Qwen3 4B (Local LLM)",
+        "description": "Default on-device model for transcription cleanup via llama.cpp. Apache-2.0 license. Runs entirely offline with Metal acceleration.",
+        "architecture": "qwen3",
+        "license": "apache-2.0",
+        "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+        "languages": ["en", "zh", "es", "fr", "de", "ja", "ko", "pt", "ru", "ar"],
+        "capabilities": {"streaming": True, "translate": False, "lang_detect": False},
+        "speed_score": 60,
+        "accuracy_score": 88,
+        "files": [{
+            "filename": "Qwen3-4B-Q4_K_M.gguf",
+            "quant": "Q4_K_M",
+            "size_bytes": 2497280256,
+        }],
+        "default_quant": "Q4_K_M",
+        "recommended": True,
+        "recommended_rank": 1,
+        "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+    },
+    {
+        "id": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+        "name": "Qwen2.5 1.5B Instruct (Local LLM)",
+        "description": "Faster, for low-memory Macs. May change meaning.",
+        "architecture": "qwen2",
+        "license": "apache-2.0",
+        "revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
+        "languages": ["en", "zh", "es", "fr", "de", "ja", "ko", "pt", "ru", "ar"],
+        "capabilities": {"streaming": True, "translate": False, "lang_detect": False},
+        "speed_score": 85,
+        "accuracy_score": 70,
+        "files": [{
+            "filename": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+            "quant": "Q4_K_M",
+            "size_bytes": 1117320736,
+        }],
+        "default_quant": "Q4_K_M",
+        "recommended": False,
+        "recommended_rank": None,
+        "sha256": "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
+    },
+]
 
 # ───────────────────────── helpers ──────────────────────────────────────────
 ARCH = ["whisper","moonshine-streaming","moonshine","parakeet","canary-qwen","canary","voxtral",
@@ -99,8 +149,9 @@ def auto_desc(langn, caps):
     base = f"{langn}-language speech-to-text" if langn > 1 else "English speech-to-text"
     return base + (" with " + ", ".join(feats) + "." if feats else ".")
 
-api = HfApi(token=os.environ.get("HF_TOKEN"))
-fs  = HfFileSystem(token=os.environ.get("HF_TOKEN"))
+# Set in main() so importing this module does not touch the network.
+api = None
+fs = None
 
 GGUF_WANT = {"general.architecture", "general.name", "general.basename", "general.size_label"}
 def probe_header(repo, filename, nbytes=65536):
@@ -202,7 +253,7 @@ def build(repo):
                      or have("Q5_K_M")
                      or (files[0]["quant"] if files else None))
 
-    return {
+    entry = {
         "id": repo,
         "slug": s,
         "name": gg.get("general.name") or pretty(s),         # friendly name (from GGUF)
@@ -222,8 +273,46 @@ def build(repo):
         "recommended": bool(cur.get("rec")),         # small badge/onboarding subset
         "recommended_rank": cur.get("rank"),          # editorial sort position (independent)
     }
+    # Omit the keys when unset so org rows stay byte-identical. A curation pin
+    # (or any later source that sets them) is copied through.
+    return apply_integrity(entry, cur)
+
+def apply_integrity(entry, source):
+    """Copy revision and sha256 onto entry when source has a non-empty value."""
+    for key in ("revision", "sha256"):
+        val = source.get(key) if isinstance(source, dict) else None
+        if isinstance(val, str) and val.strip():
+            entry[key] = val
+    return entry
+
+def format_extra_block(models):
+    """Render extra models at the indent json.dumps uses inside the models array."""
+    parts = []
+    for model in models:
+        dumped = json.dumps(model, indent=2, ensure_ascii=False)
+        parts.append("\n".join("    " + line for line in dumped.split("\n")))
+    return ",\n".join(parts)
+
+def insert_extra_models(text, models):
+    """Append extra models after the language-array collapse, so their
+    multi-line languages arrays stay as committed in catalog.json."""
+    if not models:
+        return text
+    idx = text.rfind("\n  ]")
+    if idx < 0:
+        raise SystemExit("catalog JSON is missing the models array")
+    block = format_extra_block(models)
+    head = text[:idx]
+    if head.rstrip().endswith("["):
+        return head.rstrip() + "\n" + block + text[idx:]
+    return head + ",\n" + block + text[idx:]
 
 def main():
+    global api, fs
+    from huggingface_hub import HfApi, HfFileSystem
+    api = HfApi(token=os.environ.get("HF_TOKEN"))
+    fs = HfFileSystem(token=os.environ.get("HF_TOKEN"))
+
     repos = [m.id for m in api.list_models(author=ORG, limit=500)]
     models = []
     failures = []
@@ -251,9 +340,12 @@ def main():
     text = re.sub(r'"languages": \[(.*?)\]',
                   lambda m: '"languages": [' + ", ".join(re.findall(r'"[^"]*"', m.group(1))) + ']',
                   text, flags=re.S)
+    # After the collapse: EXTRA_MODELS keep the multi-line languages arrays
+    # already committed, including revision and sha256.
+    text = insert_extra_models(text, EXTRA_MODELS)
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "catalog.json")
     open(out, "w").write(text)
-    print(f"wrote {out}: {len(models)} models, {os.path.getsize(out)/1024:.1f} KB", file=sys.stderr)
+    print(f"wrote {out}: {len(models) + len(EXTRA_MODELS)} models, {os.path.getsize(out)/1024:.1f} KB", file=sys.stderr)
 
 if __name__ == "__main__":
     main()

@@ -1002,7 +1002,11 @@ sha256: string | null } } |
  * HF cache (so other tools reuse it). The file within the repo is
  * [`ModelInfo::filename`].
  */
-{ HuggingFace: { repo_id: string; revision: string } } | 
+{ HuggingFace: { repo_id: string; revision: string; 
+/**
+ * Expected SHA-256 of that file. `None` skips verification.
+ */
+sha256: string | null } } | 
 /**
  * Already present on disk — a user-provided custom model, or one discovered
  * in a shared cache. Nothing to download.

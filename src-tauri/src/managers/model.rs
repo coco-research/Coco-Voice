@@ -52,7 +52,12 @@ pub enum ModelSource {
     /// A file inside a Hugging Face Hub repo, fetched via hf-hub into the shared
     /// HF cache (so other tools reuse it). The file within the repo is
     /// [`ModelInfo::filename`].
-    HuggingFace { repo_id: String, revision: String },
+    HuggingFace {
+        repo_id: String,
+        revision: String,
+        /// Expected SHA-256 of that file. `None` skips verification.
+        sha256: Option<String>,
+    },
     /// Already present on disk — a user-provided custom model, or one discovered
     /// in a shared cache. Nothing to download.
     Local,
@@ -274,6 +279,34 @@ pub struct DownloadProgress {
     pub percentage: f64,
 }
 
+/// Pure helper deciding if a Hugging Face model is downloaded based on file existence,
+/// a verification marker, and an expected hash.
+/// Marker file name for a verified download. Model ids contain `/`, so they
+/// are flattened to keep the marker directly inside the models directory.
+fn verified_marker_name(model_id: &str) -> String {
+    format!("{}.verified", model_id.replace(['/', '\\'], "__"))
+}
+
+fn is_hf_downloaded_pure(
+    file_exists: bool,
+    marker_contents: Option<&str>,
+    expected_sha256: Option<&str>,
+) -> bool {
+    match expected_sha256 {
+        None => file_exists, // No hash required, just existence
+        Some(expected) => {
+            if !file_exists {
+                false
+            } else {
+                match marker_contents {
+                    Some(content) => content.trim() == expected, // Must have matching marker
+                    None => false,                               // Marker missing
+                }
+            }
+        }
+    }
+}
+
 /// Resolve a Hugging Face model file in the shared HF cache, if already present.
 /// Uses hf-hub's stock location (HF_HOME or ~/.cache/huggingface/hub) so
 /// downloads are shared with other tools.
@@ -457,6 +490,10 @@ pub struct ModelManager {
 }
 
 impl ModelManager {
+    fn verified_marker_path(&self, model_id: &str) -> PathBuf {
+        self.models_dir.join(verified_marker_name(model_id))
+    }
+
     pub fn new(app_handle: &AppHandle) -> Result<Self> {
         // Create models directory in app data
         let models_dir = crate::portable::app_data_dir(app_handle)
@@ -1314,8 +1351,21 @@ impl ModelManager {
         let mut models = self.available_models.lock().unwrap();
 
         for model in models.values_mut() {
-            if let ModelSource::HuggingFace { repo_id, revision } = &model.source {
-                model.is_downloaded = hf_cached_path(repo_id, revision, &model.filename).is_some();
+            if let ModelSource::HuggingFace {
+                repo_id,
+                revision,
+                sha256,
+            } = &model.source
+            {
+                let file_exists = hf_cached_path(repo_id, revision, &model.filename).is_some();
+                let marker_path = self.verified_marker_path(&model.id);
+                let marker_contents = fs::read_to_string(&marker_path).ok();
+
+                model.is_downloaded = is_hf_downloaded_pure(
+                    file_exists,
+                    marker_contents.as_deref(),
+                    sha256.as_deref(),
+                );
                 model.is_downloading = false;
                 model.partial_size = 0;
                 continue;
@@ -1664,6 +1714,8 @@ impl ModelManager {
                         source: ModelSource::HuggingFace {
                             repo_id: repo_id.clone(),
                             revision: revision.clone(),
+                            // Discovered files have no catalog pin.
+                            sha256: None,
                         },
                         size_mb,
                         is_downloaded: true,
@@ -1720,8 +1772,8 @@ impl ModelManager {
                 );
                 let _ = fs::remove_file(path);
                 Err(anyhow::anyhow!(
-                    "Download verification failed for model {}: file is corrupt. Please retry.",
-                    model_id
+                    "Download verification failed for model {}: file is corrupt (expected {}, got {}). Please retry.",
+                    model_id, expected, actual
                 ))
             }
             Err(e) => {
@@ -1759,12 +1811,21 @@ impl ModelManager {
         model_info: &ModelInfo,
         repo_id: String,
         revision: String,
+        expected_sha256: Option<String>,
     ) -> Result<()> {
         let model_id = model_info.id.clone();
         let filename = model_info.filename.clone();
 
         // Already in the shared cache (possibly from another tool)? Done.
-        if hf_cached_path(&repo_id, &revision, &filename).is_some() {
+        let file_exists = hf_cached_path(&repo_id, &revision, &filename).is_some();
+        let marker_path = self.verified_marker_path(&model_id);
+        let marker_contents = fs::read_to_string(&marker_path).ok();
+
+        if is_hf_downloaded_pure(
+            file_exists,
+            marker_contents.as_deref(),
+            expected_sha256.as_deref(),
+        ) {
             self.update_download_status()?;
             let _ = self.app_handle.emit("model-download-complete", &model_id);
             return Ok(());
@@ -1814,7 +1875,61 @@ impl ModelManager {
             .download_with_progress_cancellable(&filename, progress, cancel_token)
             .await
         {
-            Ok(_) => {}
+            Ok(path) => {
+                // hf-hub renames the temp file into the cache before it returns.
+                // Check the bytes here, before update_download_status marks the
+                // model downloaded. No catalog hash keeps the old behaviour.
+                if expected_sha256.is_some() {
+                    // Resolve the blob behind the snapshot symlink first: a
+                    // mismatch deletes `path`, which on Unix is only the link.
+                    let blob = fs::canonicalize(&path).ok().filter(|c| c != &path);
+                    let _ = self
+                        .app_handle
+                        .emit("model-verification-started", &model_id);
+                    info!("Verifying SHA256 for model {}...", model_id);
+                    let verify_path = path;
+                    let verify_expected = expected_sha256.clone();
+                    let verify_model_id = model_id.clone();
+                    let verified = tokio::task::spawn_blocking(move || {
+                        Self::verify_sha256(
+                            &verify_path,
+                            verify_expected.as_deref(),
+                            &verify_model_id,
+                        )
+                    })
+                    .await
+                    .map_err(|e| anyhow::anyhow!("SHA256 task panicked: {}", e))?;
+
+                    let marker_path = self.verified_marker_path(&model_id);
+
+                    if let Err(e) = verified {
+                        if let Some(blob) = blob {
+                            let _ = fs::remove_file(blob);
+                        }
+                        let _ = fs::remove_file(&marker_path); // Remove stale marker
+                        if let Some(model) =
+                            self.available_models.lock().unwrap().get_mut(&model_id)
+                        {
+                            model.is_downloaded = false;
+                        }
+                        return Err(e);
+                    }
+
+                    // Successful verification -> write marker
+                    if let Some(hash) = expected_sha256.as_deref() {
+                        if let Err(e) = fs::write(&marker_path, hash) {
+                            warn!(
+                                "Could not write verification marker for {}: {}",
+                                model_id, e
+                            );
+                        }
+                    }
+
+                    let _ = self
+                        .app_handle
+                        .emit("model-verification-completed", &model_id);
+                }
+            }
             Err(hf_hub::api::tokio::ApiError::Cancelled) => {
                 // User cancelled. hf-hub leaves the partially downloaded
                 // `.sync.part` in the shared cache, so a later attempt resumes
@@ -1848,9 +1963,18 @@ impl ModelManager {
 
         let (url, expected_sha256) = match &model_info.source {
             ModelSource::Url { url, sha256 } => (url.clone(), sha256.clone()),
-            ModelSource::HuggingFace { repo_id, revision } => {
+            ModelSource::HuggingFace {
+                repo_id,
+                revision,
+                sha256,
+            } => {
                 return self
-                    .download_hf_model(&model_info, repo_id.clone(), revision.clone())
+                    .download_hf_model(
+                        &model_info,
+                        repo_id.clone(),
+                        revision.clone(),
+                        sha256.clone(),
+                    )
                     .await;
             }
             ModelSource::Local => {
@@ -2198,7 +2322,10 @@ impl ModelManager {
 
         debug!("ModelManager: Found model info: {:?}", model_info);
 
-        if let ModelSource::HuggingFace { repo_id, revision } = &model_info.source {
+        if let ModelSource::HuggingFace {
+            repo_id, revision, ..
+        } = &model_info.source
+        {
             // Cached at <cache>/models--org--name/snapshots/<rev>/<file>; remove
             // the whole repo dir (blobs + refs + snapshots). Per product decision,
             // delete hard-removes from the shared HF cache.
@@ -2298,7 +2425,10 @@ impl ModelManager {
             ));
         }
 
-        if let ModelSource::HuggingFace { repo_id, revision } = &model_info.source {
+        if let ModelSource::HuggingFace {
+            repo_id, revision, ..
+        } = &model_info.source
+        {
             return hf_cached_path(repo_id, revision, &model_info.filename).ok_or_else(|| {
                 anyhow::anyhow!("Complete model file not found in HF cache: {}", model_id)
             });
@@ -2372,6 +2502,40 @@ mod tests {
     use super::*;
     use std::io::Write;
     use tempfile::TempDir;
+
+    #[test]
+    fn verified_marker_is_one_file_in_the_models_dir() {
+        let name = verified_marker_name("Qwen/Qwen3-4B-GGUF/Qwen3-4B-Q4_K_M.gguf");
+        assert_eq!(name, "Qwen__Qwen3-4B-GGUF__Qwen3-4B-Q4_K_M.gguf.verified");
+        assert!(!name.contains('/'));
+    }
+
+    #[test]
+    fn test_is_hf_downloaded_pure() {
+        // no hash -> file exists decides
+        assert_eq!(is_hf_downloaded_pure(true, None, None), true);
+        assert_eq!(is_hf_downloaded_pure(false, None, None), false);
+
+        // hash + matching marker -> downloaded
+        assert_eq!(is_hf_downloaded_pure(true, Some("abc"), Some("abc")), true);
+        // also checks trimming
+        assert_eq!(
+            is_hf_downloaded_pure(true, Some("abc\n"), Some("abc")),
+            true
+        );
+
+        // hash + missing marker -> not
+        assert_eq!(is_hf_downloaded_pure(true, None, Some("abc")), false);
+
+        // hash + stale marker -> not
+        assert_eq!(is_hf_downloaded_pure(true, Some("def"), Some("abc")), false);
+
+        // hash + matching marker but file missing -> not
+        assert_eq!(
+            is_hf_downloaded_pure(false, Some("abc"), Some("abc")),
+            false
+        );
+    }
 
     #[test]
     fn test_effective_language_accepts_chinese_script_intent_for_zh_capability() {
@@ -2614,12 +2778,18 @@ mod tests {
         let (_dir, path) = write_temp_file(b"this is not the real model");
         let wrong_hash = "0000000000000000000000000000000000000000000000000000000000000000";
 
+        let actual = ModelManager::compute_sha256(&path).unwrap();
         let result = ModelManager::verify_sha256(&path, Some(wrong_hash), "bad_model");
 
         assert!(result.is_err(), "mismatch must return an error");
+        let message = result.unwrap_err().to_string();
         assert!(
-            result.unwrap_err().to_string().contains("corrupt"),
+            message.contains("corrupt"),
             "error message should mention corruption"
+        );
+        assert!(
+            message.contains(wrong_hash) && message.contains(&actual),
+            "error must name the expected and actual hash, got {message}"
         );
         assert!(
             !path.exists(),
@@ -2703,8 +2873,8 @@ mod tests {
         let m = models.get(id).expect("whisper gguf should be discovered");
         assert!(m.is_downloaded);
         assert!(
-            matches!(&m.source, ModelSource::HuggingFace { repo_id, revision }
-            if repo_id == "handy-computer/whisper-test" && revision == "main")
+            matches!(&m.source, ModelSource::HuggingFace { repo_id, revision, sha256 }
+            if repo_id == "handy-computer/whisper-test" && revision == "main" && sha256.is_none())
         );
         assert_eq!(
             m.supported_languages,
