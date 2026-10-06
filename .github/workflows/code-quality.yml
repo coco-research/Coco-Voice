@@ -7,6 +7,10 @@ on:
       - "src/**"
       - "package.json"
       - "bun.lock"
+      - "src-tauri/Cargo.toml"
+      - "src-tauri/Cargo.lock"
+      - "src-tauri/tauri.conf.json"
+      - "scripts/check-versions.sh"
       - ".eslintrc*"
       - "eslint.config.*"
       - ".prettierrc*"
@@ -18,6 +22,10 @@ on:
       - "src/**"
       - "package.json"
       - "bun.lock"
+      - "src-tauri/Cargo.toml"
+      - "src-tauri/Cargo.lock"
+      - "src-tauri/tauri.conf.json"
+      - "scripts/check-versions.sh"
       - ".eslintrc*"
       - "eslint.config.*"
       - ".prettierrc*"
@@ -32,6 +40,8 @@ concurrency:
 jobs:
   code-quality:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v5
 
@@ -50,3 +60,14 @@ jobs:
 
       - name: Run prettier
         run: bun run format:check
+
+  versions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Check version files match
+        run: bash scripts/check-versions.sh

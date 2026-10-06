@@ -32,6 +32,11 @@ on:
         required: false
         type: boolean
         default: false
+      sign-updater:
+        description: Give this build the Tauri updater minisign key even when OS signing is off. Only trusted release callers set it.
+        required: false
+        type: boolean
+        default: false
       repository:
         required: false
         type: string
@@ -47,14 +52,41 @@ on:
         required: false
         type: boolean
         default: false
+    # Every secret is optional. Trusted callers use `secrets: inherit`.
+    # release-please passes only the updater key.
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_ID_PASSWORD:
+        required: false
+      APPLE_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_CLIENT_SECRET:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      KEYCHAIN_PASSWORD:
+        required: false
+      TAURI_SIGNING_PRIVATE_KEY:
+        required: false
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
+        required: false
 
 env:
   TSC_VERSION: "0.9.0"
 
 jobs:
   build:
-    permissions:
-      contents: write
+    # Permissions come from the caller: release and main builds grant
+    # contents: write, while PR test builds stay read-only.
     runs-on: ${{ inputs.platform }}
     steps:
       - name: Enable long paths (Windows)
@@ -508,12 +540,18 @@ jobs:
           AZURE_CLIENT_ID: ${{ inputs.sign-binaries && secrets.AZURE_CLIENT_ID || '' }}
           AZURE_CLIENT_SECRET: ${{ inputs.sign-binaries && secrets.AZURE_CLIENT_SECRET || '' }}
           AZURE_TENANT_ID: ${{ inputs.sign-binaries && secrets.AZURE_TENANT_ID || '' }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.sign-binaries && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.sign-binaries && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          # OS certificates stay empty unless sign-binaries is true. The updater
+          # key reaches only callers that opt in with sign-binaries or
+          # sign-updater, and PR builds never get it.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ (inputs.sign-binaries || inputs.sign-updater) && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ (inputs.sign-binaries || inputs.sign-updater) && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
         with:
           tagName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
           releaseName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
           releaseId: ${{ inputs.release-id }}
+          # Unsigned macOS builds: Tauri tries to import a certificate whenever
+          # APPLE_CERTIFICATE is set, even to an empty string, so drop those vars.
+          tauriScript: ${{ (!inputs.sign-binaries && contains(inputs.platform, 'macos')) && 'env -u APPLE_CERTIFICATE -u APPLE_CERTIFICATE_PASSWORD -u APPLE_SIGNING_IDENTITY -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID bun tauri' || '' }}
           assetNamePattern: ${{ steps.patch-release-name.outputs.platform }}
           args: ${{ inputs.build-args }}
 
@@ -674,7 +712,7 @@ jobs:
               echo "Auditing deb package: ${deb}"
               listing="$(mktemp)"
               dpkg-deb -c "$deb" > "$listing"
-              require_pattern "$listing" 'usr/bin/handy$' "coco-voice binary"
+              require_pattern "$listing" 'usr/bin/coco-voice$' "coco-voice binary"
               require_pattern "$listing" 'usr/lib/libtranscribe\.so' "transcribe runtime library"
               require_pattern "$listing" 'usr/lib/libggml-cpu.*\.so' "ggml CPU backend module"
               if [[ "${{ inputs.platform }}" == *"ubuntu-22.04"* && "${{ inputs.target }}" == "x86_64-unknown-linux-gnu" ]]; then
@@ -785,9 +823,9 @@ jobs:
           function Assert-PackageContents {
             param([string]$Root, [string]$Label)
 
-            $binary = Get-ChildItem $Root -Filter "CocoVoice.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            $binary = Get-ChildItem $Root -Filter "coco-voice.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $binary) {
-              throw "$Label package is missing CocoVoice.exe"
+              throw "$Label package is missing coco-voice.exe"
             }
             foreach ($dll in $stagedDlls) {
               if (-not (Get-ChildItem $Root -Filter $dll.Name -Recurse -ErrorAction SilentlyContinue)) {
@@ -795,9 +833,9 @@ jobs:
               }
             }
 
-            & $handy.FullName $binary.FullName --list-devices | Out-Host
+            & $binary.FullName --list-devices | Out-Host
             if ($LASTEXITCODE -ne 0) {
-              throw "$Label CocoVoice.exe --list-devices failed"
+              throw "$Label coco-voice.exe --list-devices failed"
             }
           }
 
