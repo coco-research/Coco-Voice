@@ -312,7 +312,7 @@ fn generate_with_model(
     let cancelled = || {
         cancel
             .as_ref()
-            .is_some_and(|flag| flag.load(Ordering::Relaxed))
+            .is_some_and(|flag| flag.load(Ordering::Acquire))
     };
 
     // All model access (backend init, load, generation) is serialized on the
