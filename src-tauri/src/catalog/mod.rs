@@ -124,13 +124,39 @@ pub const LEGAL_HOLD_IDS: &[&str] = &[
     "handy-computer/moonshine-base-zh-gguf",
 ];
 
-/// A catalog entry that must never be listed or downloaded: on the legal-hold
-/// list, or under a non-commercial licence.
-fn is_legal_hold(id: &str, license: Option<&str>) -> bool {
-    LEGAL_HOLD_IDS.contains(&id)
-        || license.is_some_and(|l| {
-            l.eq_ignore_ascii_case("cc-by-nc-4.0") || l.eq_ignore_ascii_case("qwen-research")
-        })
+/// catalog says "other", upstream FunAudioLLM releases these under Apache-2.0
+/// (verified 2026-09-27 in the model-source audit).
+pub const CLEARED_OTHER_IDS: &[&str] = &[
+    "handy-computer/Fun-ASR-MLT-Nano-2512-gguf",
+    "handy-computer/Fun-ASR-Nano-2512-gguf",
+];
+
+/// Checks if a given repo id is on the legal hold list (case-insensitive).
+pub(crate) fn repo_on_legal_hold(repo_id: &str) -> bool {
+    LEGAL_HOLD_IDS
+        .iter()
+        .any(|held_id| held_id.eq_ignore_ascii_case(repo_id))
+}
+
+/// A catalog entry is offered only if its id is NOT on legal hold, AND its license
+/// is allowlisted (or its id is explicitly cleared).
+fn is_allowed_catalog_entry(id: &str, license: Option<&str>) -> bool {
+    if repo_on_legal_hold(id) {
+        return false;
+    }
+
+    if CLEARED_OTHER_IDS.contains(&id) {
+        return true;
+    }
+
+    if let Some(l) = license {
+        let l = l.trim().to_lowercase();
+        if l == "mit" || l == "apache-2.0" || l == "cc-by-4.0" {
+            return true;
+        }
+    }
+
+    false
 }
 
 /// The bundled catalog, parsed once and normalised into descriptors.
@@ -139,7 +165,7 @@ pub static CATALOG: Lazy<Vec<ModelDescriptor>> = Lazy::new(|| {
         .expect("bundled catalog.json is valid JSON matching the catalog schema");
     root.models
         .into_iter()
-        .filter(|m| !is_legal_hold(&m.id, m.license.as_deref()))
+        .filter(|m| is_allowed_catalog_entry(&m.id, m.license.as_deref()))
         .map(ModelDescriptor::from)
         .collect()
 });
@@ -216,14 +242,29 @@ mod tests {
                 "catalog must not offer gated id {id}"
             );
         }
-        // Nothing non-commercial survives, and only held entries are dropped.
-        let held = root
-            .models
-            .iter()
-            .filter(|m| is_legal_hold(&m.id, m.license.as_deref()))
-            .count();
-        assert_eq!(root.models.len() - CATALOG.len(), held);
-        assert!(is_legal_hold("any/model", Some("CC-BY-NC-4.0")));
-        assert!(!is_legal_hold("any/model", Some("apache-2.0")));
+
+        // A new non-allowlisted model in a regenerated catalog must fail here and be reviewed.
+        assert_eq!(
+            root.models.len() - CATALOG.len(),
+            18,
+            "a new non-allowlisted model in a regenerated catalog must fail here and be reviewed"
+        );
+
+        assert!(!is_allowed_catalog_entry("any/model", Some("other")));
+        assert!(!is_allowed_catalog_entry("any/model", Some("cc-by-nc-4.0")));
+        assert!(!is_allowed_catalog_entry(
+            "any/model",
+            Some("qwen-research")
+        ));
+        assert!(!is_allowed_catalog_entry("any/model", None));
+        assert!(is_allowed_catalog_entry("any/model", Some(" MIT ")));
+        assert!(is_allowed_catalog_entry("any/model", Some("Apache-2.0")));
+    }
+
+    #[test]
+    fn repo_on_legal_hold_is_case_insensitive() {
+        assert!(repo_on_legal_hold("handy-computer/SenseVoiceSmall-gguf"));
+        assert!(repo_on_legal_hold("HANDY-COMPUTER/SENSEVOICESMALL-GGUF"));
+        assert!(!repo_on_legal_hold("handy-computer/whisper-small-gguf"));
     }
 }

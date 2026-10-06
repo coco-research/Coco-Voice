@@ -1560,6 +1560,10 @@ impl ModelManager {
             // Reverse hf-hub's `org/name` -> `models--org--name` folder naming.
             let repo_id = rest.replace("--", "/");
 
+            if crate::catalog::repo_on_legal_hold(&repo_id) {
+                continue;
+            }
+
             let refs_dir = entry.path().join("refs");
             let Some(revision) = Self::pick_hf_revision(&refs_dir) else {
                 continue;
@@ -1785,6 +1789,10 @@ impl ModelManager {
     }
 
     pub async fn download_model(&self, model_id: &str) -> Result<()> {
+        if crate::catalog::repo_on_legal_hold(model_id) {
+            return Err(anyhow::anyhow!("Model is on legal hold"));
+        }
+
         let model_info = {
             let models = self.available_models.lock().unwrap();
             models.get(model_id).cloned()
@@ -1792,6 +1800,12 @@ impl ModelManager {
 
         let model_info =
             model_info.ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;
+
+        if let ModelSource::HuggingFace { repo_id, .. } = &model_info.source {
+            if crate::catalog::repo_on_legal_hold(repo_id) {
+                return Err(anyhow::anyhow!("Model repo is on legal hold"));
+            }
+        }
 
         let (url, expected_sha256) = match &model_info.source {
             ModelSource::Url { url, sha256 } => (url.clone(), sha256.clone()),
