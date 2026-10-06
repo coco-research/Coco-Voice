@@ -13,6 +13,7 @@ interface ProgressBarProps {
   size?: "small" | "medium" | "large";
   showSpeed?: boolean;
   showLabel?: boolean;
+  ariaLabel?: string;
 }
 
 const ProgressBar: React.FC<ProgressBarProps> = ({
@@ -21,6 +22,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
   size = "medium",
   showSpeed = false,
   showLabel = false,
+  ariaLabel,
 }) => {
   const sizeClasses = {
     small: "w-16 h-1",
@@ -44,6 +46,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         <progress
           value={percentage}
           max={100}
+          aria-label={ariaLabel}
           className={`${progressClasses} [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-mid-gray/20 [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-logo-primary`}
         />
         {(showSpeed || showLabel) && (

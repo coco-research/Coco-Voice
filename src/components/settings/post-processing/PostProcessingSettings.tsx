@@ -15,6 +15,7 @@ import {
 import { Button } from "../../ui/Button";
 import { ResetButton } from "../../ui/ResetButton";
 import { Input } from "../../ui/Input";
+import { ProgressBar } from "../../shared";
 
 import { ProviderSelect } from "../PostProcessingSettingsApi/ProviderSelect";
 import { BaseUrlField } from "../PostProcessingSettingsApi/BaseUrlField";
@@ -26,12 +27,8 @@ import { IterativeCorrectionToggle } from "../IterativeCorrectionToggle";
 import { AppProfiles } from "../AppProfiles";
 import { useSettings } from "../../../hooks/useSettings";
 
-/** Registry id of the on-device post-process GGUF.
- *  Same string as `LOCAL_LLM_DEFAULT_MODEL_ID`: `{catalog repo id}/{filename}`.
- *  `get_model_path` looks that id up directly.
- */
+/** Same id as `LOCAL_LLM_PROVIDER_ID` in src-tauri/src/settings.rs. */
 const LOCAL_LLM_PROVIDER_ID = "local_llm";
-const LOCAL_LLM_DEFAULT_MODEL_ID = "Qwen/Qwen3-4B-GGUF/Qwen3-4B-Q4_K_M.gguf";
 
 const LocalLlmModelRow: React.FC<{ modelId: string }> = ({ modelId }) => {
   const { t } = useTranslation();
@@ -85,24 +82,67 @@ const LocalLlmModelRow: React.FC<{ modelId: string }> = ({ modelId }) => {
 
   const busy = downloading || verifying || Boolean(info?.is_downloading);
   const ready = Boolean(info?.is_downloaded) && !busy;
+  // Bounded for the status string. The bar clamp lives in ProgressBar.
   const percent = Math.max(
     0,
     Math.min(100, Math.round(progress?.percentage ?? 0)),
   );
 
-  let status = "";
-  if (info === null) {
+  let status = t("settings.postProcessing.api.localLlm.checking");
+  if (busy) {
+    status = t("settings.postProcessing.api.localLlm.downloading", {
+      percent,
+    });
+  } else if (info === null) {
     status = t("settings.postProcessing.api.localLlm.unavailable");
+  } else if (ready) {
+    status = t("settings.postProcessing.api.localLlm.ready");
   } else if (info) {
-    if (busy) {
-      status = t("settings.postProcessing.api.localLlm.downloading", {
-        percent,
-      });
-    } else if (ready) {
-      status = t("settings.postProcessing.api.localLlm.ready");
-    } else {
-      status = t("settings.postProcessing.api.localLlm.notDownloaded");
-    }
+    status = t("settings.postProcessing.api.localLlm.notDownloaded");
+  }
+
+  let modelAction: React.ReactNode = null;
+  if (busy) {
+    modelAction = (
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={() => {
+          void cancelDownload(modelId).finally(() => {
+            void refresh();
+          });
+        }}
+      >
+        {t("settings.postProcessing.api.localLlm.cancel")}
+      </Button>
+    );
+  } else if (info && !ready) {
+    modelAction = (
+      <Button
+        type="button"
+        variant="primary"
+        size="sm"
+        onClick={() => {
+          void downloadModel(modelId).finally(() => {
+            void refresh();
+          });
+        }}
+      >
+        {t("settings.postProcessing.api.localLlm.download")}
+      </Button>
+    );
+  }
+
+  let progressBar: React.ReactNode = null;
+  if (busy) {
+    progressBar = (
+      <ProgressBar
+        progress={[{ id: modelId, percentage: percent }]}
+        size="large"
+        ariaLabel={status}
+      />
+    );
   }
 
   return (
@@ -114,54 +154,14 @@ const LocalLlmModelRow: React.FC<{ modelId: string }> = ({ modelId }) => {
       grouped={true}
     >
       <div className="flex items-center gap-2">
-        {busy && (
-          <div
-            className="h-1.5 w-24 overflow-hidden rounded-full bg-mid-gray/20"
-            role="progressbar"
-            aria-valuenow={percent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={status}
-          >
-            <div
-              className="h-full rounded-full bg-logo-primary motion-safe:transition-[width] motion-safe:duration-300"
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-        )}
+        {progressBar}
         <span
           className="text-sm text-text/70 whitespace-nowrap"
           aria-live="polite"
         >
           {status}
         </span>
-        {busy ? (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              void cancelDownload(modelId).finally(() => {
-                void refresh();
-              });
-            }}
-          >
-            {t("settings.postProcessing.api.localLlm.cancel")}
-          </Button>
-        ) : info && !ready ? (
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={() => {
-              void downloadModel(modelId).finally(() => {
-                void refresh();
-              });
-            }}
-          >
-            {t("settings.postProcessing.api.localLlm.download")}
-          </Button>
-        ) : null}
+        {modelAction}
       </div>
     </SettingContainer>
   );
@@ -171,7 +171,64 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
   const { t } = useTranslation();
   const state = usePostProcessProviderState();
   const isLocalLlm = state.selectedProvider?.id === LOCAL_LLM_PROVIDER_ID;
-  const localLlmModelId = state.model.trim() || LOCAL_LLM_DEFAULT_MODEL_ID;
+  // settings.rs ensure_post_process_defaults copies LOCAL_LLM_DEFAULT_MODEL_ID
+  // into post_process_models before this value reaches the client.
+  const localLlmModelId = state.model.trim();
+
+  let providerFields: React.ReactNode = null;
+  if (state.isAppleProvider && state.appleIntelligenceUnavailable) {
+    providerFields = (
+      <Alert variant="error" contained>
+        {t("settings.postProcessing.api.appleIntelligence.unavailable")}
+      </Alert>
+    );
+  } else if (isLocalLlm && localLlmModelId) {
+    providerFields = <LocalLlmModelRow modelId={localLlmModelId} />;
+  } else if (!state.isAppleProvider && !isLocalLlm) {
+    providerFields = (
+      <>
+        {state.selectedProvider?.id === "custom" && (
+          <SettingContainer
+            title={t("settings.postProcessing.api.baseUrl.title")}
+            description={t("settings.postProcessing.api.baseUrl.description")}
+            descriptionMode="tooltip"
+            layout="horizontal"
+            grouped={true}
+          >
+            <div className="flex items-center gap-2">
+              <BaseUrlField
+                value={state.baseUrl}
+                onBlur={state.handleBaseUrlChange}
+                placeholder={t(
+                  "settings.postProcessing.api.baseUrl.placeholder",
+                )}
+                disabled={state.isBaseUrlUpdating}
+                className="min-w-[380px]"
+              />
+            </div>
+          </SettingContainer>
+        )}
+
+        <SettingContainer
+          title={t("settings.postProcessing.api.apiKey.title")}
+          description={t("settings.postProcessing.api.apiKey.description")}
+          descriptionMode="tooltip"
+          layout="horizontal"
+          grouped={true}
+        >
+          <div className="flex items-center gap-2">
+            <ApiKeyField
+              value={state.apiKey}
+              onBlur={state.handleApiKeyChange}
+              placeholder={t("settings.postProcessing.api.apiKey.placeholder")}
+              disabled={state.isApiKeyUpdating}
+              className="min-w-[320px]"
+            />
+          </div>
+        </SettingContainer>
+      </>
+    );
+  }
 
   return (
     <>
@@ -191,59 +248,7 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
         </div>
       </SettingContainer>
 
-      {state.isAppleProvider ? (
-        state.appleIntelligenceUnavailable ? (
-          <Alert variant="error" contained>
-            {t("settings.postProcessing.api.appleIntelligence.unavailable")}
-          </Alert>
-        ) : null
-      ) : isLocalLlm ? (
-        <LocalLlmModelRow modelId={localLlmModelId} />
-      ) : (
-        <>
-          {state.selectedProvider?.id === "custom" && (
-            <SettingContainer
-              title={t("settings.postProcessing.api.baseUrl.title")}
-              description={t("settings.postProcessing.api.baseUrl.description")}
-              descriptionMode="tooltip"
-              layout="horizontal"
-              grouped={true}
-            >
-              <div className="flex items-center gap-2">
-                <BaseUrlField
-                  value={state.baseUrl}
-                  onBlur={state.handleBaseUrlChange}
-                  placeholder={t(
-                    "settings.postProcessing.api.baseUrl.placeholder",
-                  )}
-                  disabled={state.isBaseUrlUpdating}
-                  className="min-w-[380px]"
-                />
-              </div>
-            </SettingContainer>
-          )}
-
-          <SettingContainer
-            title={t("settings.postProcessing.api.apiKey.title")}
-            description={t("settings.postProcessing.api.apiKey.description")}
-            descriptionMode="tooltip"
-            layout="horizontal"
-            grouped={true}
-          >
-            <div className="flex items-center gap-2">
-              <ApiKeyField
-                value={state.apiKey}
-                onBlur={state.handleApiKeyChange}
-                placeholder={t(
-                  "settings.postProcessing.api.apiKey.placeholder",
-                )}
-                disabled={state.isApiKeyUpdating}
-                className="min-w-[320px]"
-              />
-            </div>
-          </SettingContainer>
-        </>
-      )}
+      {providerFields}
 
       {!state.isAppleProvider && !isLocalLlm && (
         <SettingContainer

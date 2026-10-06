@@ -396,6 +396,7 @@
           "ready": "Ready",
           "download": "Download",
           "cancel": "Cancel",
+          "checking": "Checking...",
           "unavailable": "Local model is not available."
         }
       },
