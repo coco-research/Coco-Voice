@@ -305,9 +305,17 @@ mod tests {
         assert!(repo_withheld("handy-computer/SenseVoiceSmall-gguf"));
         assert!(repo_withheld("HANDY-COMPUTER/SENSEVOICESMALL-GGUF"));
 
-        // Every catalog entry the allowlist rejects is withheld.
-        let held_id = LEGAL_HOLD_IDS[0];
-        assert!(repo_withheld(held_id));
+        // Withheld exactly when the allowlist rejects the catalog entry.
+        assert!(!LEGAL_HOLD_IDS.is_empty() && !CLEARED_OTHER_IDS.is_empty());
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        for m in &root.models {
+            assert_eq!(
+                repo_withheld(&m.id),
+                !is_allowed_catalog_entry(&m.id, m.license.as_deref()),
+                "{}",
+                m.id
+            );
+        }
 
         // False for an allowlisted catalog repo
         assert!(!repo_withheld("handy-computer/whisper-small-gguf"));

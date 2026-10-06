@@ -1797,10 +1797,19 @@ impl ModelManager {
         let model_info =
             model_info.ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;
 
-        if let ModelSource::HuggingFace { repo_id, .. } = &model_info.source {
-            if crate::catalog::repo_withheld(repo_id) {
-                return Err(anyhow::anyhow!("Model repo is on legal hold"));
-            }
+        // Catalog ids are `{repo_id}/{filename}`: check the id's repo and the source repo.
+        // Only a three-part id names a repo; legacy ids rely on the source check.
+        let id_withheld = match model_id.splitn(3, '/').collect::<Vec<_>>().as_slice() {
+            [org, name, _file] => crate::catalog::repo_withheld(&format!("{org}/{name}")),
+            _ => false,
+        };
+        let source_withheld = matches!(&model_info.source,
+            ModelSource::HuggingFace { repo_id, .. } if crate::catalog::repo_withheld(repo_id));
+        if id_withheld || source_withheld {
+            return Err(anyhow::anyhow!(
+                "Model {} is withheld (legal hold or license not cleared)",
+                model_id
+            ));
         }
 
         let (url, expected_sha256) = match &model_info.source {
