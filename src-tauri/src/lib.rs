@@ -642,6 +642,8 @@ pub fn run(cli_args: CliArgs) {
             commands::history::update_history_limit,
             commands::history::update_history_entry_text,
             commands::history::update_recording_retention_period,
+            commands::app_profile::get_active_app_info,
+            shortcut::update_app_profiles,
             helpers::clamshell::is_laptop,
         ])
         .events(collect_events![
