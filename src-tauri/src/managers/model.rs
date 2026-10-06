@@ -1560,7 +1560,7 @@ impl ModelManager {
             // Reverse hf-hub's `org/name` -> `models--org--name` folder naming.
             let repo_id = rest.replace("--", "/");
 
-            if crate::catalog::repo_on_legal_hold(&repo_id) {
+            if crate::catalog::repo_withheld(&repo_id) {
                 continue;
             }
 
@@ -1789,10 +1789,6 @@ impl ModelManager {
     }
 
     pub async fn download_model(&self, model_id: &str) -> Result<()> {
-        if crate::catalog::repo_on_legal_hold(model_id) {
-            return Err(anyhow::anyhow!("Model is on legal hold"));
-        }
-
         let model_info = {
             let models = self.available_models.lock().unwrap();
             models.get(model_id).cloned()
@@ -1802,7 +1798,7 @@ impl ModelManager {
             model_info.ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;
 
         if let ModelSource::HuggingFace { repo_id, .. } = &model_info.source {
-            if crate::catalog::repo_on_legal_hold(repo_id) {
+            if crate::catalog::repo_withheld(repo_id) {
                 return Err(anyhow::anyhow!("Model repo is on legal hold"));
             }
         }

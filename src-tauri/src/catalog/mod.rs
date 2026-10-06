@@ -145,18 +145,43 @@ fn is_allowed_catalog_entry(id: &str, license: Option<&str>) -> bool {
         return false;
     }
 
-    if CLEARED_OTHER_IDS.contains(&id) {
-        return true;
-    }
+    let l_lower = license.map(|l| l.trim().to_lowercase());
 
-    if let Some(l) = license {
-        let l = l.trim().to_lowercase();
+    if let Some(ref l) = l_lower {
         if l == "mit" || l == "apache-2.0" || l == "cc-by-4.0" {
             return true;
         }
     }
 
+    if CLEARED_OTHER_IDS
+        .iter()
+        .any(|cleared| cleared.eq_ignore_ascii_case(id))
+    {
+        if let Some(ref l) = l_lower {
+            if l == "other" {
+                return true;
+            }
+        }
+    }
+
     false
+}
+
+static WITHHELD_REPOS: Lazy<std::collections::HashSet<String>> = Lazy::new(|| {
+    let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json"))
+        .expect("bundled catalog.json is valid JSON matching the catalog schema");
+    root.models
+        .into_iter()
+        .filter(|m| !is_allowed_catalog_entry(&m.id, m.license.as_deref()))
+        .map(|m| m.id.to_lowercase())
+        .collect()
+});
+
+pub(crate) fn repo_withheld(repo_id: &str) -> bool {
+    if repo_on_legal_hold(repo_id) {
+        return true;
+    }
+    WITHHELD_REPOS.contains(&repo_id.to_lowercase())
 }
 
 /// The bundled catalog, parsed once and normalised into descriptors.
@@ -259,6 +284,12 @@ mod tests {
         assert!(!is_allowed_catalog_entry("any/model", None));
         assert!(is_allowed_catalog_entry("any/model", Some(" MIT ")));
         assert!(is_allowed_catalog_entry("any/model", Some("Apache-2.0")));
+
+        // Test CLEARED_OTHER_IDS
+        let cleared_id = CLEARED_OTHER_IDS[0];
+        assert!(is_allowed_catalog_entry(cleared_id, Some("other")));
+        assert!(!is_allowed_catalog_entry(cleared_id, Some("cc-by-nc-4.0")));
+        assert!(!is_allowed_catalog_entry(cleared_id, None));
     }
 
     #[test]
@@ -266,5 +297,22 @@ mod tests {
         assert!(repo_on_legal_hold("handy-computer/SenseVoiceSmall-gguf"));
         assert!(repo_on_legal_hold("HANDY-COMPUTER/SENSEVOICESMALL-GGUF"));
         assert!(!repo_on_legal_hold("handy-computer/whisper-small-gguf"));
+    }
+
+    #[test]
+    fn repo_withheld_behavior() {
+        // True for a held ID in any case
+        assert!(repo_withheld("handy-computer/SenseVoiceSmall-gguf"));
+        assert!(repo_withheld("HANDY-COMPUTER/SENSEVOICESMALL-GGUF"));
+
+        // Every catalog entry the allowlist rejects is withheld.
+        let held_id = LEGAL_HOLD_IDS[0];
+        assert!(repo_withheld(held_id));
+
+        // False for an allowlisted catalog repo
+        assert!(!repo_withheld("handy-computer/whisper-small-gguf"));
+
+        // False for an unknown repo
+        assert!(!repo_withheld("some/unknown-repo"));
     }
 }
