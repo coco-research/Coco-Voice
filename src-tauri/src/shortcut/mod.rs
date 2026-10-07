@@ -30,6 +30,32 @@ use crate::tray;
 
 // Note: Commands are accessed via shortcut::coco_keys:: in lib.rs
 
+/// Runs `job` on a single background worker, in submission order. The cancel
+/// shortcut is registered and unregistered off the caller's thread (the hotkey
+/// thread must not block on the manager), but as independent tasks they could
+/// run out of order and leave the combo grabbed after the take ended.
+#[cfg_attr(target_os = "linux", allow(dead_code))]
+fn run_ordered(job: impl FnOnce() + Send + 'static) {
+    use std::sync::{mpsc, OnceLock};
+
+    static QUEUE: OnceLock<mpsc::Sender<Box<dyn FnOnce() + Send>>> = OnceLock::new();
+    let queue = QUEUE.get_or_init(|| {
+        let (tx, rx) = mpsc::channel::<Box<dyn FnOnce() + Send>>();
+        std::thread::spawn(move || {
+            for job in rx {
+                // A panicking job must not end the worker for the rest of the process.
+                if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(job)) {
+                    error!("Shortcut worker job panicked: {:?}", panic);
+                }
+            }
+        });
+        tx
+    });
+    if queue.send(Box::new(job)).is_err() {
+        error!("Shortcut worker stopped; dropping job");
+    }
+}
+
 /// Initialize shortcuts using the configured implementation
 pub fn init_shortcuts(app: &AppHandle) {
     let user_settings = settings::load_or_create_app_settings(app);
@@ -1383,6 +1409,31 @@ pub async fn get_available_accelerators() -> crate::managers::transcription::Ava
     tauri::async_runtime::spawn_blocking(crate::managers::transcription::get_available_accelerators)
         .await
         .expect("get_available_accelerators panicked")
+}
+
+#[cfg(test)]
+mod ordered_tests {
+    use super::*;
+    use std::sync::{mpsc, Arc, Mutex};
+    use std::time::Duration;
+
+    #[test]
+    fn run_ordered_preserves_submission_order() {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let (done_tx, done_rx) = mpsc::channel();
+        for i in 0..200 {
+            let seen = Arc::clone(&seen);
+            let done_tx = done_tx.clone();
+            run_ordered(move || {
+                seen.lock().unwrap().push(i);
+                if i == 199 {
+                    done_tx.send(()).unwrap();
+                }
+            });
+        }
+        done_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert_eq!(*seen.lock().unwrap(), (0..200).collect::<Vec<_>>());
+    }
 }
 
 #[cfg(test)]

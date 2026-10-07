@@ -176,7 +176,7 @@ pub fn register_cancel_shortcut(app: &AppHandle) {
     #[cfg(not(target_os = "linux"))]
     {
         let app_clone = app.clone();
-        tauri::async_runtime::spawn(async move {
+        super::run_ordered(move || {
             if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned() {
                 if let Err(e) = register_shortcut(&app_clone, cancel_binding) {
                     error!("Failed to register cancel shortcut: {}", e);
@@ -198,7 +198,7 @@ pub fn unregister_cancel_shortcut(app: &AppHandle) {
     #[cfg(not(target_os = "linux"))]
     {
         let app_clone = app.clone();
-        tauri::async_runtime::spawn(async move {
+        super::run_ordered(move || {
             if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned() {
                 // We ignore errors here as it might already be unregistered
                 let _ = unregister_shortcut(&app_clone, cancel_binding);
