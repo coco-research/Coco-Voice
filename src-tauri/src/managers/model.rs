@@ -291,6 +291,7 @@ fn is_hf_downloaded_pure(
     file_exists: bool,
     marker_contents: Option<&str>,
     expected_sha256: Option<&str>,
+    snapshot_blob_name: Option<&str>,
 ) -> bool {
     match expected_sha256 {
         None => file_exists, // No hash required, just existence
@@ -299,8 +300,26 @@ fn is_hf_downloaded_pure(
                 false
             } else {
                 match marker_contents {
-                    Some(content) => content.trim() == expected, // Must have matching marker
-                    None => false,                               // Marker missing
+                    Some(content) => {
+                        let mut lines = content.lines();
+                        let marker_hash = lines.next().unwrap_or("").trim();
+                        let marker_blob = lines.next().unwrap_or("").trim();
+
+                        if !marker_hash.eq_ignore_ascii_case(expected.trim()) {
+                            return false;
+                        }
+
+                        if let Some(snapshot) = snapshot_blob_name {
+                            if !marker_blob.eq_ignore_ascii_case(snapshot.trim()) {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
+
+                        true
+                    }
+                    None => false, // Marker missing
                 }
             }
         }
@@ -1357,7 +1376,13 @@ impl ModelManager {
                 sha256,
             } = &model.source
             {
-                let file_exists = hf_cached_path(repo_id, revision, &model.filename).is_some();
+                let snapshot_path = hf_cached_path(repo_id, revision, &model.filename);
+                let file_exists = snapshot_path.is_some();
+                let snapshot_blob_name = snapshot_path
+                    .as_ref()
+                    .and_then(|p| fs::canonicalize(p).ok())
+                    .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()));
+
                 let marker_path = self.verified_marker_path(&model.id);
                 let marker_contents = fs::read_to_string(&marker_path).ok();
 
@@ -1365,6 +1390,7 @@ impl ModelManager {
                     file_exists,
                     marker_contents.as_deref(),
                     sha256.as_deref(),
+                    snapshot_blob_name.as_deref(),
                 );
                 model.is_downloading = false;
                 model.partial_size = 0;
@@ -1761,7 +1787,7 @@ impl ModelManager {
             return Ok(());
         };
         match Self::compute_sha256(path) {
-            Ok(actual) if actual == expected => {
+            Ok(actual) if actual.eq_ignore_ascii_case(expected.trim()) => {
                 info!("SHA256 verified for model {}", model_id);
                 Ok(())
             }
@@ -1772,7 +1798,7 @@ impl ModelManager {
                 );
                 let _ = fs::remove_file(path);
                 Err(anyhow::anyhow!(
-                    "Download verification failed for model {}: file is corrupt (expected {}, got {}). Please retry.",
+                    "Download verification failed for model {}: file is corrupt (expected {}, got {}). Please delete the model and download again.",
                     model_id, expected, actual
                 ))
             }
@@ -1816,8 +1842,13 @@ impl ModelManager {
         let model_id = model_info.id.clone();
         let filename = model_info.filename.clone();
 
-        // Already in the shared cache (possibly from another tool)? Done.
-        let file_exists = hf_cached_path(&repo_id, &revision, &filename).is_some();
+        let snapshot_path = hf_cached_path(&repo_id, &revision, &filename);
+        let file_exists = snapshot_path.is_some();
+        let snapshot_blob_name = snapshot_path
+            .as_ref()
+            .and_then(|p| fs::canonicalize(p).ok())
+            .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()));
+
         let marker_path = self.verified_marker_path(&model_id);
         let marker_contents = fs::read_to_string(&marker_path).ok();
 
@@ -1825,6 +1856,7 @@ impl ModelManager {
             file_exists,
             marker_contents.as_deref(),
             expected_sha256.as_deref(),
+            snapshot_blob_name.as_deref(),
         ) {
             self.update_download_status()?;
             let _ = self.app_handle.emit("model-download-complete", &model_id);
@@ -1882,7 +1914,19 @@ impl ModelManager {
                 if expected_sha256.is_some() {
                     // Resolve the blob behind the snapshot symlink first: a
                     // mismatch deletes `path`, which on Unix is only the link.
-                    let blob = fs::canonicalize(&path).ok().filter(|c| c != &path);
+                    let blob = fs::canonicalize(&path).map_err(|e| {
+                        anyhow::anyhow!(
+                            "Failed to resolve snapshot blob path for {}: {}",
+                            model_id,
+                            e
+                        )
+                    })?;
+                    let blob_name = blob
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("")
+                        .to_string();
+
                     let _ = self
                         .app_handle
                         .emit("model-verification-started", &model_id);
@@ -1903,9 +1947,6 @@ impl ModelManager {
                     let marker_path = self.verified_marker_path(&model_id);
 
                     if let Err(e) = verified {
-                        if let Some(blob) = blob {
-                            let _ = fs::remove_file(blob);
-                        }
                         let _ = fs::remove_file(&marker_path); // Remove stale marker
                         if let Some(model) =
                             self.available_models.lock().unwrap().get_mut(&model_id)
@@ -1917,11 +1958,18 @@ impl ModelManager {
 
                     // Successful verification -> write marker
                     if let Some(hash) = expected_sha256.as_deref() {
-                        if let Err(e) = fs::write(&marker_path, hash) {
-                            warn!(
+                        let marker_data = format!("{}\n{}", hash, blob_name);
+                        if let Err(e) = fs::write(&marker_path, marker_data) {
+                            if let Some(model) =
+                                self.available_models.lock().unwrap().get_mut(&model_id)
+                            {
+                                model.is_downloaded = false;
+                            }
+                            return Err(anyhow::anyhow!(
                                 "Could not write verification marker for {}: {}",
-                                model_id, e
-                            );
+                                model_id,
+                                e
+                            ));
                         }
                     }
 
@@ -2326,6 +2374,9 @@ impl ModelManager {
             repo_id, revision, ..
         } = &model_info.source
         {
+            let marker_path = self.verified_marker_path(model_id);
+            let _ = fs::remove_file(&marker_path);
+
             // Cached at <cache>/models--org--name/snapshots/<rev>/<file>; remove
             // the whole repo dir (blobs + refs + snapshots). Per product decision,
             // delete hard-removes from the shared HF cache.
@@ -2513,26 +2564,46 @@ mod tests {
     #[test]
     fn test_is_hf_downloaded_pure() {
         // no hash -> file exists decides
-        assert_eq!(is_hf_downloaded_pure(true, None, None), true);
-        assert_eq!(is_hf_downloaded_pure(false, None, None), false);
+        assert_eq!(is_hf_downloaded_pure(true, None, None, None), true);
+        assert_eq!(is_hf_downloaded_pure(false, None, None, None), false);
 
-        // hash + matching marker -> downloaded
-        assert_eq!(is_hf_downloaded_pure(true, Some("abc"), Some("abc")), true);
-        // also checks trimming
+        // hash + matching marker + matching blob -> downloaded
         assert_eq!(
-            is_hf_downloaded_pure(true, Some("abc\n"), Some("abc")),
+            is_hf_downloaded_pure(true, Some("abc\nblob123"), Some("abc"), Some("blob123")),
+            true
+        );
+
+        // matching hash + different blob -> not
+        assert_eq!(
+            is_hf_downloaded_pure(true, Some("abc\nblob123"), Some("abc"), Some("blob456")),
+            false
+        );
+
+        // uppercase/whitespace hash in marker or catalog -> still matches
+        assert_eq!(
+            is_hf_downloaded_pure(true, Some(" ABC \n Blob123 "), Some("abc"), Some("blob123")),
+            true
+        );
+        assert_eq!(
+            is_hf_downloaded_pure(true, Some("abc\nblob123"), Some(" ABC "), Some("blob123")),
             true
         );
 
         // hash + missing marker -> not
-        assert_eq!(is_hf_downloaded_pure(true, None, Some("abc")), false);
+        assert_eq!(
+            is_hf_downloaded_pure(true, None, Some("abc"), Some("blob123")),
+            false
+        );
 
-        // hash + stale marker -> not
-        assert_eq!(is_hf_downloaded_pure(true, Some("def"), Some("abc")), false);
+        // hash + stale marker hash -> not
+        assert_eq!(
+            is_hf_downloaded_pure(true, Some("def\nblob123"), Some("abc"), Some("blob123")),
+            false
+        );
 
         // hash + matching marker but file missing -> not
         assert_eq!(
-            is_hf_downloaded_pure(false, Some("abc"), Some("abc")),
+            is_hf_downloaded_pure(false, Some("abc\nblob123"), Some("abc"), Some("blob123")),
             false
         );
     }
