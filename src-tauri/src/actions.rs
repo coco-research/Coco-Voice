@@ -241,6 +241,23 @@ async fn post_process_transcription(
     transcription: &str,
     prior_output: Option<&str>,
 ) -> Option<String> {
+    // Every provider path funnels through here: a blank result (zero-width
+    // characters survive `trim`) must fall back to the raw transcript.
+    non_blank(post_process_transcription_inner(settings, transcription, prior_output).await)
+}
+
+/// `None` for an output that is empty once invisible characters are removed.
+fn non_blank(output: Option<String>) -> Option<String> {
+    output
+        .map(|text| strip_invisible_chars(&text))
+        .filter(|text| !text.trim().is_empty())
+}
+
+async fn post_process_transcription_inner(
+    settings: &AppSettings,
+    transcription: &str,
+    prior_output: Option<&str>,
+) -> Option<String> {
     if is_blank_transcription(transcription) {
         debug!("Post-processing skipped because the transcription is empty");
         return None;
@@ -1178,7 +1195,7 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
 #[cfg(test)]
 mod tests {
     use super::{
-        build_post_process_messages, complete_unless_cancelled, is_blank_transcription,
+        build_post_process_messages, complete_unless_cancelled, is_blank_transcription, non_blank,
         refine_base_for_correction, should_use_streaming_overlay, store_refine_buffer,
     };
     use crate::settings::OverlayStyle;
@@ -1187,6 +1204,14 @@ mod tests {
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
+
+    #[test]
+    fn non_blank_rejects_invisible_only_output() {
+        assert_eq!(non_blank(Some("\u{200B}\u{FEFF}".into())), None);
+        assert_eq!(non_blank(Some("  \n".into())), None);
+        assert_eq!(non_blank(None), None);
+        assert_eq!(non_blank(Some("Hi\u{200B}".into())), Some("Hi".into()));
+    }
 
     #[test]
     fn blank_transcription_is_detected() {
