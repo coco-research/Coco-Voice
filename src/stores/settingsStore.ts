@@ -306,9 +306,13 @@ export const useSettingsStore = create<SettingsStore>()(
         }
       } catch (error) {
         console.error(`Failed to update setting ${String(key)}:`, error);
-        if (settings) {
-          set({ settings: { ...settings, [key]: originalValue } });
-        }
+        // Restore only this key on the current state, so a newer change to
+        // another setting that already succeeded is not rolled back.
+        set((state) => ({
+          settings: state.settings
+            ? { ...state.settings, [key]: originalValue }
+            : null,
+        }));
       } finally {
         setUpdating(updateKey, false);
       }

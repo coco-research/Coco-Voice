@@ -172,7 +172,7 @@ pub fn change_binding(
         return Err("Binding cannot be empty".to_string());
     }
 
-    let mut settings = settings::get_settings(&app);
+    let settings = settings::get_settings(&app);
 
     // Get the binding to modify, or create it from defaults if it doesn't exist
     let binding_to_modify = match settings.bindings.get(&id) {
@@ -198,8 +198,10 @@ pub fn change_binding(
     if id == "cancel" {
         if let Some(mut b) = settings.bindings.get(&id).cloned() {
             b.current_binding = binding;
-            settings.bindings.insert(id.clone(), b.clone());
-            settings::write_settings(&app, settings);
+            let saved = b.clone();
+            settings::update_settings(&app, |s| {
+                s.bindings.insert(id.clone(), saved);
+            });
             return Ok(BindingResponse {
                 success: true,
                 binding: Some(b.clone()),
@@ -236,11 +238,12 @@ pub fn change_binding(
         });
     }
 
-    // Update the binding in the settings
-    settings.bindings.insert(id, updated_binding.clone());
-
-    // Save the settings
-    settings::write_settings(&app, settings);
+    // Re-read and save under the settings lock so a concurrent write to
+    // another setting is not overwritten by this call's earlier snapshot.
+    let saved = updated_binding.clone();
+    settings::update_settings(&app, |s| {
+        s.bindings.insert(id, saved);
+    });
 
     // Return the updated binding
     Ok(BindingResponse {
