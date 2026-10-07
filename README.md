@@ -116,6 +116,12 @@ coco-voice --start-hidden --no-tray  # Headless mode for autostart
 coco-voice --transcribe-file recording.wav --model whisper-large-v3-turbo --json
 ```
 
+**Headless cleanup eval** (macOS) — score an on-device GGUF against a JSONL set and exit. No window. Exit 0 only when both bars pass:
+
+```bash
+coco-voice --cleanup-eval set.jsonl --eval-model model.gguf --eval-out report.md
+```
+
 ---
 
 ## Platform Support

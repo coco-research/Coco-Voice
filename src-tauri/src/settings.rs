@@ -825,7 +825,7 @@ fn default_post_process_models() -> HashMap<String, String> {
     map
 }
 
-fn default_post_process_prompts() -> Vec<LLMPrompt> {
+pub(crate) fn default_post_process_prompts() -> Vec<LLMPrompt> {
     vec![LLMPrompt {
         id: "default_improve_transcriptions".to_string(),
         name: "Improve Transcriptions".to_string(),

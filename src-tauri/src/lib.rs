@@ -4,6 +4,7 @@ mod apple_intelligence;
 mod audio_feedback;
 pub mod audio_toolkit;
 mod catalog;
+mod cleanup_eval;
 pub mod cli;
 mod clipboard;
 mod commands;
@@ -526,6 +527,17 @@ fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run(cli_args: CliArgs) {
+    // --cleanup-eval scores the on-device cleanup model and exits. It must not
+    // build a window, a tray, or the single-instance plugin: that plugin would
+    // hand the flag to an already-running app and show the window.
+    if cli_args.cleanup_eval.is_some() {
+        let code = cleanup_eval::run_eval(&cli_args);
+        use std::io::Write;
+        let _ = std::io::stdout().flush();
+        let _ = std::io::stderr().flush();
+        std::process::exit(code);
+    }
+
     // Detect portable mode before anything else
     portable::init();
 

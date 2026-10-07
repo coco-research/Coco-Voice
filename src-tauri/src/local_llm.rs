@@ -156,6 +156,20 @@ pub async fn generate_text(
     .map_err(|e| format!("Local LLM task join error: {}", e))?
 }
 
+/// Drop the resident GGUF before `process::exit`.
+///
+/// `process::exit` still runs C++ static destructors. ggml-metal asserts if a
+/// model's Metal resources are alive then. Rust `Drop` does not run on that
+/// path, so the cleanup eval drops the cache itself.
+pub fn release_model() {
+    let Some(cache) = CACHED_MODEL.get() else {
+        return;
+    };
+    let mut guard = cache.slot.lock().unwrap_or_else(|p| p.into_inner());
+    *guard = None;
+    cache.cv.notify_all();
+}
+
 /// Generation length that still leaves half the context for the prompt.
 ///
 /// A caller that passes `max_tokens >= N_CTX` used to collapse the prompt

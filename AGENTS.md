@@ -66,6 +66,7 @@ Coco Voice is a cross-platform desktop speech-to-text application built with Tau
   - `vad/` - Voice Activity Detection (Silero VAD)
 - `commands/` - Tauri command handlers for frontend communication
 - `cli.rs` - CLI argument definitions (clap derive)
+- `cleanup_eval.rs` - Headless on-device cleanup eval (`--cleanup-eval`, macOS only)
 - `shortcut.rs` - Global keyboard shortcut handling
 - `settings.rs` - Application settings management
 - `overlay.rs` - Recording overlay window (platform-specific)
@@ -183,12 +184,18 @@ Coco Voice supports command-line parameters on all platforms for integration wit
 | `--start-hidden`         | Launch without showing the main window (tray icon visible) |
 | `--no-tray`              | Launch without system tray (closing window quits the app)  |
 | `--debug`                | Enable debug mode with verbose (Trace) logging             |
+| `--cleanup-eval <set.jsonl>` | macOS: score on-device cleanup and exit (no window, no tray). 0 if both bars pass, else 1 |
+| `--eval-model <path.gguf>` | GGUF for `--cleanup-eval` (must already be on disk)      |
+| `--eval-prompt <id>`     | Built-in prompt id (default `default_improve_transcriptions`) |
+| `--eval-out <report.md>` | Markdown report path (default stdout)                    |
 
 **Key design decisions:**
 
 - CLI flags are runtime-only overrides — they do NOT modify persisted settings
+- `--cleanup-eval` returns before Tauri starts, so it never opens a window or tray and is not forwarded to a running instance
 - Remote control flags work via `tauri_plugin_single_instance`: second instance sends args, then exits
 - `send_transcription_input()` in `signal_handle.rs` is shared between signal handlers and CLI
+- For the cleanup eval, use `scripts/run-cleanup-eval.sh <set.jsonl> [report.md]`.
 
 ## Debug Mode
 
