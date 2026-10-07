@@ -92,7 +92,7 @@ pub fn resolve_cleanup(
                         };
                     }
                     Err(local_reason) => {
-                        log::debug!("Local fallback unavailable: {}", local_reason);
+                        log::info!("Cleanup: on-device fallback unavailable ({})", local_reason);
                     }
                 }
             }
@@ -144,6 +144,22 @@ mod tests {
             }
         };
         let decision = resolve_cleanup("openai", &provider_usable_3);
+        assert!(matches!(
+            decision,
+            CleanupDecision::Skip {
+                reason: SkipReason::NoApiKey
+            }
+        ));
+
+        // selected OpenAI without API key + local unavailable in this build -> skip NoApiKey (never falls back when closure denies local for any reason)
+        let provider_usable_4 = |id: &str| -> Result<(), SkipReason> {
+            if id == crate::settings::LOCAL_LLM_PROVIDER_ID {
+                Err(SkipReason::ProviderUnavailableInThisBuild)
+            } else {
+                Err(SkipReason::NoApiKey)
+            }
+        };
+        let decision = resolve_cleanup("openai", &provider_usable_4);
         assert!(matches!(
             decision,
             CleanupDecision::Skip {
