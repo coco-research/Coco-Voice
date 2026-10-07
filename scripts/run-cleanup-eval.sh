@@ -9,17 +9,13 @@ if [ "$#" -lt 1 ]; then
     exit 1
 fi
 
-EVAL_SET="$(cd "$OLDPWD" && realpath "$1")"
+EVAL_SET="$(cd "$OLDPWD" && python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$1")"
 REPORT_PATH="${2:-}"
 
 if [ -z "$REPORT_PATH" ]; then
-    DATE=$(date +%Y-%m-%d)
-    if [ -d "../docs" ]; then
-        REPORT_PATH="../docs/research/${DATE}-backtrack-eval.md"
-    else
-        REPORT_PATH="./cleanup-eval.md"
-    fi
+    REPORT_PATH="./cleanup-eval.md"
 fi
+REPORT_PATH="$(cd "$OLDPWD" && python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$REPORT_PATH")"
 
 REVISION=$(python3 -c '
 import json
@@ -46,10 +42,8 @@ fi
 TARGET_DIR="${CARGO_TARGET_DIR:-src-tauri/target}"
 BIN_PATH="$TARGET_DIR/release/coco-voice"
 
-if [ ! -f "$BIN_PATH" ]; then
-    echo "Building release binary..."
-    (cd src-tauri && cargo build --release)
-fi
+echo "Building release binary..."
+(cd src-tauri && cargo build --release)
 
 exec "$BIN_PATH" \
     --cleanup-eval "$EVAL_SET" \

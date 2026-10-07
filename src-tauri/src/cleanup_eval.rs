@@ -230,12 +230,6 @@ fn parse_eval_set(text: &str) -> Result<Vec<EvalItem>, String> {
         if !seen_ids.insert(raw.id.clone()) {
             return Err(format!("line {line_no}: duplicate id {:?}", raw.id));
         }
-        if raw.keep.is_empty() {
-            return Err(format!(
-                "line {line_no}: keep list is empty for id {:?}",
-                raw.id
-            ));
-        }
         let kind = match raw.kind.as_str() {
             "retract" => EvalKind::Retract,
             "keep" => EvalKind::Keep,
@@ -245,6 +239,12 @@ fn parse_eval_set(text: &str) -> Result<Vec<EvalItem>, String> {
                 ));
             }
         };
+        if kind == EvalKind::Keep && raw.keep.is_empty() {
+            return Err(format!(
+                "line {line_no}: keep list is empty for id {:?}",
+                raw.id
+            ));
+        }
         items.push(EvalItem {
             id: raw.id,
             kind,
