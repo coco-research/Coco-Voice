@@ -2,7 +2,7 @@
 name = "coco-voice"
 version = "0.9.5"
 description = "Coco Voice"
-authors = ["Coco Research"]
+authors = ["cjpais", "Coco Research"]
 edition = "2021"
 license = "MIT"
 default-run = "coco-voice"
