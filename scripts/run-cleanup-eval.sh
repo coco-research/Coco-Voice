@@ -13,7 +13,7 @@ EVAL_SET="$(cd "$OLDPWD" && python3 -c 'import os,sys; print(os.path.abspath(sys
 REPORT_PATH="${2:-}"
 
 if [ -z "$REPORT_PATH" ]; then
-    REPORT_PATH="./cleanup-eval.md"
+    REPORT_PATH="./cleanup-eval-$(date +"%Y-%m-%d-%H%M%S").md"
 fi
 REPORT_PATH="$(cd "$OLDPWD" && python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$REPORT_PATH")"
 

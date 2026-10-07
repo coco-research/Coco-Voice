@@ -245,6 +245,12 @@ fn parse_eval_set(text: &str) -> Result<Vec<EvalItem>, String> {
                 raw.id
             ));
         }
+        if kind == EvalKind::Retract && raw.drop_terms.is_empty() {
+            return Err(format!(
+                "line {line_no}: drop list is empty for id {:?}",
+                raw.id
+            ));
+        }
         items.push(EvalItem {
             id: raw.id,
             kind,
@@ -738,5 +744,20 @@ mod tests {
         let err = parse_eval_set(text).unwrap_err();
         assert!(err.contains("keep list is empty"), "{err}");
         assert!(err.contains("\"k01\""), "{err}");
+    }
+
+    #[test]
+    fn rejects_retract_row_with_no_drop_list() {
+        let text_empty =
+            "{\"id\":\"r01\",\"kind\":\"retract\",\"input\":\"hello\",\"keep\":[\"hello\"],\"drop\":[]}\n";
+        let err = parse_eval_set(text_empty).unwrap_err();
+        assert!(err.contains("drop list is empty"), "{err}");
+        assert!(err.contains("\"r01\""), "{err}");
+
+        let text_omitted =
+            "{\"id\":\"r02\",\"kind\":\"retract\",\"input\":\"hello\",\"keep\":[\"hello\"]}\n";
+        let err_omitted = parse_eval_set(text_omitted).unwrap_err();
+        assert!(err_omitted.contains("drop list is empty"), "{err_omitted}");
+        assert!(err_omitted.contains("\"r02\""), "{err_omitted}");
     }
 }
