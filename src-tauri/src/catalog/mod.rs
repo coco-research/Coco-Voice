@@ -51,6 +51,9 @@ struct CatalogModel {
     /// Pinned HF commit for publisher repos. Absent means the `main` branch.
     #[serde(default)]
     revision: Option<String>,
+    /// SHA-256 of the default quant file. Absent skips integrity verification.
+    #[serde(default)]
+    sha256: Option<String>,
 }
 
 /// Architectures served by llama.cpp for transcript cleanup.
@@ -85,6 +88,7 @@ impl From<CatalogModel> for ModelDescriptor {
                     .map(|r| r.trim().to_string())
                     .filter(|r| !r.is_empty())
                     .unwrap_or_else(|| "main".to_string()),
+                sha256: m.sha256.filter(|s| !s.trim().is_empty()),
             },
             name: m.name,
             description: m.description,
@@ -226,10 +230,47 @@ mod tests {
         assert!(d.recommended);
         assert!(matches!(
             &d.source,
-            ModelSource::HuggingFace { repo_id, revision }
+            ModelSource::HuggingFace { repo_id, revision, .. }
                 if repo_id == "Qwen/Qwen3-4B-GGUF"
                     && revision == "bc640142c66e1fdd12af0bd68f40445458f3869b"
         ));
+    }
+
+    #[test]
+    fn catalog_sha256_reaches_hugging_face_source() {
+        // Pinned on the two third-party GGUFs. Org entries omit the key.
+        let pinned = [
+            (
+                "Qwen/Qwen3-4B-GGUF/Qwen3-4B-Q4_K_M.gguf",
+                "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+            ),
+            (
+                "Qwen/Qwen2.5-1.5B-Instruct-GGUF/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+                "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
+            ),
+        ];
+        for (id, hash) in pinned {
+            let d = CATALOG.iter().find(|d| d.id == id).expect(id);
+            match &d.source {
+                ModelSource::HuggingFace { sha256, .. } => {
+                    assert_eq!(sha256.as_deref(), Some(hash), "{id}");
+                }
+                other => panic!("{id} source was {other:?}"),
+            }
+        }
+
+        let unpinned = CATALOG
+            .iter()
+            .find(|d| !matches!(d.engine_type, EngineType::LlamaCpp))
+            .expect("org catalog entry");
+        assert!(
+            matches!(
+                &unpinned.source,
+                ModelSource::HuggingFace { sha256: None, .. }
+            ),
+            "{} should not grow a hash it does not declare",
+            unpinned.id
+        );
     }
 
     #[test]
