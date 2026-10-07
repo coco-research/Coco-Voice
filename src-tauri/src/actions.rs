@@ -10,7 +10,7 @@ use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
 use crate::settings::{
     get_settings, AppProfile, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID,
-    LOCAL_LLM_PROVIDER_ID,
+    LOCAL_LLM_DEFAULT_MODEL_ID, LOCAL_LLM_PROVIDER_ID,
 };
 use crate::shortcut;
 use crate::tray::{change_tray_icon, TrayIconState};
@@ -112,15 +112,6 @@ fn cleaned_or_none(s: String) -> Option<String> {
 /// Removes `${output}` placeholder since the transcription is sent as the user message.
 fn build_system_prompt(prompt_template: &str) -> String {
     prompt_template.replace("${output}", "").trim().to_string()
-}
-
-/// Returns `true` when a transcription has no meaningful content to
-/// post-process (empty or whitespace-only). Used to skip the post-processing
-/// LLM call when nothing was actually transcribed, which would otherwise make
-/// the model reply with an error message such as "you need to provide the
-/// transcription".
-fn is_blank_transcription(transcription: &str) -> bool {
-    transcription.trim().is_empty()
 }
 
 async fn complete_unless_cancelled<F, C>(operation: F, is_cancelled: C) -> Option<F::Output>
@@ -443,76 +434,155 @@ async fn post_process_transcription(
     prior_output: Option<&str>,
     local_llm_cancel: Option<LocalLlmCancel>,
 ) -> Option<String> {
-    // The handle only resolves the on-device GGUF path, which is macOS-only.
-    // The cancel watch is consumed only by that same branch.
     #[cfg(not(target_os = "macos"))]
     let _ = (app, &local_llm_cancel);
 
-    if is_blank_transcription(transcription) {
-        debug!("Post-processing skipped because the transcription is empty");
-        return None;
-    }
+    let selected_provider_id = settings.post_process_provider_id.as_str();
+    let model_manager = app.state::<Arc<ModelManager>>();
 
-    let provider = match settings.active_post_process_provider().cloned() {
-        Some(provider) => provider,
-        None => {
-            debug!("Post-processing enabled but no provider is selected");
+    let prompt = match crate::cleanup_resolver::check_global_preconditions(
+        transcription,
+        settings.post_process_selected_prompt_id.as_deref(),
+        |id| {
+            settings
+                .post_process_prompts
+                .iter()
+                .find(|p| p.id == id)
+                .map(|p| p.prompt.as_str())
+        },
+    ) {
+        Ok(p) => p.to_string(),
+        Err(reason) => {
+            log::info!("Post-processing skipped: {}", reason);
             return None;
         }
     };
 
-    let model = settings
-        .post_process_models
-        .get(&provider.id)
-        .cloned()
-        .unwrap_or_default();
+    let get_provider_model = |provider_id: &str| -> String {
+        if provider_id == LOCAL_LLM_PROVIDER_ID {
+            settings
+                .post_process_models
+                .get(provider_id)
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| s.as_str())
+                .unwrap_or(LOCAL_LLM_DEFAULT_MODEL_ID)
+                .to_string()
+        } else {
+            settings
+                .post_process_models
+                .get(provider_id)
+                .cloned()
+                .unwrap_or_default()
+        }
+    };
 
-    if model.trim().is_empty() {
-        debug!(
-            "Post-processing skipped because provider '{}' has no model configured",
-            provider.id
-        );
-        return None;
-    }
+    let get_api_key = |provider_id: &str| -> String {
+        settings
+            .post_process_api_keys
+            .get(provider_id)
+            .cloned()
+            .unwrap_or_default()
+    };
 
-    let selected_prompt_id = match &settings.post_process_selected_prompt_id {
-        Some(id) => id.clone(),
-        None => {
-            debug!("Post-processing skipped because no prompt is selected");
+    let provider_usable = |provider_id: &str| -> Result<(), crate::cleanup_resolver::SkipReason> {
+        if !settings
+            .post_process_providers
+            .iter()
+            .any(|p| p.id == provider_id)
+        {
+            return Err(crate::cleanup_resolver::SkipReason::ProviderNotFound);
+        }
+
+        let model = get_provider_model(provider_id);
+
+        if model.trim().is_empty() {
+            return Err(crate::cleanup_resolver::SkipReason::NoModelConfigured);
+        }
+
+        if provider_id == APPLE_INTELLIGENCE_PROVIDER_ID {
+            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            {
+                if !crate::apple_intelligence::check_apple_intelligence_availability() {
+                    return Err(crate::cleanup_resolver::SkipReason::AppleIntelligenceUnavailable);
+                }
+            }
+            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+            {
+                return Err(crate::cleanup_resolver::SkipReason::ProviderUnavailableInThisBuild);
+            }
+        }
+
+        if provider_id == LOCAL_LLM_PROVIDER_ID {
+            #[cfg(not(target_os = "macos"))]
+            {
+                return Err(crate::cleanup_resolver::SkipReason::ProviderUnavailableInThisBuild);
+            }
+            #[cfg(target_os = "macos")]
+            {
+                if !model_manager.get_model_path(&model).is_ok() {
+                    return Err(crate::cleanup_resolver::SkipReason::LocalModelNotDownloaded);
+                }
+            }
+        }
+
+        let needs_api_key = provider_id != LOCAL_LLM_PROVIDER_ID
+            && provider_id != APPLE_INTELLIGENCE_PROVIDER_ID
+            && provider_id != "custom";
+
+        if needs_api_key {
+            let api_key = get_api_key(provider_id);
+            if api_key.trim().is_empty() {
+                return Err(crate::cleanup_resolver::SkipReason::NoApiKey);
+            }
+        }
+
+        Ok(())
+    };
+
+    let decision = crate::cleanup_resolver::resolve_cleanup(selected_provider_id, provider_usable);
+
+    let resolved_provider_id = match decision {
+        crate::cleanup_resolver::CleanupDecision::Run {
+            provider_id,
+            fallback_from,
+        } => {
+            if let Some((original_id, reason)) = fallback_from {
+                log::info!(
+                    "Cleanup: {} unavailable ({}), using on-device model",
+                    original_id,
+                    reason
+                );
+            }
+            provider_id
+        }
+        crate::cleanup_resolver::CleanupDecision::Skip { reason } => {
+            log::info!("Post-processing skipped: {}", reason);
             return None;
         }
     };
 
-    let prompt = match settings
-        .post_process_prompts
+    let provider = match settings
+        .post_process_providers
         .iter()
-        .find(|prompt| prompt.id == selected_prompt_id)
+        .find(|p| p.id == resolved_provider_id)
     {
-        Some(prompt) => prompt.prompt.clone(),
+        Some(p) => p.clone(),
         None => {
-            debug!(
-                "Post-processing skipped because prompt '{}' was not found",
-                selected_prompt_id
+            log::info!(
+                "Post-processing skipped: {}",
+                crate::cleanup_resolver::SkipReason::ProviderNotFound
             );
             return None;
         }
     };
 
-    if prompt.trim().is_empty() {
-        debug!("Post-processing skipped because the selected prompt is empty");
-        return None;
-    }
+    let model = get_provider_model(&resolved_provider_id);
+    let api_key = get_api_key(&resolved_provider_id);
 
     debug!(
         "Starting LLM post-processing with provider '{}' (model: {})",
         provider.id, model
     );
-
-    let api_key = settings
-        .post_process_api_keys
-        .get(&provider.id)
-        .cloned()
-        .unwrap_or_default();
 
     // Disable reasoning for providers where post-processing rarely benefits from it.
     // - custom: top-level reasoning_effort (works for local OpenAI-compat servers)
@@ -534,17 +604,10 @@ async fn post_process_transcription(
     // is dispatched before the structured-output gate. The provider keeps
     // `supports_structured_output: false`; hoisting the call is what makes
     // local cleanup reachable.
-    #[cfg(not(target_os = "macos"))]
-    if provider.id == LOCAL_LLM_PROVIDER_ID {
-        warn!("Local LLM provider is not available on this platform; skipping post-processing");
-        return None;
-    }
-
     #[cfg(target_os = "macos")]
-    if provider.id == LOCAL_LLM_PROVIDER_ID {
+    if provider.id == crate::settings::LOCAL_LLM_PROVIDER_ID {
         let (system_prompt, user_content) =
             build_post_process_messages(&prompt, transcription, prior_output);
-        let model_manager = app.state::<Arc<ModelManager>>();
         match model_manager.get_model_path(&model) {
             Ok(model_path) => {
                 let cancel_watch = local_llm_cancel.map(|cancel| {
@@ -1495,9 +1558,8 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
 mod tests {
     use super::{
         app_profile_matches, apply_app_profile_overrides, apply_profile_provider_and_model,
-        build_post_process_messages, complete_unless_cancelled, is_blank_transcription,
-        note_cancel_if_generation_moved, refine_base_for_correction, should_use_streaming_overlay,
-        store_refine_buffer,
+        build_post_process_messages, complete_unless_cancelled, note_cancel_if_generation_moved,
+        refine_base_for_correction, should_use_streaming_overlay, store_refine_buffer,
     };
     use crate::commands::app_profile::ActiveAppInfo;
     use crate::settings::OverlayStyle;
@@ -1506,19 +1568,6 @@ mod tests {
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
-
-    #[test]
-    fn blank_transcription_is_detected() {
-        assert!(is_blank_transcription(""));
-        assert!(is_blank_transcription("   "));
-        assert!(is_blank_transcription("\t\n  \r\n"));
-    }
-
-    #[test]
-    fn non_blank_transcription_is_kept() {
-        assert!(!is_blank_transcription("hello"));
-        assert!(!is_blank_transcription("  hello  "));
-    }
 
     #[test]
     fn completed_operation_returns_its_output() {
