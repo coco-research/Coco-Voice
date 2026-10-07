@@ -98,6 +98,16 @@ fn strip_invisible_chars(s: &str) -> String {
     s.replace(['\u{200B}', '\u{200C}', '\u{200D}', '\u{FEFF}'], "")
 }
 
+/// Strip invisible characters and return None if the result is blank
+fn cleaned_or_none(s: String) -> Option<String> {
+    let stripped = strip_invisible_chars(&s);
+    if stripped.trim().is_empty() {
+        None
+    } else {
+        Some(stripped)
+    }
+}
+
 /// Build a system prompt from the user's prompt template.
 /// Removes `${output}` placeholder since the transcription is sent as the user message.
 fn build_system_prompt(prompt_template: &str) -> String {
@@ -561,19 +571,19 @@ async fn post_process_transcription(
                     watcher.abort();
                 }
                 return match generated {
-                    Ok(result) => {
-                        if result.trim().is_empty() {
-                            debug!("Local LLM returned an empty response");
-                            None
-                        } else {
-                            let result = strip_invisible_chars(&result);
+                    Ok(result) => match cleaned_or_none(result) {
+                        Some(cleaned) => {
                             debug!(
                                 "Local LLM post-processing succeeded. Output length: {} chars",
-                                result.len()
+                                cleaned.len()
                             );
-                            Some(result)
+                            Some(cleaned)
                         }
-                    }
+                        None => {
+                            debug!("Local LLM returned an empty response");
+                            None
+                        }
+                    },
                     Err(err) => {
                         error!("Local LLM post-processing failed: {}", err);
                         None
@@ -1860,5 +1870,22 @@ mod tests {
         );
 
         assert!(correction_pairs(&apply_app_profile_overrides(&settings, &notes)).is_empty());
+    }
+
+    #[test]
+    fn cleaned_or_none_works_correctly() {
+        use super::cleaned_or_none;
+
+        assert_eq!(
+            cleaned_or_none("hello".to_string()),
+            Some("hello".to_string())
+        );
+        assert_eq!(cleaned_or_none("\u{200B}\u{FEFF}".to_string()), None);
+        assert_eq!(cleaned_or_none("   \n \t ".to_string()), None);
+        assert_eq!(cleaned_or_none("\u{200C} \n\u{200D}".to_string()), None);
+        assert_eq!(
+            cleaned_or_none(" \u{200B} text \u{FEFF}".to_string()),
+            Some(" text ".to_string())
+        );
     }
 }

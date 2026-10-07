@@ -359,6 +359,11 @@ fn generate_with_model(
     } else {
         debug!("Reusing cached local LLM model: {}", model_path.display());
     }
+
+    if cancelled() {
+        stop_outcome(false, true).map_err(str::to_string)?;
+    }
+
     let model = &cache_guard
         .as_ref()
         .expect("model is cached after the load branch")
@@ -415,6 +420,11 @@ fn generate_with_model(
 
     ctx.decode(&mut batch)
         .map_err(|e| format!("Failed to decode prompt batch: {}", e))?;
+
+    if cancelled() {
+        stop_outcome(false, true).map_err(str::to_string)?;
+    }
+
     let mut n_past = tokens_list.len() as i32;
 
     let mut generated = String::new();
