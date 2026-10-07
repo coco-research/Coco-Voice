@@ -24,6 +24,7 @@ use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::future::Future;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Manager;
@@ -97,6 +98,16 @@ fn strip_invisible_chars(s: &str) -> String {
     s.replace(['\u{200B}', '\u{200C}', '\u{200D}', '\u{FEFF}'], "")
 }
 
+/// Strip invisible characters and return None if the result is blank
+fn cleaned_or_none(s: String) -> Option<String> {
+    let stripped = strip_invisible_chars(&s);
+    if stripped.trim().is_empty() {
+        None
+    } else {
+        Some(stripped)
+    }
+}
+
 /// Build a system prompt from the user's prompt template.
 /// Removes `${output}` placeholder since the transcription is sent as the user message.
 fn build_system_prompt(prompt_template: &str) -> String {
@@ -130,6 +141,52 @@ where
             return Some(result);
         }
     }
+}
+
+/// Live-dictation cancel signal for the on-device LLM.
+///
+/// `started` is the generation counter snapshotted when recording stopped.
+/// History re-transcribe has no cancel shortcut and passes `None`.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) struct LocalLlmCancel {
+    started: u64,
+    audio: Arc<AudioRecordingManager>,
+}
+
+/// Store `true` on `flag` once `current` leaves the generation snapshotted at stop.
+///
+/// Returns whether this sample is a cancel. Never clears the flag: the
+/// llama.cpp thread only checks it between tokens, and a moved counter stays
+/// moved. Same comparison as [`AudioRecordingManager::was_cancelled_since`].
+fn note_cancel_if_generation_moved(flag: &AtomicBool, started: u64, current: u64) -> bool {
+    if current == started {
+        return false;
+    }
+    // Release pairs with the Acquire load in `local_llm` (once per token).
+    flag.store(true, Ordering::Release);
+    true
+}
+
+/// Poll the pipeline cancel counter and raise `flag` when it moves.
+///
+/// Dropping the `generate_text` future does not stop the llama.cpp thread,
+/// and dropping this handle must not either: a cancel drops the cleanup
+/// future, so the watcher has to keep running and set the flag. Abort it
+/// only after generation returns.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn watch_generation_cancel(
+    flag: Arc<AtomicBool>,
+    started: u64,
+    audio: Arc<AudioRecordingManager>,
+) -> tauri::async_runtime::JoinHandle<()> {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            if note_cancel_if_generation_moved(&flag, started, audio.cancel_generation()) {
+                break;
+            }
+            tokio::time::sleep(CANCELLATION_POLL_INTERVAL).await;
+        }
+    })
 }
 
 fn should_use_streaming_overlay(style: OverlayStyle, is_streaming: bool) -> bool {
@@ -384,10 +441,12 @@ async fn post_process_transcription(
     settings: &AppSettings,
     transcription: &str,
     prior_output: Option<&str>,
+    local_llm_cancel: Option<LocalLlmCancel>,
 ) -> Option<String> {
     // The handle only resolves the on-device GGUF path, which is macOS-only.
+    // The cancel watch is consumed only by that same branch.
     #[cfg(not(target_os = "macos"))]
-    let _ = app;
+    let _ = (app, &local_llm_cancel);
 
     if is_blank_transcription(transcription) {
         debug!("Post-processing skipped because the transcription is empty");
@@ -488,29 +547,43 @@ async fn post_process_transcription(
         let model_manager = app.state::<Arc<ModelManager>>();
         match model_manager.get_model_path(&model) {
             Ok(model_path) => {
-                return match crate::local_llm::generate_text(
+                let cancel_watch = local_llm_cancel.map(|cancel| {
+                    let flag = Arc::new(AtomicBool::new(false));
+                    let watcher = watch_generation_cancel(
+                        Arc::clone(&flag),
+                        cancel.started,
+                        Arc::clone(&cancel.audio),
+                    );
+                    (flag, watcher)
+                });
+                let generated = crate::local_llm::generate_text(
                     &model_path,
                     &system_prompt,
                     &user_content,
                     LOCAL_LLM_MAX_TOKENS,
                     None,
-                    None,
+                    cancel_watch.as_ref().map(|(flag, _)| Arc::clone(flag)),
                 )
-                .await
-                {
-                    Ok(result) => {
-                        if result.trim().is_empty() {
-                            debug!("Local LLM returned an empty response");
-                            None
-                        } else {
-                            let result = strip_invisible_chars(&result);
+                .await;
+                // Finished run: stop polling. A dropped future skips this and
+                // leaves the watcher attached so it can still raise the flag.
+                if let Some((_, watcher)) = &cancel_watch {
+                    watcher.abort();
+                }
+                return match generated {
+                    Ok(result) => match cleaned_or_none(result) {
+                        Some(cleaned) => {
                             debug!(
                                 "Local LLM post-processing succeeded. Output length: {} chars",
-                                result.len()
+                                cleaned.len()
                             );
-                            Some(result)
+                            Some(cleaned)
                         }
-                    }
+                        None => {
+                            debug!("Local LLM returned an empty response");
+                            None
+                        }
+                    },
                     Err(err) => {
                         error!("Local LLM post-processing failed: {}", err);
                         None
@@ -770,6 +843,7 @@ pub(crate) async fn process_transcription_output(
     post_process: bool,
     correction: bool,
     captured_app: Option<&ActiveAppInfo>,
+    local_llm_cancel: Option<LocalLlmCancel>,
 ) -> ProcessedTranscription {
     let settings = get_settings(app);
     // Live dictation applies the profile of the app captured when recording
@@ -815,6 +889,7 @@ pub(crate) async fn process_transcription_output(
                 &effective_settings,
                 &final_text,
                 Some(&prior_output),
+                local_llm_cancel,
             )
             .await
             {
@@ -850,8 +925,14 @@ pub(crate) async fn process_transcription_output(
     } else if post_process {
         // Normal post-processing. Word-sniffing has been removed, so a fresh
         // dictation is NEVER silently reinterpreted as an edit of a prior output.
-        if let Some(processed_text) =
-            post_process_transcription(app, &effective_settings, &final_text, None).await
+        if let Some(processed_text) = post_process_transcription(
+            app,
+            &effective_settings,
+            &final_text,
+            None,
+            local_llm_cancel,
+        )
+        .await
         {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
@@ -1201,6 +1282,10 @@ impl ShortcutAction for TranscribeAction {
                             }
                             // Started in `stop`, so it has finished or timed out by now.
                             let captured_app = frontmost_capture.await.ok().flatten();
+                            let local_llm_cancel = LocalLlmCancel {
+                                started: cancel_generation,
+                                audio: Arc::clone(&rm),
+                            };
                             let Some(processed) = complete_unless_cancelled(
                                 process_transcription_output(
                                     &ah,
@@ -1208,6 +1293,7 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     correction,
                                     captured_app.as_ref(),
+                                    Some(local_llm_cancel),
                                 ),
                                 || rm.was_cancelled_since(cancel_generation),
                             )
@@ -1410,7 +1496,8 @@ mod tests {
     use super::{
         app_profile_matches, apply_app_profile_overrides, apply_profile_provider_and_model,
         build_post_process_messages, complete_unless_cancelled, is_blank_transcription,
-        refine_base_for_correction, should_use_streaming_overlay, store_refine_buffer,
+        note_cancel_if_generation_moved, refine_base_for_correction, should_use_streaming_overlay,
+        store_refine_buffer,
     };
     use crate::commands::app_profile::ActiveAppInfo;
     use crate::settings::OverlayStyle;
@@ -1459,6 +1546,21 @@ mod tests {
 
         cancel_thread.join().unwrap();
         assert_eq!(result, None);
+    }
+
+    #[test]
+    fn cancel_flag_is_set_only_when_the_generation_counter_moves() {
+        let flag = AtomicBool::new(false);
+
+        assert!(!note_cancel_if_generation_moved(&flag, 3, 3));
+        assert!(!flag.load(Ordering::Relaxed));
+
+        assert!(note_cancel_if_generation_moved(&flag, 3, 4));
+        assert!(flag.load(Ordering::Relaxed));
+
+        // A later sample of the new generation must not clear a cancel.
+        assert!(!note_cancel_if_generation_moved(&flag, 4, 4));
+        assert!(flag.load(Ordering::Relaxed));
     }
 
     #[test]
@@ -1768,5 +1870,22 @@ mod tests {
         );
 
         assert!(correction_pairs(&apply_app_profile_overrides(&settings, &notes)).is_empty());
+    }
+
+    #[test]
+    fn cleaned_or_none_works_correctly() {
+        use super::cleaned_or_none;
+
+        assert_eq!(
+            cleaned_or_none("hello".to_string()),
+            Some("hello".to_string())
+        );
+        assert_eq!(cleaned_or_none("\u{200B}\u{FEFF}".to_string()), None);
+        assert_eq!(cleaned_or_none("   \n \t ".to_string()), None);
+        assert_eq!(cleaned_or_none("\u{200C} \n\u{200D}".to_string()), None);
+        assert_eq!(
+            cleaned_or_none(" \u{200B} text \u{FEFF}".to_string()),
+            Some(" text ".to_string())
+        );
     }
 }

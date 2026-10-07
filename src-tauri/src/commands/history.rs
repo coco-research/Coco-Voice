@@ -96,12 +96,14 @@ pub async fn retry_history_entry_transcription(
     // Re-transcribing a saved recording is never a live spoken correction, and
     // it must not pick up whichever app is frontmost now. Profile overrides stay
     // off (no captured app); correction mode is off. This only re-runs
-    // transcription + post-processing.
+    // transcription + post-processing. There is no cancel shortcut on this
+    // path, so the local LLM is not given a cancel flag.
     let processed = process_transcription_output(
         &app,
         &transcription,
         entry.post_process_requested,
         false,
+        None,
         None,
     )
     .await;
