@@ -10,6 +10,7 @@ use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
 use crate::settings::{
     get_settings, AppProfile, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID,
+    LOCAL_LLM_DEFAULT_MODEL_ID, LOCAL_LLM_PROVIDER_ID,
 };
 use crate::shortcut;
 use crate::tray::{change_tray_icon, TrayIconState};
@@ -426,22 +427,8 @@ async fn post_process_transcription(
     #[cfg(not(target_os = "macos"))]
     let _ = (app, &local_llm_cancel);
 
-    let on_macos = cfg!(target_os = "macos");
-
     let selected_provider_id = settings.post_process_provider_id.as_str();
-
     let model_manager = app.state::<Arc<ModelManager>>();
-    let local_model_downloaded = if on_macos {
-        let model = settings
-            .post_process_models
-            .get(crate::settings::LOCAL_LLM_PROVIDER_ID)
-            .filter(|s| !s.trim().is_empty())
-            .map(|s| s.as_str())
-            .unwrap_or(crate::settings::LOCAL_LLM_DEFAULT_MODEL_ID);
-        model_manager.get_model_path(model).is_ok()
-    } else {
-        false
-    };
 
     let prompt = match crate::cleanup_resolver::check_global_preconditions(
         transcription,
@@ -461,20 +448,14 @@ async fn post_process_transcription(
         }
     };
 
-    let provider_usable = |provider_id: &str| -> Result<(), crate::cleanup_resolver::SkipReason> {
-        let _provider = settings
-            .post_process_providers
-            .iter()
-            .find(|p| p.id == provider_id)
-            .ok_or(crate::cleanup_resolver::SkipReason::ProviderNotFound)?;
-
-        let model = if provider_id == crate::settings::LOCAL_LLM_PROVIDER_ID {
+    let get_provider_model = |provider_id: &str| -> String {
+        if provider_id == LOCAL_LLM_PROVIDER_ID {
             settings
                 .post_process_models
                 .get(provider_id)
                 .filter(|s| !s.trim().is_empty())
                 .map(|s| s.as_str())
-                .unwrap_or(crate::settings::LOCAL_LLM_DEFAULT_MODEL_ID)
+                .unwrap_or(LOCAL_LLM_DEFAULT_MODEL_ID)
                 .to_string()
         } else {
             settings
@@ -482,13 +463,33 @@ async fn post_process_transcription(
                 .get(provider_id)
                 .cloned()
                 .unwrap_or_default()
-        };
+        }
+    };
+
+    let get_api_key = |provider_id: &str| -> String {
+        settings
+            .post_process_api_keys
+            .get(provider_id)
+            .cloned()
+            .unwrap_or_default()
+    };
+
+    let provider_usable = |provider_id: &str| -> Result<(), crate::cleanup_resolver::SkipReason> {
+        if !settings
+            .post_process_providers
+            .iter()
+            .any(|p| p.id == provider_id)
+        {
+            return Err(crate::cleanup_resolver::SkipReason::ProviderNotFound);
+        }
+
+        let model = get_provider_model(provider_id);
 
         if model.trim().is_empty() {
             return Err(crate::cleanup_resolver::SkipReason::NoModelConfigured);
         }
 
-        if provider_id == crate::settings::APPLE_INTELLIGENCE_PROVIDER_ID {
+        if provider_id == APPLE_INTELLIGENCE_PROVIDER_ID {
             #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
             {
                 if !crate::apple_intelligence::check_apple_intelligence_availability() {
@@ -501,7 +502,7 @@ async fn post_process_transcription(
             }
         }
 
-        if provider_id == crate::settings::LOCAL_LLM_PROVIDER_ID {
+        if provider_id == LOCAL_LLM_PROVIDER_ID {
             #[cfg(not(target_os = "macos"))]
             {
                 return Err(crate::cleanup_resolver::SkipReason::ProviderUnavailableInThisBuild);
@@ -514,16 +515,12 @@ async fn post_process_transcription(
             }
         }
 
-        let needs_api_key = provider_id != crate::settings::LOCAL_LLM_PROVIDER_ID
-            && provider_id != crate::settings::APPLE_INTELLIGENCE_PROVIDER_ID
+        let needs_api_key = provider_id != LOCAL_LLM_PROVIDER_ID
+            && provider_id != APPLE_INTELLIGENCE_PROVIDER_ID
             && provider_id != "custom";
 
         if needs_api_key {
-            let api_key = settings
-                .post_process_api_keys
-                .get(provider_id)
-                .cloned()
-                .unwrap_or_default();
+            let api_key = get_api_key(provider_id);
             if api_key.trim().is_empty() {
                 return Err(crate::cleanup_resolver::SkipReason::NoApiKey);
             }
@@ -532,15 +529,22 @@ async fn post_process_transcription(
         Ok(())
     };
 
-    let decision = crate::cleanup_resolver::resolve_cleanup(
-        selected_provider_id,
-        provider_usable,
-        local_model_downloaded,
-        on_macos,
-    );
+    let decision = crate::cleanup_resolver::resolve_cleanup(selected_provider_id, provider_usable);
 
     let resolved_provider_id = match decision {
-        crate::cleanup_resolver::CleanupDecision::Run { provider_id } => provider_id,
+        crate::cleanup_resolver::CleanupDecision::Run {
+            provider_id,
+            fallback_from,
+        } => {
+            if let Some((original_id, reason)) = fallback_from {
+                log::info!(
+                    "Cleanup: {} unavailable ({}), using on-device model",
+                    original_id,
+                    reason
+                );
+            }
+            provider_id
+        }
         crate::cleanup_resolver::CleanupDecision::Skip { reason } => {
             log::info!("Post-processing skipped: {}", reason);
             return None;
@@ -562,27 +566,8 @@ async fn post_process_transcription(
         }
     };
 
-    let model = if resolved_provider_id == crate::settings::LOCAL_LLM_PROVIDER_ID {
-        settings
-            .post_process_models
-            .get(&resolved_provider_id)
-            .filter(|s| !s.trim().is_empty())
-            .map(|s| s.as_str())
-            .unwrap_or(crate::settings::LOCAL_LLM_DEFAULT_MODEL_ID)
-            .to_string()
-    } else {
-        settings
-            .post_process_models
-            .get(&resolved_provider_id)
-            .cloned()
-            .unwrap_or_default()
-    };
-
-    let api_key = settings
-        .post_process_api_keys
-        .get(&resolved_provider_id)
-        .cloned()
-        .unwrap_or_default();
+    let model = get_provider_model(&resolved_provider_id);
+    let api_key = get_api_key(&resolved_provider_id);
 
     debug!(
         "Starting LLM post-processing with provider '{}' (model: {})",

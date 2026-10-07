@@ -39,8 +39,13 @@ impl std::fmt::Display for SkipReason {
 }
 
 pub enum CleanupDecision {
-    Run { provider_id: String },
-    Skip { reason: SkipReason },
+    Run {
+        provider_id: String,
+        fallback_from: Option<(String, SkipReason)>,
+    },
+    Skip {
+        reason: SkipReason,
+    },
 }
 
 pub fn check_global_preconditions<'a>(
@@ -65,22 +70,30 @@ pub fn check_global_preconditions<'a>(
 pub fn resolve_cleanup(
     selected_provider_id: &str,
     provider_usable: impl Fn(&str) -> Result<(), SkipReason>,
-    local_model_downloaded: bool,
-    on_macos: bool,
 ) -> CleanupDecision {
+    if selected_provider_id.trim().is_empty() {
+        return CleanupDecision::Skip {
+            reason: SkipReason::NoProviderSelected,
+        };
+    }
+
     match provider_usable(selected_provider_id) {
         Ok(()) => CleanupDecision::Run {
             provider_id: selected_provider_id.to_string(),
+            fallback_from: None,
         },
         Err(reason) => {
-            if on_macos
-                && local_model_downloaded
-                && selected_provider_id != crate::settings::LOCAL_LLM_PROVIDER_ID
-            {
-                if provider_usable(crate::settings::LOCAL_LLM_PROVIDER_ID).is_ok() {
-                    return CleanupDecision::Run {
-                        provider_id: crate::settings::LOCAL_LLM_PROVIDER_ID.to_string(),
-                    };
+            if selected_provider_id != crate::settings::LOCAL_LLM_PROVIDER_ID {
+                match provider_usable(crate::settings::LOCAL_LLM_PROVIDER_ID) {
+                    Ok(()) => {
+                        return CleanupDecision::Run {
+                            provider_id: crate::settings::LOCAL_LLM_PROVIDER_ID.to_string(),
+                            fallback_from: Some((selected_provider_id.to_string(), reason)),
+                        };
+                    }
+                    Err(local_reason) => {
+                        log::debug!("Local fallback unavailable: {}", local_reason);
+                    }
                 }
             }
             CleanupDecision::Skip { reason }
@@ -96,10 +109,14 @@ mod tests {
     fn test_resolve_cleanup() {
         // selected cloud usable -> run it
         let provider_usable_1 = |_id: &str| -> Result<(), SkipReason> { Ok(()) };
-        let decision = resolve_cleanup("openai", &provider_usable_1, true, true);
-        assert!(
-            matches!(decision, CleanupDecision::Run { provider_id } if provider_id == "openai")
-        );
+        let decision = resolve_cleanup("openai", &provider_usable_1);
+        assert!(matches!(
+            decision,
+            CleanupDecision::Run {
+                ref provider_id,
+                fallback_from: None
+            } if provider_id == "openai"
+        ));
 
         // selected OpenAI without API key + local downloaded -> run local
         let provider_usable_2 = |id: &str| -> Result<(), SkipReason> {
@@ -109,10 +126,14 @@ mod tests {
                 Err(SkipReason::NoApiKey)
             }
         };
-        let decision = resolve_cleanup("openai", &provider_usable_2, true, true);
-        assert!(
-            matches!(decision, CleanupDecision::Run { provider_id } if provider_id == crate::settings::LOCAL_LLM_PROVIDER_ID)
-        );
+        let decision = resolve_cleanup("openai", &provider_usable_2);
+        assert!(matches!(
+            decision,
+            CleanupDecision::Run {
+                ref provider_id,
+                fallback_from: Some((ref fallback_id, SkipReason::NoApiKey))
+            } if provider_id == crate::settings::LOCAL_LLM_PROVIDER_ID && fallback_id == "openai"
+        ));
 
         // selected OpenAI without API key + local not downloaded -> skip NoApiKey
         let provider_usable_3 = |id: &str| -> Result<(), SkipReason> {
@@ -122,7 +143,7 @@ mod tests {
                 Err(SkipReason::NoApiKey)
             }
         };
-        let decision = resolve_cleanup("openai", &provider_usable_3, false, true);
+        let decision = resolve_cleanup("openai", &provider_usable_3);
         assert!(matches!(
             decision,
             CleanupDecision::Skip {
@@ -141,19 +162,21 @@ mod tests {
         let decision = resolve_cleanup(
             crate::settings::APPLE_INTELLIGENCE_PROVIDER_ID,
             &provider_usable_apple,
-            true,
-            true,
         );
-        assert!(
-            matches!(decision, CleanupDecision::Run { provider_id } if provider_id == crate::settings::LOCAL_LLM_PROVIDER_ID)
-        );
+        assert!(matches!(
+            decision,
+            CleanupDecision::Run {
+                ref provider_id,
+                fallback_from: Some((ref fallback_id, SkipReason::AppleIntelligenceUnavailable))
+            } if provider_id == crate::settings::LOCAL_LLM_PROVIDER_ID && fallback_id == crate::settings::APPLE_INTELLIGENCE_PROVIDER_ID
+        ));
 
-        // not macOS -> never local
-        let decision = resolve_cleanup("openai", &provider_usable_3, true, false);
+        // empty provider id -> Skip(NoProviderSelected)
+        let decision = resolve_cleanup("   ", &provider_usable_3);
         assert!(matches!(
             decision,
             CleanupDecision::Skip {
-                reason: SkipReason::NoApiKey
+                reason: SkipReason::NoProviderSelected
             }
         ));
 
@@ -163,8 +186,6 @@ mod tests {
         let decision = resolve_cleanup(
             crate::settings::LOCAL_LLM_PROVIDER_ID,
             &provider_usable_local_only,
-            false,
-            true,
         );
         assert!(matches!(
             decision,
