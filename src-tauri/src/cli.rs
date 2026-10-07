@@ -64,19 +64,23 @@ pub struct CliArgs {
     /// Run the on-device cleanup eval on this JSONL set and exit.
     /// No window and no tray. macOS only. Exit 0 when both score bars pass,
     /// otherwise 1. Does not change saved settings and does not download a model.
-    #[arg(long, value_name = "SET.jsonl")]
+    #[arg(
+        long,
+        value_name = "SET.jsonl",
+        conflicts_with_all = ["toggle_transcription", "toggle_post_process", "cancel", "transcribe_file", "list_devices", "list_models"]
+    )]
     pub cleanup_eval: Option<PathBuf>,
 
     /// GGUF file for --cleanup-eval.
-    #[arg(long, value_name = "MODEL.gguf")]
+    #[arg(long, value_name = "MODEL.gguf", requires = "cleanup_eval")]
     pub eval_model: Option<PathBuf>,
 
     /// Built-in cleanup prompt id for --cleanup-eval.
     /// Defaults to default_improve_transcriptions.
-    #[arg(long, value_name = "ID")]
+    #[arg(long, value_name = "ID", requires = "cleanup_eval")]
     pub eval_prompt: Option<String>,
 
     /// Markdown report path for --cleanup-eval. Omit to write the report to stdout.
-    #[arg(long, value_name = "REPORT.md")]
+    #[arg(long, value_name = "REPORT.md", requires = "cleanup_eval")]
     pub eval_out: Option<PathBuf>,
 }

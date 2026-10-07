@@ -195,6 +195,7 @@ Coco Voice supports command-line parameters on all platforms for integration wit
 - `--cleanup-eval` returns before Tauri starts, so it never opens a window or tray and is not forwarded to a running instance
 - Remote control flags work via `tauri_plugin_single_instance`: second instance sends args, then exits
 - `send_transcription_input()` in `signal_handle.rs` is shared between signal handlers and CLI
+- For the cleanup eval, use `scripts/run-cleanup-eval.sh <set.jsonl> [report.md]`.
 
 ## Debug Mode
 

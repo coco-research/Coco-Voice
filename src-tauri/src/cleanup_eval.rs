@@ -218,6 +218,7 @@ fn judge(item: &EvalItem, generated: Result<&str, &str>) -> (String, TakeScore) 
 
 fn parse_eval_set(text: &str) -> Result<Vec<EvalItem>, String> {
     let mut items = Vec::new();
+    let mut seen_ids = std::collections::HashSet::new();
     for (idx, line) in text.lines().enumerate() {
         let line = line.trim();
         if line.is_empty() {
@@ -226,6 +227,15 @@ fn parse_eval_set(text: &str) -> Result<Vec<EvalItem>, String> {
         let line_no = idx + 1;
         let raw: RawItem =
             serde_json::from_str(line).map_err(|err| format!("line {line_no}: {err}"))?;
+        if !seen_ids.insert(raw.id.clone()) {
+            return Err(format!("line {line_no}: duplicate id {:?}", raw.id));
+        }
+        if raw.keep.is_empty() {
+            return Err(format!(
+                "line {line_no}: keep list is empty for id {:?}",
+                raw.id
+            ));
+        }
         let kind = match raw.kind.as_str() {
             "retract" => EvalKind::Retract,
             "keep" => EvalKind::Keep,
@@ -381,6 +391,16 @@ fn run_eval_macos(args: &crate::cli::CliArgs) -> Result<bool, String> {
         return Err(format!("eval model not found: {}", model_path.display()));
     }
 
+    if let Some(out_path) = args.eval_out.as_ref() {
+        if let Some(parent) = out_path.parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent).map_err(|err| {
+                    format!("failed to create directory {}: {err}", parent.display())
+                })?;
+            }
+        }
+    }
+
     let text = std::fs::read_to_string(set_path)
         .map_err(|err| format!("cannot read {}: {err}", set_path.display()))?;
     let items = parse_eval_set(&text).map_err(|err| format!("{}: {err}", set_path.display()))?;
@@ -411,10 +431,7 @@ fn run_eval_macos(args: &crate::cli::CliArgs) -> Result<bool, String> {
             None,
             None,
         ));
-        let judged = match &generated {
-            Ok(text) => judge(item, Ok(text)),
-            Err(err) => judge(item, Err(err)),
-        };
+        let judged = judge(item, generated.as_deref().map_err(|e| e.as_str()));
         scored.push((item.kind, judged.1.clone()));
         rows.push(ReportRow {
             id: item.id.clone(),
@@ -701,5 +718,25 @@ mod tests {
         assert!(!score.meaning_ok);
         assert!(score.retraction_ok);
         assert_eq!(score.reason, "missing keep: fifteen|15; chairs");
+    }
+
+    #[test]
+    fn rejects_duplicate_id() {
+        let text = concat!(
+            "{\"id\":\"k01\",\"kind\":\"keep\",\"input\":\"hello\",\"keep\":[\"hello\"],\"drop\":[]}\n",
+            "{\"id\":\"k01\",\"kind\":\"keep\",\"input\":\"world\",\"keep\":[\"world\"],\"drop\":[]}\n",
+        );
+        let err = parse_eval_set(text).unwrap_err();
+        assert!(err.contains("duplicate id"), "{err}");
+        assert!(err.contains("\"k01\""), "{err}");
+    }
+
+    #[test]
+    fn rejects_empty_keep_list() {
+        let text =
+            "{\"id\":\"k01\",\"kind\":\"keep\",\"input\":\"hello\",\"keep\":[],\"drop\":[]}\n";
+        let err = parse_eval_set(text).unwrap_err();
+        assert!(err.contains("keep list is empty"), "{err}");
+        assert!(err.contains("\"k01\""), "{err}");
     }
 }
