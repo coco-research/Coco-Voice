@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install system dependencies
         run: |
@@ -51,7 +51,7 @@ jobs:
       # CMake 4.x dropped compatibility with projects that declare < 3.5.
       CMAKE_POLICY_VERSION_MINIMUM: "3.5"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # Same toolchain setup as build.yml, so the job does not depend on the
       # runner image shipping cargo.
