@@ -32,9 +32,9 @@ use tauri::{AppHandle, Emitter};
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
 /// Local cleanup length. A catalog model id is not a token count, so this is
-/// not parsed out of the model string.
+/// not parsed out of the model string. `--cleanup-eval` uses the same budget.
 #[cfg(target_os = "macos")]
-const LOCAL_LLM_MAX_TOKENS: i32 = 512;
+pub(crate) const LOCAL_LLM_MAX_TOKENS: i32 = 512;
 
 /// How long to wait for a stream worker that overran its finalize timeout to
 /// return the engine before giving up on the batch fallback.
@@ -94,7 +94,7 @@ struct TranscribeAction {
 const TRANSCRIPTION_FIELD: &str = "transcription";
 
 /// Strip invisible Unicode characters that some LLMs may insert
-fn strip_invisible_chars(s: &str) -> String {
+pub(crate) fn strip_invisible_chars(s: &str) -> String {
     s.replace(['\u{200B}', '\u{200C}', '\u{200D}', '\u{FEFF}'], "")
 }
 
@@ -272,7 +272,7 @@ fn build_refine_legacy_prompt(previous_output: &str, correction: &str) -> String
 /// built (refine system prompt + PREVIOUS/CORRECTION user content) so the model
 /// edits that prior output using `transcription` as the spoken correction;
 /// otherwise the normal clean-up prompt is built from the user's template.
-fn build_post_process_messages(
+pub(crate) fn build_post_process_messages(
     prompt_template: &str,
     transcription: &str,
     prior_output: Option<&str>,
