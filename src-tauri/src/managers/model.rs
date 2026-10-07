@@ -1779,8 +1779,9 @@ impl ModelManager {
     }
 
     /// Verifies the SHA256 of `path` against `expected_sha256` (if provided).
-    /// On mismatch or read error the partial file is deleted and an error is returned,
-    /// so the next download attempt always starts from a clean state.
+    /// On a confirmed hash mismatch, the target file is deleted. If it resolves to a blob
+    /// named exactly after the expected hash, that blob is also removed. An I/O error while
+    /// hashing returns the error without deleting anything.
     /// When `expected_sha256` is `None` (custom user models) verification is skipped.
     fn verify_sha256(path: &Path, expected_sha256: Option<&str>, model_id: &str) -> Result<()> {
         let Some(expected) = expected_sha256 else {
@@ -1796,20 +1797,26 @@ impl ModelManager {
                     "SHA256 mismatch for model {}: expected {}, got {}",
                     model_id, expected, actual
                 );
+                // Hugging Face LFS blobs are named by their expected SHA-256 hash.
+                // A corrupt blob with this name is useless to all tools; a differently named file may be shared and must stay.
+                if let Ok(blob) = fs::canonicalize(path) {
+                    if let Some(blob_name) = blob.file_name().and_then(|n| n.to_str()) {
+                        if blob_name.eq_ignore_ascii_case(expected.trim()) {
+                            let _ = fs::remove_file(&blob);
+                        }
+                    }
+                }
                 let _ = fs::remove_file(path);
                 Err(anyhow::anyhow!(
                     "Download verification failed for model {}: file is corrupt (expected {}, got {}). Please delete the model and download again.",
                     model_id, expected, actual
                 ))
             }
-            Err(e) => {
-                let _ = fs::remove_file(path);
-                Err(anyhow::anyhow!(
-                    "Failed to verify download for model {}: {}. Please retry.",
-                    model_id,
-                    e
-                ))
-            }
+            Err(e) => Err(anyhow::anyhow!(
+                "Failed to verify download for model {}: {}. Please retry.",
+                model_id,
+                e
+            )),
         }
     }
 
@@ -1923,9 +1930,8 @@ impl ModelManager {
                     })?;
                     let blob_name = blob
                         .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("")
-                        .to_string();
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default();
 
                     let _ = self
                         .app_handle
@@ -2879,6 +2885,59 @@ mod tests {
             ModelManager::verify_sha256(&missing_path, Some("anyexpectedhash"), "missing_model");
 
         assert!(result.is_err(), "missing file must return an error");
+    }
+
+    #[test]
+    fn test_verify_sha256_read_error_does_not_remove_anything() {
+        let dir = TempDir::new().unwrap();
+        let dir_path = dir.path().join("a_directory");
+        std::fs::create_dir(&dir_path).unwrap();
+
+        let result = ModelManager::verify_sha256(&dir_path, Some("anyexpectedhash"), "dir_model");
+        assert!(result.is_err());
+        // The directory should still exist since read errors must not delete anything
+        assert!(dir_path.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_verify_sha256_mismatch_removes_blob_named_after_hash() {
+        use std::os::unix::fs::symlink;
+        let dir = TempDir::new().unwrap();
+        let wrong_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+        let blob_path = dir.path().join(wrong_hash);
+        let mut f = File::create(&blob_path).unwrap();
+        f.write_all(b"this is not the real model").unwrap();
+        drop(f);
+        let link_path = dir.path().join("snapshot_link");
+        symlink(&blob_path, &link_path).unwrap();
+
+        let result = ModelManager::verify_sha256(&link_path, Some(wrong_hash), "bad_model");
+        assert!(result.is_err());
+        assert!(!link_path.exists(), "snapshot link must be deleted");
+        assert!(
+            !blob_path.exists(),
+            "blob named after expected hash must be deleted"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_verify_sha256_mismatch_keeps_blob_with_other_name() {
+        use std::os::unix::fs::symlink;
+        let dir = TempDir::new().unwrap();
+        let wrong_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+        let blob_path = dir.path().join("some_other_name");
+        let mut f = File::create(&blob_path).unwrap();
+        f.write_all(b"this is not the real model").unwrap();
+        drop(f);
+        let link_path = dir.path().join("snapshot_link");
+        symlink(&blob_path, &link_path).unwrap();
+
+        let result = ModelManager::verify_sha256(&link_path, Some(wrong_hash), "bad_model");
+        assert!(result.is_err());
+        assert!(!link_path.exists(), "snapshot link must be deleted");
+        assert!(blob_path.exists(), "blob with different name must be kept");
     }
 
     fn push_gguf_str(out: &mut Vec<u8>, val: &str) {
