@@ -48,6 +48,8 @@ struct CatalogModel {
     /// from `recommended_rank`, which only orders the full list.
     #[serde(default)]
     recommended: bool,
+    #[serde(default)]
+    license: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -98,11 +100,99 @@ impl From<CatalogModel> for ModelDescriptor {
     }
 }
 
+/// Models held from the catalog for compliance reasons.
+pub const LEGAL_HOLD_IDS: &[&str] = &[
+    // held for legal review (custom licences)
+    "handy-computer/parakeet-unified-en-0.6b-gguf",
+    "handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf",
+    "handy-computer/nemotron-speech-streaming-en-0.6b-gguf",
+    "handy-computer/medasr-gguf",
+    "handy-computer/SenseVoiceSmall-gguf",
+    // non-commercial
+    "handy-computer/canary-1b-gguf",
+    "handy-computer/moonshine-tiny-vi-gguf",
+    "handy-computer/moonshine-tiny-uk-gguf",
+    "handy-computer/moonshine-tiny-ko-gguf",
+    "handy-computer/moonshine-tiny-zh-gguf",
+    "handy-computer/moonshine-tiny-ar-gguf",
+    "handy-computer/moonshine-tiny-ja-gguf",
+    "handy-computer/moonshine-base-ar-gguf",
+    "handy-computer/moonshine-base-ko-gguf",
+    "handy-computer/moonshine-base-uk-gguf",
+    "handy-computer/moonshine-base-ja-gguf",
+    "handy-computer/moonshine-base-vi-gguf",
+    "handy-computer/moonshine-base-zh-gguf",
+];
+
+/// catalog says "other", upstream FunAudioLLM releases these under Apache-2.0
+/// (verified 2026-09-27 in the model-source audit).
+pub const CLEARED_OTHER_IDS: &[&str] = &[
+    "handy-computer/Fun-ASR-MLT-Nano-2512-gguf",
+    "handy-computer/Fun-ASR-Nano-2512-gguf",
+];
+
+/// Checks if a given repo id is on the legal hold list (case-insensitive).
+pub(crate) fn repo_on_legal_hold(repo_id: &str) -> bool {
+    LEGAL_HOLD_IDS
+        .iter()
+        .any(|held_id| held_id.eq_ignore_ascii_case(repo_id))
+}
+
+/// A catalog entry is offered only if its id is NOT on legal hold, AND its license
+/// is allowlisted (or its id is explicitly cleared).
+fn is_allowed_catalog_entry(id: &str, license: Option<&str>) -> bool {
+    if repo_on_legal_hold(id) {
+        return false;
+    }
+
+    let l_lower = license.map(|l| l.trim().to_lowercase());
+
+    if let Some(ref l) = l_lower {
+        if l == "mit" || l == "apache-2.0" || l == "cc-by-4.0" {
+            return true;
+        }
+    }
+
+    if CLEARED_OTHER_IDS
+        .iter()
+        .any(|cleared| cleared.eq_ignore_ascii_case(id))
+    {
+        if let Some(ref l) = l_lower {
+            if l == "other" {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
+static WITHHELD_REPOS: Lazy<std::collections::HashSet<String>> = Lazy::new(|| {
+    let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json"))
+        .expect("bundled catalog.json is valid JSON matching the catalog schema");
+    root.models
+        .into_iter()
+        .filter(|m| !is_allowed_catalog_entry(&m.id, m.license.as_deref()))
+        .map(|m| m.id.to_lowercase())
+        .collect()
+});
+
+pub(crate) fn repo_withheld(repo_id: &str) -> bool {
+    if repo_on_legal_hold(repo_id) {
+        return true;
+    }
+    WITHHELD_REPOS.contains(&repo_id.to_lowercase())
+}
+
 /// The bundled catalog, parsed once and normalised into descriptors.
 pub static CATALOG: Lazy<Vec<ModelDescriptor>> = Lazy::new(|| {
     let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json"))
         .expect("bundled catalog.json is valid JSON matching the catalog schema");
-    root.models.into_iter().map(ModelDescriptor::from).collect()
+    root.models
+        .into_iter()
+        .filter(|m| is_allowed_catalog_entry(&m.id, m.license.as_deref()))
+        .map(ModelDescriptor::from)
+        .collect()
 });
 
 /// Editorial recommended rank keyed by descriptor id (the same id the model
@@ -161,5 +251,76 @@ mod tests {
             "catalog architecture(s) missing from KNOWN_ARCHES: {:?}",
             missing
         );
+    }
+
+    #[test]
+    fn compliance_gated_models_are_dropped() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        // Every held id must exist in catalog.json, so a typo fails here.
+        for id in LEGAL_HOLD_IDS {
+            assert!(
+                root.models.iter().any(|m| m.id == *id),
+                "LEGAL_HOLD_IDS entry {id} is not in catalog.json"
+            );
+            assert!(
+                !CATALOG.iter().any(|d| d.id.starts_with(&format!("{id}/"))),
+                "catalog must not offer gated id {id}"
+            );
+        }
+
+        // A new non-allowlisted model in a regenerated catalog must fail here and be reviewed.
+        assert_eq!(
+            root.models.len() - CATALOG.len(),
+            18,
+            "a new non-allowlisted model in a regenerated catalog must fail here and be reviewed"
+        );
+
+        assert!(!is_allowed_catalog_entry("any/model", Some("other")));
+        assert!(!is_allowed_catalog_entry("any/model", Some("cc-by-nc-4.0")));
+        assert!(!is_allowed_catalog_entry(
+            "any/model",
+            Some("qwen-research")
+        ));
+        assert!(!is_allowed_catalog_entry("any/model", None));
+        assert!(is_allowed_catalog_entry("any/model", Some(" MIT ")));
+        assert!(is_allowed_catalog_entry("any/model", Some("Apache-2.0")));
+
+        // Test CLEARED_OTHER_IDS
+        let cleared_id = CLEARED_OTHER_IDS[0];
+        assert!(is_allowed_catalog_entry(cleared_id, Some("other")));
+        assert!(!is_allowed_catalog_entry(cleared_id, Some("cc-by-nc-4.0")));
+        assert!(!is_allowed_catalog_entry(cleared_id, None));
+    }
+
+    #[test]
+    fn repo_on_legal_hold_is_case_insensitive() {
+        assert!(repo_on_legal_hold("handy-computer/SenseVoiceSmall-gguf"));
+        assert!(repo_on_legal_hold("HANDY-COMPUTER/SENSEVOICESMALL-GGUF"));
+        assert!(!repo_on_legal_hold("handy-computer/whisper-small-gguf"));
+    }
+
+    #[test]
+    fn repo_withheld_behavior() {
+        // True for a held ID in any case
+        assert!(repo_withheld("handy-computer/SenseVoiceSmall-gguf"));
+        assert!(repo_withheld("HANDY-COMPUTER/SENSEVOICESMALL-GGUF"));
+
+        // Withheld exactly when the allowlist rejects the catalog entry.
+        assert!(!LEGAL_HOLD_IDS.is_empty() && !CLEARED_OTHER_IDS.is_empty());
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        for m in &root.models {
+            assert_eq!(
+                repo_withheld(&m.id),
+                !is_allowed_catalog_entry(&m.id, m.license.as_deref()),
+                "{}",
+                m.id
+            );
+        }
+
+        // False for an allowlisted catalog repo
+        assert!(!repo_withheld("handy-computer/whisper-small-gguf"));
+
+        // False for an unknown repo
+        assert!(!repo_withheld("some/unknown-repo"));
     }
 }

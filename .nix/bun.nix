@@ -501,6 +501,10 @@
     url = "https://registry.npmjs.org/@tauri-apps/api/-/api-2.10.1.tgz";
     hash = "sha512-hKL/jWf293UDSUN09rR69hrToyIXBb8CjGaWC7gfinvnQrBVvnLr08FeFi38gxtugAVyVcTa5/FD/Xnkb1siBw==";
   };
+  "@tauri-apps/api@2.12.1" = fetchurl {
+    url = "https://registry.npmjs.org/@tauri-apps/api/-/api-2.12.1.tgz";
+    hash = "sha512-DeyFHa3wynpyoqTDikDEDGTJIq4LQ5USfolQGRmGIWT6JMADyxZBTDa5cAdT3tDg73rUXufPaCwN7aXBos4OnQ==";
+  };
   "@tauri-apps/api@2.9.0" = fetchurl {
     url = "https://registry.npmjs.org/@tauri-apps/api/-/api-2.9.0.tgz";
     hash = "sha512-qD5tMjh7utwBk9/5PrTA/aGr3i5QaJ/Mlt7p8NilQ45WgbifUNPyKWsA63iQ8YfQq6R8ajMapU+/Q8nMcPRLNw==";
@@ -561,9 +565,9 @@
     url = "https://registry.npmjs.org/@tauri-apps/plugin-clipboard-manager/-/plugin-clipboard-manager-2.3.2.tgz";
     hash = "sha512-CUlb5Hqi2oZbcZf4VUyUH53XWPPdtpw43EUpCza5HWZJwxEoDowFzNUDt1tRUXA8Uq+XPn17Ysfptip33sG4eQ==";
   };
-  "@tauri-apps/plugin-dialog@2.6.0" = fetchurl {
-    url = "https://registry.npmjs.org/@tauri-apps/plugin-dialog/-/plugin-dialog-2.6.0.tgz";
-    hash = "sha512-q4Uq3eY87TdcYzXACiYSPhmpBA76shgmQswGkSVio4C82Sz2W4iehe9TnKYwbq7weHiL88Yw19XZm7v28+Micg==";
+  "@tauri-apps/plugin-dialog@2.8.1" = fetchurl {
+    url = "https://registry.npmjs.org/@tauri-apps/plugin-dialog/-/plugin-dialog-2.8.1.tgz";
+    hash = "sha512-/DtE3B62JgpYuWFL5ATXM6KOXUq7pca7cJWOgSqULhZsgyjLk0PWKek1dbRDvhNBW6flNsOfWphsKnb+738Dmw==";
   };
   "@tauri-apps/plugin-fs@2.4.4" = fetchurl {
     url = "https://registry.npmjs.org/@tauri-apps/plugin-fs/-/plugin-fs-2.4.4.tgz";
@@ -593,9 +597,9 @@
     url = "https://registry.npmjs.org/@tauri-apps/plugin-store/-/plugin-store-2.4.1.tgz";
     hash = "sha512-ckGSEzZ5Ii4Hf2D5x25Oqnm2Zf9MfDWAzR+volY0z/OOBz6aucPKEY0F649JvQ0Vupku6UJo7ugpGRDOFOunkA==";
   };
-  "@tauri-apps/plugin-updater@2.10.0" = fetchurl {
-    url = "https://registry.npmjs.org/@tauri-apps/plugin-updater/-/plugin-updater-2.10.0.tgz";
-    hash = "sha512-ljN8jPlnT0aSn8ecYhuBib84alxfMx6Hc8vJSKMJyzGbTPFZAC44T2I1QNFZssgWKrAlofvJqCC6Rr472JWfkQ==";
+  "@tauri-apps/plugin-updater@2.13.1" = fetchurl {
+    url = "https://registry.npmjs.org/@tauri-apps/plugin-updater/-/plugin-updater-2.13.1.tgz";
+    hash = "sha512-+STDzJ0sdQLImjc63zkv6Nncimqeo6jyCWoTQtbSwgGLNj1qbP9I6LC4p5R5ocBk3gNKAZs6i/AJz0jxysytiw==";
   };
   "@tybys/wasm-util@0.10.1" = fetchurl {
     url = "https://registry.npmjs.org/@tybys/wasm-util/-/wasm-util-0.10.1.tgz";
@@ -901,9 +905,9 @@
     url = "https://registry.npmjs.org/escape-string-regexp/-/escape-string-regexp-5.0.0.tgz";
     hash = "sha512-/veY75JbMK4j1yjvuUxuVsiS/hr/4iHs9FTT6cgTexxdE0Ly/glccBAkloH/DofkjRbZU3bnoj38mOmhkZ0lHw==";
   };
-  "eslint-plugin-i18next@6.1.3" = fetchurl {
-    url = "https://registry.npmjs.org/eslint-plugin-i18next/-/eslint-plugin-i18next-6.1.3.tgz";
-    hash = "sha512-z/h4oBRd9wI1ET60HqcLSU6XPeAh/EPOrBBTyCdkWeMoYrWAaUVA+DOQkWTiNIyCltG4NTmy62SQisVXxoXurw==";
+  "eslint-plugin-i18next@6.1.5" = fetchurl {
+    url = "https://registry.npmjs.org/eslint-plugin-i18next/-/eslint-plugin-i18next-6.1.5.tgz";
+    hash = "sha512-xCTfstbK9ZpQ6UFT5S1s6zbZMhKn2o2jRSQYiU2UkV7wt8y1m3WjkUYGkGlipgRdFInYI9+LAqE+JQU/L73HmA==";
   };
   "eslint-scope@8.4.0" = fetchurl {
     url = "https://registry.npmjs.org/eslint-scope/-/eslint-scope-8.4.0.tgz";
@@ -1212,10 +1216,6 @@
   "lodash.merge@4.6.2" = fetchurl {
     url = "https://registry.npmjs.org/lodash.merge/-/lodash.merge-4.6.2.tgz";
     hash = "sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==";
-  };
-  "lodash@4.17.21" = fetchurl {
-    url = "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz";
-    hash = "sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==";
   };
   "longest-streak@3.1.0" = fetchurl {
     url = "https://registry.npmjs.org/longest-streak/-/longest-streak-3.1.0.tgz";

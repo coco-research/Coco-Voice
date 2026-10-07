@@ -1,9 +1,14 @@
-use log::{debug, warn};
+use log::{debug, error, warn};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Set once a settings read fell back to defaults. After that, writes are
+/// refused so a read-modify-write can never save defaults over the user's file.
+static STORE_READ_FAILED: AtomicBool = AtomicBool::new(false);
 use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
 
@@ -496,7 +501,7 @@ fn default_model() -> String {
     "".to_string()
 }
 
-const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 1;
+const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 2;
 
 fn default_settings_schema_version() -> u32 {
     CURRENT_SETTINGS_SCHEMA_VERSION
@@ -573,8 +578,17 @@ fn default_paste_delay_ms() -> u64 {
     60
 }
 
+/// How long to wait after the paste keystroke before the previous clipboard is
+/// restored. The target app reads the pasteboard on its own thread, so a busy app
+/// (heavy browser page, indexing IDE) can take well over 60ms to do it; restoring
+/// earlier makes it insert the old clipboard instead of the transcript.
+const DEFAULT_PASTE_DELAY_AFTER_MS: u64 = 300;
+/// Shipped default before schema v2. Existing installs persisted this value,
+/// so raising [`DEFAULT_PASTE_DELAY_AFTER_MS`] never reached them.
+const LEGACY_PASTE_DELAY_AFTER_MS: u64 = 60;
+
 fn default_paste_delay_after_ms() -> u64 {
-    60
+    DEFAULT_PASTE_DELAY_AFTER_MS
 }
 
 fn default_auto_submit() -> bool {
@@ -1019,9 +1033,15 @@ pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
 }
 
 pub fn get_settings(app: &AppHandle) -> AppSettings {
-    let store = app
-        .store(crate::portable::store_path(SETTINGS_STORE_PATH))
-        .expect("Failed to initialize store");
+    let store = match app.store(crate::portable::store_path(SETTINGS_STORE_PATH)) {
+        Ok(store) => store,
+        Err(e) => {
+            // Keep the app running (and the hotkey thread alive) on defaults.
+            error!("Failed to open settings store ({e}); using default settings");
+            STORE_READ_FAILED.store(true, Ordering::SeqCst);
+            return get_default_settings();
+        }
+    };
 
     // Settings reads also persist one-time migrations. Migration helpers are
     // idempotent, so this converges after the first read of an older store.
@@ -1145,6 +1165,23 @@ fn apply_settings_migrations(
         updated = true;
     }
 
+    // Schema v2: clipboard-restore default moved from 60ms to 300ms. A stored
+    // 60 is that old default, not a user choice. Any other value stays. The
+    // schema version makes this run once, so a later explicit 60 is kept.
+    // A user who deliberately picked 60 on v1 is reset once too: the release
+    // notes for this version must say so.
+    if stored_schema_version < 2 {
+        if settings_value
+            .get("paste_delay_after_ms")
+            .and_then(|v| v.as_u64())
+            == Some(LEGACY_PASTE_DELAY_AFTER_MS)
+        {
+            settings.paste_delay_after_ms = DEFAULT_PASTE_DELAY_AFTER_MS;
+        }
+        settings.settings_schema_version = CURRENT_SETTINGS_SCHEMA_VERSION;
+        updated = true;
+    }
+
     // One-time overlay migration (only while the new key is absent): the retired
     // overlay_position `none` meant "hide the overlay" → OverlayStyle::None; any
     // other position had it visible → Live. The position enum no longer has a
@@ -1167,11 +1204,54 @@ fn apply_settings_migrations(
 }
 
 pub fn write_settings(app: &AppHandle, settings: AppSettings) {
-    let store = app
-        .store(crate::portable::store_path(SETTINGS_STORE_PATH))
-        .expect("Failed to initialize store");
+    if STORE_READ_FAILED.load(Ordering::SeqCst) {
+        error!("Settings were read as defaults this session; not saving over the store");
+        return;
+    }
+    let store = match app.store(crate::portable::store_path(SETTINGS_STORE_PATH)) {
+        Ok(store) => store,
+        Err(e) => {
+            error!("Failed to open settings store ({e}); settings were not saved");
+            return;
+        }
+    };
 
     store.set("settings", serde_json::to_value(&settings).unwrap());
+}
+
+/// Serializes read-modify-write cycles of the settings document so two
+/// concurrent writers cannot overwrite each other's changes.
+static SETTINGS_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Runs `load -> f -> save` while holding the process-wide settings lock.
+/// Split out from `update_settings` so the locking can be unit tested without
+/// an `AppHandle`.
+fn locked_update<R>(
+    load: impl FnOnce() -> AppSettings,
+    save: impl FnOnce(AppSettings),
+    f: impl FnOnce(&mut AppSettings) -> R,
+) -> R {
+    // A poisoned lock only means another writer panicked; the guard protects
+    // no data, so keep going.
+    let _guard = SETTINGS_WRITE_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut settings = load();
+    let result = f(&mut settings);
+    save(settings);
+    result
+}
+
+/// Atomically re-reads the stored settings, applies `f`, and writes them back.
+/// Prefer this over `get_settings` + `write_settings` so a slow caller cannot
+/// clobber a change another caller saved in between. `f` must not call
+/// `update_settings` itself (the lock is not reentrant).
+pub fn update_settings<R>(app: &AppHandle, f: impl FnOnce(&mut AppSettings) -> R) -> R {
+    locked_update(
+        || get_settings(app),
+        |settings| write_settings(app, settings),
+        f,
+    )
 }
 
 pub fn get_bindings(app: &AppHandle) -> HashMap<String, ShortcutBinding> {
@@ -1180,12 +1260,8 @@ pub fn get_bindings(app: &AppHandle) -> HashMap<String, ShortcutBinding> {
     settings.bindings
 }
 
-pub fn get_stored_binding(app: &AppHandle, id: &str) -> ShortcutBinding {
-    let bindings = get_bindings(app);
-
-    let binding = bindings.get(id).unwrap().clone();
-
-    binding
+pub fn get_stored_binding(app: &AppHandle, id: &str) -> Option<ShortcutBinding> {
+    get_bindings(app).get(id).cloned()
 }
 
 pub fn get_history_limit(app: &AppHandle) -> usize {
@@ -1220,7 +1296,8 @@ mod tests {
 
     /// Frozen snapshot of a real v0.9.0-era settings store, as written to
     /// disk. This pins backwards compatibility: it must always parse strictly
-    /// (no salvage) and require no migration rewrite.
+    /// (no salvage). A one-time schema migration may rewrite it; a second
+    /// pass must not.
     ///
     /// If a schema change breaks this test, do NOT just update the fixture —
     /// it stands in for the stores on users' machines. Add a
@@ -1228,7 +1305,7 @@ mod tests {
     /// `apply_settings_migrations` so old values keep loading, and only extend
     /// the fixture alongside that.
     #[test]
-    fn frozen_v0_9_store_parses_strictly_without_migration() {
+    fn frozen_v0_9_store_parses_strictly_then_migrates_once() {
         // Note "log_level": 2 — the legacy numeric format, kept deliberately.
         let stored: serde_json::Value = serde_json::from_str(
             r##"{
@@ -1332,8 +1409,82 @@ mod tests {
         assert_eq!(settings.log_level, LogLevel::Debug);
         assert_eq!(settings.sound_theme, SoundTheme::Pop);
 
-        // A current-format store must not be rewritten on every read.
-        assert!(!apply_settings_migrations(&mut settings, &stored));
+        // Schema v1 (this fixture) is rewritten once to v2. It has no
+        // paste_delay_after_ms, so the delay stays the serde default.
+        assert!(apply_settings_migrations(&mut settings, &stored));
+        assert_eq!(settings.paste_delay_after_ms, DEFAULT_PASTE_DELAY_AFTER_MS);
+        assert_eq!(
+            settings.settings_schema_version,
+            CURRENT_SETTINGS_SCHEMA_VERSION
+        );
+        let migrated = serde_json::to_value(&settings).unwrap();
+        assert!(!apply_settings_migrations(&mut settings, &migrated));
+    }
+
+    #[test]
+    fn default_paste_delay_after_lets_slow_targets_read_the_clipboard() {
+        // 60ms restored the clipboard before busy apps had pasted (#13).
+        assert!(get_default_settings().paste_delay_after_ms >= 300);
+        assert_eq!(DEFAULT_PASTE_DELAY_AFTER_MS, 300);
+        // An empty store (existing user without the key) gets the same default.
+        let settings: AppSettings = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(settings.paste_delay_after_ms, DEFAULT_PASTE_DELAY_AFTER_MS);
+    }
+
+    #[test]
+    fn paste_delay_after_migration_maps_stored_60_to_300() {
+        let mut settings = get_default_settings();
+        settings.paste_delay_after_ms = LEGACY_PASTE_DELAY_AFTER_MS;
+        settings.settings_schema_version = 1;
+
+        let raw = serde_json::json!({
+            "settings_schema_version": 1,
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": "0.9.0",
+            "overlay_style": "live",
+            "paste_delay_after_ms": LEGACY_PASTE_DELAY_AFTER_MS
+        });
+
+        assert!(apply_settings_migrations(&mut settings, &raw));
+        assert_eq!(settings.paste_delay_after_ms, DEFAULT_PASTE_DELAY_AFTER_MS);
+        assert_eq!(
+            settings.settings_schema_version,
+            CURRENT_SETTINGS_SCHEMA_VERSION
+        );
+
+        // Already migrated: a later explicit 60 is a user choice and stays.
+        settings.paste_delay_after_ms = LEGACY_PASTE_DELAY_AFTER_MS;
+        let chosen = serde_json::json!({
+            "settings_schema_version": CURRENT_SETTINGS_SCHEMA_VERSION,
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": "0.9.0",
+            "overlay_style": "live",
+            "paste_delay_after_ms": LEGACY_PASTE_DELAY_AFTER_MS
+        });
+        assert!(!apply_settings_migrations(&mut settings, &chosen));
+        assert_eq!(settings.paste_delay_after_ms, LEGACY_PASTE_DELAY_AFTER_MS);
+    }
+
+    #[test]
+    fn paste_delay_after_migration_keeps_stored_150() {
+        let mut settings = get_default_settings();
+        settings.paste_delay_after_ms = 150;
+        settings.settings_schema_version = 1;
+
+        let raw = serde_json::json!({
+            "settings_schema_version": 1,
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": "0.9.0",
+            "overlay_style": "live",
+            "paste_delay_after_ms": 150
+        });
+
+        assert!(apply_settings_migrations(&mut settings, &raw));
+        assert_eq!(settings.paste_delay_after_ms, 150);
+        assert_eq!(
+            settings.settings_schema_version,
+            CURRENT_SETTINGS_SCHEMA_VERSION
+        );
     }
 
     #[test]
@@ -1566,5 +1717,41 @@ mod tests {
         let out = format!("{:?}", map);
         assert!(!out.contains("secret"));
         assert!(out.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn locked_update_serializes_concurrent_writers() {
+        use std::sync::{Arc, Mutex};
+        use std::time::Duration;
+
+        let store = Arc::new(Mutex::new(get_default_settings()));
+        let handles: Vec<_> = (0..8)
+            .map(|i| {
+                let store = Arc::clone(&store);
+                std::thread::spawn(move || {
+                    let (load, save) = (Arc::clone(&store), Arc::clone(&store));
+                    locked_update(
+                        || load.lock().unwrap().clone(),
+                        |s| {
+                            // Widen the read-to-write window so an unlocked
+                            // writer would overwrite its neighbours.
+                            std::thread::sleep(Duration::from_millis(5));
+                            *save.lock().unwrap() = s;
+                        },
+                        |s| {
+                            let binding = s.bindings["transcribe"].clone();
+                            s.bindings.insert(format!("test_{i}"), binding);
+                        },
+                    );
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+        let stored = store.lock().unwrap();
+        for i in 0..8 {
+            assert!(stored.bindings.contains_key(&format!("test_{i}")));
+        }
     }
 }

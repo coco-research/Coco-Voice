@@ -32,7 +32,7 @@ use log::{debug, error, info};
 use serde::Serialize;
 use specta::Type;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -68,8 +68,26 @@ pub struct CocoVoiceKeysState {
     is_recording: AtomicBool,
     /// The binding ID being recorded (if any)
     recording_binding_id: Mutex<Option<String>>,
-    /// Flag to stop recording loop
-    recording_running: Arc<AtomicBool>,
+    /// Generation of the capture loop that may run. Each start claims a new
+    /// generation and stop bumps it, so a stale loop that is still inside its
+    /// sleep when the next capture starts sees a different value and exits
+    /// instead of reading the new capture's listener.
+    recording_generation: Arc<AtomicU64>,
+}
+
+/// Claims a fresh generation for a new capture loop, invalidating any older one.
+fn begin_capture(generation: &AtomicU64) -> u64 {
+    generation.fetch_add(1, Ordering::SeqCst) + 1
+}
+
+/// Invalidates whichever capture loop is running.
+fn end_capture(generation: &AtomicU64) {
+    generation.fetch_add(1, Ordering::SeqCst);
+}
+
+/// True while `mine` is still the live capture generation.
+fn capture_is_current(generation: &AtomicU64, mine: u64) -> bool {
+    generation.load(Ordering::SeqCst) == mine
 }
 
 /// Key event sent to frontend during recording mode
@@ -102,7 +120,7 @@ impl CocoVoiceKeysState {
             recording_listener: Mutex::new(None),
             is_recording: AtomicBool::new(false),
             recording_binding_id: Mutex::new(None),
-            recording_running: Arc::new(AtomicBool::new(false)),
+            recording_generation: Arc::new(AtomicU64::new(0)),
         })
     }
 
@@ -285,13 +303,13 @@ impl CocoVoiceKeysState {
         }
 
         self.is_recording.store(true, Ordering::SeqCst);
-        self.recording_running.store(true, Ordering::SeqCst);
+        let generation = begin_capture(&self.recording_generation);
 
         // Start a thread to emit key events to the frontend
         let app_clone = app.clone();
-        let recording_running = Arc::clone(&self.recording_running);
+        let recording_generation = Arc::clone(&self.recording_generation);
         thread::spawn(move || {
-            Self::recording_loop(app_clone, recording_running);
+            Self::recording_loop(app_clone, recording_generation, generation);
         });
 
         debug!("Started coco-keys recording mode");
@@ -299,14 +317,20 @@ impl CocoVoiceKeysState {
     }
 
     /// Recording loop - emits key events to frontend during recording
-    fn recording_loop(app: AppHandle, running: Arc<AtomicBool>) {
-        while running.load(Ordering::SeqCst) {
+    fn recording_loop(app: AppHandle, current: Arc<AtomicU64>, generation: u64) {
+        while capture_is_current(&current, generation) {
             let event = {
                 let state = match app.try_state::<CocoVoiceKeysState>() {
                     Some(s) => s,
                     None => break,
                 };
                 let listener = state.recording_listener.lock().ok();
+                // Re-check under the lock: stop bumped the generation before it
+                // swapped the listener, so a stale loop must not read the next
+                // capture's listener.
+                if !capture_is_current(&current, generation) {
+                    break;
+                }
                 listener.as_ref().and_then(|l| l.as_ref()?.try_recv())
             };
 
@@ -337,7 +361,7 @@ impl CocoVoiceKeysState {
     /// Stop recording mode
     pub fn stop_recording(&self) -> Result<(), String> {
         self.is_recording.store(false, Ordering::SeqCst);
-        self.recording_running.store(false, Ordering::SeqCst);
+        end_capture(&self.recording_generation);
 
         {
             let mut recording = self
@@ -362,7 +386,7 @@ impl CocoVoiceKeysState {
 impl Drop for CocoVoiceKeysState {
     fn drop(&mut self) {
         // Signal recording to stop
-        self.recording_running.store(false, Ordering::SeqCst);
+        end_capture(&self.recording_generation);
         self.is_recording.store(false, Ordering::SeqCst);
 
         // Send shutdown command
@@ -556,4 +580,27 @@ pub fn stop_handy_keys_recording(app: AppHandle) -> Result<(), String> {
         .try_state::<CocoVoiceKeysState>()
         .ok_or("CocoVoiceKeysState not initialized")?;
     state.stop_recording()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stale_capture_loop_exits_when_a_new_capture_starts() {
+        // Cancel then immediately start another binding's capture (#19). With one
+        // shared flag the old loop saw `true` again and kept running.
+        let generation = AtomicU64::new(0);
+        let first = begin_capture(&generation);
+        assert!(capture_is_current(&generation, first));
+
+        end_capture(&generation);
+        let second = begin_capture(&generation);
+
+        assert!(!capture_is_current(&generation, first));
+        assert!(capture_is_current(&generation, second));
+
+        end_capture(&generation);
+        assert!(!capture_is_current(&generation, second));
+    }
 }

@@ -25,7 +25,7 @@ export const Corrections: React.FC<CorrectionsProps> = React.memo(
     const [newTo, setNewTo] = useState("");
     const corrections: CorrectionPair[] = getSetting("corrections") || [];
 
-    const sanitize = (value: string) => value.replace(/[<>"']/g, "").trim();
+    const sanitize = (value: string) => value.replace(/[<>]/g, "").trim();
 
     const handleAddPair = () => {
       const from = sanitize(newFrom);

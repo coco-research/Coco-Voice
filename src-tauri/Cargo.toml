@@ -1,8 +1,8 @@
 [package]
 name = "coco-voice"
-version = "0.9.4"
+version = "0.9.5"
 description = "Coco Voice"
-authors = ["Coco Research"]
+authors = ["cjpais", "Coco Research"]
 edition = "2021"
 license = "MIT"
 default-run = "coco-voice"
@@ -69,6 +69,7 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 tar = "0.4.44"
 flate2 = "1.0"
 sha2 = "0.10"
+unicode-segmentation = "1.12.0"
 # Whisper-family models run through transcribe-cpp (GGUF/ggml, native backends);
 # transcribe-rs is now ONNX-only (Parakeet, Moonshine, SenseVoice, GigaAM,
 # Canary, Cohere). Per-platform backend features are added in the target tables.
@@ -110,7 +111,7 @@ windows = { version = "0.61.3", features = [
   "Win32_Foundation",
   "Win32_UI_WindowsAndMessaging",
 ] }
-winreg = "0.55"
+winreg = "0.56"
 
 # Whisper backend per Windows arch. x86_64 ships the Vulkan GPU backend and
 # keeps the dynamic-backends posture (loadable per-ISA CPU modules + Vulkan),
