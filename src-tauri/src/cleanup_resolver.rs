@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum SkipReason {
     EmptyTranscription,
@@ -12,8 +14,6 @@ pub enum SkipReason {
     LocalModelNotDownloaded,
     ProviderNotFound,
 }
-
-use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize, specta::Type, PartialEq)]
 #[serde(rename_all = "snake_case")]
