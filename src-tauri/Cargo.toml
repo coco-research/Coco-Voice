@@ -1,6 +1,6 @@
 [package]
 name = "coco-voice"
-version = "0.9.5"
+version = "0.9.6"
 description = "Coco Voice"
 authors = ["cjpais", "Coco Research"]
 edition = "2021"
