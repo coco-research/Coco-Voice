@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum SkipReason {
     EmptyTranscription,
@@ -11,6 +13,77 @@ pub enum SkipReason {
     AppleIntelligenceUnavailable,
     LocalModelNotDownloaded,
     ProviderNotFound,
+}
+
+#[derive(Debug, Clone, Serialize, specta::Type, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum CleanupStatusReason {
+    NoProviderSelected,
+    NoModelConfigured,
+    NoPromptSelected,
+    PromptNotFound,
+    PromptEmpty,
+    NoApiKey,
+    ProviderUnavailableInThisBuild,
+    AppleIntelligenceUnavailable,
+    LocalModelNotDownloaded,
+    ProviderNotFound,
+    TooLong,
+    StoppedEarly,
+    ModelLoadFailed,
+}
+
+#[derive(Debug, Clone, Serialize, specta::Type, PartialEq, tauri_specta::Event)]
+pub struct CleanupStatus {
+    pub reason: CleanupStatusReason,
+    pub needs_action: bool,
+}
+
+impl CleanupStatus {
+    pub fn status_for_skip(reason: &SkipReason) -> Option<Self> {
+        let status_reason = match reason {
+            SkipReason::EmptyTranscription => return None,
+            SkipReason::NoProviderSelected => CleanupStatusReason::NoProviderSelected,
+            SkipReason::NoModelConfigured => CleanupStatusReason::NoModelConfigured,
+            SkipReason::NoPromptSelected => CleanupStatusReason::NoPromptSelected,
+            SkipReason::PromptNotFound => CleanupStatusReason::PromptNotFound,
+            SkipReason::PromptEmpty => CleanupStatusReason::PromptEmpty,
+            SkipReason::NoApiKey => CleanupStatusReason::NoApiKey,
+            SkipReason::ProviderUnavailableInThisBuild => {
+                CleanupStatusReason::ProviderUnavailableInThisBuild
+            }
+            SkipReason::AppleIntelligenceUnavailable => {
+                CleanupStatusReason::AppleIntelligenceUnavailable
+            }
+            SkipReason::LocalModelNotDownloaded => CleanupStatusReason::LocalModelNotDownloaded,
+            SkipReason::ProviderNotFound => CleanupStatusReason::ProviderNotFound,
+        };
+        Some(Self {
+            reason: status_reason,
+            needs_action: true,
+        })
+    }
+
+    pub fn too_long() -> Self {
+        Self {
+            reason: CleanupStatusReason::TooLong,
+            needs_action: false,
+        }
+    }
+
+    pub fn stopped_early() -> Self {
+        Self {
+            reason: CleanupStatusReason::StoppedEarly,
+            needs_action: false,
+        }
+    }
+
+    pub fn model_load_failed() -> Self {
+        Self {
+            reason: CleanupStatusReason::ModelLoadFailed,
+            needs_action: false,
+        }
+    }
 }
 
 impl std::fmt::Display for SkipReason {
@@ -247,5 +320,83 @@ mod tests {
             check_global_preconditions("text", Some("valid"), &get_prompt),
             Ok("prompt text")
         );
+    }
+
+    #[test]
+    fn test_cleanup_status() {
+        let cases = vec![
+            (SkipReason::EmptyTranscription, None),
+            (
+                SkipReason::NoProviderSelected,
+                Some((CleanupStatusReason::NoProviderSelected, true)),
+            ),
+            (
+                SkipReason::NoModelConfigured,
+                Some((CleanupStatusReason::NoModelConfigured, true)),
+            ),
+            (
+                SkipReason::NoPromptSelected,
+                Some((CleanupStatusReason::NoPromptSelected, true)),
+            ),
+            (
+                SkipReason::PromptNotFound,
+                Some((CleanupStatusReason::PromptNotFound, true)),
+            ),
+            (
+                SkipReason::PromptEmpty,
+                Some((CleanupStatusReason::PromptEmpty, true)),
+            ),
+            (
+                SkipReason::NoApiKey,
+                Some((CleanupStatusReason::NoApiKey, true)),
+            ),
+            (
+                SkipReason::ProviderUnavailableInThisBuild,
+                Some((CleanupStatusReason::ProviderUnavailableInThisBuild, true)),
+            ),
+            (
+                SkipReason::AppleIntelligenceUnavailable,
+                Some((CleanupStatusReason::AppleIntelligenceUnavailable, true)),
+            ),
+            (
+                SkipReason::LocalModelNotDownloaded,
+                Some((CleanupStatusReason::LocalModelNotDownloaded, true)),
+            ),
+            (
+                SkipReason::ProviderNotFound,
+                Some((CleanupStatusReason::ProviderNotFound, true)),
+            ),
+        ];
+
+        for (reason, expected) in cases {
+            let status = CleanupStatus::status_for_skip(&reason);
+            match expected {
+                None => assert_eq!(status, None),
+                Some((expected_reason, expected_action)) => {
+                    let s = status.unwrap();
+                    assert_eq!(s.reason, expected_reason);
+                    assert_eq!(s.needs_action, expected_action);
+                }
+            }
+        }
+
+        let too_long = CleanupStatus::too_long();
+        assert_eq!(too_long.reason, CleanupStatusReason::TooLong);
+        assert!(!too_long.needs_action);
+
+        let stopped_early = CleanupStatus::stopped_early();
+        assert_eq!(stopped_early.reason, CleanupStatusReason::StoppedEarly);
+        assert!(!stopped_early.needs_action);
+
+        let model_load_failed = CleanupStatus::model_load_failed();
+        assert_eq!(
+            model_load_failed.reason,
+            CleanupStatusReason::ModelLoadFailed
+        );
+        assert!(!model_load_failed.needs_action);
+
+        // Serde test
+        let json = serde_json::to_string(&CleanupStatusReason::LocalModelNotDownloaded).unwrap();
+        assert_eq!(json, "\"local_model_not_downloaded\"");
     }
 }

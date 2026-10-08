@@ -27,6 +27,31 @@ use llama_cpp_2::sampling::LlamaSampler;
 use log::{debug, warn};
 use tokio::sync::mpsc;
 
+#[derive(Debug, PartialEq)]
+pub(crate) enum LocalLlmError {
+    OverBudget,
+    StoppedEarly,
+    Cancelled,
+    Other(String),
+}
+
+impl std::fmt::Display for LocalLlmError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::OverBudget => write!(
+                f,
+                "Local LLM prompt exceeds the context budget; pasting the raw transcript"
+            ),
+            Self::StoppedEarly => write!(
+                f,
+                "Local LLM stopped without an end-of-sequence token; pasting the raw transcript"
+            ),
+            Self::Cancelled => write!(f, "Local LLM cleanup was cancelled"),
+            Self::Other(s) => write!(f, "{}", s),
+        }
+    }
+}
+
 /// Context window used for local post-processing. A prompt that does not fit
 /// in `N_CTX - max_tokens` is refused so the raw transcript is pasted.
 const N_CTX: u32 = 2048;
@@ -133,7 +158,7 @@ pub async fn generate_text(
     max_tokens: i32,
     token_tx: Option<mpsc::Sender<String>>,
     cancel: Option<Arc<AtomicBool>>,
-) -> Result<String, String> {
+) -> Result<String, LocalLlmError> {
     let model_path = model_path.to_path_buf();
     let system_prompt = system_prompt.to_string();
     let user_content = user_content.to_string();
@@ -153,7 +178,7 @@ pub async fn generate_text(
         )
     })
     .await
-    .map_err(|e| format!("Local LLM task join error: {}", e))?
+    .map_err(|e| LocalLlmError::Other(format!("Local LLM task join error: {}", e)))?
 }
 
 /// Generation length that still leaves half the context for the prompt.
@@ -193,11 +218,11 @@ fn prompt_over_budget(template_tokens: usize, transcript_tokens: usize, budget: 
 /// Decide what a finished generation loop may return. Only a run that ended on
 /// an end-of-sequence token is complete. Any other stop (token cap, full context,
 /// receiver gone) is partial text and is refused, so the raw transcript is pasted.
-fn stop_outcome(saw_eos: bool, cancelled: bool) -> Result<(), &'static str> {
+fn stop_outcome(saw_eos: bool, cancelled: bool) -> Result<(), LocalLlmError> {
     if cancelled {
-        Err("Local LLM cleanup was cancelled")
+        Err(LocalLlmError::Cancelled)
     } else if !saw_eos {
-        Err("Local LLM stopped without an end-of-sequence token; pasting the raw transcript")
+        Err(LocalLlmError::StoppedEarly)
     } else {
         Ok(())
     }
@@ -271,7 +296,7 @@ fn generate_text_blocking(
     max_tokens: i32,
     token_tx: Option<mpsc::Sender<String>>,
     cancel: Option<Arc<AtomicBool>>,
-) -> Result<String, String> {
+) -> Result<String, LocalLlmError> {
     ensure_idle_watcher();
     let cache = model_cache();
     let mut guard = cache
@@ -306,7 +331,7 @@ fn generate_with_model(
     max_tokens: i32,
     token_tx: Option<mpsc::Sender<String>>,
     cancel: Option<Arc<AtomicBool>>,
-) -> Result<String, String> {
+) -> Result<String, LocalLlmError> {
     let max_gen = clamped_max_gen(max_tokens);
     let prompt_budget = prompt_budget(max_gen);
     let cancelled = || {
@@ -322,8 +347,9 @@ fn generate_with_model(
     let backend: &'static LlamaBackend = match BACKEND.get() {
         Some(backend) => backend,
         None => {
-            let backend = LlamaBackend::init()
-                .map_err(|e| format!("Failed to initialize llama backend: {}", e))?;
+            let backend = LlamaBackend::init().map_err(|e| {
+                LocalLlmError::Other(format!("Failed to initialize llama backend: {}", e))
+            })?;
             let _ = BACKEND.set(backend);
             BACKEND.get().expect("backend was just initialized")
         }
@@ -350,7 +376,7 @@ fn generate_with_model(
             }
         };
         let model = LlamaModel::load_from_file(backend, model_path, &params)
-            .map_err(|e| format!("Failed to load GGUF model: {}", e))?;
+            .map_err(|e| LocalLlmError::Other(format!("Failed to load GGUF model: {}", e)))?;
         *cache_guard = Some(CachedModel {
             path: model_path.to_path_buf(),
             model,
@@ -367,7 +393,7 @@ fn generate_with_model(
     let ctx_params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(N_CTX));
     let mut ctx = model
         .new_context(backend, ctx_params)
-        .map_err(|e| format!("Failed to create llama context: {}", e))?;
+        .map_err(|e| LocalLlmError::Other(format!("Failed to create llama context: {}", e)))?;
 
     // Tokenize the chat template and the transcript apart so a long transcript
     // cannot cut through `<|im_start|>` turn markers. BOS belongs on the prefix
@@ -381,27 +407,27 @@ fn generate_with_model(
     let (prefix, transcript, suffix) = chat_template_parts(system_prompt, user_content, qwen3);
     let prefix_tokens = model
         .str_to_token(&prefix, AddBos::Always)
-        .map_err(|e| format!("Failed to tokenize prompt: {}", e))?;
+        .map_err(|e| LocalLlmError::Other(format!("Failed to tokenize prompt: {}", e)))?;
     let transcript_tokens = model
         .str_to_token(&transcript, AddBos::Never)
-        .map_err(|e| format!("Failed to tokenize prompt: {}", e))?;
+        .map_err(|e| LocalLlmError::Other(format!("Failed to tokenize prompt: {}", e)))?;
     let suffix_tokens = model
         .str_to_token(&suffix, AddBos::Never)
-        .map_err(|e| format!("Failed to tokenize prompt: {}", e))?;
+        .map_err(|e| LocalLlmError::Other(format!("Failed to tokenize prompt: {}", e)))?;
     if prompt_over_budget(
         prefix_tokens.len().saturating_add(suffix_tokens.len()),
         transcript_tokens.len(),
         prompt_budget,
     ) {
-        return Err(
-            "Local LLM prompt exceeds the context budget; pasting the raw transcript".to_string(),
-        );
+        return Err(LocalLlmError::OverBudget);
     }
     let mut tokens_list = prefix_tokens;
     tokens_list.extend(transcript_tokens);
     tokens_list.extend(suffix_tokens);
     if tokens_list.is_empty() {
-        return Err("Local LLM prompt produced no tokens".to_string());
+        return Err(LocalLlmError::Other(
+            "Local LLM prompt produced no tokens".to_string(),
+        ));
     }
 
     let mut batch = LlamaBatch::new(N_CTX as usize, 1);
@@ -410,11 +436,11 @@ fn generate_with_model(
         let is_last = i as i32 == last_index;
         batch
             .add(*token, i as i32, &[0], is_last)
-            .map_err(|e| format!("Failed to add token to batch: {}", e))?;
+            .map_err(|e| LocalLlmError::Other(format!("Failed to add token to batch: {}", e)))?;
     }
 
     ctx.decode(&mut batch)
-        .map_err(|e| format!("Failed to decode prompt batch: {}", e))?;
+        .map_err(|e| LocalLlmError::Other(format!("Failed to decode prompt batch: {}", e)))?;
     let mut n_past = tokens_list.len() as i32;
 
     let mut generated = String::new();
@@ -445,7 +471,9 @@ fn generate_with_model(
 
         let token_str = model
             .token_to_piece(new_token, &mut decoder, false, None)
-            .map_err(|e| format!("Failed to convert token to string: {}", e))?;
+            .map_err(|e| {
+                LocalLlmError::Other(format!("Failed to convert token to string: {}", e))
+            })?;
 
         tokens_generated += 1;
 
@@ -477,18 +505,19 @@ fn generate_with_model(
         // position so the model attends to real context instead of rewriting
         // every token at position 0.
         batch.clear();
-        batch
-            .add(new_token, n_past, &[0], true)
-            .map_err(|e| format!("Failed to add generated token to batch: {}", e))?;
+        batch.add(new_token, n_past, &[0], true).map_err(|e| {
+            LocalLlmError::Other(format!("Failed to add generated token to batch: {}", e))
+        })?;
 
-        ctx.decode(&mut batch)
-            .map_err(|e| format!("Failed to decode generation batch: {}", e))?;
+        ctx.decode(&mut batch).map_err(|e| {
+            LocalLlmError::Other(format!("Failed to decode generation batch: {}", e))
+        })?;
         n_past += 1;
     }
 
     // Context (`ctx`) drops at the end of this function. The model stays until
     // the idle watcher unloads it.
-    stop_outcome(saw_eos, cancelled()).map_err(str::to_string)?;
+    stop_outcome(saw_eos, cancelled())?;
 
     let mut tail = String::with_capacity(8);
     let _ = decoder.decode_to_string(&[], &mut tail, true);
@@ -517,7 +546,7 @@ fn generate_with_model(
 mod tests {
     use super::{
         chat_template_parts, clamped_max_gen, idle_should_unload, is_qwen3, prompt_budget,
-        prompt_over_budget, stop_outcome, strip_think_blocks, N_CTX,
+        prompt_over_budget, stop_outcome, strip_think_blocks, LocalLlmError, N_CTX,
     };
     use std::time::{Duration, Instant};
 
@@ -538,11 +567,31 @@ mod tests {
     #[test]
     fn only_a_run_that_ended_on_eos_is_kept() {
         // Token cap or full context: no end-of-sequence token, so refuse.
-        assert!(stop_outcome(false, false).is_err());
+        assert_eq!(stop_outcome(false, false), Err(LocalLlmError::StoppedEarly));
         assert!(stop_outcome(true, false).is_ok());
         // A cancel is never pasted, finished or not.
-        assert!(stop_outcome(true, true).is_err());
-        assert!(stop_outcome(false, true).is_err());
+        assert_eq!(stop_outcome(true, true), Err(LocalLlmError::Cancelled));
+        assert_eq!(stop_outcome(false, true), Err(LocalLlmError::Cancelled));
+    }
+
+    #[test]
+    fn local_llm_error_display_matches_old_messages() {
+        assert_eq!(
+            LocalLlmError::OverBudget.to_string(),
+            "Local LLM prompt exceeds the context budget; pasting the raw transcript"
+        );
+        assert_eq!(
+            LocalLlmError::StoppedEarly.to_string(),
+            "Local LLM stopped without an end-of-sequence token; pasting the raw transcript"
+        );
+        assert_eq!(
+            LocalLlmError::Cancelled.to_string(),
+            "Local LLM cleanup was cancelled"
+        );
+        assert_eq!(
+            LocalLlmError::Other("custom failure".to_string()).to_string(),
+            "custom failure"
+        );
     }
 
     #[test]

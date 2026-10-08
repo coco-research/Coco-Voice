@@ -653,6 +653,7 @@ pub fn run(cli_args: CliArgs) {
             managers::history::HistoryUpdatePayload,
             managers::transcription::StreamTextEvent,
             managers::transcription::StreamPhaseEvent,
+            cleanup_resolver::CleanupStatus,
         ]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds

@@ -29,6 +29,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Manager;
 use tauri::{AppHandle, Emitter};
+use tauri_specta::Event;
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
 /// Local cleanup length. A catalog model id is not a token count, so this is
@@ -414,6 +415,13 @@ fn apply_app_profile_overrides(settings: &AppSettings, app: &ActiveAppInfo) -> A
     overridden
 }
 
+fn skip_cleanup(app: &AppHandle, reason: &crate::cleanup_resolver::SkipReason) {
+    log::info!("Post-processing skipped: {}", reason);
+    if let Some(status) = crate::cleanup_resolver::CleanupStatus::status_for_skip(reason) {
+        let _ = status.emit(app);
+    }
+}
+
 /// Post-processes `transcription`. When `prior_output` is `Some`, the call runs
 /// in *edit mode*: instead of cleaning a fresh transcript, the model edits the
 /// previous output using `transcription` as the spoken correction instruction.
@@ -443,7 +451,7 @@ async fn post_process_transcription(
     ) {
         Ok(p) => p.to_string(),
         Err(reason) => {
-            log::info!("Post-processing skipped: {}", reason);
+            skip_cleanup(app, &reason);
             return None;
         }
     };
@@ -546,7 +554,7 @@ async fn post_process_transcription(
             provider_id
         }
         crate::cleanup_resolver::CleanupDecision::Skip { reason } => {
-            log::info!("Post-processing skipped: {}", reason);
+            skip_cleanup(app, &reason);
             return None;
         }
     };
@@ -558,10 +566,8 @@ async fn post_process_transcription(
     {
         Some(p) => p.clone(),
         None => {
-            log::info!(
-                "Post-processing skipped: {}",
-                crate::cleanup_resolver::SkipReason::ProviderNotFound
-            );
+            let reason = crate::cleanup_resolver::SkipReason::ProviderNotFound;
+            skip_cleanup(app, &reason);
             return None;
         }
     };
@@ -639,12 +645,31 @@ async fn post_process_transcription(
                     }
                     Err(err) => {
                         error!("Local LLM post-processing failed: {}", err);
+                        match err {
+                            crate::local_llm::LocalLlmError::OverBudget => {
+                                let _ =
+                                    crate::cleanup_resolver::CleanupStatus::too_long().emit(app);
+                            }
+                            crate::local_llm::LocalLlmError::StoppedEarly => {
+                                let _ = crate::cleanup_resolver::CleanupStatus::stopped_early()
+                                    .emit(app);
+                            }
+                            crate::local_llm::LocalLlmError::Cancelled => {}
+                            crate::local_llm::LocalLlmError::Other(_) => {
+                                let _ = crate::cleanup_resolver::CleanupStatus::model_load_failed()
+                                    .emit(app);
+                            }
+                        }
                         None
                     }
                 };
             }
             Err(err) => {
                 error!("Failed to resolve local LLM model path: {}", err);
+                skip_cleanup(
+                    app,
+                    &crate::cleanup_resolver::SkipReason::LocalModelNotDownloaded,
+                );
                 return None;
             }
         }
