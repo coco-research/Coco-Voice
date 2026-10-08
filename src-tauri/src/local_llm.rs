@@ -27,6 +27,12 @@ use llama_cpp_2::sampling::LlamaSampler;
 use log::{debug, warn};
 use tokio::sync::mpsc;
 
+pub(crate) const ERR_OVER_BUDGET: &str =
+    "Local LLM prompt exceeds the context budget; pasting the raw transcript";
+pub(crate) const ERR_NO_EOS: &str =
+    "Local LLM stopped without an end-of-sequence token; pasting the raw transcript";
+pub(crate) const ERR_CANCELLED: &str = "Local LLM cleanup was cancelled";
+
 /// Context window used for local post-processing. A prompt that does not fit
 /// in `N_CTX - max_tokens` is refused so the raw transcript is pasted.
 const N_CTX: u32 = 2048;
@@ -195,9 +201,9 @@ fn prompt_over_budget(template_tokens: usize, transcript_tokens: usize, budget: 
 /// receiver gone) is partial text and is refused, so the raw transcript is pasted.
 fn stop_outcome(saw_eos: bool, cancelled: bool) -> Result<(), &'static str> {
     if cancelled {
-        Err("Local LLM cleanup was cancelled")
+        Err(ERR_CANCELLED)
     } else if !saw_eos {
-        Err("Local LLM stopped without an end-of-sequence token; pasting the raw transcript")
+        Err(ERR_NO_EOS)
     } else {
         Ok(())
     }
@@ -393,9 +399,7 @@ fn generate_with_model(
         transcript_tokens.len(),
         prompt_budget,
     ) {
-        return Err(
-            "Local LLM prompt exceeds the context budget; pasting the raw transcript".to_string(),
-        );
+        return Err(ERR_OVER_BUDGET.to_string());
     }
     let mut tokens_list = prefix_tokens;
     tokens_list.extend(transcript_tokens);
@@ -517,7 +521,7 @@ fn generate_with_model(
 mod tests {
     use super::{
         chat_template_parts, clamped_max_gen, idle_should_unload, is_qwen3, prompt_budget,
-        prompt_over_budget, stop_outcome, strip_think_blocks, N_CTX,
+        prompt_over_budget, stop_outcome, strip_think_blocks, ERR_CANCELLED, ERR_NO_EOS, N_CTX,
     };
     use std::time::{Duration, Instant};
 
@@ -538,11 +542,11 @@ mod tests {
     #[test]
     fn only_a_run_that_ended_on_eos_is_kept() {
         // Token cap or full context: no end-of-sequence token, so refuse.
-        assert!(stop_outcome(false, false).is_err());
+        assert_eq!(stop_outcome(false, false), Err(ERR_NO_EOS));
         assert!(stop_outcome(true, false).is_ok());
         // A cancel is never pasted, finished or not.
-        assert!(stop_outcome(true, true).is_err());
-        assert!(stop_outcome(false, true).is_err());
+        assert_eq!(stop_outcome(true, true), Err(ERR_CANCELLED));
+        assert_eq!(stop_outcome(false, true), Err(ERR_CANCELLED));
     }
 
     #[test]

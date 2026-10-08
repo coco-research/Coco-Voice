@@ -29,6 +29,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Manager;
 use tauri::{AppHandle, Emitter};
+use tauri_specta::Event;
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
 /// Local cleanup length. A catalog model id is not a token count, so this is
@@ -444,6 +445,9 @@ async fn post_process_transcription(
         Ok(p) => p.to_string(),
         Err(reason) => {
             log::info!("Post-processing skipped: {}", reason);
+            if let Some(status) = crate::cleanup_resolver::CleanupStatus::status_for_skip(&reason) {
+                let _ = status.emit(app);
+            }
             return None;
         }
     };
@@ -547,6 +551,9 @@ async fn post_process_transcription(
         }
         crate::cleanup_resolver::CleanupDecision::Skip { reason } => {
             log::info!("Post-processing skipped: {}", reason);
+            if let Some(status) = crate::cleanup_resolver::CleanupStatus::status_for_skip(&reason) {
+                let _ = status.emit(app);
+            }
             return None;
         }
     };
@@ -558,10 +565,11 @@ async fn post_process_transcription(
     {
         Some(p) => p.clone(),
         None => {
-            log::info!(
-                "Post-processing skipped: {}",
-                crate::cleanup_resolver::SkipReason::ProviderNotFound
-            );
+            let reason = crate::cleanup_resolver::SkipReason::ProviderNotFound;
+            log::info!("Post-processing skipped: {}", reason);
+            if let Some(status) = crate::cleanup_resolver::CleanupStatus::status_for_skip(&reason) {
+                let _ = status.emit(app);
+            }
             return None;
         }
     };
@@ -638,13 +646,25 @@ async fn post_process_transcription(
                         }
                     }
                     Err(err) => {
+                        use crate::local_llm::{ERR_CANCELLED, ERR_NO_EOS, ERR_OVER_BUDGET};
+
                         error!("Local LLM post-processing failed: {}", err);
+                        if err == ERR_OVER_BUDGET {
+                            let _ = crate::cleanup_resolver::CleanupStatus::too_long().emit(app);
+                        } else if err == ERR_NO_EOS {
+                            let _ =
+                                crate::cleanup_resolver::CleanupStatus::stopped_early().emit(app);
+                        } else if err != ERR_CANCELLED {
+                            let _ = crate::cleanup_resolver::CleanupStatus::model_load_failed()
+                                .emit(app);
+                        }
                         None
                     }
                 };
             }
             Err(err) => {
                 error!("Failed to resolve local LLM model path: {}", err);
+                let _ = crate::cleanup_resolver::CleanupStatus::model_load_failed().emit(app);
                 return None;
             }
         }
