@@ -59,6 +59,16 @@ Pick the engine that fits your hardware:
 
 Parakeet V3 auto-detects your language — no manual switching between English, Spanish, French, German, Japanese, and 90+ others.
 
+## Models no longer offered
+
+Coco Voice only offers models whose licences allow it. These were removed in 0.9.5 and won't load even if you already downloaded them. If you used one, pick another model in Settings > Models.
+
+- **Held for licence review (custom licences)**: Parakeet Unified EN 0.6B, Nemotron Streaming 3.5, Nemotron Speech Streaming EN, MedASR, SenseVoice Small.
+- **Non-commercial licences**: Canary 1B, Moonshine Tiny (Vietnamese), Moonshine Tiny (Ukrainian), Moonshine Tiny (Korean), Moonshine Tiny (Chinese), Moonshine Tiny (Arabic), Moonshine Tiny (Japanese), Moonshine Base (Vietnamese), Moonshine Base (Ukrainian), Moonshine Base (Korean), Moonshine Base (Chinese), Moonshine Base (Arabic), Moonshine Base (Japanese).
+- **Built-in model removed**: SenseVoice (`sense-voice-int8`).
+
+Licence details: [NOTICE](NOTICE).
+
 ---
 
 ## Built With Tauri
