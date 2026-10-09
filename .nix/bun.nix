@@ -501,6 +501,10 @@
     url = "https://registry.npmjs.org/@tauri-apps/api/-/api-2.10.1.tgz";
     hash = "sha512-hKL/jWf293UDSUN09rR69hrToyIXBb8CjGaWC7gfinvnQrBVvnLr08FeFi38gxtugAVyVcTa5/FD/Xnkb1siBw==";
   };
+  "@tauri-apps/api@2.12.1" = fetchurl {
+    url = "https://registry.npmjs.org/@tauri-apps/api/-/api-2.12.1.tgz";
+    hash = "sha512-DeyFHa3wynpyoqTDikDEDGTJIq4LQ5USfolQGRmGIWT6JMADyxZBTDa5cAdT3tDg73rUXufPaCwN7aXBos4OnQ==";
+  };
   "@tauri-apps/api@2.9.0" = fetchurl {
     url = "https://registry.npmjs.org/@tauri-apps/api/-/api-2.9.0.tgz";
     hash = "sha512-qD5tMjh7utwBk9/5PrTA/aGr3i5QaJ/Mlt7p8NilQ45WgbifUNPyKWsA63iQ8YfQq6R8ajMapU+/Q8nMcPRLNw==";
@@ -589,9 +593,9 @@
     url = "https://registry.npmjs.org/@tauri-apps/plugin-sql/-/plugin-sql-2.3.1.tgz";
     hash = "sha512-iNgHnFIR+jRkx9INKVKepzMlxXtNkJUaWuhagFjT4dOttPaNyRnVHgwTjpqZhyVjiklDh2UdEPAJkQKiCPAekw==";
   };
-  "@tauri-apps/plugin-store@2.4.1" = fetchurl {
-    url = "https://registry.npmjs.org/@tauri-apps/plugin-store/-/plugin-store-2.4.1.tgz";
-    hash = "sha512-ckGSEzZ5Ii4Hf2D5x25Oqnm2Zf9MfDWAzR+volY0z/OOBz6aucPKEY0F649JvQ0Vupku6UJo7ugpGRDOFOunkA==";
+  "@tauri-apps/plugin-store@2.4.5" = fetchurl {
+    url = "https://registry.npmjs.org/@tauri-apps/plugin-store/-/plugin-store-2.4.5.tgz";
+    hash = "sha512-bVD9riKzf+WKYm1L8uXD1CMDTC/eaFS2Cbjcgq+39ahChtVGnyDCbzug3HpjgpZMw78yoAVMqHOAEjqJ/kD9YQ==";
   };
   "@tauri-apps/plugin-updater@2.10.0" = fetchurl {
     url = "https://registry.npmjs.org/@tauri-apps/plugin-updater/-/plugin-updater-2.10.0.tgz";
