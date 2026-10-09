@@ -32,6 +32,8 @@ use tauri::{AppHandle, Emitter};
 use tauri_specta::Event;
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
+/// How long to keep the overlay visible after processing finishes when a status was emitted.
+const STATUS_OVERLAY_GRACE: Duration = Duration::from_millis(2500);
 /// Local cleanup length. A catalog model id is not a token count, so this is
 /// not parsed out of the model string.
 #[cfg(target_os = "macos")]
@@ -71,6 +73,25 @@ impl Drop for FinishGuard {
         if let Some(c) = self.0.try_state::<TranscriptionCoordinator>() {
             c.notify_processing_finished();
         }
+    }
+}
+
+fn hide_overlay_after_status(app: &AppHandle, captured_overlay_gen: u64) {
+    let app_clone = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(STATUS_OVERLAY_GRACE).await;
+        if crate::overlay::hide_recording_overlay_if_current(&app_clone, captured_overlay_gen) {
+            change_tray_icon(&app_clone, TrayIconState::Idle);
+        }
+    });
+}
+
+fn finish_overlay(app: &AppHandle, delay_hide: bool, captured: u64) {
+    if delay_hide {
+        hide_overlay_after_status(app, captured);
+    } else {
+        utils::hide_recording_overlay(app);
+        change_tray_icon(app, TrayIconState::Idle);
     }
 }
 
@@ -415,10 +436,13 @@ fn apply_app_profile_overrides(settings: &AppSettings, app: &ActiveAppInfo) -> A
     overridden
 }
 
-fn skip_cleanup(app: &AppHandle, reason: &crate::cleanup_resolver::SkipReason) {
+fn skip_cleanup(app: &AppHandle, reason: &crate::cleanup_resolver::SkipReason) -> bool {
     log::info!("Post-processing skipped: {}", reason);
     if let Some(status) = crate::cleanup_resolver::CleanupStatus::status_for_skip(reason) {
         let _ = status.emit(app);
+        true
+    } else {
+        false
     }
 }
 
@@ -431,6 +455,7 @@ async fn post_process_transcription(
     transcription: &str,
     prior_output: Option<&str>,
     local_llm_cancel: Option<LocalLlmCancel>,
+    status_emitted: &mut bool,
 ) -> Option<String> {
     #[cfg(not(target_os = "macos"))]
     let _ = (app, &local_llm_cancel);
@@ -451,7 +476,7 @@ async fn post_process_transcription(
     ) {
         Ok(p) => p.to_string(),
         Err(reason) => {
-            skip_cleanup(app, &reason);
+            *status_emitted |= skip_cleanup(app, &reason);
             return None;
         }
     };
@@ -554,7 +579,7 @@ async fn post_process_transcription(
             provider_id
         }
         crate::cleanup_resolver::CleanupDecision::Skip { reason } => {
-            skip_cleanup(app, &reason);
+            *status_emitted |= skip_cleanup(app, &reason);
             return None;
         }
     };
@@ -567,7 +592,7 @@ async fn post_process_transcription(
         Some(p) => p.clone(),
         None => {
             let reason = crate::cleanup_resolver::SkipReason::ProviderNotFound;
-            skip_cleanup(app, &reason);
+            *status_emitted |= skip_cleanup(app, &reason);
             return None;
         }
     };
@@ -649,15 +674,18 @@ async fn post_process_transcription(
                             crate::local_llm::LocalLlmError::OverBudget => {
                                 let _ =
                                     crate::cleanup_resolver::CleanupStatus::too_long().emit(app);
+                                *status_emitted = true;
                             }
                             crate::local_llm::LocalLlmError::StoppedEarly => {
                                 let _ = crate::cleanup_resolver::CleanupStatus::stopped_early()
                                     .emit(app);
+                                *status_emitted = true;
                             }
                             crate::local_llm::LocalLlmError::Cancelled => {}
                             crate::local_llm::LocalLlmError::Other(_) => {
                                 let _ = crate::cleanup_resolver::CleanupStatus::model_load_failed()
                                     .emit(app);
+                                *status_emitted = true;
                             }
                         }
                         None
@@ -666,7 +694,7 @@ async fn post_process_transcription(
             }
             Err(err) => {
                 error!("Failed to resolve local LLM model path: {}", err);
-                skip_cleanup(
+                *status_emitted |= skip_cleanup(
                     app,
                     &crate::cleanup_resolver::SkipReason::LocalModelNotDownloaded,
                 );
@@ -892,6 +920,7 @@ pub(crate) struct ProcessedTranscription {
     /// length of the prior output being REPLACED by this edit; `0` means a normal
     /// append paste with nothing to delete. See [`crate::utils::replace_previous`].
     pub replace_char_count: usize,
+    pub status_emitted: bool,
 }
 
 /// Resolve the persisted language *intent* into the language the currently-loaded
@@ -937,6 +966,7 @@ pub(crate) async fn process_transcription_output(
     let mut post_processed_text: Option<String> = None;
     let mut post_process_prompt: Option<String> = None;
     let mut replace_char_count: usize = 0;
+    let mut status_emitted = false;
 
     // Resolve the language the transcription actually ran in (the persisted
     // intent coerced against the loaded model's capabilities) so OpenCC keys off
@@ -968,6 +998,7 @@ pub(crate) async fn process_transcription_output(
                 &final_text,
                 Some(&prior_output),
                 local_llm_cancel,
+                &mut status_emitted,
             )
             .await
             {
@@ -1009,6 +1040,7 @@ pub(crate) async fn process_transcription_output(
             &final_text,
             None,
             local_llm_cancel,
+            &mut status_emitted,
         )
         .await
         {
@@ -1049,6 +1081,7 @@ pub(crate) async fn process_transcription_output(
         post_processed_text,
         post_process_prompt,
         replace_char_count,
+        status_emitted,
     }
 }
 
@@ -1403,9 +1436,11 @@ impl ShortcutAction for TranscribeAction {
                                 }
                             }
 
+                            let delay_hide = processed.status_emitted;
+                            let captured_overlay_gen = crate::overlay::capture_overlay_generation();
+
                             if processed.final_text.is_empty() {
-                                utils::hide_recording_overlay(&ah);
-                                change_tray_icon(&ah, TrayIconState::Idle);
+                                finish_overlay(&ah, delay_hide, captured_overlay_gen);
                             } else {
                                 let ah_clone = ah.clone();
                                 let paste_time = Instant::now();
@@ -1437,8 +1472,8 @@ impl ShortcutAction for TranscribeAction {
                                             let _ = ah_clone.emit("paste-error", ());
                                         }
                                     }
-                                    utils::hide_recording_overlay(&ah_clone);
-                                    change_tray_icon(&ah_clone, TrayIconState::Idle);
+
+                                    finish_overlay(&ah_clone, delay_hide, captured_overlay_gen);
                                 })
                                 .unwrap_or_else(|e| {
                                     error!("Failed to run paste on main thread: {:?}", e);
