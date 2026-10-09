@@ -676,5 +676,38 @@
   "overlay": {
     "transcribing": "Transcribing...",
     "processing": "Processing..."
+  },
+  "cleanupStatus": {
+    "chip_label": "Not cleaned: {{reason}}",
+    "chip": {
+      "no_provider_selected": "no provider",
+      "no_model_configured": "no model chosen",
+      "no_prompt_selected": "no prompt",
+      "prompt_not_found": "prompt missing",
+      "prompt_empty": "empty prompt",
+      "no_api_key": "API key missing",
+      "provider_unavailable_in_this_build": "provider unavailable",
+      "apple_intelligence_unavailable": "Apple Intelligence unavailable",
+      "local_model_not_downloaded": "model not downloaded",
+      "provider_not_found": "provider missing",
+      "too_long": "too long",
+      "stopped_early": "stopped early",
+      "model_load_failed": "model didn't load"
+    },
+    "sentence": {
+      "no_provider_selected": "Cleanup didn't run because no provider is selected.",
+      "no_model_configured": "Cleanup didn't run because no model is chosen.",
+      "no_prompt_selected": "Cleanup didn't run because no prompt is selected.",
+      "prompt_not_found": "Cleanup didn't run because the selected prompt was not found.",
+      "prompt_empty": "Cleanup didn't run because the selected prompt is empty.",
+      "no_api_key": "Cleanup didn't run because the API key is missing.",
+      "provider_unavailable_in_this_build": "Cleanup didn't run because the provider is unavailable in this build.",
+      "apple_intelligence_unavailable": "Cleanup didn't run because Apple Intelligence is unavailable.",
+      "local_model_not_downloaded": "Cleanup didn't run because the local model is not downloaded.",
+      "provider_not_found": "Cleanup didn't run because the provider was not found.",
+      "too_long": "Cleanup didn't run because the text is too long.",
+      "stopped_early": "Cleanup didn't run because it was stopped early.",
+      "model_load_failed": "Cleanup didn't run because the model didn't load."
+    }
   }
 }

@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Ново в Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "няма доставчик",
+      "no_model_configured": "няма избран модел",
+      "no_prompt_selected": "няма prompt",
+      "prompt_not_found": "липсва prompt",
+      "prompt_empty": "празен prompt",
+      "no_api_key": "липсва API ключ",
+      "provider_unavailable_in_this_build": "недостъпен доставчик",
+      "apple_intelligence_unavailable": "Apple Intelligence недостъпен",
+      "local_model_not_downloaded": "моделът не е изтеглен",
+      "provider_not_found": "липсва доставчик",
+      "too_long": "твърде дълго",
+      "stopped_early": "спряно рано",
+      "model_load_failed": "моделът не зареди"
+    },
+    "sentence": {
+      "no_provider_selected": "Редактирането не се изпълни, защото няма избран доставчик.",
+      "no_model_configured": "Редактирането не се изпълни, защото няма избран модел.",
+      "no_prompt_selected": "Редактирането не се изпълни, защото няма избран prompt.",
+      "prompt_not_found": "Редактирането не се изпълни, защото избраният prompt не е намерен.",
+      "prompt_empty": "Редактирането не се изпълни, защото избраният prompt е празен.",
+      "no_api_key": "Редактирането не се изпълни, защото липсва API ключ.",
+      "provider_unavailable_in_this_build": "Редактирането не се изпълни, защото доставчикът не е наличен в тази версия.",
+      "apple_intelligence_unavailable": "Редактирането не се изпълни, защото Apple Intelligence не е наличен.",
+      "local_model_not_downloaded": "Редактирането не се изпълни, защото локалният модел не е изтеглен.",
+      "provider_not_found": "Редактирането не се изпълни, защото доставчикът не беше намерен.",
+      "too_long": "Редактирането не се изпълни, защото текстът е твърде дълъг.",
+      "stopped_early": "Редактирането не се изпълни, защото беше спряно рано.",
+      "model_load_failed": "Редактирането не се изпълни, защото моделът не се зареди."
+    },
+    "chip_label": "Не е редактирано: {{reason}}"
   }
 }

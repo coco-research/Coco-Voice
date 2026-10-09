@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Новое в Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "нет провайдера",
+      "no_model_configured": "нет модели",
+      "no_prompt_selected": "нет промпта",
+      "prompt_not_found": "промпт не найден",
+      "prompt_empty": "пустой промпт",
+      "no_api_key": "нет API-ключа",
+      "provider_unavailable_in_this_build": "провайдер недоступен",
+      "apple_intelligence_unavailable": "Apple Intelligence недоступен",
+      "local_model_not_downloaded": "модель не скачана",
+      "provider_not_found": "провайдер не найден",
+      "too_long": "слишком длинно",
+      "stopped_early": "остановлено рано",
+      "model_load_failed": "ошибка загрузки модели"
+    },
+    "sentence": {
+      "no_provider_selected": "Коррекция не выполнена, так как провайдер не выбран.",
+      "no_model_configured": "Коррекция не выполнена, так как модель не выбрана.",
+      "no_prompt_selected": "Коррекция не выполнена, так как промпт не выбран.",
+      "prompt_not_found": "Коррекция не выполнена, так как выбранный промпт не найден.",
+      "prompt_empty": "Коррекция не выполнена, так как выбранный промпт пуст.",
+      "no_api_key": "Коррекция не выполнена, так как отсутствует API-ключ.",
+      "provider_unavailable_in_this_build": "Коррекция не выполнена, так как провайдер недоступен в этой сборке.",
+      "apple_intelligence_unavailable": "Коррекция не выполнена, так как Apple Intelligence недоступен.",
+      "local_model_not_downloaded": "Коррекция не выполнена, так как локальная модель не скачана.",
+      "provider_not_found": "Коррекция не выполнена, так как провайдер не найден.",
+      "too_long": "Коррекция не выполнена, так как текст слишком длинный.",
+      "stopped_early": "Коррекция не выполнена, так как она была остановлена раньше времени.",
+      "model_load_failed": "Коррекция не выполнена из-за ошибки загрузки модели."
+    },
+    "chip_label": "Не обработано: {{reason}}"
   }
 }

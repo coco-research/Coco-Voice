@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Nouveautés de Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "aucun fournisseur",
+      "no_model_configured": "aucun modèle",
+      "no_prompt_selected": "aucun prompt",
+      "prompt_not_found": "prompt introuvable",
+      "prompt_empty": "prompt vide",
+      "no_api_key": "clé API manquante",
+      "provider_unavailable_in_this_build": "fournisseur indisponible",
+      "apple_intelligence_unavailable": "Apple Intelligence indisponible",
+      "local_model_not_downloaded": "modèle non téléchargé",
+      "provider_not_found": "fournisseur manquant",
+      "too_long": "trop long",
+      "stopped_early": "arrêté tôt",
+      "model_load_failed": "échec de chargement"
+    },
+    "sentence": {
+      "no_provider_selected": "La correction n'a pas eu lieu car aucun fournisseur n'est sélectionné.",
+      "no_model_configured": "La correction n'a pas eu lieu car aucun modèle n'est choisi.",
+      "no_prompt_selected": "La correction n'a pas eu lieu car aucun prompt n'est sélectionné.",
+      "prompt_not_found": "La correction n'a pas eu lieu car le prompt sélectionné est introuvable.",
+      "prompt_empty": "La correction n'a pas eu lieu car le prompt sélectionné est vide.",
+      "no_api_key": "La correction n'a pas eu lieu car la clé API est manquante.",
+      "provider_unavailable_in_this_build": "La correction n'a pas eu lieu car le fournisseur est indisponible dans cette version.",
+      "apple_intelligence_unavailable": "La correction n'a pas eu lieu car Apple Intelligence est indisponible.",
+      "local_model_not_downloaded": "La correction n'a pas eu lieu car le modèle local n'est pas téléchargé.",
+      "provider_not_found": "La correction n'a pas eu lieu car le fournisseur est introuvable.",
+      "too_long": "La correction n'a pas eu lieu car le texte est trop long.",
+      "stopped_early": "La correction n'a pas eu lieu car elle a été arrêtée tôt.",
+      "model_load_failed": "La correction n'a pas eu lieu car le modèle n'a pas pu être chargé."
+    },
+    "chip_label": "Non corrigé : {{reason}}"
   }
 }

@@ -676,5 +676,38 @@
   "overlay": {
     "transcribing": "Transcriberen...",
     "processing": "Verwerken..."
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "geen provider",
+      "no_model_configured": "geen model",
+      "no_prompt_selected": "geen prompt",
+      "prompt_not_found": "prompt ontbreekt",
+      "prompt_empty": "lege prompt",
+      "no_api_key": "API-sleutel ontbreekt",
+      "provider_unavailable_in_this_build": "provider niet beschikbaar",
+      "apple_intelligence_unavailable": "Apple Intelligence niet beschikbaar",
+      "local_model_not_downloaded": "model niet gedownload",
+      "provider_not_found": "provider ontbreekt",
+      "too_long": "te lang",
+      "stopped_early": "vroegtijdig gestopt",
+      "model_load_failed": "model laden mislukt"
+    },
+    "sentence": {
+      "no_provider_selected": "Correctie niet uitgevoerd omdat er geen provider is geselecteerd.",
+      "no_model_configured": "Correctie niet uitgevoerd omdat er geen model is gekozen.",
+      "no_prompt_selected": "Correctie niet uitgevoerd omdat er geen prompt is geselecteerd.",
+      "prompt_not_found": "Correctie niet uitgevoerd omdat de geselecteerde prompt niet is gevonden.",
+      "prompt_empty": "Correctie niet uitgevoerd omdat de geselecteerde prompt leeg is.",
+      "no_api_key": "Correctie niet uitgevoerd omdat de API-sleutel ontbreekt.",
+      "provider_unavailable_in_this_build": "Correctie niet uitgevoerd omdat de provider in deze versie niet beschikbaar is.",
+      "apple_intelligence_unavailable": "Correctie niet uitgevoerd omdat Apple Intelligence niet beschikbaar is.",
+      "local_model_not_downloaded": "Correctie niet uitgevoerd omdat het lokale model niet is gedownload.",
+      "provider_not_found": "Correctie niet uitgevoerd omdat de provider niet is gevonden.",
+      "too_long": "Correctie niet uitgevoerd omdat de tekst te lang is.",
+      "stopped_early": "Correctie niet uitgevoerd omdat het vroegtijdig is gestopt.",
+      "model_load_failed": "Correctie niet uitgevoerd omdat het model niet kon worden geladen."
+    },
+    "chip_label": "Niet opgeschoond: {{reason}}"
   }
 }

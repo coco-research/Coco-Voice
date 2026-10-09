@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "الجديد في Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "لا يوجد مزود",
+      "no_model_configured": "لا يوجد نموذج",
+      "no_prompt_selected": "لا توجد مطالبة",
+      "prompt_not_found": "المطالبة مفقودة",
+      "prompt_empty": "مطالبة فارغة",
+      "no_api_key": "مفتاح API مفقود",
+      "provider_unavailable_in_this_build": "المزود غير متاح",
+      "apple_intelligence_unavailable": "Apple Intelligence غير متاح",
+      "local_model_not_downloaded": "النموذج غير مُنزَّل",
+      "provider_not_found": "المزود مفقود",
+      "too_long": "طويل جداً",
+      "stopped_early": "توقف مبكراً",
+      "model_load_failed": "فشل تحميل النموذج"
+    },
+    "sentence": {
+      "no_provider_selected": "لم يتم التنقيح لعدم تحديد مزود.",
+      "no_model_configured": "لم يتم التنقيح لعدم اختيار نموذج.",
+      "no_prompt_selected": "لم يتم التنقيح لعدم تحديد مطالبة.",
+      "prompt_not_found": "لم يتم التنقيح لأن المطالبة المحددة مفقودة.",
+      "prompt_empty": "لم يتم التنقيح لأن المطالبة المحددة فارغة.",
+      "no_api_key": "لم يتم التنقيح لأن مفتاح API مفقود.",
+      "provider_unavailable_in_this_build": "لم يتم التنقيح لأن المزود غير متوفر في هذه النسخة.",
+      "apple_intelligence_unavailable": "لم يتم التنقيح لأن Apple Intelligence غير متاح.",
+      "local_model_not_downloaded": "لم يتم التنقيح لأن النموذج المحلي لم يتم تنزيله.",
+      "provider_not_found": "لم يتم التنقيح لأن المزود مفقود.",
+      "too_long": "لم يتم التنقيح لأن النص طويل جدًا.",
+      "stopped_early": "لم يتم التنقيح لأنه توقف مبكرًا.",
+      "model_load_failed": "لم يتم التنقيح لفشل تحميل النموذج."
+    },
+    "chip_label": "لم يتم التنظيف: {{reason}}"
   }
 }

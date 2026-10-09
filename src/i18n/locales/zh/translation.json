@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} 新功能"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "无提供商",
+      "no_model_configured": "未选择模型",
+      "no_prompt_selected": "无提示词",
+      "prompt_not_found": "提示词丢失",
+      "prompt_empty": "空提示词",
+      "no_api_key": "缺少 API 密钥",
+      "provider_unavailable_in_this_build": "提供商不可用",
+      "apple_intelligence_unavailable": "Apple Intelligence 不可用",
+      "local_model_not_downloaded": "模型未下载",
+      "provider_not_found": "提供商丢失",
+      "too_long": "太长",
+      "stopped_early": "提前停止",
+      "model_load_failed": "模型加载失败"
+    },
+    "sentence": {
+      "no_provider_selected": "润色未运行，因为未选择提供商。",
+      "no_model_configured": "润色未运行，因为未选择模型。",
+      "no_prompt_selected": "润色未运行，因为未选择提示词。",
+      "prompt_not_found": "润色未运行，因为找不到所选的提示词。",
+      "prompt_empty": "润色未运行，因为所选的提示词为空。",
+      "no_api_key": "润色未运行，因为缺少 API 密钥。",
+      "provider_unavailable_in_this_build": "润色未运行，因为提供商在此版本中不可用。",
+      "apple_intelligence_unavailable": "润色未运行，因为 Apple Intelligence 不可用。",
+      "local_model_not_downloaded": "润色未运行，因为本地模型未下载。",
+      "provider_not_found": "润色未运行，因为找不到提供商。",
+      "too_long": "润色未运行，因为文本太长。",
+      "stopped_early": "润色未运行，因为它被提前停止。",
+      "model_load_failed": "润色未运行，因为模型加载失败。"
+    },
+    "chip_label": "未润色：{{reason}}"
   }
 }

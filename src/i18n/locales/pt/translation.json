@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Novidades no Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "sem provedor",
+      "no_model_configured": "sem modelo",
+      "no_prompt_selected": "sem prompt",
+      "prompt_not_found": "prompt ausente",
+      "prompt_empty": "prompt vazio",
+      "no_api_key": "chave API ausente",
+      "provider_unavailable_in_this_build": "provedor indisponível",
+      "apple_intelligence_unavailable": "Apple Intelligence indisponível",
+      "local_model_not_downloaded": "modelo não baixado",
+      "provider_not_found": "provedor ausente",
+      "too_long": "muito longo",
+      "stopped_early": "parado antes",
+      "model_load_failed": "falha ao carregar modelo"
+    },
+    "sentence": {
+      "no_provider_selected": "A correção não ocorreu porque nenhum provedor foi selecionado.",
+      "no_model_configured": "A correção não ocorreu porque nenhum modelo foi escolhido.",
+      "no_prompt_selected": "A correção não ocorreu porque nenhum prompt foi selecionado.",
+      "prompt_not_found": "A correção não ocorreu porque o prompt selecionado não foi encontrado.",
+      "prompt_empty": "A correção não ocorreu porque o prompt selecionado está vazio.",
+      "no_api_key": "A correção não ocorreu porque a chave da API está ausente.",
+      "provider_unavailable_in_this_build": "A correção não ocorreu porque o provedor está indisponível nesta versão.",
+      "apple_intelligence_unavailable": "A correção não ocorreu porque o Apple Intelligence está indisponível.",
+      "local_model_not_downloaded": "A correção não ocorreu porque o modelo local não foi baixado.",
+      "provider_not_found": "A correção não ocorreu porque o provedor não foi encontrado.",
+      "too_long": "A correção não ocorreu porque o texto é muito longo.",
+      "stopped_early": "A correção não ocorreu porque foi interrompida prematuramente.",
+      "model_load_failed": "A correção não ocorreu porque houve falha ao carregar o modelo."
+    },
+    "chip_label": "Não corrigido: {{reason}}"
   }
 }

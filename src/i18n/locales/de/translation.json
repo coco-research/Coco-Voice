@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Neu in Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "kein Anbieter",
+      "no_model_configured": "kein Modell",
+      "no_prompt_selected": "kein Prompt",
+      "prompt_not_found": "Prompt fehlt",
+      "prompt_empty": "leerer Prompt",
+      "no_api_key": "API-Schlüssel fehlt",
+      "provider_unavailable_in_this_build": "Anbieter nicht verfügbar",
+      "apple_intelligence_unavailable": "Apple Intelligence nicht verfügbar",
+      "local_model_not_downloaded": "Modell nicht heruntergeladen",
+      "provider_not_found": "Anbieter fehlt",
+      "too_long": "zu lang",
+      "stopped_early": "zu früh gestoppt",
+      "model_load_failed": "Modell nicht geladen"
+    },
+    "sentence": {
+      "no_provider_selected": "Korrektur nicht ausgeführt: Kein Anbieter ausgewählt.",
+      "no_model_configured": "Korrektur nicht ausgeführt: Kein Modell gewählt.",
+      "no_prompt_selected": "Korrektur nicht ausgeführt: Kein Prompt gewählt.",
+      "prompt_not_found": "Korrektur nicht ausgeführt: Prompt nicht gefunden.",
+      "prompt_empty": "Korrektur nicht ausgeführt: Prompt ist leer.",
+      "no_api_key": "Korrektur nicht ausgeführt: API-Schlüssel fehlt.",
+      "provider_unavailable_in_this_build": "Korrektur nicht ausgeführt: Anbieter in dieser Version nicht verfügbar.",
+      "apple_intelligence_unavailable": "Korrektur nicht ausgeführt: Apple Intelligence ist nicht verfügbar.",
+      "local_model_not_downloaded": "Korrektur nicht ausgeführt: Lokales Modell nicht heruntergeladen.",
+      "provider_not_found": "Korrektur nicht ausgeführt: Anbieter nicht gefunden.",
+      "too_long": "Korrektur nicht ausgeführt: Text zu lang.",
+      "stopped_early": "Korrektur nicht ausgeführt: Vorzeitig gestoppt.",
+      "model_load_failed": "Korrektur nicht ausgeführt: Fehler beim Laden des Modells."
+    },
+    "chip_label": "Nicht bereinigt: {{reason}}"
   }
 }

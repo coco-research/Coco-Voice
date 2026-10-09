@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Nytt i Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "ingen leverantör",
+      "no_model_configured": "ingen modell vald",
+      "no_prompt_selected": "ingen prompt",
+      "prompt_not_found": "prompt saknas",
+      "prompt_empty": "tom prompt",
+      "no_api_key": "API-nyckel saknas",
+      "provider_unavailable_in_this_build": "leverantör otillgänglig",
+      "apple_intelligence_unavailable": "Apple Intelligence otillgängligt",
+      "local_model_not_downloaded": "modell ej nedladdad",
+      "provider_not_found": "leverantör saknas",
+      "too_long": "för lång",
+      "stopped_early": "avbröts i förtid",
+      "model_load_failed": "modellen laddades inte"
+    },
+    "sentence": {
+      "no_provider_selected": "Bearbetning kördes inte eftersom ingen leverantör har valts.",
+      "no_model_configured": "Bearbetning kördes inte eftersom ingen modell har valts.",
+      "no_prompt_selected": "Bearbetning kördes inte eftersom ingen prompt har valts.",
+      "prompt_not_found": "Bearbetning kördes inte eftersom den valda prompten inte hittades.",
+      "prompt_empty": "Bearbetning kördes inte eftersom den valda prompten är tom.",
+      "no_api_key": "Bearbetning kördes inte eftersom API-nyckeln saknas.",
+      "provider_unavailable_in_this_build": "Bearbetning kördes inte eftersom leverantören är otillgänglig i den här versionen.",
+      "apple_intelligence_unavailable": "Bearbetning kördes inte eftersom Apple Intelligence är otillgängligt.",
+      "local_model_not_downloaded": "Bearbetning kördes inte eftersom den lokala modellen inte har laddats ner.",
+      "provider_not_found": "Bearbetning kördes inte eftersom leverantören inte hittades.",
+      "too_long": "Bearbetning kördes inte eftersom texten är för lång.",
+      "stopped_early": "Bearbetning kördes inte eftersom den avbröts i förtid.",
+      "model_load_failed": "Bearbetning kördes inte eftersom modellen misslyckades med att ladda."
+    },
+    "chip_label": "Ej rensad: {{reason}}"
   }
 }

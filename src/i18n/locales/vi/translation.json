@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Điểm mới trong Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "không có nhà cung cấp",
+      "no_model_configured": "chưa chọn mô hình",
+      "no_prompt_selected": "không có lời nhắc",
+      "prompt_not_found": "thiếu lời nhắc",
+      "prompt_empty": "lời nhắc trống",
+      "no_api_key": "thiếu khóa API",
+      "provider_unavailable_in_this_build": "nhà cung cấp không khả dụng",
+      "apple_intelligence_unavailable": "Apple Intelligence không khả dụng",
+      "local_model_not_downloaded": "mô hình chưa tải xuống",
+      "provider_not_found": "thiếu nhà cung cấp",
+      "too_long": "quá dài",
+      "stopped_early": "dừng sớm",
+      "model_load_failed": "không tải được mô hình"
+    },
+    "sentence": {
+      "no_provider_selected": "Chỉnh sửa không chạy vì không có nhà cung cấp nào được chọn.",
+      "no_model_configured": "Chỉnh sửa không chạy vì không có mô hình nào được chọn.",
+      "no_prompt_selected": "Chỉnh sửa không chạy vì không có lời nhắc nào được chọn.",
+      "prompt_not_found": "Chỉnh sửa không chạy vì không tìm thấy lời nhắc đã chọn.",
+      "prompt_empty": "Chỉnh sửa không chạy vì lời nhắc đã chọn trống.",
+      "no_api_key": "Chỉnh sửa không chạy vì thiếu khóa API.",
+      "provider_unavailable_in_this_build": "Chỉnh sửa không chạy vì nhà cung cấp không khả dụng trong phiên bản này.",
+      "apple_intelligence_unavailable": "Chỉnh sửa không chạy vì Apple Intelligence không khả dụng.",
+      "local_model_not_downloaded": "Chỉnh sửa không chạy vì mô hình cục bộ chưa được tải xuống.",
+      "provider_not_found": "Chỉnh sửa không chạy vì không tìm thấy nhà cung cấp.",
+      "too_long": "Chỉnh sửa không chạy vì văn bản quá dài.",
+      "stopped_early": "Chỉnh sửa không chạy vì nó bị dừng sớm.",
+      "model_load_failed": "Chỉnh sửa không chạy vì không tải được mô hình."
+    },
+    "chip_label": "Chưa chỉnh sửa: {{reason}}"
   }
 }

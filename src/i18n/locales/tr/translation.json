@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} yenilikleri"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "sağlayıcı yok",
+      "no_model_configured": "model seçilmedi",
+      "no_prompt_selected": "komut yok",
+      "prompt_not_found": "komut eksik",
+      "prompt_empty": "boş komut",
+      "no_api_key": "API anahtarı eksik",
+      "provider_unavailable_in_this_build": "sağlayıcı kullanılamıyor",
+      "apple_intelligence_unavailable": "Apple Intelligence yok",
+      "local_model_not_downloaded": "model indirilmedi",
+      "provider_not_found": "sağlayıcı eksik",
+      "too_long": "çok uzun",
+      "stopped_early": "erken durduruldu",
+      "model_load_failed": "model yüklenemedi"
+    },
+    "sentence": {
+      "no_provider_selected": "Sağlayıcı seçilmediği için düzeltme çalışmadı.",
+      "no_model_configured": "Model seçilmediği için düzeltme çalışmadı.",
+      "no_prompt_selected": "Komut seçilmediği için düzeltme çalışmadı.",
+      "prompt_not_found": "Seçilen komut bulunamadığı için düzeltme çalışmadı.",
+      "prompt_empty": "Seçilen komut boş olduğu için düzeltme çalışmadı.",
+      "no_api_key": "API anahtarı eksik olduğu için düzeltme çalışmadı.",
+      "provider_unavailable_in_this_build": "Sağlayıcı bu sürümde mevcut olmadığı için düzeltme çalışmadı.",
+      "apple_intelligence_unavailable": "Apple Intelligence kullanılamadığı için düzeltme çalışmadı.",
+      "local_model_not_downloaded": "Yerel model indirilmediği için düzeltme çalışmadı.",
+      "provider_not_found": "Sağlayıcı bulunamadığı için düzeltme çalışmadı.",
+      "too_long": "Metin çok uzun olduğu için düzeltme çalışmadı.",
+      "stopped_early": "Erken durdurulduğu için düzeltme çalışmadı.",
+      "model_load_failed": "Model yüklenemediği için düzeltme çalışmadı."
+    },
+    "chip_label": "Düzeltilmedi: {{reason}}"
   }
 }

@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "חדש ב-Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "אין ספק",
+      "no_model_configured": "לא נבחר מודל",
+      "no_prompt_selected": "אין הנחיה",
+      "prompt_not_found": "חסרה הנחיה",
+      "prompt_empty": "הנחיה ריקה",
+      "no_api_key": "חסר מפתח API",
+      "provider_unavailable_in_this_build": "ספק לא זמין",
+      "apple_intelligence_unavailable": "Apple Intelligence לא זמין",
+      "local_model_not_downloaded": "מודל לא הורד",
+      "provider_not_found": "חסר ספק",
+      "too_long": "ארוך מדי",
+      "stopped_early": "הופסק מוקדם",
+      "model_load_failed": "המודל לא נטען"
+    },
+    "sentence": {
+      "no_provider_selected": "התיקון לא פעל מכיוון שלא נבחר ספק.",
+      "no_model_configured": "התיקון לא פעל מכיוון שלא נבחר מודל.",
+      "no_prompt_selected": "התיקון לא פעל מכיוון שלא נבחרה הנחיה.",
+      "prompt_not_found": "התיקון לא פעל מכיוון שההנחיה שנבחרה לא נמצאה.",
+      "prompt_empty": "התיקון לא פעל מכיוון שההנחיה שנבחרה ריקה.",
+      "no_api_key": "התיקון לא פעל מכיוון שחסר מפתח API.",
+      "provider_unavailable_in_this_build": "התיקון לא פעל מכיוון שהספק אינו זמין בגרסה זו.",
+      "apple_intelligence_unavailable": "התיקון לא פעל מכיוון ש-Apple Intelligence אינו זמין.",
+      "local_model_not_downloaded": "התיקון לא פעל מכיוון שהמודל המקומי לא הורד.",
+      "provider_not_found": "התיקון לא פעל מכיוון שהספק לא נמצא.",
+      "too_long": "התיקון לא פעל מכיוון שהטקסט ארוך מדי.",
+      "stopped_early": "התיקון לא פעל מכיוון שהוא הופסק מוקדם.",
+      "model_load_failed": "התיקון לא פעל מכיוון שהמודל לא נטען."
+    },
+    "chip_label": "לא תוקן: {{reason}}"
   }
 }
