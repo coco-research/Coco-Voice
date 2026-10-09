@@ -2,6 +2,7 @@ use crate::input;
 use crate::settings;
 use crate::settings::{OverlayPosition, OverlayStyle};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
 
@@ -49,6 +50,29 @@ const OVERLAY_HEIGHT: f64 = 46.0;
 // Actual is 394x118, just a little extra
 const OVERLAY_STREAM_WIDTH: f64 = 400.0;
 const OVERLAY_STREAM_HEIGHT: f64 = 120.0;
+
+static OVERLAY_SHOW_LOCK: std::sync::Mutex<()> = Mutex::new(());
+static OVERLAY_SHOW_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+// Relaxed ordering is fine everywhere now that every access is under the mutex.
+fn bump_generation(gen: &AtomicU64, lock: &Mutex<()>) {
+    let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
+    gen.fetch_add(1, Ordering::Relaxed);
+}
+
+fn capture_generation(gen: &AtomicU64, lock: &Mutex<()>) -> u64 {
+    let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
+    gen.load(Ordering::Relaxed)
+}
+
+fn is_current_generation(gen: &AtomicU64, lock: &Mutex<()>, captured: u64) -> bool {
+    let _guard = lock.lock().unwrap_or_else(|e| e.into_inner());
+    captured == gen.load(Ordering::Relaxed)
+}
+
+pub fn capture_overlay_generation() -> u64 {
+    capture_generation(&OVERLAY_SHOW_GENERATION, &OVERLAY_SHOW_LOCK)
+}
 
 /// Overlay window size (logical) for a given UI state.
 fn overlay_dimensions(state: &str) -> (f64, f64) {
@@ -387,6 +411,8 @@ fn show_overlay_state(app_handle: &AppHandle, state: &str) {
         }
         let pos_calc_elapsed = pos_started.elapsed() - set_pos_elapsed;
 
+        bump_generation(&OVERLAY_SHOW_GENERATION, &OVERLAY_SHOW_LOCK);
+
         let show_started = std::time::Instant::now();
         let _ = overlay_window.show();
         let show_elapsed = show_started.elapsed();
@@ -462,6 +488,27 @@ pub fn hide_recording_overlay(app_handle: &AppHandle) {
     }
 }
 
+/// Like `hide_recording_overlay`, but only while no newer overlay was shown since
+/// `captured`. Checked again right before the deferred `window.hide()`, so a session
+/// that starts during the fade-out keeps its overlay.
+pub fn hide_recording_overlay_if_current(app: &AppHandle, captured: u64) -> bool {
+    let current =
+        move || is_current_generation(&OVERLAY_SHOW_GENERATION, &OVERLAY_SHOW_LOCK, captured);
+    if !current() {
+        return false;
+    }
+    if let Some(overlay_window) = app.get_webview_window("recording_overlay") {
+        let _ = overlay_window.emit("hide-overlay", ());
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            if current() {
+                let _ = overlay_window.hide();
+            }
+        });
+    }
+    true
+}
+
 // Cached "overlay is enabled" flag, kept in sync with overlay_style. Avoids
 // reading the Tauri store on every audio callback (~24 Hz during recording).
 // Defaults to false so the audio path doesn't emit until lib.rs::setup
@@ -512,4 +559,29 @@ pub fn emit_levels(app_handle: &AppHandle, levels: &[f32]) {
     // eval_script call per callback, cutting the per-callback WebKit
     // dispatch work in half.
     let _ = app_handle.emit_to("recording_overlay", "mic-level", levels);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generation_logic() {
+        let gen = AtomicU64::new(0);
+        let lock = Mutex::new(());
+
+        // capture then no bump -> current
+        let captured = capture_generation(&gen, &lock);
+        assert!(is_current_generation(&gen, &lock, captured));
+
+        // capture then bump -> not current
+        bump_generation(&gen, &lock);
+        assert!(!is_current_generation(&gen, &lock, captured));
+
+        // two bumps -> not current
+        let captured2 = capture_generation(&gen, &lock);
+        bump_generation(&gen, &lock);
+        bump_generation(&gen, &lock);
+        assert!(!is_current_generation(&gen, &lock, captured2));
+    }
 }
