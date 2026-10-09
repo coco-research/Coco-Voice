@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} 新功能"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "無提供者",
+      "no_model_configured": "未選擇模型",
+      "no_prompt_selected": "無提示詞",
+      "prompt_not_found": "提示詞遺失",
+      "prompt_empty": "空提示詞",
+      "no_api_key": "缺少 API 金鑰",
+      "provider_unavailable_in_this_build": "提供者不可用",
+      "apple_intelligence_unavailable": "Apple Intelligence 不可用",
+      "local_model_not_downloaded": "模型未下載",
+      "provider_not_found": "提供者遺失",
+      "too_long": "太長",
+      "stopped_early": "提前停止",
+      "model_load_failed": "模型載入失敗"
+    },
+    "sentence": {
+      "no_provider_selected": "潤飾未執行，因為未選擇提供者。",
+      "no_model_configured": "潤飾未執行，因為未選擇模型。",
+      "no_prompt_selected": "潤飾未執行，因為未選擇提示詞。",
+      "prompt_not_found": "潤飾未執行，因為找不到選取的提示詞。",
+      "prompt_empty": "潤飾未執行，因為選取的提示詞為空。",
+      "no_api_key": "潤飾未執行，因為缺少 API 金鑰。",
+      "provider_unavailable_in_this_build": "潤飾未執行，因為提供者在此版本中不可用。",
+      "apple_intelligence_unavailable": "潤飾未執行，因為 Apple Intelligence 不可用。",
+      "local_model_not_downloaded": "潤飾未執行，因為本機模型未下載。",
+      "provider_not_found": "潤飾未執行，因為找不到提供者。",
+      "too_long": "潤飾未執行，因為文字太長。",
+      "stopped_early": "潤飾未執行，因為它被提前停止。",
+      "model_load_failed": "潤飾未執行，因為模型載入失敗。"
+    },
+    "chip_label": "未修飾：{{reason}}"
   }
 }

@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Нове в Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "немає провайдера",
+      "no_model_configured": "немає моделі",
+      "no_prompt_selected": "немає промпту",
+      "prompt_not_found": "промпт відсутній",
+      "prompt_empty": "порожній промпт",
+      "no_api_key": "немає API-ключа",
+      "provider_unavailable_in_this_build": "провайдер недоступний",
+      "apple_intelligence_unavailable": "Apple Intelligence недоступний",
+      "local_model_not_downloaded": "модель не завантажено",
+      "provider_not_found": "провайдер відсутній",
+      "too_long": "занадто довго",
+      "stopped_early": "зупинено рано",
+      "model_load_failed": "модель не завантажилась"
+    },
+    "sentence": {
+      "no_provider_selected": "Корекція не виконалась, оскільки не обрано провайдера.",
+      "no_model_configured": "Корекція не виконалась, оскільки не обрано модель.",
+      "no_prompt_selected": "Корекція не виконалась, оскільки не обрано промпт.",
+      "prompt_not_found": "Корекція не виконалась, оскільки обраний промпт не знайдено.",
+      "prompt_empty": "Корекція не виконалась, оскільки обраний промпт порожній.",
+      "no_api_key": "Корекція не виконалась, оскільки відсутній API-ключ.",
+      "provider_unavailable_in_this_build": "Корекція не виконалась, оскільки провайдер недоступний у цій збірці.",
+      "apple_intelligence_unavailable": "Корекція не виконалась, оскільки Apple Intelligence недоступний.",
+      "local_model_not_downloaded": "Корекція не виконалась, оскільки локальну модель не завантажено.",
+      "provider_not_found": "Корекція не виконалась, оскільки провайдера не знайдено.",
+      "too_long": "Корекція не виконалась, оскільки текст занадто довгий.",
+      "stopped_early": "Корекція не виконалась, оскільки її було зупинено завчасно.",
+      "model_load_failed": "Корекція не виконалась через помилку завантаження моделі."
+    },
+    "chip_label": "Не оброблено: {{reason}}"
   }
 }

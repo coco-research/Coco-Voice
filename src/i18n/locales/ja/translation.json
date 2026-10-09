@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} の新機能"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "プロバイダなし",
+      "no_model_configured": "モデル未選択",
+      "no_prompt_selected": "プロンプトなし",
+      "prompt_not_found": "プロンプトが見つかりません",
+      "prompt_empty": "プロンプトが空です",
+      "no_api_key": "APIキーなし",
+      "provider_unavailable_in_this_build": "プロバイダ利用不可",
+      "apple_intelligence_unavailable": "Apple Intelligence利用不可",
+      "local_model_not_downloaded": "モデル未ダウンロード",
+      "provider_not_found": "プロバイダが見つかりません",
+      "too_long": "長すぎます",
+      "stopped_early": "途中で停止",
+      "model_load_failed": "モデルの読み込み失敗"
+    },
+    "sentence": {
+      "no_provider_selected": "プロバイダが選択されていないため、文章校正を実行できませんでした。",
+      "no_model_configured": "モデルが選択されていないため、文章校正を実行できませんでした。",
+      "no_prompt_selected": "プロンプトが選択されていないため、文章校正を実行できませんでした。",
+      "prompt_not_found": "選択されたプロンプトが見つからないため、文章校正を実行できませんでした。",
+      "prompt_empty": "選択されたプロンプトが空のため、文章校正を実行できませんでした。",
+      "no_api_key": "APIキーがないため、文章校正を実行できませんでした。",
+      "provider_unavailable_in_this_build": "このバージョンではプロバイダが利用できないため、文章校正を実行できませんでした。",
+      "apple_intelligence_unavailable": "Apple Intelligenceが利用できないため、文章校正を実行できませんでした。",
+      "local_model_not_downloaded": "ローカルモデルがダウンロードされていないため、文章校正を実行できませんでした。",
+      "provider_not_found": "プロバイダが見つからないため、文章校正を実行できませんでした。",
+      "too_long": "テキストが長すぎるため、文章校正を実行できませんでした。",
+      "stopped_early": "途中で停止されたため、文章校正を実行できませんでした。",
+      "model_load_failed": "モデルを読み込めなかったため、文章校正を実行できませんでした。"
+    },
+    "chip_label": "クリーンアップ未完了：{{reason}}"
   }
 }

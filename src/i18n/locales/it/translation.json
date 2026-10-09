@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Novità in Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "nessun provider",
+      "no_model_configured": "nessun modello",
+      "no_prompt_selected": "nessun prompt",
+      "prompt_not_found": "prompt mancante",
+      "prompt_empty": "prompt vuoto",
+      "no_api_key": "chiave API mancante",
+      "provider_unavailable_in_this_build": "provider non disponibile",
+      "apple_intelligence_unavailable": "Apple Intelligence non disponibile",
+      "local_model_not_downloaded": "modello non scaricato",
+      "provider_not_found": "provider mancante",
+      "too_long": "troppo lungo",
+      "stopped_early": "interrotto",
+      "model_load_failed": "modello non caricato"
+    },
+    "sentence": {
+      "no_provider_selected": "Correzione non eseguita perché non è stato selezionato alcun provider.",
+      "no_model_configured": "Correzione non eseguita perché non è stato scelto alcun modello.",
+      "no_prompt_selected": "Correzione non eseguita perché non è stato selezionato alcun prompt.",
+      "prompt_not_found": "Correzione non eseguita perché il prompt selezionato non è stato trovato.",
+      "prompt_empty": "Correzione non eseguita perché il prompt selezionato è vuoto.",
+      "no_api_key": "Correzione non eseguita perché manca la chiave API.",
+      "provider_unavailable_in_this_build": "Correzione non eseguita perché il provider non è disponibile in questa versione.",
+      "apple_intelligence_unavailable": "Correzione non eseguita perché Apple Intelligence non è disponibile.",
+      "local_model_not_downloaded": "Correzione non eseguita perché il modello locale non è stato scaricato.",
+      "provider_not_found": "Correzione non eseguita perché il provider non è stato trovato.",
+      "too_long": "Correzione non eseguita perché il testo è troppo lungo.",
+      "stopped_early": "Correzione non eseguita perché è stata interrotta in anticipo.",
+      "model_load_failed": "Correzione non eseguita perché il modello non è stato caricato."
+    },
+    "chip_label": "Non corretto: {{reason}}"
   }
 }

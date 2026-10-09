@@ -367,3 +367,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.sstatus-icon {
+  width: 10px;
+  height: 10px;
+  color: var(--s-muted);
+  flex: none;
+}

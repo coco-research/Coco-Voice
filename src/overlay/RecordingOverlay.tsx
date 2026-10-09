@@ -8,6 +8,7 @@ import type {
   StreamPhaseEvent,
   StreamTextEvent,
   StreamWorkKind,
+  CleanupStatus,
 } from "@/bindings";
 import i18n, { syncLanguageFromSettings } from "@/i18n";
 import { getLanguageDirection } from "@/lib/utils/rtl";
@@ -29,6 +30,9 @@ const RecordingOverlay: React.FC = () => {
   });
   const [phase, setPhase] = useState<StreamPhase>("listening");
   const [workKind, setWorkKind] = useState<StreamWorkKind>("transcribing");
+  const [cleanupStatus, setCleanupStatus] = useState<CleanupStatus | null>(
+    null,
+  );
   const [elapsed, setElapsed] = useState(0);
   // Bumped on each new streaming session so the Live card remounts fresh (replays
   // the pop-in, and never animates in from the previous panel's open size).
@@ -68,6 +72,7 @@ const RecordingOverlay: React.FC = () => {
         setState(overlayState);
         if (overlayState === "recording" || overlayState === "streaming") {
           setStreamText({ committed: "", tentative: "" });
+          setCleanupStatus(null);
         }
         if (overlayState === "streaming") {
           setPhase("listening");
@@ -104,12 +109,17 @@ const RecordingOverlay: React.FC = () => {
         if (payload.kind) setWorkKind(payload.kind);
       });
 
+      const unlistenCleanup = await events.cleanupStatus.listen((event) => {
+        setCleanupStatus(event.payload);
+      });
+
       return () => {
         unlistenShow();
         unlistenHide();
         unlistenLevel();
         unlistenStream();
         unlistenPhase();
+        unlistenCleanup();
       };
     };
 
@@ -207,6 +217,38 @@ const RecordingOverlay: React.FC = () => {
     </div>
   );
 
+  // Cleanup-status row: icon | label | cancel. Same for every reason by design;
+  // the settings banner handles the actionable ones (needs_action).
+  const cleanupRow = cleanupStatus && (
+    <div
+      className="sbase"
+      title={t(`cleanupStatus.sentence.${cleanupStatus.reason}`)}
+      aria-label={t(`cleanupStatus.sentence.${cleanupStatus.reason}`)}
+    >
+      <div className="sbase-l">
+        <svg
+          className="sstatus-icon"
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M13.5 2.5L2.5 13.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
+      <span className="swork-label">
+        {t("cleanupStatus.chip_label", {
+          reason: t(`cleanupStatus.chip.${cleanupStatus.reason}`),
+        })}
+      </span>
+      <div className="sbase-r">{cancelBtn}</div>
+    </div>
+  );
+
   // ---- Live overlay: a pill that sculpts open into a panel ----
   if (state === "streaming") {
     const hasText =
@@ -246,14 +288,15 @@ const RecordingOverlay: React.FC = () => {
               </div>
             </div>
           </div>
-          {working
-            ? workingRow(
-                workKind === "polishing"
-                  ? t("overlay.processing")
-                  : t("overlay.transcribing"),
-                true,
-              )
-            : listeningRow(open, true)}
+          {cleanupRow ??
+            (working
+              ? workingRow(
+                  workKind === "polishing"
+                    ? t("overlay.processing")
+                    : t("overlay.transcribing"),
+                  true,
+                )
+              : listeningRow(open, true))}
         </div>
       </div>
     );
@@ -276,7 +319,8 @@ const RecordingOverlay: React.FC = () => {
       <div
         className={`scard compact ${working && isVisible ? "cworking" : ""}`}
       >
-        {working ? workingRow(workLabel, true) : listeningRow(false, true)}
+        {cleanupRow ??
+          (working ? workingRow(workLabel, true) : listeningRow(false, true))}
       </div>
     </div>
   );

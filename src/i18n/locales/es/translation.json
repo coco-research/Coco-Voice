@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Nuevo en Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "sin proveedor",
+      "no_model_configured": "sin modelo",
+      "no_prompt_selected": "sin prompt",
+      "prompt_not_found": "falta el prompt",
+      "prompt_empty": "prompt vacío",
+      "no_api_key": "falta clave API",
+      "provider_unavailable_in_this_build": "proveedor no disponible",
+      "apple_intelligence_unavailable": "Apple Intelligence no disponible",
+      "local_model_not_downloaded": "modelo no descargado",
+      "provider_not_found": "falta el proveedor",
+      "too_long": "demasiado largo",
+      "stopped_early": "detenido temprano",
+      "model_load_failed": "falló la carga del modelo"
+    },
+    "sentence": {
+      "no_provider_selected": "La corrección no se ejecutó porque no se seleccionó ningún proveedor.",
+      "no_model_configured": "La corrección no se ejecutó porque no se eligió ningún modelo.",
+      "no_prompt_selected": "La corrección no se ejecutó porque no se seleccionó ningún prompt.",
+      "prompt_not_found": "La corrección no se ejecutó porque no se encontró el prompt seleccionado.",
+      "prompt_empty": "La corrección no se ejecutó porque el prompt seleccionado está vacío.",
+      "no_api_key": "La corrección no se ejecutó porque falta la clave API.",
+      "provider_unavailable_in_this_build": "La corrección no se ejecutó porque el proveedor no está disponible en esta versión.",
+      "apple_intelligence_unavailable": "La corrección no se ejecutó porque Apple Intelligence no está disponible.",
+      "local_model_not_downloaded": "La corrección no se ejecutó porque el modelo local no está descargado.",
+      "provider_not_found": "La corrección no se ejecutó porque no se encontró el proveedor.",
+      "too_long": "La corrección no se ejecutó porque el texto es demasiado largo.",
+      "stopped_early": "La corrección no se ejecutó porque se detuvo anticipadamente.",
+      "model_load_failed": "La corrección no se ejecutó porque el modelo no se cargó."
+    },
+    "chip_label": "Sin corregir: {{reason}}"
   }
 }

@@ -676,5 +676,38 @@
   "overlay": {
     "transcribing": "ट्रान्सक्राइब गरिँदैछ...",
     "processing": "प्रशोधन गरिँदैछ..."
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "कुनै प्रदायक छैन",
+      "no_model_configured": "कुनै मोडेल छैन",
+      "no_prompt_selected": "कुनै प्रम्प्ट छैन",
+      "prompt_not_found": "प्रम्प्ट फेला परेन",
+      "prompt_empty": "खाली प्रम्प्ट",
+      "no_api_key": "API कुञ्जी छैन",
+      "provider_unavailable_in_this_build": "प्रदायक उपलब्ध छैन",
+      "apple_intelligence_unavailable": "Apple Intelligence उपलब्ध छैन",
+      "local_model_not_downloaded": "मोडेल डाउनलोड छैन",
+      "provider_not_found": "प्रदायक फेला परेन",
+      "too_long": "धेरै लामो",
+      "stopped_early": "छिट्टै रोकियो",
+      "model_load_failed": "मोडेल लोड भएन"
+    },
+    "sentence": {
+      "no_provider_selected": "कुनै प्रदायक चयन नगरिएकोले परिमार्जन चलेन।",
+      "no_model_configured": "कुनै मोडेल छनोट नगरिएकोले परिमार्जन चलेन।",
+      "no_prompt_selected": "कुनै प्रम्प्ट चयन नगरिएकोले परिमार्जन चलेन।",
+      "prompt_not_found": "चयन गरिएको प्रम्प्ट फेला नपरेकाले परिमार्जन चलेन।",
+      "prompt_empty": "चयन गरिएको प्रम्प्ट खाली भएकाले परिमार्जन चलेन।",
+      "no_api_key": "API कुञ्जी नभएकाले परिमार्जन चलेन।",
+      "provider_unavailable_in_this_build": "यस संस्करणमा प्रदायक उपलब्ध नभएकाले परिमार्जन चलेन।",
+      "apple_intelligence_unavailable": "Apple Intelligence उपलब्ध नभएकाले परिमार्जन चलेन।",
+      "local_model_not_downloaded": "स्थानीय मोडेल डाउनलोड नगरिएकोले परिमार्जन चलेन।",
+      "provider_not_found": "प्रदायक फेला नपरेकाले परिमार्जन चलेन।",
+      "too_long": "पाठ धेरै लामो भएकाले परिमार्जन चलेन।",
+      "stopped_early": "छिट्टै रोकिएकाले परिमार्जन चलेन।",
+      "model_load_failed": "मोडेल लोड हुन असफल भएकाले परिमार्जन चलेन।"
+    },
+    "chip_label": "परिमार्जन गरिएको छैन: {{reason}}"
   }
 }

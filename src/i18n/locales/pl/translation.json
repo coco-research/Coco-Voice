@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Nowości w Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "brak dostawcy",
+      "no_model_configured": "brak modelu",
+      "no_prompt_selected": "brak promptu",
+      "prompt_not_found": "nie znaleziono promptu",
+      "prompt_empty": "pusty prompt",
+      "no_api_key": "brak klucza API",
+      "provider_unavailable_in_this_build": "dostawca niedostępny",
+      "apple_intelligence_unavailable": "Apple Intelligence niedostępne",
+      "local_model_not_downloaded": "model niepobrany",
+      "provider_not_found": "brak dostawcy",
+      "too_long": "zbyt długie",
+      "stopped_early": "zatrzymano wcześnie",
+      "model_load_failed": "nie załadowano modelu"
+    },
+    "sentence": {
+      "no_provider_selected": "Korekta nie została wykonana, ponieważ nie wybrano dostawcy.",
+      "no_model_configured": "Korekta nie została wykonana, ponieważ nie wybrano modelu.",
+      "no_prompt_selected": "Korekta nie została wykonana, ponieważ nie wybrano promptu.",
+      "prompt_not_found": "Korekta nie została wykonana, ponieważ wybrany prompt nie został znaleziony.",
+      "prompt_empty": "Korekta nie została wykonana, ponieważ wybrany prompt jest pusty.",
+      "no_api_key": "Korekta nie została wykonana, ponieważ brakuje klucza API.",
+      "provider_unavailable_in_this_build": "Korekta nie została wykonana, ponieważ dostawca jest niedostępny w tej wersji.",
+      "apple_intelligence_unavailable": "Korekta nie została wykonana, ponieważ Apple Intelligence jest niedostępne.",
+      "local_model_not_downloaded": "Korekta nie została wykonana, ponieważ lokalny model nie został pobrany.",
+      "provider_not_found": "Korekta nie została wykonana, ponieważ dostawca nie został znaleziony.",
+      "too_long": "Korekta nie została wykonana, ponieważ tekst jest zbyt długi.",
+      "stopped_early": "Korekta nie została wykonana, ponieważ została przedwcześnie zatrzymana.",
+      "model_load_failed": "Korekta nie została wykonana, ponieważ model nie został załadowany."
+    },
+    "chip_label": "Nie poprawiono: {{reason}}"
   }
 }

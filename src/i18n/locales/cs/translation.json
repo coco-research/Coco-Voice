@@ -676,5 +676,38 @@
   },
   "whatsNew": {
     "title": "Novinky v Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "no_provider_selected": "žádný poskytovatel",
+      "no_model_configured": "žádný model",
+      "no_prompt_selected": "žádný prompt",
+      "prompt_not_found": "chybí prompt",
+      "prompt_empty": "prázdný prompt",
+      "no_api_key": "chybí API klíč",
+      "provider_unavailable_in_this_build": "poskytovatel nedostupný",
+      "apple_intelligence_unavailable": "Apple Intelligence nedostupný",
+      "local_model_not_downloaded": "model nestažen",
+      "provider_not_found": "poskytovatel chybí",
+      "too_long": "příliš dlouhé",
+      "stopped_early": "zastaveno brzy",
+      "model_load_failed": "model se nenačetl"
+    },
+    "sentence": {
+      "no_provider_selected": "Korekce neproběhla, protože není vybrán poskytovatel.",
+      "no_model_configured": "Korekce neproběhla, protože není vybrán model.",
+      "no_prompt_selected": "Korekce neproběhla, protože není vybrán prompt.",
+      "prompt_not_found": "Korekce neproběhla, protože vybraný prompt nebyl nalezen.",
+      "prompt_empty": "Korekce neproběhla, protože vybraný prompt je prázdný.",
+      "no_api_key": "Korekce neproběhla, protože chybí API klíč.",
+      "provider_unavailable_in_this_build": "Korekce neproběhla, protože poskytovatel není v této verzi dostupný.",
+      "apple_intelligence_unavailable": "Korekce neproběhla, protože Apple Intelligence není k dispozici.",
+      "local_model_not_downloaded": "Korekce neproběhla, protože lokální model není stažen.",
+      "provider_not_found": "Korekce neproběhla, protože poskytovatel nebyl nalezen.",
+      "too_long": "Korekce neproběhla, protože text je příliš dlouhý.",
+      "stopped_early": "Korekce neproběhla, protože byla předčasně zastavena.",
+      "model_load_failed": "Korekce neproběhla, protože se model nepodařilo načíst."
+    },
+    "chip_label": "Neupraveno: {{reason}}"
   }
 }
