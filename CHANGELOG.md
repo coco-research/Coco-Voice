@@ -6,6 +6,13 @@ from the conventional commit titles when a release is cut. The user-facing notes
 for each version are in [src/content/release-notes/](src/content/release-notes/)
 and on the [GitHub Release](https://github.com/coco-research/Coco-Voice/releases).
 
+## [0.9.6](https://github.com/coco-research/Coco-Voice/compare/v0.9.5...v0.9.6) (2026-10-08)
+
+
+### Fixed
+
+* add a release finalize script that works on drafts and checks the draft first ([#80](https://github.com/coco-research/Coco-Voice/issues/80)) ([c29c075](https://github.com/coco-research/Coco-Voice/commit/c29c0752647458b344400329ec068249b0122408))
+
 ## [0.9.5](https://github.com/coco-research/Coco-Voice/compare/v0.9.4...v0.9.5) (2026-10-07)
 
 
