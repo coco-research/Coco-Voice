@@ -708,6 +708,20 @@
       "stopped_early": "Erken durdurulduğu için düzeltme çalışmadı.",
       "model_load_failed": "Model yüklenemediği için düzeltme çalışmadı."
     },
-    "chip_label": "Düzeltilmedi: {{reason}}"
+    "chip_label": "Düzeltilmedi: {{reason}}",
+    "action": {
+      "default": "Ayarlarda Düzelt",
+      "no_provider_selected": "Sağlayıcı seç",
+      "no_model_configured": "Model seç",
+      "no_prompt_selected": "Komut seç",
+      "prompt_not_found": "Komut seç",
+      "prompt_empty": "Komutu düzenle",
+      "no_api_key": "API anahtarı ekle",
+      "provider_unavailable_in_this_build": "Sağlayıcı seç",
+      "apple_intelligence_unavailable": "Sağlayıcı seç",
+      "local_model_not_downloaded": "Model indir",
+      "provider_not_found": "Sağlayıcı seç",
+      "dismiss": "Kapat"
+    }
   }
 }

@@ -708,6 +708,20 @@
       "stopped_early": "Chỉnh sửa không chạy vì nó bị dừng sớm.",
       "model_load_failed": "Chỉnh sửa không chạy vì không tải được mô hình."
     },
-    "chip_label": "Chưa chỉnh sửa: {{reason}}"
+    "chip_label": "Chưa chỉnh sửa: {{reason}}",
+    "action": {
+      "default": "Sửa trong Cài đặt",
+      "no_provider_selected": "Chọn nhà cung cấp",
+      "no_model_configured": "Chọn mô hình",
+      "no_prompt_selected": "Chọn lời nhắc",
+      "prompt_not_found": "Chọn lời nhắc",
+      "prompt_empty": "Chỉnh sửa lời nhắc",
+      "no_api_key": "Thêm khóa API",
+      "provider_unavailable_in_this_build": "Chọn nhà cung cấp",
+      "apple_intelligence_unavailable": "Chọn nhà cung cấp",
+      "local_model_not_downloaded": "Tải mô hình",
+      "provider_not_found": "Chọn nhà cung cấp",
+      "dismiss": "Bỏ qua"
+    }
   }
 }

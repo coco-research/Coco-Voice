@@ -708,6 +708,20 @@
       "stopped_early": "Корекція не виконалась, оскільки її було зупинено завчасно.",
       "model_load_failed": "Корекція не виконалась через помилку завантаження моделі."
     },
-    "chip_label": "Не оброблено: {{reason}}"
+    "chip_label": "Не оброблено: {{reason}}",
+    "action": {
+      "default": "Виправити в Налаштуваннях",
+      "no_provider_selected": "Обрати провайдера",
+      "no_model_configured": "Обрати модель",
+      "no_prompt_selected": "Обрати промпт",
+      "prompt_not_found": "Обрати промпт",
+      "prompt_empty": "Редагувати промпт",
+      "no_api_key": "Додати API-ключ",
+      "provider_unavailable_in_this_build": "Обрати провайдера",
+      "apple_intelligence_unavailable": "Обрати провайдера",
+      "local_model_not_downloaded": "Завантажити модель",
+      "provider_not_found": "Обрати провайдера",
+      "dismiss": "Сховати"
+    }
   }
 }

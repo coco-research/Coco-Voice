@@ -708,6 +708,20 @@
       "stopped_early": "Bearbetning kördes inte eftersom den avbröts i förtid.",
       "model_load_failed": "Bearbetning kördes inte eftersom modellen misslyckades med att ladda."
     },
-    "chip_label": "Ej rensad: {{reason}}"
+    "chip_label": "Ej rensad: {{reason}}",
+    "action": {
+      "default": "Åtgärda i Inställningar",
+      "no_provider_selected": "Välj leverantör",
+      "no_model_configured": "Välj modell",
+      "no_prompt_selected": "Välj prompt",
+      "prompt_not_found": "Välj prompt",
+      "prompt_empty": "Redigera prompt",
+      "no_api_key": "Lägg till API-nyckel",
+      "provider_unavailable_in_this_build": "Välj leverantör",
+      "apple_intelligence_unavailable": "Välj leverantör",
+      "local_model_not_downloaded": "Ladda ner modell",
+      "provider_not_found": "Välj leverantör",
+      "dismiss": "Avfärda"
+    }
   }
 }

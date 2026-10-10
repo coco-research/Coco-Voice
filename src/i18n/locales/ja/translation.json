@@ -708,6 +708,20 @@
       "stopped_early": "途中で停止されたため、文章校正を実行できませんでした。",
       "model_load_failed": "モデルを読み込めなかったため、文章校正を実行できませんでした。"
     },
-    "chip_label": "クリーンアップ未完了：{{reason}}"
+    "chip_label": "クリーンアップ未完了：{{reason}}",
+    "action": {
+      "default": "設定で修正",
+      "no_provider_selected": "プロバイダを選択",
+      "no_model_configured": "モデルを選択",
+      "no_prompt_selected": "プロンプトを選択",
+      "prompt_not_found": "プロンプトを選択",
+      "prompt_empty": "プロンプトを編集",
+      "no_api_key": "APIキーを追加",
+      "provider_unavailable_in_this_build": "プロバイダを選択",
+      "apple_intelligence_unavailable": "プロバイダを選択",
+      "local_model_not_downloaded": "モデルをダウンロード",
+      "provider_not_found": "プロバイダを選択",
+      "dismiss": "閉じる"
+    }
   }
 }
