@@ -708,6 +708,20 @@
       "stopped_early": "Korekce neproběhla, protože byla předčasně zastavena.",
       "model_load_failed": "Korekce neproběhla, protože se model nepodařilo načíst."
     },
-    "chip_label": "Neupraveno: {{reason}}"
+    "chip_label": "Neupraveno: {{reason}}",
+    "action": {
+      "default": "Opravit v nastavení",
+      "no_provider_selected": "Zvolit poskytovatele",
+      "no_model_configured": "Zvolit model",
+      "no_prompt_selected": "Zvolit prompt",
+      "prompt_not_found": "Zvolit prompt",
+      "prompt_empty": "Upravit prompt",
+      "no_api_key": "Přidat API klíč",
+      "provider_unavailable_in_this_build": "Zvolit poskytovatele",
+      "apple_intelligence_unavailable": "Zvolit poskytovatele",
+      "local_model_not_downloaded": "Stáhnout model",
+      "provider_not_found": "Zvolit poskytovatele",
+      "dismiss": "Zavřít"
+    }
   }
 }

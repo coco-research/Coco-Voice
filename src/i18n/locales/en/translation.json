@@ -708,6 +708,20 @@
       "too_long": "Cleanup didn't run because the text is too long.",
       "stopped_early": "Cleanup didn't run because it was stopped early.",
       "model_load_failed": "Cleanup didn't run because the model didn't load."
+    },
+    "action": {
+      "default": "Fix in Settings",
+      "no_provider_selected": "Choose provider",
+      "no_model_configured": "Choose model",
+      "no_prompt_selected": "Choose prompt",
+      "prompt_not_found": "Choose prompt",
+      "prompt_empty": "Edit prompt",
+      "no_api_key": "Add API key",
+      "provider_unavailable_in_this_build": "Choose provider",
+      "apple_intelligence_unavailable": "Choose provider",
+      "local_model_not_downloaded": "Download model",
+      "provider_not_found": "Choose provider",
+      "dismiss": "Dismiss"
     }
   }
 }

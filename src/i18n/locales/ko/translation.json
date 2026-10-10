@@ -708,6 +708,20 @@
       "stopped_early": "일찍 중지되어 교정이 실행되지 않았습니다.",
       "model_load_failed": "모델을 로드하지 못해 교정이 실행되지 않았습니다."
     },
-    "chip_label": "정리되지 않음: {{reason}}"
+    "chip_label": "정리되지 않음: {{reason}}",
+    "action": {
+      "default": "설정에서 수정",
+      "no_provider_selected": "제공자 선택",
+      "no_model_configured": "모델 선택",
+      "no_prompt_selected": "프롬프트 선택",
+      "prompt_not_found": "프롬프트 선택",
+      "prompt_empty": "프롬프트 편집",
+      "no_api_key": "API 키 추가",
+      "provider_unavailable_in_this_build": "제공자 선택",
+      "apple_intelligence_unavailable": "제공자 선택",
+      "local_model_not_downloaded": "모델 다운로드",
+      "provider_not_found": "제공자 선택",
+      "dismiss": "무시"
+    }
   }
 }

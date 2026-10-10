@@ -708,6 +708,20 @@
       "stopped_early": "Korrektur nicht ausgeführt: Vorzeitig gestoppt.",
       "model_load_failed": "Korrektur nicht ausgeführt: Fehler beim Laden des Modells."
     },
-    "chip_label": "Nicht bereinigt: {{reason}}"
+    "chip_label": "Nicht bereinigt: {{reason}}",
+    "action": {
+      "default": "In Einstellungen beheben",
+      "no_provider_selected": "Anbieter wählen",
+      "no_model_configured": "Modell wählen",
+      "no_prompt_selected": "Prompt wählen",
+      "prompt_not_found": "Prompt wählen",
+      "prompt_empty": "Prompt bearbeiten",
+      "no_api_key": "API-Schlüssel hinzufügen",
+      "provider_unavailable_in_this_build": "Anbieter wählen",
+      "apple_intelligence_unavailable": "Anbieter wählen",
+      "local_model_not_downloaded": "Modell herunterladen",
+      "provider_not_found": "Anbieter wählen",
+      "dismiss": "Ausblenden"
+    }
   }
 }

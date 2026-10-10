@@ -708,6 +708,20 @@
       "stopped_early": "छिट्टै रोकिएकाले परिमार्जन चलेन।",
       "model_load_failed": "मोडेल लोड हुन असफल भएकाले परिमार्जन चलेन।"
     },
-    "chip_label": "परिमार्जन गरिएको छैन: {{reason}}"
+    "chip_label": "परिमार्जन गरिएको छैन: {{reason}}",
+    "action": {
+      "default": "सेटिङमा मिलाउनुहोस्",
+      "no_provider_selected": "प्रदायक छान्नुहोस्",
+      "no_model_configured": "मोडेल छान्नुहोस्",
+      "no_prompt_selected": "प्रम्प्ट छान्नुहोस्",
+      "prompt_not_found": "प्रम्प्ट छान्नुहोस्",
+      "prompt_empty": "प्रम्प्ट सम्पादन गर्नुहोस्",
+      "no_api_key": "API कुञ्जी थप्नुहोस्",
+      "provider_unavailable_in_this_build": "प्रदायक छान्नुहोस्",
+      "apple_intelligence_unavailable": "प्रदायक छान्नुहोस्",
+      "local_model_not_downloaded": "मोडेल डाउनलोड गर्नुहोस्",
+      "provider_not_found": "प्रदायक छान्नुहोस्",
+      "dismiss": "हटाउनुहोस्"
+    }
   }
 }

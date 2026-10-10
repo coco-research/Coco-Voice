@@ -708,6 +708,20 @@
       "stopped_early": "潤飾未執行，因為它被提前停止。",
       "model_load_failed": "潤飾未執行，因為模型載入失敗。"
     },
-    "chip_label": "未修飾：{{reason}}"
+    "chip_label": "未修飾：{{reason}}",
+    "action": {
+      "default": "在設定中修復",
+      "no_provider_selected": "選擇提供者",
+      "no_model_configured": "選擇模型",
+      "no_prompt_selected": "選擇提示詞",
+      "prompt_not_found": "選擇提示詞",
+      "prompt_empty": "編輯提示詞",
+      "no_api_key": "新增 API 金鑰",
+      "provider_unavailable_in_this_build": "選擇提供者",
+      "apple_intelligence_unavailable": "選擇提供者",
+      "local_model_not_downloaded": "下載模型",
+      "provider_not_found": "選擇提供者",
+      "dismiss": "關閉"
+    }
   }
 }

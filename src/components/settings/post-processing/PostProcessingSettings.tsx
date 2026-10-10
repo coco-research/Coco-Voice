@@ -2,8 +2,30 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { RefreshCcw } from "lucide-react";
-import { commands, type ModelInfo } from "@/bindings";
+import { commands, type ModelInfo, type CleanupStatusReason } from "@/bindings";
 import { useModelStore } from "@/stores/modelStore";
+
+const API_SECTION_ID = "post-process-api-section";
+const API_KEY_FIELD_ID = "post-process-api-key-field";
+const PROMPTS_SECTION_ID = "post-process-prompts-section";
+
+const FOCUS_AFTER_SCROLL_MS = 300; // Delay to allow smooth scroll before focusing
+
+const REASON_TO_SECTION_MAP: Record<CleanupStatusReason, string> = {
+  no_prompt_selected: PROMPTS_SECTION_ID,
+  prompt_not_found: PROMPTS_SECTION_ID,
+  prompt_empty: PROMPTS_SECTION_ID,
+  no_api_key: API_KEY_FIELD_ID,
+  no_provider_selected: API_SECTION_ID,
+  no_model_configured: API_SECTION_ID,
+  provider_unavailable_in_this_build: API_SECTION_ID,
+  apple_intelligence_unavailable: API_SECTION_ID,
+  local_model_not_downloaded: API_SECTION_ID,
+  provider_not_found: API_SECTION_ID,
+  too_long: API_SECTION_ID,
+  stopped_early: API_SECTION_ID,
+  model_load_failed: API_SECTION_ID,
+};
 
 import { Alert } from "../../ui/Alert";
 import {
@@ -25,6 +47,7 @@ import { ShortcutInput } from "../ShortcutInput";
 import { IterativeCorrectionToggle } from "../IterativeCorrectionToggle";
 import { AppProfiles } from "../AppProfiles";
 import { useSettings } from "../../../hooks/useSettings";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 /** Registry id of the on-device post-process GGUF.
  *  Same string as `LOCAL_LLM_DEFAULT_MODEL_ID`: `{catalog repo id}/{filename}`.
@@ -230,7 +253,7 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
             layout="horizontal"
             grouped={true}
           >
-            <div className="flex items-center gap-2">
+            <div id={API_KEY_FIELD_ID} className="flex items-center gap-2">
               <ApiKeyField
                 value={state.apiKey}
                 onBlur={state.handleApiKeyChange}
@@ -573,6 +596,84 @@ export const PostProcessingSettingsPrompts = React.memo(
 );
 PostProcessingSettingsPrompts.displayName = "PostProcessingSettingsPrompts";
 
+const CleanupBanner: React.FC = () => {
+  const { t } = useTranslation();
+  const status = useSettingsStore((s) => s.lastCleanupStatus);
+  const setStatus = useSettingsStore((s) => s.setLastCleanupStatus);
+
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
+
+  if (!status || !status.needs_action) return null;
+
+  const handleAction = () => {
+    // scroll to the relevant section
+    let idToFocus = REASON_TO_SECTION_MAP[status.reason] || API_SECTION_ID;
+
+    let el = document.getElementById(idToFocus);
+    if (!el) {
+      // Fallback if target element isn't in DOM
+      idToFocus = API_SECTION_ID;
+      el = document.getElementById(idToFocus);
+    }
+
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (idToFocus === API_KEY_FIELD_ID) {
+        const input = el.querySelector("input");
+        if (input) {
+          timerRef.current = setTimeout(
+            () => input.focus(),
+            FOCUS_AFTER_SCROLL_MS,
+          );
+        }
+      }
+    }
+  };
+
+  const actionText = t(`cleanupStatus.action.${status.reason}`, {
+    defaultValue: t("cleanupStatus.action.default"),
+  });
+
+  return (
+    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
+        <svg
+          className="w-5 h-5 shrink-0 text-amber-500"
+          viewBox="0 0 24 24"
+          fill="none"
+        >
+          <path
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span className="text-[14px] text-text">
+          {t(`cleanupStatus.sentence.${status.reason}`)}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button variant="secondary" size="sm" onClick={() => setStatus(null)}>
+          {t("cleanupStatus.action.dismiss", "Dismiss")}
+        </Button>
+        <Button variant="primary" size="sm" onClick={handleAction}>
+          {actionText}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 export const PostProcessingSettings: React.FC = () => {
   const { t } = useTranslation();
   const { getSetting } = useSettings();
@@ -581,6 +682,8 @@ export const PostProcessingSettings: React.FC = () => {
 
   return (
     <div className="max-w-3xl w-full mx-auto space-y-6">
+      <CleanupBanner />
+
       <SettingsGroup title={t("settings.postProcessing.hotkey.title")}>
         <ShortcutInput
           shortcutId="transcribe_with_post_process"
@@ -600,13 +703,17 @@ export const PostProcessingSettings: React.FC = () => {
         )}
       </SettingsGroup>
 
-      <SettingsGroup title={t("settings.postProcessing.api.title")}>
-        <PostProcessingSettingsApi />
-      </SettingsGroup>
+      <div id={API_SECTION_ID}>
+        <SettingsGroup title={t("settings.postProcessing.api.title")}>
+          <PostProcessingSettingsApi />
+        </SettingsGroup>
+      </div>
 
-      <SettingsGroup title={t("settings.postProcessing.prompts.title")}>
-        <PostProcessingSettingsPrompts />
-      </SettingsGroup>
+      <div id={PROMPTS_SECTION_ID}>
+        <SettingsGroup title={t("settings.postProcessing.prompts.title")}>
+          <PostProcessingSettingsPrompts />
+        </SettingsGroup>
+      </div>
 
       <SettingsGroup title={t("settings.postProcessing.appProfiles.title")}>
         <AppProfiles descriptionMode="tooltip" grouped={true} />

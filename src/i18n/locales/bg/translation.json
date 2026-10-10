@@ -708,6 +708,20 @@
       "stopped_early": "Редактирането не се изпълни, защото беше спряно рано.",
       "model_load_failed": "Редактирането не се изпълни, защото моделът не се зареди."
     },
-    "chip_label": "Не е редактирано: {{reason}}"
+    "chip_label": "Не е редактирано: {{reason}}",
+    "action": {
+      "default": "Поправка в настройките",
+      "no_provider_selected": "Избор на доставчик",
+      "no_model_configured": "Избор на модел",
+      "no_prompt_selected": "Избор на prompt",
+      "prompt_not_found": "Избор на prompt",
+      "prompt_empty": "Редакция на prompt",
+      "no_api_key": "Добавяне на API ключ",
+      "provider_unavailable_in_this_build": "Избор на доставчик",
+      "apple_intelligence_unavailable": "Избор на доставчик",
+      "local_model_not_downloaded": "Изтегляне на модел",
+      "provider_not_found": "Избор на доставчик",
+      "dismiss": "Отхвърляне"
+    }
   }
 }

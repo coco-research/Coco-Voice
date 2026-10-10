@@ -708,6 +708,20 @@
       "stopped_early": "התיקון לא פעל מכיוון שהוא הופסק מוקדם.",
       "model_load_failed": "התיקון לא פעל מכיוון שהמודל לא נטען."
     },
-    "chip_label": "לא תוקן: {{reason}}"
+    "chip_label": "לא תוקן: {{reason}}",
+    "action": {
+      "default": "תיקון בהגדרות",
+      "no_provider_selected": "בחר ספק",
+      "no_model_configured": "בחר מודל",
+      "no_prompt_selected": "בחר הנחיה",
+      "prompt_not_found": "בחר הנחיה",
+      "prompt_empty": "ערוך הנחיה",
+      "no_api_key": "הוסף מפתח API",
+      "provider_unavailable_in_this_build": "בחר ספק",
+      "apple_intelligence_unavailable": "בחר ספק",
+      "local_model_not_downloaded": "הורד מודל",
+      "provider_not_found": "בחר ספק",
+      "dismiss": "התעלם"
+    }
   }
 }

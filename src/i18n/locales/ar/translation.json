@@ -708,6 +708,20 @@
       "stopped_early": "لم يتم التنقيح لأنه توقف مبكرًا.",
       "model_load_failed": "لم يتم التنقيح لفشل تحميل النموذج."
     },
-    "chip_label": "لم يتم التنظيف: {{reason}}"
+    "chip_label": "لم يتم التنظيف: {{reason}}",
+    "action": {
+      "default": "الإصلاح في الإعدادات",
+      "no_provider_selected": "اختيار مزود",
+      "no_model_configured": "اختيار نموذج",
+      "no_prompt_selected": "اختيار مطالبة",
+      "prompt_not_found": "اختيار مطالبة",
+      "prompt_empty": "تعديل المطالبة",
+      "no_api_key": "إضافة مفتاح API",
+      "provider_unavailable_in_this_build": "اختيار مزود",
+      "apple_intelligence_unavailable": "اختيار مزود",
+      "local_model_not_downloaded": "تحميل النموذج",
+      "provider_not_found": "اختيار مزود",
+      "dismiss": "تجاهل"
+    }
   }
 }

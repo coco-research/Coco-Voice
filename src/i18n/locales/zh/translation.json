@@ -708,6 +708,20 @@
       "stopped_early": "润色未运行，因为它被提前停止。",
       "model_load_failed": "润色未运行，因为模型加载失败。"
     },
-    "chip_label": "未润色：{{reason}}"
+    "chip_label": "未润色：{{reason}}",
+    "action": {
+      "default": "在设置中修复",
+      "no_provider_selected": "选择提供商",
+      "no_model_configured": "选择模型",
+      "no_prompt_selected": "选择提示词",
+      "prompt_not_found": "选择提示词",
+      "prompt_empty": "编辑提示词",
+      "no_api_key": "添加 API 密钥",
+      "provider_unavailable_in_this_build": "选择提供商",
+      "apple_intelligence_unavailable": "选择提供商",
+      "local_model_not_downloaded": "下载模型",
+      "provider_not_found": "选择提供商",
+      "dismiss": "关闭"
+    }
   }
 }

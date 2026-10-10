@@ -708,6 +708,20 @@
       "stopped_early": "La corrección no se ejecutó porque se detuvo anticipadamente.",
       "model_load_failed": "La corrección no se ejecutó porque el modelo no se cargó."
     },
-    "chip_label": "Sin corregir: {{reason}}"
+    "chip_label": "Sin corregir: {{reason}}",
+    "action": {
+      "default": "Corregir en Ajustes",
+      "no_provider_selected": "Elegir proveedor",
+      "no_model_configured": "Elegir modelo",
+      "no_prompt_selected": "Elegir prompt",
+      "prompt_not_found": "Elegir prompt",
+      "prompt_empty": "Editar prompt",
+      "no_api_key": "Añadir clave API",
+      "provider_unavailable_in_this_build": "Elegir proveedor",
+      "apple_intelligence_unavailable": "Elegir proveedor",
+      "local_model_not_downloaded": "Descargar modelo",
+      "provider_not_found": "Elegir proveedor",
+      "dismiss": "Descartar"
+    }
   }
 }

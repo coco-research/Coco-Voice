@@ -16,7 +16,7 @@ import { Sidebar, SidebarSection, SECTIONS_CONFIG } from "./components/Sidebar";
 import { WhatsNewGate } from "./components/whats-new";
 import { useSettings } from "./hooks/useSettings";
 import { useSettingsStore } from "./stores/settingsStore";
-import { commands } from "@/bindings";
+import { commands, events } from "@/bindings";
 import { getLanguageDirection, initializeRTL } from "@/lib/utils/rtl";
 
 type OnboardingStep = "accessibility" | "model" | "done";
@@ -170,6 +170,33 @@ function App() {
       unlisten.then((fn) => fn());
     };
   }, [t]);
+
+  // The banner disappears after the next take where cleanup runs.
+  // We know a take happened when historyUpdatePayload is emitted.
+  useEffect(() => {
+    let statusSeenThisTake = false;
+
+    const unlistenCleanup = events.cleanupStatus.listen((event) => {
+      if (event.payload.needs_action) {
+        useSettingsStore.getState().setLastCleanupStatus(event.payload);
+        statusSeenThisTake = true;
+      }
+    });
+
+    const unlistenHistory = events.historyUpdatePayload.listen((event) => {
+      // Only a new entry is a finished take; edits and deletes are not.
+      if (event.payload.action !== "added") return;
+      if (!statusSeenThisTake) {
+        useSettingsStore.getState().setLastCleanupStatus(null);
+      }
+      statusSeenThisTake = false;
+    });
+
+    return () => {
+      unlistenCleanup.then((fn) => fn());
+      unlistenHistory.then((fn) => fn());
+    };
+  }, []);
 
   const revealMainWindowForPermissions = async () => {
     try {

@@ -708,6 +708,20 @@
       "stopped_early": "Correctie niet uitgevoerd omdat het vroegtijdig is gestopt.",
       "model_load_failed": "Correctie niet uitgevoerd omdat het model niet kon worden geladen."
     },
-    "chip_label": "Niet opgeschoond: {{reason}}"
+    "chip_label": "Niet opgeschoond: {{reason}}",
+    "action": {
+      "default": "Repareren in Instellingen",
+      "no_provider_selected": "Kies provider",
+      "no_model_configured": "Kies model",
+      "no_prompt_selected": "Kies prompt",
+      "prompt_not_found": "Kies prompt",
+      "prompt_empty": "Bewerk prompt",
+      "no_api_key": "Voeg API-sleutel toe",
+      "provider_unavailable_in_this_build": "Kies provider",
+      "apple_intelligence_unavailable": "Kies provider",
+      "local_model_not_downloaded": "Model downloaden",
+      "provider_not_found": "Kies provider",
+      "dismiss": "Sluiten"
+    }
   }
 }
