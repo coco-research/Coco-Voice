@@ -10,6 +10,9 @@ mod commands;
 mod helpers;
 mod input;
 mod llm_client;
+#[cfg(target_os = "macos")]
+#[allow(dead_code)] // inert: nothing calls it until the wiring PR; drop this allow then
+mod local_llm;
 mod managers;
 mod overlay;
 pub mod portable;
