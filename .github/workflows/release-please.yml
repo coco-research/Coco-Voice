@@ -3,10 +3,18 @@ name: Release Please
 # Merging the release-please PR is the release. This workflow opens that PR,
 # and when the merge creates a draft release, builds unsigned installers
 # (updater artifacts still minisign-signed) and publishes the draft.
+# workflow_dispatch only finalizes an existing draft: no release-please,
+# no builds, no tag or release creation, and no asset uploads.
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to finalize, for example v0.9.5
+        required: true
+        type: string
 
 # Never cancel a run that may have created a release.
 concurrency:
@@ -18,6 +26,7 @@ permissions:
 
 jobs:
   release-please:
+    if: github.event_name == 'push'
     permissions:
       contents: write
       # Labels use the issues API. The pinned action's README requires this
@@ -91,7 +100,7 @@ jobs:
 
   publish:
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    if: github.event_name == 'push' && needs.release-please.outputs.release_created == 'true'
     permissions:
       contents: write
     strategy:
@@ -139,7 +148,7 @@ jobs:
 
   finalize:
     needs: [release-please, publish]
-    if: needs.release-please.outputs.release_created == 'true' && needs.publish.result == 'success'
+    if: github.event_name == 'push' && needs.release-please.outputs.release_created == 'true' && needs.publish.result == 'success'
     permissions:
       id-token: write
       attestations: write
@@ -158,11 +167,12 @@ jobs:
           TAG: ${{ needs.release-please.outputs.tag_name }}
         run: |
           set -euo pipefail
-          mkdir -p assets
-          gh release download "$TAG" --dir assets --clobber
-          rm -f assets/SHA256SUMS
+          dir="${RUNNER_TEMP}/release-assets"
+          mkdir -p "$dir"
+          gh release download "$TAG" --dir "$dir" --clobber
+          rm -f "$dir/SHA256SUMS"
           (
-            cd assets
+            cd "$dir"
             files=$(find . -type f -printf '%P\n' | sort)
             if [ -z "$files" ]; then
               echo "release ${TAG} has no assets" >&2
@@ -176,36 +186,43 @@ jobs:
               exit 1
             fi
           )
-          gh release upload "$TAG" assets/SHA256SUMS --clobber
+          gh release upload "$TAG" "$dir/SHA256SUMS" --clobber
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-checksums: assets/SHA256SUMS
+          subject-checksums: ${{ runner.temp }}/release-assets/SHA256SUMS
 
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.release-please.outputs.tag_name }}
-          VERSION: ${{ needs.release-please.outputs.version }}
+        run: bash scripts/release-finalize.sh --tag "$TAG"
+
+  # Dispatch reads release notes from main on purpose (CTO decision, so notes
+  # fixed after tagging ship). Only a draft can be edited, so a published
+  # release is never rewritten.
+  # inputs.tag is passed through env, never interpolated into run:.
+  finalize-dispatch:
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require main
+        if: github.ref != 'refs/heads/main'
         run: |
-          set -euo pipefail
-          version="${VERSION#v}"
-          paragraph='These builds are not signed or notarized. Verify downloads with SHA256SUMS. On macOS, right-click the app and choose Open the first time.'
-          marker='<!-- coco-voice-release-notes -->'
-          body=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq .body)
-          if printf '%s' "$body" | grep -F -q "$marker"; then
-            gh release edit "$TAG" --draft=false --latest
-            exit 0
-          fi
-          {
-            notes="src/content/release-notes/${version}.md"
-            if [ -f "$notes" ]; then
-              cat "$notes"
-              printf '\n\n'
-            fi
-            printf '%s\n\n' "$paragraph"
-            printf '%s\n' "$body"
-            printf '%s\n' "$marker"
-          } > "${RUNNER_TEMP}/release-body.md"
-          gh release edit "$TAG" --notes-file "${RUNNER_TEMP}/release-body.md" --draft=false --latest
+          echo "dispatch Release Please from main, not ${GITHUB_REF}" >&2
+          exit 1
+
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Publish the release
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/release-finalize.sh --tag "$TAG" --verify-release-commit
