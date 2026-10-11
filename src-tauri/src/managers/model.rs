@@ -50,7 +50,12 @@ pub enum ModelSource {
     /// A file inside a Hugging Face Hub repo, fetched via hf-hub into the shared
     /// HF cache (so other tools reuse it). The file within the repo is
     /// [`ModelInfo::filename`].
-    HuggingFace { repo_id: String, revision: String },
+    HuggingFace {
+        repo_id: String,
+        revision: String,
+        /// Expected SHA-256 of that file. `None` skips verification.
+        sha256: Option<String>,
+    },
     /// Already present on disk — a user-provided custom model, or one discovered
     /// in a shared cache. Nothing to download.
     Local,
@@ -270,6 +275,39 @@ pub struct DownloadProgress {
     pub downloaded: u64,
     pub total: u64,
     pub percentage: f64,
+}
+
+/// Marker file name for a verified download. The lowercase hex SHA-256 of the
+/// model id is injective, so distinct ids never share a marker file, and the
+/// name stays a single path component inside the models directory.
+fn verified_marker_name(model_id: &str) -> String {
+    format!("{:x}.verified", Sha256::digest(model_id.as_bytes()))
+}
+
+/// Pure decision for "is this Hugging Face model downloaded". Without a catalog
+/// hash a cached file is enough. With one, the marker must hold that hash and the
+/// name of the blob now behind the snapshot (`hash\nblob_name`), so a blob this
+/// app never verified, or one replaced since, does not count.
+fn is_hf_downloaded_pure(
+    file_exists: bool,
+    marker_contents: Option<&str>,
+    expected_sha256: Option<&str>,
+    snapshot_blob_name: Option<&str>,
+) -> bool {
+    if !file_exists {
+        return false;
+    }
+    let Some(expected) = expected_sha256 else {
+        return true;
+    };
+    let (Some(marker), Some(blob_name)) = (marker_contents, snapshot_blob_name) else {
+        return false;
+    };
+    let mut lines = marker.lines();
+    let marker_hash = lines.next().unwrap_or("").trim();
+    let marker_blob = lines.next().unwrap_or("").trim();
+    marker_hash.eq_ignore_ascii_case(expected.trim())
+        && marker_blob.eq_ignore_ascii_case(blob_name.trim())
 }
 
 /// Resolve a Hugging Face model file in the shared HF cache, if already present.
@@ -1263,12 +1301,52 @@ impl ModelManager {
         Ok(())
     }
 
+    fn verified_marker_path(&self, model_id: &str) -> PathBuf {
+        self.models_dir.join(verified_marker_name(model_id))
+    }
+
+    /// Reads the shared HF cache and this model's verified marker, then applies
+    /// [`is_hf_downloaded_pure`].
+    fn hf_is_downloaded(
+        &self,
+        model_id: &str,
+        repo_id: &str,
+        revision: &str,
+        filename: &str,
+        sha256: Option<&str>,
+    ) -> bool {
+        let snapshot = hf_cached_path(repo_id, revision, filename);
+        // The snapshot is a symlink into `blobs/`; the marker pins the blob's name.
+        let blob_name = snapshot
+            .as_ref()
+            .and_then(|p| fs::canonicalize(p).ok())
+            .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()));
+        let marker = fs::read_to_string(self.verified_marker_path(model_id)).ok();
+        is_hf_downloaded_pure(
+            snapshot.is_some(),
+            marker.as_deref(),
+            sha256,
+            blob_name.as_deref(),
+        )
+    }
+
     fn update_download_status(&self) -> Result<()> {
         let mut models = self.available_models.lock().unwrap();
 
         for model in models.values_mut() {
-            if let ModelSource::HuggingFace { repo_id, revision } = &model.source {
-                model.is_downloaded = hf_cached_path(repo_id, revision, &model.filename).is_some();
+            if let ModelSource::HuggingFace {
+                repo_id,
+                revision,
+                sha256,
+            } = &model.source
+            {
+                model.is_downloaded = self.hf_is_downloaded(
+                    &model.id,
+                    repo_id,
+                    revision,
+                    &model.filename,
+                    sha256.as_deref(),
+                );
                 model.is_downloading = false;
                 model.partial_size = 0;
                 continue;
@@ -1616,6 +1694,8 @@ impl ModelManager {
                         source: ModelSource::HuggingFace {
                             repo_id: repo_id.clone(),
                             revision: revision.clone(),
+                            // Discovered files have no catalog pin.
+                            sha256: None,
                         },
                         size_mb,
                         is_downloaded: true,
@@ -1653,43 +1733,103 @@ impl ModelManager {
     }
 
     /// Verifies the SHA256 of `path` against `expected_sha256` (if provided).
-    /// On mismatch or read error the partial file is deleted and an error is returned,
-    /// so the next download attempt always starts from a clean state.
+    /// A confirmed mismatch is cleaned up by [`Self::remove_corrupt`] and returns an
+    /// error; an I/O error while hashing deletes nothing.
     /// When `expected_sha256` is `None` (custom user models) verification is skipped.
     fn verify_sha256(path: &Path, expected_sha256: Option<&str>, model_id: &str) -> Result<()> {
         let Some(expected) = expected_sha256 else {
             return Ok(());
         };
         match Self::compute_sha256(path) {
-            Ok(actual) if actual == expected => {
+            Ok((actual, _)) if actual.eq_ignore_ascii_case(expected.trim()) => {
                 info!("SHA256 verified for model {}", model_id);
                 Ok(())
             }
-            Ok(actual) => {
+            Ok((actual, hashed_id)) => {
                 warn!(
                     "SHA256 mismatch for model {}: expected {}, got {}",
                     model_id, expected, actual
                 );
-                let _ = fs::remove_file(path);
+                Self::remove_corrupt(path, expected.trim(), hashed_id);
                 Err(anyhow::anyhow!(
-                    "Download verification failed for model {}: file is corrupt. Please retry.",
-                    model_id
+                    "Download verification failed for model {}: file is corrupt (expected {}, got {}). Please delete the model and download again.",
+                    model_id, expected, actual
                 ))
             }
-            Err(e) => {
+            Err(e) => Err(anyhow::anyhow!(
+                "Failed to verify download for model {}: {}. Please retry.",
+                model_id,
+                e
+            )),
+        }
+    }
+
+    /// Cleans up after a confirmed hash mismatch. Hugging Face names LFS blobs
+    /// after their SHA-256, so a corrupt blob named after the expected hash that
+    /// sits directly in a `blobs` directory is removed only when `hashed_id`
+    /// still names that file. A blob swapped in after the hash stays. Any other
+    /// blob may be shared and stays. `path` itself (the snapshot link, or our
+    /// own partial) is removed, except a regular file that carries the hash
+    /// name outside `blobs`.
+    fn remove_corrupt(path: &Path, expected: &str, hashed_id: Option<(u64, u64)>) {
+        let hash_named_blob = fs::canonicalize(path).ok().filter(|blob| {
+            blob.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.eq_ignore_ascii_case(expected))
+        });
+        match hash_named_blob {
+            Some(blob)
+                if blob
+                    .parent()
+                    .and_then(|p| p.file_name())
+                    .and_then(|n| n.to_str())
+                    == Some("blobs") =>
+            {
+                // Only the inode we hashed; a blob renamed in since stays, with its link.
+                if Self::blob_is_hashed_file(&blob, hashed_id) {
+                    if let Err(e) = fs::remove_file(&blob) {
+                        warn!("Failed to remove corrupt blob {:?}: {}", blob, e);
+                    }
+                    let _ = fs::remove_file(path);
+                }
+            }
+            Some(_) if fs::symlink_metadata(path).is_ok_and(|m| !m.file_type().is_symlink()) => {}
+            _ => {
                 let _ = fs::remove_file(path);
-                Err(anyhow::anyhow!(
-                    "Failed to verify download for model {}: {}. Please retry.",
-                    model_id,
-                    e
-                ))
             }
         }
     }
 
+    /// True when `blob` is still the file whose bytes were hashed (always true off unix).
+    fn blob_is_hashed_file(blob: &Path, hashed_id: Option<(u64, u64)>) -> bool {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let Some((dev, ino)) = hashed_id else {
+                return false;
+            };
+            fs::metadata(blob)
+                .ok()
+                .is_some_and(|meta| meta.dev() == dev && meta.ino() == ino)
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = (blob, hashed_id);
+            true
+        }
+    }
+
     /// Computes the SHA256 hex digest of a file, reading in 64KB chunks to handle large models.
-    fn compute_sha256(path: &Path) -> Result<String> {
+    /// On unix the second value is `(dev, ino)` of the opened file.
+    fn compute_sha256(path: &Path) -> Result<(String, Option<(u64, u64)>)> {
         let mut file = File::open(path)?;
+        #[cfg(unix)]
+        let hashed_id = {
+            use std::os::unix::fs::MetadataExt;
+            file.metadata().ok().map(|meta| (meta.dev(), meta.ino()))
+        };
+        #[cfg(not(unix))]
+        let hashed_id = None;
         let mut hasher = Sha256::new();
         let mut buffer = [0u8; 65536];
         loop {
@@ -1699,7 +1839,64 @@ impl ModelManager {
             }
             hasher.update(&buffer[..n]);
         }
-        Ok(format!("{:x}", hasher.finalize()))
+        Ok((format!("{:x}", hasher.finalize()), hashed_id))
+    }
+
+    /// Hashes a freshly downloaded HF file against the catalog hash, off the
+    /// async executor. On success it writes the verified marker so later checks
+    /// skip the hashing; on failure the model is left not downloaded and without
+    /// a marker.
+    async fn verify_hf_download(
+        &self,
+        model_id: &str,
+        path: PathBuf,
+        expected: String,
+    ) -> Result<()> {
+        // Resolve the blob behind the snapshot symlink first: a mismatch deletes
+        // `path`, which on Unix is only the link.
+        let blob_name = fs::canonicalize(&path)
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to resolve snapshot blob path for {}: {}",
+                    model_id,
+                    e
+                )
+            })?
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+
+        let _ = self.app_handle.emit("model-verification-started", model_id);
+        info!("Verifying SHA256 for model {}...", model_id);
+        let (verify_expected, verify_model_id) = (expected.clone(), model_id.to_string());
+        let verified = tokio::task::spawn_blocking(move || {
+            Self::verify_sha256(&path, Some(&verify_expected), &verify_model_id)
+        })
+        .await
+        .map_err(|e| anyhow::anyhow!("SHA256 task panicked: {}", e))?;
+
+        let marker_path = self.verified_marker_path(model_id);
+        let result = verified.and_then(|()| {
+            fs::write(&marker_path, format!("{}\n{}", expected, blob_name)).map_err(|e| {
+                anyhow::anyhow!(
+                    "Could not write verification marker for {}: {}",
+                    model_id,
+                    e
+                )
+            })
+        });
+        if let Err(e) = result {
+            let _ = fs::remove_file(&marker_path); // a stale marker must not outlive a failed check
+            if let Some(model) = self.available_models.lock().unwrap().get_mut(model_id) {
+                model.is_downloaded = false;
+            }
+            return Err(e);
+        }
+
+        let _ = self
+            .app_handle
+            .emit("model-verification-completed", model_id);
+        Ok(())
     }
 
     /// Download a Hugging Face-sourced model into the shared HF cache via
@@ -1711,12 +1908,20 @@ impl ModelManager {
         model_info: &ModelInfo,
         repo_id: String,
         revision: String,
+        expected_sha256: Option<String>,
     ) -> Result<()> {
         let model_id = model_info.id.clone();
         let filename = model_info.filename.clone();
 
-        // Already in the shared cache (possibly from another tool)? Done.
-        if hf_cached_path(&repo_id, &revision, &filename).is_some() {
+        // Already in the shared cache (possibly from another tool) and, when the
+        // catalog pins a hash, verified by us? Done.
+        if self.hf_is_downloaded(
+            &model_id,
+            &repo_id,
+            &revision,
+            &filename,
+            expected_sha256.as_deref(),
+        ) {
             self.update_download_status()?;
             let _ = self.app_handle.emit("model-download-complete", &model_id);
             return Ok(());
@@ -1766,7 +1971,14 @@ impl ModelManager {
             .download_with_progress_cancellable(&filename, progress, cancel_token)
             .await
         {
-            Ok(_) => {}
+            Ok(path) => {
+                // hf-hub renames the temp file into the cache before it returns.
+                // Check the bytes here, before update_download_status marks the
+                // model downloaded. No catalog hash keeps the old behaviour.
+                if let Some(expected) = expected_sha256 {
+                    self.verify_hf_download(&model_id, path, expected).await?;
+                }
+            }
             Err(hf_hub::api::tokio::ApiError::Cancelled) => {
                 // User cancelled. hf-hub leaves the partially downloaded
                 // `.sync.part` in the shared cache, so a later attempt resumes
@@ -1815,9 +2027,18 @@ impl ModelManager {
 
         let (url, expected_sha256) = match &model_info.source {
             ModelSource::Url { url, sha256 } => (url.clone(), sha256.clone()),
-            ModelSource::HuggingFace { repo_id, revision } => {
+            ModelSource::HuggingFace {
+                repo_id,
+                revision,
+                sha256,
+            } => {
                 return self
-                    .download_hf_model(&model_info, repo_id.clone(), revision.clone())
+                    .download_hf_model(
+                        &model_info,
+                        repo_id.clone(),
+                        revision.clone(),
+                        sha256.clone(),
+                    )
                     .await;
             }
             ModelSource::Local => {
@@ -2018,8 +2239,9 @@ impl ModelManager {
         }
 
         // Verify SHA256 checksum. Runs in a blocking thread so the async executor is not
-        // stalled while hashing large model files (up to 1.6 GB). On failure the partial
-        // is deleted inside verify_sha256 so the next attempt always starts fresh.
+        // stalled while hashing large model files (up to 1.6 GB). A hash mismatch deletes
+        // the partial inside verify_sha256 so the next attempt starts fresh; a read error
+        // deletes nothing.
         let _ = self.app_handle.emit("model-verification-started", model_id);
         info!("Verifying SHA256 for model {}...", model_id);
         let verify_path = partial_path.clone();
@@ -2165,7 +2387,10 @@ impl ModelManager {
 
         debug!("ModelManager: Found model info: {:?}", model_info);
 
-        if let ModelSource::HuggingFace { repo_id, revision } = &model_info.source {
+        if let ModelSource::HuggingFace {
+            repo_id, revision, ..
+        } = &model_info.source
+        {
             // Cached at <cache>/models--org--name/snapshots/<rev>/<file>; remove
             // the whole repo dir (blobs + refs + snapshots). Per product decision,
             // delete hard-removes from the shared HF cache.
@@ -2186,6 +2411,8 @@ impl ModelManager {
             if !deleted {
                 return Err(anyhow::anyhow!("No model files found to delete"));
             }
+            // Only once the files are gone, so a failed delete keeps the model verified.
+            let _ = fs::remove_file(self.verified_marker_path(model_id));
             self.update_download_status()?;
             let _ = self.app_handle.emit("model-deleted", model_id);
             return Ok(());
@@ -2265,7 +2492,27 @@ impl ModelManager {
             ));
         }
 
-        if let ModelSource::HuggingFace { repo_id, revision } = &model_info.source {
+        if let ModelSource::HuggingFace {
+            repo_id,
+            revision,
+            sha256,
+        } = &model_info.source
+        {
+            // Re-check the pin at load time: the HF cache is shared with other tools.
+            if sha256.is_some()
+                && !self.hf_is_downloaded(
+                    model_id,
+                    repo_id,
+                    revision,
+                    &model_info.filename,
+                    sha256.as_deref(),
+                )
+            {
+                return Err(anyhow::anyhow!(
+                    "Model {} no longer matches its verified download; download it again",
+                    model_id
+                ));
+            }
             return hf_cached_path(repo_id, revision, &model_info.filename).ok_or_else(|| {
                 anyhow::anyhow!("Complete model file not found in HF cache: {}", model_id)
             });
@@ -2339,6 +2586,90 @@ mod tests {
     use super::*;
     use std::io::Write;
     use tempfile::TempDir;
+
+    #[test]
+    fn verified_marker_is_one_file_in_the_models_dir() {
+        let name =
+            verified_marker_name("handy-computer/whisper-small-gguf/whisper-small-Q8_0.gguf");
+        assert_eq!(
+            name,
+            "f122d7e798dac0c2a776216a28eb93d0ab2146a37864ebc0a5d3290ef786d23e.verified"
+        );
+        assert!(!name.contains('/'));
+        assert_ne!(
+            verified_marker_name("a/b/c"),
+            verified_marker_name("a__b/c")
+        );
+    }
+
+    #[test]
+    fn test_is_hf_downloaded_pure() {
+        // no hash -> file exists decides
+        assert!(is_hf_downloaded_pure(true, None, None, None));
+        assert!(!is_hf_downloaded_pure(false, None, None, None));
+
+        // hash + matching marker + matching blob -> downloaded
+        assert!(is_hf_downloaded_pure(
+            true,
+            Some("abc\nblob123"),
+            Some("abc"),
+            Some("blob123")
+        ));
+
+        // matching hash + different blob -> not
+        assert!(!is_hf_downloaded_pure(
+            true,
+            Some("abc\nblob123"),
+            Some("abc"),
+            Some("blob456")
+        ));
+
+        // matching marker but the snapshot blob cannot be resolved -> not
+        assert!(!is_hf_downloaded_pure(
+            true,
+            Some("abc\nblob123"),
+            Some("abc"),
+            None
+        ));
+
+        // uppercase/whitespace hash in marker or catalog -> still matches
+        assert!(is_hf_downloaded_pure(
+            true,
+            Some(" ABC \n Blob123 "),
+            Some("abc"),
+            Some("blob123")
+        ));
+        assert!(is_hf_downloaded_pure(
+            true,
+            Some("abc\nblob123"),
+            Some(" ABC "),
+            Some("blob123")
+        ));
+
+        // hash + missing marker -> not
+        assert!(!is_hf_downloaded_pure(
+            true,
+            None,
+            Some("abc"),
+            Some("blob123")
+        ));
+
+        // hash + stale marker hash -> not
+        assert!(!is_hf_downloaded_pure(
+            true,
+            Some("def\nblob123"),
+            Some("abc"),
+            Some("blob123")
+        ));
+
+        // hash + matching marker but file missing -> not
+        assert!(!is_hf_downloaded_pure(
+            false,
+            Some("abc\nblob123"),
+            Some("abc"),
+            Some("blob123")
+        ));
+    }
 
     #[test]
     fn test_effective_language_accepts_chinese_script_intent_for_zh_capability() {
@@ -2565,7 +2896,7 @@ mod tests {
     fn test_verify_sha256_passes_on_correct_hash() {
         // Compute the real hash so the test is self-consistent.
         let (_dir, path) = write_temp_file(b"hello world");
-        let actual = ModelManager::compute_sha256(&path).unwrap();
+        let (actual, _) = ModelManager::compute_sha256(&path).unwrap();
         assert!(
             ModelManager::verify_sha256(&path, Some(&actual), "test_model").is_ok(),
             "should pass when hash matches"
@@ -2581,12 +2912,18 @@ mod tests {
         let (_dir, path) = write_temp_file(b"this is not the real model");
         let wrong_hash = "0000000000000000000000000000000000000000000000000000000000000000";
 
+        let (actual, _) = ModelManager::compute_sha256(&path).unwrap();
         let result = ModelManager::verify_sha256(&path, Some(wrong_hash), "bad_model");
 
         assert!(result.is_err(), "mismatch must return an error");
+        let message = result.unwrap_err().to_string();
         assert!(
-            result.unwrap_err().to_string().contains("corrupt"),
+            message.contains("corrupt"),
             "error message should mention corruption"
+        );
+        assert!(
+            message.contains(wrong_hash) && message.contains(&actual),
+            "error must name the expected and actual hash, got {message}"
         );
         assert!(
             !path.exists(),
@@ -2605,6 +2942,161 @@ mod tests {
             ModelManager::verify_sha256(&missing_path, Some("anyexpectedhash"), "missing_model");
 
         assert!(result.is_err(), "missing file must return an error");
+    }
+
+    #[test]
+    fn test_verify_sha256_read_error_does_not_remove_anything() {
+        let dir = TempDir::new().unwrap();
+        let dir_path = dir.path().join("a_directory");
+        std::fs::create_dir(&dir_path).unwrap();
+
+        let result = ModelManager::verify_sha256(&dir_path, Some("anyexpectedhash"), "dir_model");
+        assert!(result.is_err());
+        // The directory should still exist since read errors must not delete anything
+        assert!(dir_path.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_verify_sha256_read_error_keeps_a_removable_link() {
+        // A directory cannot be unlinked anyway, so also cover a path that can be:
+        // opening a dangling link fails, and that read error must leave it alone.
+        let dir = TempDir::new().unwrap();
+        let link = dir.path().join("dangling");
+        std::os::unix::fs::symlink(dir.path().join("missing"), &link).unwrap();
+
+        let result = ModelManager::verify_sha256(&link, Some("anyexpectedhash"), "link_model");
+        assert!(result.is_err());
+        assert!(link.is_symlink(), "a read error must not delete the link");
+    }
+
+    #[test]
+    fn test_verify_sha256_defence_in_depth() {
+        let dir = TempDir::new().unwrap();
+        let expected_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+
+        let blobs_dir = dir.path().join("blobs");
+        fs::create_dir(&blobs_dir).unwrap();
+        let blob_path = blobs_dir.join(expected_hash);
+        let mut f = File::create(&blob_path).unwrap();
+        f.write_all(b"wrong content").unwrap();
+        drop(f);
+
+        let result = ModelManager::verify_sha256(&blob_path, Some(expected_hash), "test_model");
+        assert!(result.is_err());
+        assert!(
+            !blob_path.exists(),
+            "file inside 'blobs' directory should be removed"
+        );
+
+        let not_blobs_dir = dir.path().join("not_blobs");
+        fs::create_dir(&not_blobs_dir).unwrap();
+        let kept_path = not_blobs_dir.join(expected_hash);
+        let mut f = File::create(&kept_path).unwrap();
+        f.write_all(b"wrong content").unwrap();
+        drop(f);
+
+        let result = ModelManager::verify_sha256(&kept_path, Some(expected_hash), "test_model");
+        assert!(result.is_err());
+        assert!(
+            kept_path.exists(),
+            "file NOT inside 'blobs' directory should be kept"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_verify_sha256_mismatch_removes_blob_named_after_hash() {
+        use std::os::unix::fs::symlink;
+        let dir = TempDir::new().unwrap();
+        let wrong_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+        let blobs_dir = dir.path().join("blobs");
+        fs::create_dir_all(&blobs_dir).unwrap();
+        let blob_path = dir.path().join("blobs").join(wrong_hash);
+        let mut f = File::create(&blob_path).unwrap();
+        f.write_all(b"this is not the real model").unwrap();
+        drop(f);
+        let link_path = dir.path().join("snapshot_link");
+        symlink(&blob_path, &link_path).unwrap();
+
+        let result = ModelManager::verify_sha256(&link_path, Some(wrong_hash), "bad_model");
+        assert!(result.is_err());
+        assert!(!link_path.exists(), "snapshot link must be deleted");
+        assert!(
+            !blob_path.exists(),
+            "blob named after expected hash must be deleted"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_verify_sha256_mismatch_keeps_hash_blob_outside_blobs_dir() {
+        use std::os::unix::fs::symlink;
+        let dir = TempDir::new().unwrap();
+        let wrong_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+        let blob_path = dir.path().join(wrong_hash);
+        let mut f = File::create(&blob_path).unwrap();
+        f.write_all(b"this is not the real model").unwrap();
+        drop(f);
+        let link_path = dir.path().join("snapshot_link");
+        symlink(&blob_path, &link_path).unwrap();
+
+        let result = ModelManager::verify_sha256(&link_path, Some(wrong_hash), "bad_model");
+        assert!(result.is_err());
+        assert!(!link_path.exists(), "snapshot link must be deleted");
+        assert!(
+            blob_path.exists(),
+            "blob outside 'blobs' directory must be kept"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_verify_sha256_mismatch_keeps_blob_with_other_name() {
+        use std::os::unix::fs::symlink;
+        let dir = TempDir::new().unwrap();
+        let wrong_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+        let blob_path = dir.path().join("some_other_name");
+        let mut f = File::create(&blob_path).unwrap();
+        f.write_all(b"this is not the real model").unwrap();
+        drop(f);
+        let link_path = dir.path().join("snapshot_link");
+        symlink(&blob_path, &link_path).unwrap();
+
+        let result = ModelManager::verify_sha256(&link_path, Some(wrong_hash), "bad_model");
+        assert!(result.is_err());
+        assert!(!link_path.exists(), "snapshot link must be deleted");
+        assert!(blob_path.exists(), "blob with different name must be kept");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_remove_corrupt_keeps_blob_replaced_after_hash() {
+        use std::os::unix::fs::symlink;
+        let dir = TempDir::new().unwrap();
+        let expected = "0000000000000000000000000000000000000000000000000000000000000000";
+        let blobs_dir = dir.path().join("blobs");
+        fs::create_dir_all(&blobs_dir).unwrap();
+        let blob_path = blobs_dir.join(expected);
+        fs::write(&blob_path, b"corrupt bytes we hashed").unwrap();
+        let link_path = dir.path().join("snapshot");
+        symlink(&blob_path, &link_path).unwrap();
+
+        let (_actual, hashed_id) = ModelManager::compute_sha256(&link_path).unwrap();
+
+        let staged = dir.path().join("staged-valid");
+        let valid = b"valid blob swapped in by rename";
+        fs::write(&staged, valid).unwrap();
+        fs::rename(&staged, &blob_path).unwrap();
+
+        ModelManager::remove_corrupt(&link_path, expected, hashed_id);
+
+        assert_eq!(
+            fs::read(&blob_path).unwrap(),
+            valid.to_vec(),
+            "a blob replaced after hashing must not be deleted"
+        );
+        assert!(link_path.exists(), "the link to the new blob stays");
     }
 
     fn push_gguf_str(out: &mut Vec<u8>, val: &str) {
@@ -2670,8 +3162,8 @@ mod tests {
         let m = models.get(id).expect("whisper gguf should be discovered");
         assert!(m.is_downloaded);
         assert!(
-            matches!(&m.source, ModelSource::HuggingFace { repo_id, revision }
-            if repo_id == "handy-computer/whisper-test" && revision == "main")
+            matches!(&m.source, ModelSource::HuggingFace { repo_id, revision, sha256 }
+            if repo_id == "handy-computer/whisper-test" && revision == "main" && sha256.is_none())
         );
         assert_eq!(
             m.supported_languages,
