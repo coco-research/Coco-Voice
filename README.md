@@ -1,9 +1,3 @@
-<p align="center">
-  <picture>
-    <img src="docs/readme/hero.png" alt="A microphone sends a blue sound wave that ends in a text cursor" width="820" />
-  </picture>
-</p>
-
 <h1 align="center">Coco Voice</h1>
 
 <p align="center">
@@ -36,15 +30,15 @@ Talking is faster than typing, but most dictation tools record you, send the aud
 
 ### For users
 
-The current GitHub release is a macOS Apple Silicon disk image (`Coco-Voice_*_aarch64.dmg`). It is signed with a self-signed "Coco Research Code Signing" certificate and is not notarized, so Gatekeeper warns the first time you open it. Read [INSTALL.md](INSTALL.md). Windows and Linux are not in that release. Build them from source, below.
+Release 0.9.6 ships installers for macOS, Windows, and Linux. macOS: `Coco.Voice_0.9.6_aarch64.dmg` (Apple Silicon) and `Coco.Voice_0.9.6_x64.dmg` (Intel). Windows: x64 and arm64 installers (`-setup.exe` and `.msi`). Linux: an AppImage, a `.deb`, and an `.rpm` for x86_64/amd64 and aarch64/arm64. Builds are ad-hoc signed and not notarized, so Gatekeeper warns the first time you open the Mac app. Updater artifacts carry `.sig` files and `latest.json`. There is also a `SHA256SUMS` file. On a Mac, [INSTALL.md](INSTALL.md) covers the one-time quarantine step.
 
-On an Apple Silicon Mac, download `Install Coco Voice.command` from the release (the asset is named `Install.Coco.Voice.command`) and double-click it. If macOS says it cannot be opened, right-click the file in Finder, choose Open, then Open. It runs the same installer as this command, which downloads the latest `.dmg`, copies Coco Voice into Applications, clears the quarantine flag, and launches it:
+On an Apple Silicon Mac, one command downloads the latest release, copies Coco Voice into Applications, clears the quarantine flag, and launches it:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/coco-research/Coco-Voice/main/install.sh | bash
 ```
 
-Or do it by hand:
+Or by hand on a Mac:
 
 1. Open the `.dmg` and drag **Coco Voice** into **Applications**.
 2. Clear quarantine, then launch:
@@ -54,7 +48,7 @@ xattr -dr com.apple.quarantine "/Applications/Coco Voice.app"
 open "/Applications/Coco Voice.app"
 ```
 
-On first launch macOS asks for the microphone and for Accessibility. Accessibility is what lets the global shortcut and the paste keystroke work. After that, the app asks you to download a speech model. Nothing is transcribed until that download finishes. The default shortcut is hold Option+Space (push-to-talk). If you are moving to 0.9.5 from an older build, download it by hand once (0.9.5 is signed with a new update key, so older copies cannot update to it) and grant Accessibility once more: the signing certificate changed, and macOS ties that permission to the certificate.
+On first launch macOS asks for the microphone and for Accessibility. Accessibility is what lets the global shortcut and the paste keystroke work. After that, the app asks you to download a speech model. Nothing is transcribed until that download finishes. The default shortcut is hold Option+Space (push-to-talk). After an update, Accessibility may need to be granted again.
 
 ### Build from source
 
@@ -90,19 +84,11 @@ CMAKE_POLICY_VERSION_MINIMUM=3.5 bun run tauri dev
 
 ## How it works
 
-<p align="center">
-  <img
-    src="docs/readme/how-it-works.svg"
-    alt="Hotkey, microphone, Silero voice activity detection, a local speech model, optional cleanup, then paste, all on your computer"
-    width="900"
-  />
-</p>
-
 The shortcut opens the microphone through cpal. Silero voice activity detection drops silence. A local model turns the speech into text: transcribe-cpp for the GGUF catalog, transcribe-rs for an older ONNX model. Cleanup is separate, and it runs only when that step is enabled and the chosen provider is actually available. The text is pasted into whichever app is focused.
 
 ## Status and roadmap
 
-This is a beta. The latest release is 0.9.6 (dependency and release-tooling updates on top of 0.9.5). See [CHANGELOG.md](CHANGELOG.md) for what changed. Today, on an Apple Silicon Mac, you can hold the shortcut, speak, and paste a local transcript, with history, custom words, and corrections. The app includes an updater that reads the latest GitHub release. The Mac build is self-signed and not notarized. Apple Intelligence is not in the 0.9.5 download.
+This is a beta. The latest release is 0.9.6. See [CHANGELOG.md](CHANGELOG.md) for what changed. Today, on an Apple Silicon Mac, you can hold the shortcut, speak, and paste a local transcript, with history, custom words, and corrections. The app includes an updater that reads the latest GitHub release. The Mac build is ad-hoc signed and not notarized. Apple Intelligence is not in the 0.9.5 download.
 
 Next:
 
@@ -134,7 +120,7 @@ Coco Voice is in a feature freeze. A pull request for a new feature the communit
 
 Coco Voice is a fork of [Handy](https://github.com/cjpais/Handy) by CJ Pais, which is also MIT. Handy is the speech pipeline this app still runs: recording, local models, shortcuts, and paste. Thank you to CJ Pais and the Handy contributors.
 
-On top of that fork, Coco Voice changed the name, the parrot mark, and the blue theme. It added the macOS install helper, an updater signed for this repository, and a stable self-signed Mac certificate so an Accessibility grant survives later updates. It also added Apple Intelligence as an on-device cleanup provider when the app is built with full Xcode, and a speak-a-correction shortcut that replaces the last dictation, including corrections learned from edits you make in history.
+On top of that fork, Coco Voice changed the name, the parrot mark, and the blue theme. It added the macOS install helper and an updater signed for this repository. On macOS, after updating, Accessibility may need to be granted again. It also added Apple Intelligence as an on-device cleanup provider when the app is built with full Xcode, and a speak-a-correction shortcut that replaces the last dictation, including corrections learned from edits you make in history.
 
 Key libraries: [transcribe-cpp](https://github.com/handy-computer/transcribe.cpp), transcribe-rs, Silero VAD, and [Tauri](https://tauri.app/).
 
@@ -142,12 +128,12 @@ Key libraries: [transcribe-cpp](https://github.com/handy-computer/transcribe.cpp
 
 ### Platforms
 
-| Where you run it | What the code does                                                                                                              |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| macOS            | The published release is Apple Silicon only. transcribe.cpp uses Metal. First launch asks for the microphone and Accessibility. |
-| Windows x64      | Source builds with Vulkan for transcribe.cpp. Not in the current release.                                                       |
-| Windows on ARM   | The speech engine is compiled CPU-only. Not in the current release.                                                             |
-| Linux            | Source builds with Vulkan. The recording overlay is off by default. Not in the current release.                                 |
+| Where you run it | What the code does                                                                                                                            |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS            | Apple Silicon and Intel disk images. transcribe.cpp uses Metal. First launch asks for the microphone and Accessibility.                       |
+| Windows x64      | An x64 `-setup.exe` and `.msi`. transcribe.cpp uses Vulkan.                                                                                   |
+| Windows on ARM   | An arm64 `-setup.exe` and `.msi`. The speech engine is CPU-only.                                                                              |
+| Linux            | An AppImage, a `.deb`, and an `.rpm` for x86_64/amd64 and aarch64/arm64. transcribe.cpp uses Vulkan. The recording overlay is off by default. |
 
 On Linux, `HANDY_NO_GTK_LAYER_SHELL=1` skips the GTK layer-shell overlay. Wayland paste depends on a typing tool such as `wtype`, `ydotool`, `dotool`, or `xdotool`. Install notes and the long build troubleshooting (Windows path length, AppImage, Intel Mac ONNX Runtime) are in [BUILD.md](BUILD.md).
 
