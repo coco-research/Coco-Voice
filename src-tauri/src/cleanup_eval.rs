@@ -12,9 +12,6 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-/// Built-in prompt used when `--eval-prompt` is omitted.
-const DEFAULT_EVAL_PROMPT_ID: &str = "default_improve_transcriptions";
-
 /// Generation budget per take. Keep it equal to the app's local cleanup budget
 /// (512) and share one constant once the app is wired to `local_llm`.
 #[cfg(target_os = "macos")]
@@ -269,6 +266,18 @@ fn render_report(prompt_id: &str, model: &str, rows: &[ReportRow], summary: &Sum
     out
 }
 
+/// The prompt `--cleanup-eval` scores, and the name printed in the report.
+/// Omitting `--eval-prompt` scores the on-device prompt the app ships.
+fn eval_prompt_choice(requested: Option<&str>) -> Result<(String, String), String> {
+    match requested.map(str::trim).filter(|id| !id.is_empty()) {
+        Some(id) => Ok((id.to_string(), prompt_template(id)?)),
+        None => Ok((
+            "local default".to_string(),
+            crate::settings::LOCAL_LLM_CLEANUP_PROMPT.to_string(),
+        )),
+    }
+}
+
 fn prompt_template(id: &str) -> Result<String, String> {
     let prompts = crate::settings::get_default_settings().post_process_prompts;
     let ids: Vec<&str> = prompts.iter().map(|prompt| prompt.id.as_str()).collect();
@@ -314,13 +323,7 @@ pub(crate) fn run_eval(set_path: &Path, args: &crate::cli::CliArgs) -> i32 {
 
 #[cfg(target_os = "macos")]
 fn run_eval_macos(set_path: &Path, args: &crate::cli::CliArgs) -> Result<bool, String> {
-    let prompt_id = args
-        .eval_prompt
-        .as_deref()
-        .map(str::trim)
-        .filter(|id| !id.is_empty())
-        .unwrap_or(DEFAULT_EVAL_PROMPT_ID);
-    let template = prompt_template(prompt_id)?;
+    let (prompt_label, template) = eval_prompt_choice(args.eval_prompt.as_deref())?;
     let model_path = args
         .eval_model
         .as_deref()
@@ -378,7 +381,7 @@ fn run_eval_macos(set_path: &Path, args: &crate::cli::CliArgs) -> Result<bool, S
     let model = model_path.display().to_string();
     write_report(
         args.eval_out.as_deref(),
-        &render_report(prompt_id, &model, &rows, &summary),
+        &render_report(&prompt_label, &model, &rows, &summary),
     )?;
     Ok(summary.passed())
 }
@@ -601,6 +604,7 @@ mod tests {
         let rows = vec![row];
         let summary = summarize(&rows);
         let report = render_report("default_improve_transcriptions", "m.gguf", &rows, &summary);
+        assert!(report.contains("Prompt `default_improve_transcriptions`"));
         assert!(report.contains("| id | kind | meaning ok | retraction ok | output | reason |"));
         let row_line = report.lines().find(|line| line.contains("r01")).unwrap();
         assert!(row_line.contains("line with"));
@@ -613,19 +617,66 @@ mod tests {
     }
 
     #[test]
-    fn default_eval_prompt_is_a_builtin_and_uses_the_local_provider_path() {
-        let template = prompt_template(DEFAULT_EVAL_PROMPT_ID).unwrap();
+    fn omitted_eval_prompt_scores_the_on_device_prompt() {
+        let (label, template) = eval_prompt_choice(None).unwrap();
+        assert_eq!(label, "local default");
+        assert_eq!(template, crate::settings::LOCAL_LLM_CLEANUP_PROMPT);
         let (system, user) = cleanup_messages(&template, "Send it to Marcus.");
         assert_eq!(user, "Send it to Marcus.");
         assert!(!system.contains("${output}"));
         assert!(system.contains("<transcript>"));
-        assert!(system.contains("Return only the cleaned text"));
+        assert!(system.contains("Output only the corrected text"));
 
-        let err = prompt_template("nope").unwrap_err();
+        let report = render_report(
+            &label,
+            "m.gguf",
+            &[],
+            &Summary {
+                takes: 0,
+                meaning_passed: 0,
+                retracts: 0,
+                retraction_passed: 0,
+            },
+        );
+        assert!(report.contains("Prompt `local default`"));
+
+        let (stock_label, stock) = eval_prompt_choice(Some("coco_formatted")).unwrap();
+        assert_eq!(stock_label, "coco_formatted");
+        assert!(stock.contains("Return only the formatted text"));
+        let (blank_label, blank) = eval_prompt_choice(Some("  ")).unwrap();
+        assert_eq!(blank_label, "local default");
+        assert_eq!(blank, crate::settings::LOCAL_LLM_CLEANUP_PROMPT);
+
+        let err = eval_prompt_choice(Some("nope")).unwrap_err();
         assert!(
-            err.contains("'nope'") && err.contains(DEFAULT_EVAL_PROMPT_ID),
+            err.contains("'nope'") && err.contains("default_improve_transcriptions"),
             "{err}"
         );
+    }
+
+    #[test]
+    fn bundled_eval_sets_parse() {
+        let sets = [
+            (
+                "backtrack-30.jsonl",
+                include_str!("../../docs/eval/backtrack-30.jsonl"),
+                30,
+            ),
+            (
+                "backtrack-holdout-20.jsonl",
+                include_str!("../../docs/eval/backtrack-holdout-20.jsonl"),
+                20,
+            ),
+            (
+                "backtrack-fresh-20.jsonl",
+                include_str!("../../docs/eval/backtrack-fresh-20.jsonl"),
+                20,
+            ),
+        ];
+        for (name, text, count) in sets {
+            let items = parse_eval_set(text).unwrap_or_else(|err| panic!("{name}: {err}"));
+            assert_eq!(items.len(), count, "{name}");
+        }
     }
 
     #[cfg(target_os = "macos")]

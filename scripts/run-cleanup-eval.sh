@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Score the on-device cleanup model: scripts/run-cleanup-eval.sh <set.jsonl> [report.md]
+# Sets: docs/eval/backtrack-30.jsonl, docs/eval/backtrack-holdout-20.jsonl,
+# docs/eval/backtrack-fresh-20.jsonl.
 # Paths resolve from the caller's directory; the default report is
 # ./cleanup-eval-<timestamp>.md. macOS only, and Qwen3-4B must be downloaded in the app.
 set -euo pipefail
