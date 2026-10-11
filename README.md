@@ -102,7 +102,7 @@ The shortcut opens the microphone through cpal. Silero voice activity detection 
 
 ## Status and roadmap
 
-This is a beta. The version in the tree and the latest release are 0.9.5. See [CHANGELOG.md](CHANGELOG.md) for what changed. Today, on an Apple Silicon Mac, you can hold the shortcut, speak, and paste a local transcript, with history, custom words, and corrections. The app includes an updater that reads the latest GitHub release. The Mac build is self-signed and not notarized. Apple Intelligence is not in the 0.9.5 download.
+This is a beta. The latest release is 0.9.6 (dependency and release-tooling updates on top of 0.9.5). See [CHANGELOG.md](CHANGELOG.md) for what changed. Today, on an Apple Silicon Mac, you can hold the shortcut, speak, and paste a local transcript, with history, custom words, and corrections. The app includes an updater that reads the latest GitHub release. The Mac build is self-signed and not notarized. Apple Intelligence is not in the 0.9.5 download.
 
 Next:
 
@@ -145,9 +145,9 @@ Key libraries: [transcribe-cpp](https://github.com/handy-computer/transcribe.cpp
 | Where you run it | What the code does                                                                                                              |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | macOS            | The published release is Apple Silicon only. transcribe.cpp uses Metal. First launch asks for the microphone and Accessibility. |
-| Windows x64      | Source builds with Vulkan for transcribe.cpp. Not in the 0.9.5 release.                                                         |
-| Windows on ARM   | The speech engine is compiled CPU-only. Not in the 0.9.5 release.                                                               |
-| Linux            | Source builds with Vulkan. The recording overlay is off by default. Not in the 0.9.5 release.                                   |
+| Windows x64      | Source builds with Vulkan for transcribe.cpp. Not in the current release.                                                       |
+| Windows on ARM   | The speech engine is compiled CPU-only. Not in the current release.                                                             |
+| Linux            | Source builds with Vulkan. The recording overlay is off by default. Not in the current release.                                 |
 
 On Linux, `HANDY_NO_GTK_LAYER_SHELL=1` skips the GTK layer-shell overlay. Wayland paste depends on a typing tool such as `wtype`, `ydotool`, `dotool`, or `xdotool`. Install notes and the long build troubleshooting (Windows path length, AppImage, Intel Mac ONNX Runtime) are in [BUILD.md](BUILD.md).
 
