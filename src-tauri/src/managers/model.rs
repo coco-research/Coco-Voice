@@ -1,7 +1,7 @@
 use super::model_capabilities::{
     CapabilityProbe, CapabilityProber, Compatibility, GgufHeaderProber,
 };
-use crate::settings::{get_settings, write_settings};
+use crate::settings::{get_settings, update_settings};
 use anyhow::Result;
 use flate2::read::GzDecoder;
 use futures_util::StreamExt;
@@ -1400,22 +1400,25 @@ impl ModelManager {
     }
 
     fn auto_select_model_if_needed(&self) -> Result<()> {
-        let mut settings = get_settings(&self.app_handle);
+        let settings = get_settings(&self.app_handle);
+        // The model list scan below can be slow. Decide from this snapshot,
+        // then re-read under the lock and write only selected_model.
+        let mut selected_model = settings.selected_model.clone();
 
         // Clear stale selection: selected model is set but doesn't exist
         // in available_models (e.g. deleted custom model file)
-        if !settings.selected_model.is_empty() {
+        if !selected_model.is_empty() {
             let models = self.available_models.lock().unwrap();
-            let exists = models.contains_key(&settings.selected_model);
+            let exists = models.contains_key(&selected_model);
             drop(models);
 
             if !exists {
                 info!(
                     "Selected model '{}' not found in available models, clearing selection",
-                    settings.selected_model
+                    selected_model
                 );
-                settings.selected_model = String::new();
-                write_settings(&self.app_handle, settings.clone());
+                selected_model.clear();
+                update_settings(&self.app_handle, |s| s.selected_model = String::new());
             }
         }
 
@@ -1429,7 +1432,7 @@ impl ModelManager {
 
         // If no model is selected, pick the first downloaded one using the same
         // ranked order the UI receives.
-        if settings.selected_model.is_empty() {
+        if selected_model.is_empty() {
             if let Some(available_model) = self
                 .get_available_models()
                 .into_iter()
@@ -1440,10 +1443,8 @@ impl ModelManager {
                     available_model.id, available_model.name
                 );
 
-                // Update settings with the selected model
-                let mut updated_settings = settings;
-                updated_settings.selected_model = available_model.id.clone();
-                write_settings(&self.app_handle, updated_settings);
+                let id = available_model.id.clone();
+                update_settings(&self.app_handle, |s| s.selected_model = id);
 
                 info!("Successfully auto-selected model: {}", available_model.id);
             }
