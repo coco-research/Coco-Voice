@@ -745,6 +745,18 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
         supports_structured_output: true,
     });
 
+    // Local LLM via llama.cpp. GGUF models download through the model manager.
+    // No API key. llama-cpp-2 ships on macOS only.
+    #[cfg(target_os = "macos")]
+    providers.push(PostProcessProvider {
+        id: LOCAL_LLM_PROVIDER_ID.to_string(),
+        label: "Local (llama.cpp)".to_string(),
+        base_url: "llama-cpp://local".to_string(),
+        allow_base_url_edit: false,
+        models_endpoint: None,
+        supports_structured_output: false,
+    });
+
     // Custom provider always comes last
     providers.push(PostProcessProvider {
         id: "custom".to_string(),
@@ -1006,12 +1018,6 @@ impl Default for AppSettings {
 }
 
 impl AppSettings {
-    pub fn active_post_process_provider(&self) -> Option<&PostProcessProvider> {
-        self.post_process_providers
-            .iter()
-            .find(|provider| provider.id == self.post_process_provider_id)
-    }
-
     pub fn post_process_provider(&self, provider_id: &str) -> Option<&PostProcessProvider> {
         self.post_process_providers
             .iter()
@@ -1714,6 +1720,27 @@ mod tests {
         assert!(!debug_output.contains("sk-proj-secret-key-12345"));
         assert!(!debug_output.contains("sk-ant-secret-key-67890"));
         assert!(debug_output.contains("[REDACTED]"));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn local_llm_provider_is_added_to_older_stores_with_its_default_model() {
+        // The Post-processing row for the on-device model needs a model id, so a
+        // store written before the provider existed must come back with both.
+        let mut settings = get_default_settings();
+        settings
+            .post_process_providers
+            .retain(|p| p.id != LOCAL_LLM_PROVIDER_ID);
+        settings.post_process_models.remove(LOCAL_LLM_PROVIDER_ID);
+
+        assert!(ensure_post_process_defaults(&mut settings));
+
+        let provider = settings.post_process_provider(LOCAL_LLM_PROVIDER_ID);
+        assert!(provider.is_some_and(|p| !p.supports_structured_output));
+        assert_eq!(
+            settings.post_process_models[LOCAL_LLM_PROVIDER_ID],
+            LOCAL_LLM_DEFAULT_MODEL_ID
+        );
     }
 
     #[test]

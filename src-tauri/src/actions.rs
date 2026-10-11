@@ -2,12 +2,17 @@
 use crate::apple_intelligence;
 use crate::audio_feedback::{play_feedback_sound, play_feedback_sound_blocking, SoundType};
 use crate::audio_toolkit::{is_microphone_access_denied, is_no_input_device_error, VadPolicy};
+use crate::cleanup_resolver::{
+    check_global_preconditions, resolve_cleanup, CleanupDecision, SkipReason,
+};
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::history::HistoryManager;
 use crate::managers::model::ModelManager;
 use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
-use crate::settings::{get_settings, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID};
+use crate::settings::{
+    get_settings, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID, LOCAL_LLM_PROVIDER_ID,
+};
 use crate::shortcut;
 use crate::tray::{change_tray_icon, TrayIconState};
 use crate::utils::{
@@ -15,16 +20,22 @@ use crate::utils::{
 };
 use crate::TranscriptionCoordinator;
 use ferrous_opencc::{config::BuiltinConfig, OpenCC};
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::future::Future;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Manager;
 use tauri::{AppHandle, Emitter};
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
+
+/// Local cleanup length. A catalog model id is not a token count, so this is
+/// not parsed out of the model string.
+#[cfg(target_os = "macos")]
+const LOCAL_LLM_MAX_TOKENS: i32 = 512;
 
 /// How long to wait for a stream worker that overran its finalize timeout to
 /// return the engine before giving up on the batch fallback.
@@ -94,15 +105,6 @@ fn build_system_prompt(prompt_template: &str) -> String {
     prompt_template.replace("${output}", "").trim().to_string()
 }
 
-/// Returns `true` when a transcription has no meaningful content to
-/// post-process (empty or whitespace-only). Used to skip the post-processing
-/// LLM call when nothing was actually transcribed, which would otherwise make
-/// the model reply with an error message such as "you need to provide the
-/// transcription".
-fn is_blank_transcription(transcription: &str) -> bool {
-    transcription.trim().is_empty()
-}
-
 async fn complete_unless_cancelled<F, C>(operation: F, is_cancelled: C) -> Option<F::Output>
 where
     F: Future,
@@ -121,6 +123,52 @@ where
             return Some(result);
         }
     }
+}
+
+/// Live-dictation cancel signal for the on-device LLM.
+///
+/// `started` is the generation counter snapshotted when recording stopped.
+/// History re-transcribe has no cancel shortcut and passes `None`.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) struct LocalLlmCancel {
+    started: u64,
+    audio: Arc<AudioRecordingManager>,
+}
+
+/// Store `true` on `flag` once `current` leaves the generation snapshotted at stop.
+///
+/// Returns whether this sample is a cancel. Never clears the flag: the
+/// llama.cpp thread only checks it between tokens, and a moved counter stays
+/// moved. Same comparison as [`AudioRecordingManager::was_cancelled_since`].
+fn note_cancel_if_generation_moved(flag: &AtomicBool, started: u64, current: u64) -> bool {
+    if current == started {
+        return false;
+    }
+    // Release pairs with the Acquire load in `local_llm` (once per token).
+    flag.store(true, Ordering::Release);
+    true
+}
+
+/// Poll the pipeline cancel counter and raise `flag` when it moves.
+///
+/// Dropping the `generate_text` future does not stop the llama.cpp thread,
+/// and dropping this handle must not either: a cancel drops the cleanup
+/// future, so the watcher has to keep running and set the flag. Abort it
+/// only after generation returns.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn watch_generation_cancel(
+    flag: Arc<AtomicBool>,
+    started: u64,
+    audio: Arc<AudioRecordingManager>,
+) -> tauri::async_runtime::JoinHandle<()> {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            if note_cancel_if_generation_moved(&flag, started, audio.cancel_generation()) {
+                break;
+            }
+            tokio::time::sleep(CANCELLATION_POLL_INTERVAL).await;
+        }
+    })
 }
 
 fn should_use_streaming_overlay(style: OverlayStyle, is_streaming: bool) -> bool {
@@ -233,17 +281,54 @@ fn build_post_process_messages(
     }
 }
 
+/// The settings half of "can this provider run": it is registered, has a model,
+/// and has the API key it needs. The caller checks the platform and the machine.
+fn provider_configured(settings: &AppSettings, provider_id: &str) -> Result<(), SkipReason> {
+    if settings.post_process_provider(provider_id).is_none() {
+        return Err(SkipReason::ProviderNotFound);
+    }
+
+    // `ensure_post_process_defaults` backfills the on-device model id, so only a
+    // provider that really has no model fails here.
+    let is_set = |value: Option<&String>| value.is_some_and(|v| !v.trim().is_empty());
+    if !is_set(settings.post_process_models.get(provider_id)) {
+        return Err(SkipReason::NoModelConfigured);
+    }
+
+    // The on-device providers and a custom (local server) endpoint take no key.
+    let keyless = matches!(
+        provider_id,
+        LOCAL_LLM_PROVIDER_ID | APPLE_INTELLIGENCE_PROVIDER_ID | "custom"
+    );
+    if !keyless && !is_set(settings.post_process_api_keys.get(provider_id)) {
+        return Err(SkipReason::NoApiKey);
+    }
+
+    Ok(())
+}
+
 /// Post-processes `transcription`. When `prior_output` is `Some`, the call runs
 /// in *edit mode*: instead of cleaning a fresh transcript, the model edits the
 /// previous output using `transcription` as the spoken correction instruction.
 async fn post_process_transcription(
+    app: &AppHandle,
     settings: &AppSettings,
     transcription: &str,
     prior_output: Option<&str>,
+    local_llm_cancel: Option<LocalLlmCancel>,
 ) -> Option<String> {
     // Every provider path funnels through here: a blank result (zero-width
     // characters survive `trim`) must fall back to the raw transcript.
-    non_blank(post_process_transcription_inner(settings, transcription, prior_output).await)
+    non_blank(
+        post_process_transcription_inner(
+            app,
+            settings,
+            transcription,
+            prior_output,
+            local_llm_cancel,
+        )
+        .await,
+    )
 }
 
 /// `None` for an output that is empty once invisible characters are removed.
@@ -254,73 +339,115 @@ fn non_blank(output: Option<String>) -> Option<String> {
 }
 
 async fn post_process_transcription_inner(
+    app: &AppHandle,
     settings: &AppSettings,
     transcription: &str,
     prior_output: Option<&str>,
+    local_llm_cancel: Option<LocalLlmCancel>,
 ) -> Option<String> {
-    if is_blank_transcription(transcription) {
-        debug!("Post-processing skipped because the transcription is empty");
-        return None;
-    }
+    // Only the macOS-only on-device path reads the handle and the cancel signal.
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, &local_llm_cancel);
 
-    let provider = match settings.active_post_process_provider().cloned() {
-        Some(provider) => provider,
-        None => {
-            debug!("Post-processing enabled but no provider is selected");
+    let prompt = match check_global_preconditions(
+        transcription,
+        settings.post_process_selected_prompt_id.as_deref(),
+        |id| {
+            settings
+                .post_process_prompts
+                .iter()
+                .find(|prompt| prompt.id == id)
+                .map(|prompt| prompt.prompt.as_str())
+        },
+    ) {
+        Ok(prompt) => prompt.to_string(),
+        Err(reason) => {
+            info!("Post-processing skipped: {reason}");
             return None;
         }
     };
 
-    let model = settings
-        .post_process_models
-        .get(&provider.id)
-        .cloned()
-        .unwrap_or_default();
+    let model_for = |provider_id: &str| {
+        settings
+            .post_process_models
+            .get(provider_id)
+            .cloned()
+            .unwrap_or_default()
+    };
 
-    if model.trim().is_empty() {
-        debug!(
-            "Post-processing skipped because provider '{}' has no model configured",
-            provider.id
-        );
-        return None;
-    }
+    let provider_usable = |provider_id: &str| -> Result<(), SkipReason> {
+        provider_configured(settings, provider_id)?;
 
-    let selected_prompt_id = match &settings.post_process_selected_prompt_id {
-        Some(id) => id.clone(),
-        None => {
-            debug!("Post-processing skipped because no prompt is selected");
+        if provider_id == APPLE_INTELLIGENCE_PROVIDER_ID {
+            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            if !apple_intelligence::check_apple_intelligence_availability() {
+                return Err(SkipReason::AppleIntelligenceUnavailable);
+            }
+            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+            return Err(SkipReason::ProviderUnavailableInThisBuild);
+        }
+
+        if provider_id == LOCAL_LLM_PROVIDER_ID {
+            #[cfg(not(target_os = "macos"))]
+            return Err(SkipReason::ProviderUnavailableInThisBuild);
+            #[cfg(target_os = "macos")]
+            if app
+                .state::<Arc<ModelManager>>()
+                .get_model_path(&model_for(provider_id))
+                .is_err()
+            {
+                return Err(SkipReason::LocalModelNotDownloaded);
+            }
+        }
+
+        Ok(())
+    };
+
+    let provider_id = match resolve_cleanup(&settings.post_process_provider_id, provider_usable) {
+        CleanupDecision::Run {
+            provider_id,
+            fallback_from,
+        } => {
+            if let Some((selected, reason)) = fallback_from {
+                info!("Cleanup: {selected} unavailable ({reason}), using on-device model");
+            }
+            provider_id
+        }
+        CleanupDecision::Skip { reason } => {
+            info!("Post-processing skipped: {reason}");
             return None;
         }
     };
 
-    let prompt = match settings
-        .post_process_prompts
-        .iter()
-        .find(|prompt| prompt.id == selected_prompt_id)
-    {
-        Some(prompt) => prompt.prompt.clone(),
-        None => {
-            debug!(
-                "Post-processing skipped because prompt '{}' was not found",
-                selected_prompt_id
-            );
-            return None;
-        }
-    };
-
-    if prompt.trim().is_empty() {
-        debug!("Post-processing skipped because the selected prompt is empty");
-        return None;
-    }
+    // The resolver only returns providers that are in settings.
+    let provider = settings.post_process_provider(&provider_id).cloned()?;
+    let model = model_for(&provider_id);
 
     debug!(
         "Starting LLM post-processing with provider '{}' (model: {})",
         provider.id, model
     );
 
+    // Local LLM runs llama.cpp on device, not the JSON-schema HTTP API, so it
+    // is dispatched before the structured-output gate. The provider keeps
+    // `supports_structured_output: false`; hoisting the call is what makes
+    // local cleanup reachable.
+    #[cfg(target_os = "macos")]
+    if provider.id == LOCAL_LLM_PROVIDER_ID {
+        return post_process_with_local_llm(
+            app,
+            &model,
+            &prompt,
+            transcription,
+            prior_output,
+            local_llm_cancel,
+        )
+        .await;
+    }
+
     let api_key = settings
         .post_process_api_keys
-        .get(&provider.id)
+        .get(&provider_id)
         .cloned()
         .unwrap_or_default();
 
@@ -500,6 +627,67 @@ async fn post_process_transcription_inner(
     }
 }
 
+/// Cleans `transcription` with the on-device model (llama.cpp, macOS only).
+/// `None` means the raw transcript is pasted: the model is missing, refused the
+/// text, failed, or the dictation was cancelled.
+#[cfg(target_os = "macos")]
+async fn post_process_with_local_llm(
+    app: &AppHandle,
+    model: &str,
+    prompt: &str,
+    transcription: &str,
+    prior_output: Option<&str>,
+    cancel: Option<LocalLlmCancel>,
+) -> Option<String> {
+    let model_path = match app.state::<Arc<ModelManager>>().get_model_path(model) {
+        Ok(path) => path,
+        Err(err) => {
+            error!("Failed to resolve local LLM model path: {}", err);
+            return None;
+        }
+    };
+    let (system_prompt, user_content) =
+        build_post_process_messages(prompt, transcription, prior_output);
+
+    let cancel_watch = cancel.map(|cancel| {
+        let flag = Arc::new(AtomicBool::new(false));
+        let watcher = watch_generation_cancel(Arc::clone(&flag), cancel.started, cancel.audio);
+        (flag, watcher)
+    });
+    let generated = crate::local_llm::generate_text(
+        &model_path,
+        &system_prompt,
+        &user_content,
+        LOCAL_LLM_MAX_TOKENS,
+        None,
+        cancel_watch.as_ref().map(|(flag, _)| Arc::clone(flag)),
+    )
+    .await;
+    // Finished run: stop polling. A dropped future skips this and leaves the
+    // watcher attached so it can still raise the flag.
+    if let Some((_, watcher)) = &cancel_watch {
+        watcher.abort();
+    }
+
+    match generated {
+        Ok(result) => {
+            debug!(
+                "Local LLM post-processing succeeded. Output length: {} chars",
+                result.len()
+            );
+            Some(result)
+        }
+        Err(crate::local_llm::LocalLlmError::Cancelled) => {
+            debug!("Local LLM cleanup was cancelled");
+            None
+        }
+        Err(err) => {
+            error!("Local LLM post-processing failed: {}", err);
+            None
+        }
+    }
+}
+
 async fn maybe_convert_chinese_variant(
     effective_language: &str,
     transcription: &str,
@@ -585,6 +773,7 @@ pub(crate) async fn process_transcription_output(
     transcription: &str,
     post_process: bool,
     correction: bool,
+    local_llm_cancel: Option<LocalLlmCancel>,
 ) -> ProcessedTranscription {
     let settings = get_settings(app);
     let mut final_text = transcription.to_string();
@@ -614,7 +803,15 @@ pub(crate) async fn process_transcription_output(
             // deletes one grapheme cluster (combining marks, joined emoji).
             let prev_char_count =
                 crate::utils::pasted_grapheme_count(&prior_output, settings.append_trailing_space);
-            match post_process_transcription(&settings, &final_text, Some(&prior_output)).await {
+            match post_process_transcription(
+                app,
+                &settings,
+                &final_text,
+                Some(&prior_output),
+                local_llm_cancel,
+            )
+            .await
+            {
                 Some(edited) => {
                     post_processed_text = Some(edited.clone());
                     final_text = edited;
@@ -647,7 +844,8 @@ pub(crate) async fn process_transcription_output(
     } else if post_process {
         // Normal post-processing. Word-sniffing has been removed, so a fresh
         // dictation is NEVER silently reinterpreted as an edit of a prior output.
-        if let Some(processed_text) = post_process_transcription(&settings, &final_text, None).await
+        if let Some(processed_text) =
+            post_process_transcription(app, &settings, &final_text, None, local_llm_cancel).await
         {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
@@ -989,12 +1187,17 @@ impl ShortcutAction for TranscribeAction {
                                     show_processing_overlay(&ah);
                                 }
                             }
+                            let local_llm_cancel = LocalLlmCancel {
+                                started: cancel_generation,
+                                audio: Arc::clone(&rm),
+                            };
                             let Some(processed) = complete_unless_cancelled(
                                 process_transcription_output(
                                     &ah,
                                     &transcription,
                                     post_process,
                                     correction,
+                                    Some(local_llm_cancel),
                                 ),
                                 || rm.was_cancelled_since(cancel_generation),
                             )
@@ -1195,8 +1398,9 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
 #[cfg(test)]
 mod tests {
     use super::{
-        build_post_process_messages, complete_unless_cancelled, is_blank_transcription, non_blank,
-        refine_base_for_correction, should_use_streaming_overlay, store_refine_buffer,
+        build_post_process_messages, complete_unless_cancelled, non_blank,
+        note_cancel_if_generation_moved, provider_configured, refine_base_for_correction,
+        should_use_streaming_overlay, store_refine_buffer, SkipReason,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -1214,16 +1418,65 @@ mod tests {
     }
 
     #[test]
-    fn blank_transcription_is_detected() {
-        assert!(is_blank_transcription(""));
-        assert!(is_blank_transcription("   "));
-        assert!(is_blank_transcription("\t\n  \r\n"));
+    fn a_provider_needs_a_model_and_the_key_it_takes() {
+        let mut settings = crate::settings::get_default_settings();
+        let set_model = |s: &mut crate::settings::AppSettings, id: &str, model: &str| {
+            s.post_process_models.insert(id.into(), model.into());
+        };
+
+        assert_eq!(
+            provider_configured(&settings, "nope"),
+            Err(SkipReason::ProviderNotFound)
+        );
+
+        // A hosted provider needs a model, then a key.
+        assert_eq!(
+            provider_configured(&settings, "openai"),
+            Err(SkipReason::NoModelConfigured)
+        );
+        set_model(&mut settings, "openai", "  ");
+        assert_eq!(
+            provider_configured(&settings, "openai"),
+            Err(SkipReason::NoModelConfigured)
+        );
+        set_model(&mut settings, "openai", "gpt-4o-mini");
+        assert_eq!(
+            provider_configured(&settings, "openai"),
+            Err(SkipReason::NoApiKey)
+        );
+        settings
+            .post_process_api_keys
+            .insert("openai".into(), "sk-test".into());
+        assert_eq!(provider_configured(&settings, "openai"), Ok(()));
+
+        // A custom (local server) endpoint needs no key.
+        set_model(&mut settings, "custom", "llama3");
+        assert_eq!(provider_configured(&settings, "custom"), Ok(()));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_on_device_provider_is_configured_by_default_without_a_key() {
+        let settings = crate::settings::get_default_settings();
+        assert_eq!(
+            provider_configured(&settings, crate::settings::LOCAL_LLM_PROVIDER_ID),
+            Ok(())
+        );
     }
 
     #[test]
-    fn non_blank_transcription_is_kept() {
-        assert!(!is_blank_transcription("hello"));
-        assert!(!is_blank_transcription("  hello  "));
+    fn cancel_flag_is_set_only_when_the_generation_counter_moves() {
+        let flag = AtomicBool::new(false);
+
+        assert!(!note_cancel_if_generation_moved(&flag, 3, 3));
+        assert!(!flag.load(Ordering::Relaxed));
+
+        assert!(note_cancel_if_generation_moved(&flag, 3, 4));
+        assert!(flag.load(Ordering::Relaxed));
+
+        // A later sample of the new generation must not clear a cancel.
+        assert!(!note_cancel_if_generation_moved(&flag, 4, 4));
+        assert!(flag.load(Ordering::Relaxed));
     }
 
     #[test]

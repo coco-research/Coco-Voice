@@ -227,6 +227,15 @@ pub fn rank_of(model_id: &str) -> u32 {
     RANK_BY_ID.get(model_id).copied().unwrap_or(u32::MAX)
 }
 
+/// Catalog ids of the on-device post-processing (llama.cpp) models.
+pub fn local_llm_model_ids() -> Vec<String> {
+    CATALOG
+        .iter()
+        .filter(|d| !d.engine_type.is_speech())
+        .map(|d| d.id.clone())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -315,6 +324,15 @@ mod tests {
             .find(|d| d.caps.architecture.as_deref() == Some("qwen3_asr"))
             .expect("qwen3_asr catalog entry");
         assert!(asr.engine_type.is_speech());
+    }
+
+    #[test]
+    fn local_llm_model_ids_are_exactly_the_non_speech_entries() {
+        let ids = local_llm_model_ids();
+        assert!(ids.contains(&crate::settings::LOCAL_LLM_DEFAULT_MODEL_ID.to_string()));
+        for d in CATALOG.iter() {
+            assert_eq!(ids.contains(&d.id), !d.engine_type.is_speech(), "{}", d.id);
+        }
     }
 
     #[test]
