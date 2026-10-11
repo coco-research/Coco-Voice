@@ -16,6 +16,10 @@ src-tauri/gen
 src/bindings.ts
 src-tauri/src/catalog/catalog.json
 
+# Rewritten by release-please (its JSON writer expands arrays Prettier collapses)
+CHANGELOG.md
+src-tauri/tauri.conf.json
+
 # Misc
 .DS_Store
 *.log

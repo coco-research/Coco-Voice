@@ -850,45 +850,6 @@ impl ModelManager {
             },
         );
 
-        // SenseVoice supported languages
-        let sense_voice_languages: Vec<String> = vec!["zh", "en", "yue", "ja", "ko"]
-            .into_iter()
-            .map(String::from)
-            .collect();
-
-        available_models.insert(
-            "sense-voice-int8".to_string(),
-            ModelInfo {
-                id: "sense-voice-int8".to_string(),
-                name: "SenseVoice".to_string(),
-                description: "Very fast. Chinese, English, Japanese, Korean, Cantonese."
-                    .to_string(),
-                filename: "sense-voice-int8".to_string(),
-                source: ModelSource::Url {
-                    url: "https://blob.handy.computer/sense-voice-int8.tar.gz".to_string(),
-                    sha256: Some(
-                        "171d611fe5d353a50bbb741b6f3ef42559b1565685684e9aa888ef563ba3e8a4"
-                            .to_string(),
-                    ),
-                },
-                size_mb: 152,
-                is_downloaded: false,
-                is_downloading: false,
-                partial_size: 0,
-                is_directory: true,
-                engine_type: EngineType::SenseVoice,
-                accuracy_score: 0.65,
-                speed_score: 0.95,
-                supports_translation: false,
-                is_recommended: false,
-                supported_languages: sense_voice_languages,
-                supports_language_selection: true,
-                is_custom: false,
-                supports_streaming: false,
-                supports_language_detection: true,
-            },
-        );
-
         // GigaAM v3 supported languages
         let gigaam_languages: Vec<String> = vec!["ru"].into_iter().map(String::from).collect();
 
@@ -1599,6 +1560,10 @@ impl ModelManager {
             // Reverse hf-hub's `org/name` -> `models--org--name` folder naming.
             let repo_id = rest.replace("--", "/");
 
+            if crate::catalog::repo_withheld(&repo_id) {
+                continue;
+            }
+
             let refs_dir = entry.path().join("refs");
             let Some(revision) = Self::pick_hf_revision(&refs_dir) else {
                 continue;
@@ -1831,6 +1796,21 @@ impl ModelManager {
 
         let model_info =
             model_info.ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;
+
+        // Catalog ids are `{repo_id}/{filename}`: check the id's repo and the source repo.
+        // Only a three-part id names a repo; legacy ids rely on the source check.
+        let id_withheld = match model_id.splitn(3, '/').collect::<Vec<_>>().as_slice() {
+            [org, name, _file] => crate::catalog::repo_withheld(&format!("{org}/{name}")),
+            _ => false,
+        };
+        let source_withheld = matches!(&model_info.source,
+            ModelSource::HuggingFace { repo_id, .. } if crate::catalog::repo_withheld(repo_id));
+        if id_withheld || source_withheld {
+            return Err(anyhow::anyhow!(
+                "Model {} is withheld (legal hold or license not cleared)",
+                model_id
+            ));
+        }
 
         let (url, expected_sha256) = match &model_info.source {
             ModelSource::Url { url, sha256 } => (url.clone(), sha256.clone()),

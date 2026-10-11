@@ -1,0 +1,228 @@
+name: Release Please
+
+# Merging the release-please PR is the release. This workflow opens that PR,
+# and when the merge creates a draft release, builds unsigned installers
+# (updater artifacts still minisign-signed) and publishes the draft.
+# workflow_dispatch only finalizes an existing draft: no release-please,
+# no builds, no tag or release creation, and no asset uploads.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to finalize, for example v0.9.5
+        required: true
+        type: string
+
+# Never cancel a run that may have created a release.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+      # Labels use the issues API. The pinned action's README requires this
+      # alongside contents and pull-requests.
+      issues: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+      release_id: ${{ steps.release-id.outputs.release_id }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Release Please
+        id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync Cargo.lock on the release PR
+        if: steps.release.outputs.pr != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_JSON: ${{ steps.release.outputs.pr }}
+        run: |
+          set -euo pipefail
+          if printf '%s' "$PR_JSON" | jq -e 'type == "object"' >/dev/null 2>&1; then
+            branch=$(printf '%s' "$PR_JSON" | jq -er '.headBranchName')
+          else
+            branch=$PR_JSON
+            if printf '%s' "$branch" | jq -e 'type == "string"' >/dev/null 2>&1; then
+              branch=$(printf '%s' "$branch" | jq -er '.')
+            fi
+          fi
+          case "$branch" in
+            release-please--*) ;;
+            *)
+              echo "unexpected release branch: ${branch}" >&2
+              exit 1
+              ;;
+          esac
+          git fetch --depth=1 origin "$branch"
+          git checkout --detach FETCH_HEAD
+          bash scripts/check-versions.sh --fix
+          if git diff --quiet -- src-tauri/Cargo.lock; then
+            echo "Cargo.lock already matches"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src-tauri/Cargo.lock
+          git commit -m "chore: sync Cargo.lock coco-voice version"
+          git push origin "HEAD:${branch}"
+
+      - name: Get draft release id
+        id: release-id
+        if: steps.release.outputs.release_created == 'true'
+        env:
+          UPLOAD_URL: ${{ steps.release.outputs.upload_url }}
+        run: |
+          set -euo pipefail
+          id=$(printf '%s' "$UPLOAD_URL" | sed -nE 's#.*/releases/([0-9]+)/assets.*#\1#p')
+          if ! printf '%s' "$id" | grep -Eq '^[0-9]+$'; then
+            echo "expected a numeric release id in upload_url, got: ${UPLOAD_URL}" >&2
+            exit 1
+          fi
+          echo "release_id=${id}" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: release-please
+    if: github.event_name == 'push' && needs.release-please.outputs.release_created == 'true'
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-26" # for Arm based macs (M1 and above). Uses macOS 26 for Apple Intelligence SDK.
+            args: "--target aarch64-apple-darwin"
+            target: "aarch64-apple-darwin"
+          - platform: "macos-latest" # for Intel based macs.
+            args: "--target x86_64-apple-darwin"
+            target: "x86_64-apple-darwin"
+          - platform: "ubuntu-22.04" # Build .deb on 22.04
+            args: "--bundles deb"
+            target: "x86_64-unknown-linux-gnu"
+          - platform: "ubuntu-24.04" # Build AppImage and RPM on 24.04
+            args: "--bundles appimage,rpm"
+            target: "x86_64-unknown-linux-gnu"
+          - platform: "ubuntu-24.04-arm" # Build for ARM64 Linux
+            args: "--bundles appimage,deb,rpm"
+            target: "aarch64-unknown-linux-gnu"
+          - platform: "windows-latest"
+            args: ""
+            target: "x86_64-pc-windows-msvc"
+          - platform: "windows-11-arm" # for ARM64 Windows runner
+            args: "--target aarch64-pc-windows-msvc"
+            target: "aarch64-pc-windows-msvc"
+    uses: ./.github/workflows/build.yml
+    with:
+      platform: ${{ matrix.platform }}
+      target: ${{ matrix.target }}
+      # Unsigned installers. createUpdaterArtifacts stays on so latest.json
+      # and .sig files are still produced and minisign-signed.
+      build-args: '${{ matrix.args }} --config ''{"bundle":{"macOS":{"signingIdentity":"-"},"windows":{"signCommand":null}}}'''
+      sign-binaries: false
+      sign-updater: true
+      asset-prefix: "coco-voice"
+      upload-artifacts: false
+      release-id: ${{ needs.release-please.outputs.release_id }}
+      ref: ${{ needs.release-please.outputs.tag_name }}
+      no-cache: true
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+  finalize:
+    needs: [release-please, publish]
+    if: github.event_name == 'push' && needs.release-please.outputs.release_created == 'true' && needs.publish.result == 'success'
+    permissions:
+      id-token: write
+      attestations: write
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release notes
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+          fetch-depth: 1
+
+      - name: Write and upload SHA256SUMS
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          dir="${RUNNER_TEMP}/release-assets"
+          mkdir -p "$dir"
+          gh release download "$TAG" --dir "$dir" --clobber
+          rm -f "$dir/SHA256SUMS"
+          (
+            cd "$dir"
+            files=$(find . -type f -printf '%P\n' | sort)
+            if [ -z "$files" ]; then
+              echo "release ${TAG} has no assets" >&2
+              exit 1
+            fi
+            printf '%s\n' "$files" | while IFS= read -r name; do
+              sha256sum "$name"
+            done > SHA256SUMS
+            if [ ! -s SHA256SUMS ]; then
+              echo "SHA256SUMS is empty" >&2
+              exit 1
+            fi
+          )
+          gh release upload "$TAG" "$dir/SHA256SUMS" --clobber
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: ${{ runner.temp }}/release-assets/SHA256SUMS
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: bash scripts/release-finalize.sh --tag "$TAG"
+
+  # Dispatch reads release notes from main on purpose (CTO decision, so notes
+  # fixed after tagging ship). Only a draft can be edited, so a published
+  # release is never rewritten.
+  # inputs.tag is passed through env, never interpolated into run:.
+  finalize-dispatch:
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "dispatch Release Please from main, not ${GITHUB_REF}" >&2
+          exit 1
+
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Publish the release
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/release-finalize.sh --tag "$TAG" --verify-release-commit

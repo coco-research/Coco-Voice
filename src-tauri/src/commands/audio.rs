@@ -200,6 +200,12 @@ pub fn get_available_microphones() -> Result<Vec<AudioDevice>, String> {
 #[tauri::command]
 #[specta::specta]
 pub fn set_selected_microphone(app: AppHandle, device_name: String) -> Result<(), String> {
+    // Refuse before persisting: the stream restart would drop the take in progress.
+    let rm = app.state::<Arc<AudioRecordingManager>>();
+    if rm.is_recording() {
+        return Err("Cannot change the microphone while recording".to_string());
+    }
+
     let mut settings = get_settings(&app);
     settings.selected_microphone = if device_name == "default" {
         None
@@ -209,7 +215,6 @@ pub fn set_selected_microphone(app: AppHandle, device_name: String) -> Result<()
     write_settings(&app, settings);
 
     // Update the audio manager to use the new device
-    let rm = app.state::<Arc<AudioRecordingManager>>();
     rm.update_selected_device()
         .map_err(|e| format!("Failed to update selected device: {}", e))?;
 

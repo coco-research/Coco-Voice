@@ -30,6 +30,32 @@ use crate::tray;
 
 // Note: Commands are accessed via shortcut::coco_keys:: in lib.rs
 
+/// Runs `job` on a single background worker, in submission order. The cancel
+/// shortcut is registered and unregistered off the caller's thread (the hotkey
+/// thread must not block on the manager), but as independent tasks they could
+/// run out of order and leave the combo grabbed after the take ended.
+#[cfg_attr(target_os = "linux", allow(dead_code))]
+fn run_ordered(job: impl FnOnce() + Send + 'static) {
+    use std::sync::{mpsc, OnceLock};
+
+    static QUEUE: OnceLock<mpsc::Sender<Box<dyn FnOnce() + Send>>> = OnceLock::new();
+    let queue = QUEUE.get_or_init(|| {
+        let (tx, rx) = mpsc::channel::<Box<dyn FnOnce() + Send>>();
+        std::thread::spawn(move || {
+            for job in rx {
+                // A panicking job must not end the worker for the rest of the process.
+                if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(job)) {
+                    error!("Shortcut worker job panicked: {:?}", panic);
+                }
+            }
+        });
+        tx
+    });
+    if queue.send(Box::new(job)).is_err() {
+        error!("Shortcut worker stopped; dropping job");
+    }
+}
+
 /// Initialize shortcuts using the configured implementation
 pub fn init_shortcuts(app: &AppHandle) {
     let user_settings = settings::load_or_create_app_settings(app);
@@ -103,6 +129,33 @@ pub struct BindingResponse {
     error: Option<String>,
 }
 
+/// The response for a binding id that is in neither the stored settings nor the defaults.
+fn binding_not_found(id: &str) -> BindingResponse {
+    let error_msg = format!("Binding with id '{}' not found in defaults", id);
+    warn!("binding error: {}", error_msg);
+    BindingResponse {
+        success: false,
+        binding: None,
+        error: Some(error_msg),
+    }
+}
+
+#[cfg(test)]
+mod binding_not_found_tests {
+    use super::*;
+
+    #[test]
+    fn unknown_binding_id_returns_not_found_instead_of_panicking() {
+        let response = binding_not_found("missing");
+        assert!(!response.success);
+        assert!(response.binding.is_none());
+        assert_eq!(
+            response.error.as_deref(),
+            Some("Binding with id 'missing' not found in defaults")
+        );
+    }
+}
+
 /// Replaces the registration of `old` with `new`. If registering `new` fails,
 /// `old` is registered again so the user is never left without a working hotkey.
 fn swap_registration<B>(
@@ -145,7 +198,7 @@ pub fn change_binding(
         return Err("Binding cannot be empty".to_string());
     }
 
-    let mut settings = settings::get_settings(&app);
+    let settings = settings::get_settings(&app);
 
     // Get the binding to modify, or create it from defaults if it doesn't exist
     let binding_to_modify = match settings.bindings.get(&id) {
@@ -161,15 +214,7 @@ pub fn change_binding(
                     );
                     default_binding.clone()
                 }
-                None => {
-                    let error_msg = format!("Binding with id '{}' not found in defaults", id);
-                    warn!("change_binding error: {}", error_msg);
-                    return Ok(BindingResponse {
-                        success: false,
-                        binding: None,
-                        error: Some(error_msg),
-                    });
-                }
+                None => return Ok(binding_not_found(&id)),
             }
         }
     };
@@ -179,8 +224,10 @@ pub fn change_binding(
     if id == "cancel" {
         if let Some(mut b) = settings.bindings.get(&id).cloned() {
             b.current_binding = binding;
-            settings.bindings.insert(id.clone(), b.clone());
-            settings::write_settings(&app, settings);
+            let saved = b.clone();
+            settings::update_settings(&app, |s| {
+                s.bindings.insert(id.clone(), saved);
+            });
             return Ok(BindingResponse {
                 success: true,
                 binding: Some(b.clone()),
@@ -217,11 +264,12 @@ pub fn change_binding(
         });
     }
 
-    // Update the binding in the settings
-    settings.bindings.insert(id, updated_binding.clone());
-
-    // Save the settings
-    settings::write_settings(&app, settings);
+    // Re-read and save under the settings lock so a concurrent write to
+    // another setting is not overwritten by this call's earlier snapshot.
+    let saved = updated_binding.clone();
+    settings::update_settings(&app, |s| {
+        s.bindings.insert(id, saved);
+    });
 
     // Return the updated binding
     Ok(BindingResponse {
@@ -234,8 +282,10 @@ pub fn change_binding(
 #[tauri::command]
 #[specta::specta]
 pub fn reset_binding(app: AppHandle, id: String) -> Result<BindingResponse, String> {
-    let binding = settings::get_stored_binding(&app, &id);
-    change_binding(app, id, binding.default_binding)
+    match settings::get_stored_binding(&app, &id) {
+        Some(binding) => change_binding(app, id, binding.default_binding),
+        None => Ok(binding_not_found(&id)),
+    }
 }
 
 /// Temporarily unregister a binding while the user is editing it in the UI.
@@ -1359,6 +1409,31 @@ pub async fn get_available_accelerators() -> crate::managers::transcription::Ava
     tauri::async_runtime::spawn_blocking(crate::managers::transcription::get_available_accelerators)
         .await
         .expect("get_available_accelerators panicked")
+}
+
+#[cfg(test)]
+mod ordered_tests {
+    use super::*;
+    use std::sync::{mpsc, Arc, Mutex};
+    use std::time::Duration;
+
+    #[test]
+    fn run_ordered_preserves_submission_order() {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let (done_tx, done_rx) = mpsc::channel();
+        for i in 0..200 {
+            let seen = Arc::clone(&seen);
+            let done_tx = done_tx.clone();
+            run_ordered(move || {
+                seen.lock().unwrap().push(i);
+                if i == 199 {
+                    done_tx.send(()).unwrap();
+                }
+            });
+        }
+        done_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert_eq!(*seen.lock().unwrap(), (0..200).collect::<Vec<_>>());
+    }
 }
 
 #[cfg(test)]

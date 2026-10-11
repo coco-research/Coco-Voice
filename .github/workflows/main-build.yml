@@ -1,8 +1,9 @@
 name: "Main Branch Build"
 
 # Runs the full cross-platform build on every push to main so breakage is
-# caught before a manual release is triggered. Artifacts are kept for 30 days
-# so any commit on main has a downloadable, testable build.
+# caught before a release. Artifacts are kept for 30 days so any commit on
+# main has a downloadable, testable build. Releases are built by the release
+# workflow, so this build needs no signing secrets.
 
 on:
   push:
@@ -15,7 +16,7 @@ concurrency:
 jobs:
   build:
     permissions:
-      contents: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -46,7 +47,8 @@ jobs:
     with:
       platform: ${{ matrix.platform }}
       target: ${{ matrix.target }}
-      build-args: ${{ matrix.args }}
+      # Unsigned, like PR builds: no updater artifacts, ad-hoc macOS signing,
+      # no Windows signing.
+      build-args: '${{ matrix.args }} --config ''{"bundle":{"createUpdaterArtifacts":false,"macOS":{"signingIdentity":"-"},"windows":{"signCommand":null}}}'''
       upload-artifacts: true
-      sign-binaries: true
-    secrets: inherit
+      sign-binaries: false
