@@ -50,6 +50,15 @@ struct CatalogModel {
     recommended: bool,
     #[serde(default)]
     license: Option<String>,
+    /// Pinned HF commit for publisher repos. Absent means the `main` branch.
+    #[serde(default)]
+    revision: Option<String>,
+}
+
+/// Architectures served by llama.cpp for transcript cleanup (`qwen3_asr` and
+/// `canary_qwen` are transcribe-cpp speech archs and do not match).
+fn is_local_llm_arch(architecture: Option<&str>) -> bool {
+    matches!(architecture, Some("qwen2" | "qwen3"))
 }
 
 #[derive(Deserialize)]
@@ -74,11 +83,19 @@ impl From<CatalogModel> for ModelDescriptor {
             id: format!("{}/{}", m.id, default_filename),
             source: ModelSource::HuggingFace {
                 repo_id: m.id,
-                revision: "main".to_string(),
+                revision: m
+                    .revision
+                    .map(|r| r.trim().to_string())
+                    .filter(|r| !r.is_empty())
+                    .unwrap_or_else(|| "main".to_string()),
             },
             name: m.name,
             description: m.description,
-            engine_type: EngineType::TranscribeCpp,
+            engine_type: if is_local_llm_arch(m.architecture.as_deref()) {
+                EngineType::LlamaCpp
+            } else {
+                EngineType::TranscribeCpp
+            },
             caps: CapabilityProbe {
                 verdict: Compatibility::Compatible, // curated org models we ship support for
                 display_name: None,
@@ -240,8 +257,10 @@ mod tests {
 
     #[test]
     fn catalog_architectures_are_known_to_capability_probe() {
+        // KNOWN_ARCHES is the transcribe-cpp set; local cleanup LLMs are not in it.
         let missing: BTreeSet<&str> = CATALOG
             .iter()
+            .filter(|d| d.engine_type.is_speech())
             .filter_map(|d| d.caps.architecture.as_deref())
             .filter(|arch| !KNOWN_ARCHES.contains(arch))
             .collect();
@@ -251,6 +270,71 @@ mod tests {
             "catalog architecture(s) missing from KNOWN_ARCHES: {:?}",
             missing
         );
+    }
+
+    const QWEN3_REPO: &str = "Qwen/Qwen3-4B-GGUF";
+    const QWEN25_REPO: &str = "Qwen/Qwen2.5-1.5B-Instruct-GGUF";
+
+    #[test]
+    fn qwen_cleanup_entries_pass_the_allowlist_and_are_not_speech_models() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        for repo in [QWEN3_REPO, QWEN25_REPO] {
+            // Allowed by the licence allowlist, not on legal hold.
+            let entry = root.models.iter().find(|m| m.id == repo).expect(repo);
+            assert_eq!(entry.license.as_deref(), Some("apache-2.0"), "{repo}");
+            assert!(
+                is_allowed_catalog_entry(&entry.id, entry.license.as_deref()),
+                "{repo}"
+            );
+            assert!(!repo_withheld(repo), "{repo}");
+
+            // Offered as a local LLM, downloaded only from Qwen's own repo at a pinned commit.
+            let d = CATALOG
+                .iter()
+                .find(|d| d.id.starts_with(&format!("{repo}/")))
+                .expect(repo);
+            assert!(!d.engine_type.is_speech(), "{repo}");
+            assert!(
+                matches!(&d.source, ModelSource::HuggingFace { repo_id, revision }
+                    if repo_id == repo
+                        && revision.len() == 40
+                        && revision.bytes().all(|b| b.is_ascii_hexdigit())),
+                "{repo}: {:?}",
+                d.source
+            );
+        }
+
+        // Only those two: the ASR archs that merely contain "qwen" stay speech models.
+        let llms = CATALOG
+            .iter()
+            .filter(|d| !d.engine_type.is_speech())
+            .count();
+        assert_eq!(llms, 2);
+        let asr = CATALOG
+            .iter()
+            .find(|d| d.caps.architecture.as_deref() == Some("qwen3_asr"))
+            .expect("qwen3_asr catalog entry");
+        assert!(asr.engine_type.is_speech());
+    }
+
+    #[test]
+    fn default_local_llm_is_the_recommended_qwen3_entry() {
+        let id = crate::settings::LOCAL_LLM_DEFAULT_MODEL_ID;
+        let d = CATALOG
+            .iter()
+            .find(|d| d.id == id)
+            .expect("default in catalog");
+        assert_eq!(d.caps.architecture.as_deref(), Some("qwen3"));
+        assert!(matches!(
+            &d.source,
+            ModelSource::HuggingFace { repo_id, revision }
+                if repo_id == QWEN3_REPO
+                    && revision == "bc640142c66e1fdd12af0bd68f40445458f3869b"
+        ));
+        // Among the local LLMs only the default is recommended.
+        for llm in CATALOG.iter().filter(|d| !d.engine_type.is_speech()) {
+            assert_eq!(llm.recommended, llm.id == id, "{}", llm.id);
+        }
     }
 
     #[test]

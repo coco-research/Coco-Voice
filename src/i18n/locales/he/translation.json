@@ -408,6 +408,17 @@
           "placeholderWithOptions": "חפש או בחר מודל",
           "placeholderNoOptions": "הקלד שם מודל",
           "refreshModels": "רענן מודלים"
+        },
+        "localLlm": {
+          "title": "מודל מקומי",
+          "description": "מודל מקומי המשמש לעריכת תמלולים. הורד אותו פעם אחת.",
+          "notDownloaded": "לא הורד",
+          "downloading": "מוריד {{percent}}%",
+          "ready": "מוכן",
+          "download": "הורדה",
+          "cancel": "ביטול",
+          "checking": "בודק...",
+          "unavailable": "המודל המקומי אינו זמין."
         }
       },
       "prompts": {

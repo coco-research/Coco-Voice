@@ -108,6 +108,11 @@ pub fn switch_active_model(app: &AppHandle, model_id: &str) -> Result<(), String
         return Err(format!("Model not downloaded: {}", model_id));
     }
 
+    // Local cleanup models are registered for download only, never selectable.
+    if !model_info.engine_type.is_speech() {
+        return Err(format!("Model {} is not a speech model", model_id));
+    }
+
     let settings = get_settings(app);
     let unload_timeout = settings.model_unload_timeout;
     let old_model = settings.selected_model.clone();

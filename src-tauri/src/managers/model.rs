@@ -35,6 +35,17 @@ pub enum EngineType {
     GigaAM,
     Canary,
     Cohere,
+    /// Local text generation via llama.cpp, for transcript cleanup. Never a
+    /// speech engine.
+    LlamaCpp,
+}
+
+impl EngineType {
+    /// Whether this engine transcribes speech. Local cleanup models share the
+    /// registry (for download and path lookup by id) but are not speech models.
+    pub fn is_speech(&self) -> bool {
+        !matches!(self, EngineType::LlamaCpp)
+    }
 }
 
 /// Where a model comes from and how Coco Voice obtains it — the routing discriminant
@@ -1049,7 +1060,7 @@ impl ModelManager {
     pub fn get_available_models(&self) -> Vec<ModelInfo> {
         let mut list: Vec<ModelInfo> = {
             let models = self.available_models.lock().unwrap();
-            models.values().cloned().collect()
+            Self::speech_models(&models)
         };
         // Stable, reasonable order: catalog editorial rank first (lower = higher
         // priority), then any other recommended model, then by accuracy, speed,
@@ -1064,6 +1075,16 @@ impl ModelManager {
                 .then_with(|| a.name.cmp(&b.name))
         });
         list
+    }
+
+    /// The registry entries offered as speech models (every list, picker and
+    /// auto-selection). Local cleanup models are left out; look them up by id.
+    fn speech_models(models: &HashMap<String, ModelInfo>) -> Vec<ModelInfo> {
+        models
+            .values()
+            .filter(|model| model.engine_type.is_speech())
+            .cloned()
+            .collect()
     }
 
     /// Seed the bundled catalog ([`crate::catalog::CATALOG`]) into the registry,
@@ -1325,15 +1346,18 @@ impl ModelManager {
         let mut settings = get_settings(&self.app_handle);
 
         // Clear stale selection: selected model is set but doesn't exist
-        // in available_models (e.g. deleted custom model file)
+        // in available_models (e.g. deleted custom model file), or is a local
+        // cleanup model, which is not a speech model.
         if !settings.selected_model.is_empty() {
             let models = self.available_models.lock().unwrap();
-            let exists = models.contains_key(&settings.selected_model);
+            let usable = models
+                .get(&settings.selected_model)
+                .is_some_and(|model| model.engine_type.is_speech());
             drop(models);
 
-            if !exists {
+            if !usable {
                 info!(
-                    "Selected model '{}' not found in available models, clearing selection",
+                    "Selected model '{}' is missing or not a speech model, clearing selection",
                     settings.selected_model
                 );
                 settings.selected_model = String::new();
@@ -2535,6 +2559,25 @@ mod tests {
         let result = ModelManager::discover_custom_transcribe_models(&models_dir, &mut models);
         assert!(result.is_ok());
         assert_eq!(models.len(), count_before);
+    }
+
+    #[test]
+    fn test_local_cleanup_models_are_registered_but_not_speech_models() {
+        let mut models = HashMap::new();
+        ModelManager::seed_catalog_models(&mut models);
+        let speech = ModelManager::speech_models(&models);
+
+        assert!(!speech.is_empty(), "speech models must still be listed");
+        for id in [
+            "Qwen/Qwen3-4B-GGUF/Qwen3-4B-Q4_K_M.gguf",
+            "Qwen/Qwen2.5-1.5B-Instruct-GGUF/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+        ] {
+            // Registered, so the settings row can look it up and download it by id...
+            assert!(models.contains_key(id), "{id} is not registered");
+            // ...but never offered as a speech model.
+            assert!(speech.iter().all(|m| m.id != id), "{id} is listed");
+        }
+        assert!(speech.iter().all(|m| m.engine_type.is_speech()));
     }
 
     // ── SHA256 verification tests ─────────────────────────────────────────────

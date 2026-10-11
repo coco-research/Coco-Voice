@@ -387,6 +387,17 @@
           "placeholderWithOptions": "ابحث عن نموذج أو اختره",
           "placeholderNoOptions": "اكتب اسم النموذج",
           "refreshModels": "تحديث النماذج"
+        },
+        "localLlm": {
+          "title": "النموذج المحلي",
+          "description": "نموذج على الجهاز يُستخدم لتحسين النصوص المكتوبة. قم بتنزيله مرة واحدة.",
+          "notDownloaded": "لم يتم التنزيل",
+          "downloading": "جاري التنزيل {{percent}}%",
+          "ready": "جاهز",
+          "download": "تنزيل",
+          "cancel": "إلغاء",
+          "checking": "جاري التحقق...",
+          "unavailable": "النموذج المحلي غير متوفر."
         }
       },
       "prompts": {

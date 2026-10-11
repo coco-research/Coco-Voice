@@ -408,6 +408,17 @@
           "placeholderWithOptions": "搜索或选择模型",
           "placeholderNoOptions": "输入模型名称",
           "refreshModels": "刷新模型"
+        },
+        "localLlm": {
+          "title": "本地模型",
+          "description": "用于润色转录文本的设备端模型。只需下载一次。",
+          "notDownloaded": "未下载",
+          "downloading": "下载中 {{percent}}%",
+          "ready": "准备就绪",
+          "download": "下载",
+          "cancel": "取消",
+          "checking": "检查中...",
+          "unavailable": "本地模型不可用。"
         }
       },
       "prompts": {
