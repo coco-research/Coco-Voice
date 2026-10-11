@@ -653,5 +653,32 @@
   },
   "whatsNew": {
     "title": "Neu in Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "Nicht überarbeitet: kein Modell",
+      "noApiKey": "Nicht überarbeitet: kein API-Schlüssel",
+      "noModelChosen": "Nicht überarbeitet: kein Modell gewählt",
+      "noPrompt": "Nicht überarbeitet: kein Prompt",
+      "noProvider": "Nicht überarbeitet: kein Anbieter",
+      "appleOff": "Nicht überarbeitet: Apple AI aus",
+      "tooLong": "Zu lang, unverändert eingefügt",
+      "stoppedEarly": "Unverändert eingefügt",
+      "modelFailed": "Modell lädt nicht, unverändert eingefügt",
+      "fallbackNeedsYou": "Nicht überarbeitet",
+      "fallbackThisTake": "Unverändert eingefügt"
+    },
+    "sentence": {
+      "noModel": "Nachbearbeitung ist aus: Das lokale Modell ist nicht heruntergeladen.",
+      "noApiKey": "Nachbearbeitung ist aus: Für den Anbieter fehlt der API-Schlüssel.",
+      "noModelChosen": "Nachbearbeitung ist aus: Es ist kein Modell gewählt.",
+      "noPrompt": "Nachbearbeitung ist aus: Es ist kein Prompt festgelegt.",
+      "noProvider": "Nachbearbeitung ist aus: Es ist kein Anbieter gewählt.",
+      "appleOff": "Nachbearbeitung ist aus: Apple Intelligence ist auf diesem Mac nicht verfügbar.",
+      "tooLong": "Nachbearbeitung wurde diesmal nicht ausgeführt: Der Text war zu lang für das lokale Modell.",
+      "stoppedEarly": "Nachbearbeitung wurde diesmal nicht ausgeführt: Das lokale Modell hat zu früh gestoppt.",
+      "modelFailed": "Nachbearbeitung wurde diesmal nicht ausgeführt: Das lokale Modell wurde nicht geladen."
+    },
+    "announce": "{{sentence}} Unverändert eingefügt."
   }
 }

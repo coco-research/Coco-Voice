@@ -367,3 +367,28 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Status row for a take where cleanup did not run: the mark leads the words (the
+   row flips with `dir`, so in ar/he the mark sits on the right). The words never
+   wrap and never get an ellipsis: CleanupChip swaps in a short form instead. */
+.sbase.schip {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.schip-words {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.schip.needs-you {
+  color: var(--color-needs-you);
+}
+.schip.quiet {
+  color: var(--color-quiet);
+}
+/* The words are measured against the final card width, so it does not animate. */
+.scard.with-chip:not(.leaving) {
+  transition: none;
+}

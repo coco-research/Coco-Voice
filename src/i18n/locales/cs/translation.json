@@ -653,5 +653,32 @@
   },
   "whatsNew": {
     "title": "Novinky v Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "Neupraveno: chybí model",
+      "noApiKey": "Neupraveno: chybí API klíč",
+      "noModelChosen": "Neupraveno: není vybrán model",
+      "noPrompt": "Neupraveno: chybí prompt",
+      "noProvider": "Neupraveno: chybí poskytovatel",
+      "appleOff": "Neupraveno: Apple AI je vypnuto",
+      "tooLong": "Příliš dlouhé, vloženo beze změny",
+      "stoppedEarly": "Vloženo beze změny",
+      "modelFailed": "Model se nenačetl, vloženo beze změny",
+      "fallbackNeedsYou": "Neupraveno",
+      "fallbackThisTake": "Vloženo beze změny"
+    },
+    "sentence": {
+      "noModel": "Následné zpracování je vypnuté: místní model není stažen.",
+      "noApiKey": "Následné zpracování je vypnuté: poskytovatel nemá API klíč.",
+      "noModelChosen": "Následné zpracování je vypnuté: není vybrán žádný model.",
+      "noPrompt": "Následné zpracování je vypnuté: není nastaven žádný prompt.",
+      "noProvider": "Následné zpracování je vypnuté: není vybrán žádný poskytovatel.",
+      "appleOff": "Následné zpracování je vypnuté: Apple Intelligence není na tomto Macu k dispozici.",
+      "tooLong": "Následné zpracování tentokrát neproběhlo: text byl příliš dlouhý pro místní model.",
+      "stoppedEarly": "Následné zpracování tentokrát neproběhlo: místní model skončil předčasně.",
+      "modelFailed": "Následné zpracování tentokrát neproběhlo: místní model se nenačetl."
+    },
+    "announce": "{{sentence}} Vloženo beze změny."
   }
 }

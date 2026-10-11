@@ -653,5 +653,32 @@
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} 新功能"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "未潤飾：缺少模型",
+      "noApiKey": "未潤飾：缺少 API 金鑰",
+      "noModelChosen": "未潤飾：未選擇模型",
+      "noPrompt": "未潤飾：缺少提示詞",
+      "noProvider": "未潤飾：未選擇供應商",
+      "appleOff": "未潤飾：Apple AI 已關閉",
+      "tooLong": "過長，已原樣貼上",
+      "stoppedEarly": "已原樣貼上",
+      "modelFailed": "模型未載入，已原樣貼上",
+      "fallbackNeedsYou": "未潤飾",
+      "fallbackThisTake": "已原樣貼上"
+    },
+    "sentence": {
+      "noModel": "後處理已關閉：裝置端模型尚未下載。",
+      "noApiKey": "後處理已關閉：供應商沒有 API 金鑰。",
+      "noModelChosen": "後處理已關閉：未選擇模型。",
+      "noPrompt": "後處理已關閉：未設定提示詞。",
+      "noProvider": "後處理已關閉：未選擇供應商。",
+      "appleOff": "後處理已關閉：此 Mac 上無法使用 Apple Intelligence。",
+      "tooLong": "本次未執行後處理：文字對裝置端模型來說太長。",
+      "stoppedEarly": "本次未執行後處理：裝置端模型提前停止。",
+      "modelFailed": "本次未執行後處理：裝置端模型未能載入。"
+    },
+    "announce": "{{sentence}}已原樣貼上。"
   }
 }
