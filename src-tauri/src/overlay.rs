@@ -2,6 +2,7 @@ use crate::input;
 use crate::settings;
 use crate::settings::{OverlayPosition, OverlayStyle};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize};
 
@@ -49,6 +50,23 @@ const OVERLAY_HEIGHT: f64 = 46.0;
 // Actual is 394x118, just a little extra
 const OVERLAY_STREAM_WIDTH: f64 = 400.0;
 const OVERLAY_STREAM_HEIGHT: f64 = 120.0;
+
+/// Counts overlay shows, so a deferred hide can tell that a newer overlay replaced
+/// the one it was meant to hide.
+static OVERLAY_SHOW_GENERATION: Mutex<u64> = Mutex::new(0);
+
+fn current_generation(generation: &Mutex<u64>) -> u64 {
+    *generation.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn bump_generation(generation: &Mutex<u64>) {
+    *generation.lock().unwrap_or_else(|e| e.into_inner()) += 1;
+}
+
+/// The current show count, to pass to [`hide_recording_overlay_if_current`].
+pub fn capture_overlay_generation() -> u64 {
+    current_generation(&OVERLAY_SHOW_GENERATION)
+}
 
 /// Overlay window size (logical) for a given UI state.
 fn overlay_dimensions(state: &str) -> (f64, f64) {
@@ -387,6 +405,8 @@ fn show_overlay_state(app_handle: &AppHandle, state: &str) {
         }
         let pos_calc_elapsed = pos_started.elapsed() - set_pos_elapsed;
 
+        bump_generation(&OVERLAY_SHOW_GENERATION);
+
         let show_started = std::time::Instant::now();
         let _ = overlay_window.show();
         let show_elapsed = show_started.elapsed();
@@ -462,6 +482,28 @@ pub fn hide_recording_overlay(app_handle: &AppHandle) {
     }
 }
 
+/// Like [`hide_recording_overlay`], but does nothing if an overlay was shown after
+/// `captured` was taken. The check runs again right before the window is hidden, so a
+/// take that starts during the fade-out keeps its overlay. Returns whether it hid.
+/// A check and the act after it are separate steps: a show landing between them, a
+/// few microseconds apart, still loses to the hide.
+pub fn hide_recording_overlay_if_current(app_handle: &AppHandle, captured: u64) -> bool {
+    let current = move || current_generation(&OVERLAY_SHOW_GENERATION) == captured;
+    if !current() {
+        return false;
+    }
+    if let Some(overlay_window) = app_handle.get_webview_window("recording_overlay") {
+        let _ = overlay_window.emit("hide-overlay", ());
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            if current() {
+                let _ = overlay_window.hide();
+            }
+        });
+    }
+    true
+}
+
 // Cached "overlay is enabled" flag, kept in sync with overlay_style. Avoids
 // reading the Tauri store on every audio callback (~24 Hz during recording).
 // Defaults to false so the audio path doesn't emit until lib.rs::setup
@@ -512,4 +554,26 @@ pub fn emit_levels(app_handle: &AppHandle, levels: &[f32]) {
     // eval_script call per callback, cutting the per-callback WebKit
     // dispatch work in half.
     let _ = app_handle.emit_to("recording_overlay", "mic-level", levels);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_show_after_the_capture_makes_the_capture_stale() {
+        let generation = Mutex::new(0);
+
+        let captured = current_generation(&generation);
+        assert_eq!(current_generation(&generation), captured);
+
+        bump_generation(&generation);
+        assert_ne!(current_generation(&generation), captured);
+
+        // Only a capture taken after the last show is current.
+        let captured = current_generation(&generation);
+        bump_generation(&generation);
+        bump_generation(&generation);
+        assert_ne!(current_generation(&generation), captured);
+    }
 }

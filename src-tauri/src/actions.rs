@@ -3,7 +3,7 @@ use crate::apple_intelligence;
 use crate::audio_feedback::{play_feedback_sound, play_feedback_sound_blocking, SoundType};
 use crate::audio_toolkit::{is_microphone_access_denied, is_no_input_device_error, VadPolicy};
 use crate::cleanup_resolver::{
-    check_global_preconditions, resolve_cleanup, CleanupDecision, SkipReason,
+    check_global_preconditions, resolve_cleanup, CleanupDecision, CleanupStatus, SkipReason,
 };
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::history::HistoryManager;
@@ -29,8 +29,13 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Manager;
 use tauri::{AppHandle, Emitter};
+use tauri_specta::Event;
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
+
+/// How long the overlay stays up after paste when a cleanup status was sent, so the
+/// "not cleaned" row can be read.
+const STATUS_OVERLAY_GRACE: Duration = Duration::from_millis(2500);
 
 /// Local cleanup length. A catalog model id is not a token count, so this is
 /// not parsed out of the model string.
@@ -71,6 +76,29 @@ impl Drop for FinishGuard {
         if let Some(c) = self.0.try_state::<TranscriptionCoordinator>() {
             c.notify_processing_finished();
         }
+    }
+}
+
+/// Hides the overlay once [`STATUS_OVERLAY_GRACE`] has passed, unless a newer overlay
+/// was shown since `captured_overlay_gen` was taken: that take owns the overlay and the
+/// tray icon now.
+fn hide_overlay_after_status(app: &AppHandle, captured_overlay_gen: u64) {
+    let app_clone = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(STATUS_OVERLAY_GRACE).await;
+        if crate::overlay::hide_recording_overlay_if_current(&app_clone, captured_overlay_gen) {
+            change_tray_icon(&app_clone, TrayIconState::Idle);
+        }
+    });
+}
+
+/// Ends a take's overlay: right away, or after the grace period when `delay_hide`.
+fn finish_overlay(app: &AppHandle, delay_hide: bool, captured_overlay_gen: u64) {
+    if delay_hide {
+        hide_overlay_after_status(app, captured_overlay_gen);
+    } else {
+        utils::hide_recording_overlay(app);
+        change_tray_icon(app, TrayIconState::Idle);
     }
 }
 
@@ -173,6 +201,12 @@ fn watch_generation_cancel(
 
 fn should_use_streaming_overlay(style: OverlayStyle, is_streaming: bool) -> bool {
     style == OverlayStyle::Live && is_streaming
+}
+
+/// Whether the overlay stays up after the paste: only for a take whose status row
+/// is showing, so there must be an overlay to show it on.
+fn should_hold_overlay(status_emitted: bool, style: OverlayStyle) -> bool {
+    status_emitted && style != OverlayStyle::None
 }
 
 /// Returns the most recent produced output to use as the edit base for an
@@ -307,15 +341,27 @@ fn provider_configured(settings: &AppSettings, provider_id: &str) -> Result<(), 
     Ok(())
 }
 
+/// Logs why cleanup was skipped and tells the UI. Returns whether the UI was told.
+fn skip_cleanup(app: &AppHandle, reason: &SkipReason) -> bool {
+    info!("Post-processing skipped: {reason}");
+    let Some(status) = CleanupStatus::status_for_skip(reason) else {
+        return false;
+    };
+    let _ = status.emit(app);
+    true
+}
+
 /// Post-processes `transcription`. When `prior_output` is `Some`, the call runs
 /// in *edit mode*: instead of cleaning a fresh transcript, the model edits the
 /// previous output using `transcription` as the spoken correction instruction.
+/// Sets `status_emitted` when it told the UI that cleanup did not run.
 async fn post_process_transcription(
     app: &AppHandle,
     settings: &AppSettings,
     transcription: &str,
     prior_output: Option<&str>,
     local_llm_cancel: Option<LocalLlmCancel>,
+    status_emitted: &mut bool,
 ) -> Option<String> {
     // Every provider path funnels through here: a blank result (zero-width
     // characters survive `trim`) must fall back to the raw transcript.
@@ -326,6 +372,7 @@ async fn post_process_transcription(
             transcription,
             prior_output,
             local_llm_cancel,
+            status_emitted,
         )
         .await,
     )
@@ -344,10 +391,11 @@ async fn post_process_transcription_inner(
     transcription: &str,
     prior_output: Option<&str>,
     local_llm_cancel: Option<LocalLlmCancel>,
+    status_emitted: &mut bool,
 ) -> Option<String> {
-    // Only the macOS-only on-device path reads the handle and the cancel signal.
+    // Only the macOS-only on-device path reads the cancel signal.
     #[cfg(not(target_os = "macos"))]
-    let _ = (app, &local_llm_cancel);
+    let _ = &local_llm_cancel;
 
     let prompt = match check_global_preconditions(
         transcription,
@@ -362,7 +410,7 @@ async fn post_process_transcription_inner(
     ) {
         Ok(prompt) => prompt.to_string(),
         Err(reason) => {
-            info!("Post-processing skipped: {reason}");
+            *status_emitted |= skip_cleanup(app, &reason);
             return None;
         }
     };
@@ -414,7 +462,7 @@ async fn post_process_transcription_inner(
             provider_id
         }
         CleanupDecision::Skip { reason } => {
-            info!("Post-processing skipped: {reason}");
+            *status_emitted |= skip_cleanup(app, &reason);
             return None;
         }
     };
@@ -441,6 +489,7 @@ async fn post_process_transcription_inner(
             transcription,
             prior_output,
             local_llm_cancel,
+            status_emitted,
         )
         .await;
     }
@@ -627,9 +676,23 @@ async fn post_process_transcription_inner(
     }
 }
 
+/// The status for an on-device run that was refused or failed. A cancel is the
+/// user's own doing, so it gets none.
+#[cfg(target_os = "macos")]
+fn local_llm_error_status(err: &crate::local_llm::LocalLlmError) -> Option<CleanupStatus> {
+    use crate::local_llm::LocalLlmError;
+    match err {
+        LocalLlmError::OverBudget => Some(CleanupStatus::too_long()),
+        LocalLlmError::StoppedEarly => Some(CleanupStatus::stopped_early()),
+        LocalLlmError::Cancelled => None,
+        LocalLlmError::Other(_) => Some(CleanupStatus::model_load_failed()),
+    }
+}
+
 /// Cleans `transcription` with the on-device model (llama.cpp, macOS only).
 /// `None` means the raw transcript is pasted: the model is missing, refused the
-/// text, failed, or the dictation was cancelled.
+/// text, failed, or the dictation was cancelled. Sets `status_emitted` when it told
+/// the UI why.
 #[cfg(target_os = "macos")]
 async fn post_process_with_local_llm(
     app: &AppHandle,
@@ -638,11 +701,13 @@ async fn post_process_with_local_llm(
     transcription: &str,
     prior_output: Option<&str>,
     cancel: Option<LocalLlmCancel>,
+    status_emitted: &mut bool,
 ) -> Option<String> {
     let model_path = match app.state::<Arc<ModelManager>>().get_model_path(model) {
         Ok(path) => path,
         Err(err) => {
             error!("Failed to resolve local LLM model path: {}", err);
+            *status_emitted |= skip_cleanup(app, &SkipReason::LocalModelNotDownloaded);
             return None;
         }
     };
@@ -683,6 +748,10 @@ async fn post_process_with_local_llm(
         }
         Err(err) => {
             error!("Local LLM post-processing failed: {}", err);
+            if let Some(status) = local_llm_error_status(&err) {
+                let _ = status.emit(app);
+                *status_emitted = true;
+            }
             None
         }
     }
@@ -745,6 +814,9 @@ pub(crate) struct ProcessedTranscription {
     /// length of the prior output being REPLACED by this edit; `0` means a normal
     /// append paste with nothing to delete. See [`crate::utils::replace_previous`].
     pub replace_char_count: usize,
+    /// A `cleanup-status` event was sent for this take, so the overlay shows a
+    /// "not cleaned" row that the paste path keeps up for [`STATUS_OVERLAY_GRACE`].
+    pub status_emitted: bool,
 }
 
 /// Resolve the persisted language *intent* into the language the currently-loaded
@@ -780,6 +852,7 @@ pub(crate) async fn process_transcription_output(
     let mut post_processed_text: Option<String> = None;
     let mut post_process_prompt: Option<String> = None;
     let mut replace_char_count: usize = 0;
+    let mut status_emitted = false;
 
     // Resolve the language the transcription actually ran in (the persisted
     // intent coerced against the loaded model's capabilities) so OpenCC keys off
@@ -809,6 +882,7 @@ pub(crate) async fn process_transcription_output(
                 &final_text,
                 Some(&prior_output),
                 local_llm_cancel,
+                &mut status_emitted,
             )
             .await
             {
@@ -844,8 +918,15 @@ pub(crate) async fn process_transcription_output(
     } else if post_process {
         // Normal post-processing. Word-sniffing has been removed, so a fresh
         // dictation is NEVER silently reinterpreted as an edit of a prior output.
-        if let Some(processed_text) =
-            post_process_transcription(app, &settings, &final_text, None, local_llm_cancel).await
+        if let Some(processed_text) = post_process_transcription(
+            app,
+            &settings,
+            &final_text,
+            None,
+            local_llm_cancel,
+            &mut status_emitted,
+        )
+        .await
         {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
@@ -883,6 +964,7 @@ pub(crate) async fn process_transcription_output(
         post_processed_text,
         post_process_prompt,
         replace_char_count,
+        status_emitted,
     }
 }
 
@@ -1229,9 +1311,13 @@ impl ShortcutAction for TranscribeAction {
                                 }
                             }
 
+                            // A status row stays up for a moment after the paste so it can
+                            // be read.
+                            let delay_hide = should_hold_overlay(processed.status_emitted, style);
+                            let captured_overlay_gen = crate::overlay::capture_overlay_generation();
+
                             if processed.final_text.is_empty() {
-                                utils::hide_recording_overlay(&ah);
-                                change_tray_icon(&ah, TrayIconState::Idle);
+                                finish_overlay(&ah, delay_hide, captured_overlay_gen);
                             } else {
                                 let ah_clone = ah.clone();
                                 let paste_time = Instant::now();
@@ -1263,8 +1349,7 @@ impl ShortcutAction for TranscribeAction {
                                             let _ = ah_clone.emit("paste-error", ());
                                         }
                                     }
-                                    utils::hide_recording_overlay(&ah_clone);
-                                    change_tray_icon(&ah_clone, TrayIconState::Idle);
+                                    finish_overlay(&ah_clone, delay_hide, captured_overlay_gen);
                                 })
                                 .unwrap_or_else(|e| {
                                     error!("Failed to run paste on main thread: {:?}", e);
@@ -1397,10 +1482,12 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "macos")]
+    use super::local_llm_error_status;
     use super::{
         build_post_process_messages, complete_unless_cancelled, non_blank,
         note_cancel_if_generation_moved, provider_configured, refine_base_for_correction,
-        should_use_streaming_overlay, store_refine_buffer, SkipReason,
+        should_hold_overlay, should_use_streaming_overlay, store_refine_buffer, SkipReason,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -1452,6 +1539,27 @@ mod tests {
         // A custom (local server) endpoint needs no key.
         set_model(&mut settings, "custom", "llama3");
         assert_eq!(provider_configured(&settings, "custom"), Ok(()));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_refused_or_failed_on_device_run_has_a_status_but_a_cancel_does_not() {
+        use crate::cleanup_resolver::CleanupStatus;
+        use crate::local_llm::LocalLlmError;
+
+        assert_eq!(
+            local_llm_error_status(&LocalLlmError::OverBudget),
+            Some(CleanupStatus::too_long())
+        );
+        assert_eq!(
+            local_llm_error_status(&LocalLlmError::StoppedEarly),
+            Some(CleanupStatus::stopped_early())
+        );
+        assert_eq!(
+            local_llm_error_status(&LocalLlmError::Other("load failed".into())),
+            Some(CleanupStatus::model_load_failed())
+        );
+        assert_eq!(local_llm_error_status(&LocalLlmError::Cancelled), None);
     }
 
     #[cfg(target_os = "macos")]
@@ -1556,6 +1664,14 @@ mod tests {
         store_refine_buffer(&settings, "raw", "still here");
         settings.iterative_correction_enabled = false;
         assert_eq!(refine_base_for_correction(&settings), None);
+    }
+
+    #[test]
+    fn the_overlay_is_held_only_for_a_status_it_is_showing() {
+        assert!(should_hold_overlay(true, OverlayStyle::Minimal));
+        assert!(should_hold_overlay(true, OverlayStyle::Live));
+        assert!(!should_hold_overlay(true, OverlayStyle::None));
+        assert!(!should_hold_overlay(false, OverlayStyle::Live));
     }
 
     #[test]
