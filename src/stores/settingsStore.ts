@@ -7,6 +7,7 @@ import type {
   CorrectionPair,
   TranscribeAcceleratorSetting,
   OrtAcceleratorSetting,
+  CleanupStatus,
 } from "@/bindings";
 import { commands } from "@/bindings";
 
@@ -19,6 +20,7 @@ interface SettingsStore {
   outputDevices: AudioDevice[];
   customSounds: { start: boolean; stop: boolean };
   postProcessModelOptions: Record<string, string[]>;
+  lastCleanupStatus: CleanupStatus | null;
 
   // Actions
   initialize: () => Promise<void>;
@@ -54,6 +56,7 @@ interface SettingsStore {
   updatePostProcessModel: (providerId: string, model: string) => Promise<void>;
   fetchPostProcessModels: (providerId: string) => Promise<string[]>;
   setPostProcessModelOptions: (providerId: string, models: string[]) => void;
+  setLastCleanupStatus: (status: CleanupStatus | null) => void;
 
   // Internal state setters
   setSettings: (settings: Settings | null) => void;
@@ -180,11 +183,13 @@ export const useSettingsStore = create<SettingsStore>()(
     outputDevices: [],
     customSounds: { start: false, stop: false },
     postProcessModelOptions: {},
+    lastCleanupStatus: null,
 
     // Internal setters
     setSettings: (settings) => set({ settings }),
     setDefaultSettings: (defaultSettings) => set({ defaultSettings }),
     setLoading: (isLoading) => set({ isLoading }),
+    setLastCleanupStatus: (status) => set({ lastCleanupStatus: status }),
     setUpdating: (key, updating) =>
       set((state) => ({
         isUpdating: { ...state.isUpdating, [key]: updating },

@@ -679,6 +679,14 @@
       "stoppedEarly": "Efterbearbetning kördes inte den här gången: den lokala modellen stoppade i förtid.",
       "modelFailed": "Efterbearbetning kördes inte den här gången: den lokala modellen laddades inte."
     },
-    "announce": "{{sentence}} Infogad oförändrad."
+    "announce": "{{sentence}} Infogad oförändrad.",
+    "action": {
+      "download": "Ladda ner modell",
+      "addKey": "Lägg till API-nyckel",
+      "chooseModel": "Välj modell",
+      "choosePrompt": "Välj prompt",
+      "chooseProvider": "Välj leverantör",
+      "useLocal": "Använd lokal modell"
+    }
   }
 }

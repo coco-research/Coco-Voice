@@ -679,6 +679,14 @@
       "stoppedEarly": "El post procesamiento no se ejecutó esta vez: el modelo en el dispositivo se detuvo antes de tiempo.",
       "modelFailed": "El post procesamiento no se ejecutó esta vez: el modelo en el dispositivo no se cargó."
     },
-    "announce": "{{sentence}} Pegado tal cual."
+    "announce": "{{sentence}} Pegado tal cual.",
+    "action": {
+      "download": "Descargar modelo",
+      "addKey": "Añadir clave API",
+      "chooseModel": "Seleccionar modelo",
+      "choosePrompt": "Seleccionar prompt",
+      "chooseProvider": "Seleccionar proveedor",
+      "useLocal": "Usar modelo en el dispositivo"
+    }
   }
 }

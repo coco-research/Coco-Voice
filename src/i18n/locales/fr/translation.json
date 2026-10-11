@@ -679,6 +679,14 @@
       "stoppedEarly": "Le post-traitement n'a pas été exécuté cette fois : le modèle sur l'appareil s'est arrêté trop tôt.",
       "modelFailed": "Le post-traitement n'a pas été exécuté cette fois : le modèle sur l'appareil ne s'est pas chargé."
     },
-    "announce": "{{sentence}} Collé tel quel."
+    "announce": "{{sentence}} Collé tel quel.",
+    "action": {
+      "download": "Télécharger le modèle",
+      "addKey": "Ajouter une clé API",
+      "chooseModel": "Sélectionner un modèle",
+      "choosePrompt": "Sélectionner un prompt",
+      "chooseProvider": "Sélectionner un fournisseur",
+      "useLocal": "Utiliser le modèle sur l'appareil"
+    }
   }
 }

@@ -679,6 +679,14 @@
       "stoppedEarly": "Son işlem bu kez çalışmadı: cihaz içi model erken durdu.",
       "modelFailed": "Son işlem bu kez çalışmadı: cihaz içi model yüklenmedi."
     },
-    "announce": "{{sentence}} Aynen yapıştırıldı."
+    "announce": "{{sentence}} Aynen yapıştırıldı.",
+    "action": {
+      "download": "Modeli İndir",
+      "addKey": "API Anahtarı Ekle",
+      "chooseModel": "Model Seç",
+      "choosePrompt": "Prompt Seç",
+      "chooseProvider": "Sağlayıcı Seç",
+      "useLocal": "Cihaz İçi Modeli Kullan"
+    }
   }
 }

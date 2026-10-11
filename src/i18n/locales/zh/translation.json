@@ -679,6 +679,14 @@
       "stoppedEarly": "本次未执行后处理：设备端模型提前停止。",
       "modelFailed": "本次未执行后处理：设备端模型未能加载。"
     },
-    "announce": "{{sentence}}已原样粘贴。"
+    "announce": "{{sentence}}已原样粘贴。",
+    "action": {
+      "download": "下载模型",
+      "addKey": "添加 API 密钥",
+      "chooseModel": "选择模型",
+      "choosePrompt": "选择提示词",
+      "chooseProvider": "选择提供商",
+      "useLocal": "使用设备端模型"
+    }
   }
 }

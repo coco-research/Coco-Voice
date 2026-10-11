@@ -679,6 +679,14 @@
       "stoppedEarly": "今回は後処理を実行しませんでした: デバイス上のモデルが途中で停止しました。",
       "modelFailed": "今回は後処理を実行しませんでした: デバイス上のモデルを読み込めませんでした。"
     },
-    "announce": "{{sentence}} そのまま貼り付けました。"
+    "announce": "{{sentence}} そのまま貼り付けました。",
+    "action": {
+      "download": "モデルをダウンロード",
+      "addKey": "API キーを追加",
+      "chooseModel": "モデルを選択",
+      "choosePrompt": "プロンプトを選択",
+      "chooseProvider": "プロバイダーを選択",
+      "useLocal": "デバイス上のモデルを使用"
+    }
   }
 }

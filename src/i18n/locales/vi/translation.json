@@ -679,6 +679,14 @@
       "stoppedEarly": "Lần này xử lý sau không chạy: mô hình trên thiết bị đã dừng sớm.",
       "modelFailed": "Lần này xử lý sau không chạy: mô hình trên thiết bị không tải được."
     },
-    "announce": "{{sentence}} Đã dán nguyên văn."
+    "announce": "{{sentence}} Đã dán nguyên văn.",
+    "action": {
+      "download": "Tải mô hình xuống",
+      "addKey": "Thêm khóa API",
+      "chooseModel": "Chọn mô hình",
+      "choosePrompt": "Chọn prompt",
+      "chooseProvider": "Chọn nhà cung cấp",
+      "useLocal": "Dùng mô hình trên thiết bị"
+    }
   }
 }
