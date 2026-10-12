@@ -48,7 +48,11 @@ impl EnigoState {
 /// Returns None if the state is not available or if getting the location fails.
 pub fn get_cursor_position(app_handle: &AppHandle) -> Option<(i32, i32)> {
     let enigo_state = app_handle.try_state::<EnigoState>()?;
-    let enigo = enigo_state.0.lock().ok()?;
+    // The lock protects no invariant across hops (same trade-off as PASTE_LOCK).
+    let enigo = enigo_state
+        .0
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     enigo.location().ok()
 }
 
@@ -143,10 +147,11 @@ where
         let state = app_for_keys
             .try_state::<EnigoState>()
             .ok_or_else(|| "Enigo state not initialized".to_string())?;
+        // The lock protects no invariant across hops (same trade-off as PASTE_LOCK).
         let mut enigo = state
             .0
             .lock()
-            .map_err(|e| format!("Failed to lock Enigo: {}", e))?;
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         f(&mut enigo)
     })
 }
@@ -198,10 +203,10 @@ pub fn send_paste_ctrl_v(app: &AppHandle) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     let (modifier_key, v_key_code) = (Key::Control, Key::Unicode('v'));
 
-    // Press modifier + V on the main thread, then release after the hold.
-    // A failed click still releases the modifier: `?` would skip the release hop
-    // and leave Cmd/Ctrl held system-wide.
-    with_enigo_on_main(app, move |enigo| {
+    // Press modifier + V on the main thread. Hold only when that hop succeeds,
+    // then release. On Err, release immediately: on_main can time out after the
+    // press already ran. Releasing a key that is already up is harmless.
+    let press = with_enigo_on_main(app, move |enigo| {
         enigo
             .key(modifier_key, enigo::Direction::Press)
             .map_err(|e| format!("Failed to press modifier key: {}", e))?;
@@ -210,18 +215,18 @@ pub fn send_paste_ctrl_v(app: &AppHandle) -> Result<(), String> {
             return Err(format!("Failed to click V key: {}", e));
         }
         Ok(())
-    })?;
-
-    sleep_modifier_hold();
-
-    release_hop_with_retry(app, move |enigo| {
+    });
+    if press.is_ok() {
+        sleep_modifier_hold();
+    }
+    let release = release_hop_with_retry(app, move |enigo| {
         enigo
             .key(modifier_key, enigo::Direction::Release)
             .map_err(|e| format!("Failed to release modifier key: {}", e))?;
         Ok(())
-    })?;
-
-    Ok(())
+    });
+    // Press error wins. On success this is the release hop's result.
+    press.and(release)
 }
 
 /// Sends a Ctrl+Shift+V paste command.
@@ -240,10 +245,10 @@ pub fn send_paste_ctrl_shift_v(app: &AppHandle) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     let (modifier_key, v_key_code) = (Key::Control, Key::Unicode('v'));
 
-    // Press Ctrl/Cmd + Shift + V on the main thread, then release after the hold.
-    // A failed Shift press or V click still releases whatever was pressed: `?`
-    // would skip the release hop and leave the modifiers held system-wide.
-    with_enigo_on_main(app, move |enigo| {
+    // Press Ctrl/Cmd + Shift + V on the main thread. Hold only when that hop
+    // succeeds, then release. On Err, release immediately: on_main can time out
+    // after the press already ran. Releasing a key that is already up is harmless.
+    let press = with_enigo_on_main(app, move |enigo| {
         enigo
             .key(modifier_key, enigo::Direction::Press)
             .map_err(|e| format!("Failed to press modifier key: {}", e))?;
@@ -257,12 +262,12 @@ pub fn send_paste_ctrl_shift_v(app: &AppHandle) -> Result<(), String> {
             return Err(format!("Failed to click V key: {}", e));
         }
         Ok(())
-    })?;
-
-    sleep_modifier_hold();
-
+    });
+    if press.is_ok() {
+        sleep_modifier_hold();
+    }
     // Release both even if one fails, so neither key stays held; report the first error.
-    release_hop_with_retry(app, move |enigo| {
+    let release = release_hop_with_retry(app, move |enigo| {
         let shift = enigo
             .key(Key::Shift, enigo::Direction::Release)
             .map_err(|e| format!("Failed to release Shift key: {}", e));
@@ -270,9 +275,9 @@ pub fn send_paste_ctrl_shift_v(app: &AppHandle) -> Result<(), String> {
             .key(modifier_key, enigo::Direction::Release)
             .map_err(|e| format!("Failed to release modifier key: {}", e));
         shift.and(modifier)
-    })?;
-
-    Ok(())
+    });
+    // Press error wins. On success this is the release hop's result.
+    press.and(release)
 }
 
 /// Sends a Shift+Insert paste command (Windows and Linux only).
@@ -288,10 +293,10 @@ pub fn send_paste_shift_insert(app: &AppHandle) -> Result<(), String> {
     #[cfg(not(target_os = "windows"))]
     let insert_key_code = Key::Other(0x76); // XK_Insert (keycode 118 / 0x76, also used as fallback)
 
-    // Press Shift + Insert on the main thread, then release Shift after the hold.
-    // A failed Insert click still releases Shift: `?` would skip the release hop
-    // and leave Shift held system-wide.
-    with_enigo_on_main(app, move |enigo| {
+    // Press Shift + Insert on the main thread. Hold only when that hop succeeds,
+    // then release. On Err, release immediately: on_main can time out after the
+    // press already ran. Releasing a key that is already up is harmless.
+    let press = with_enigo_on_main(app, move |enigo| {
         enigo
             .key(Key::Shift, enigo::Direction::Press)
             .map_err(|e| format!("Failed to press Shift key: {}", e))?;
@@ -300,18 +305,18 @@ pub fn send_paste_shift_insert(app: &AppHandle) -> Result<(), String> {
             return Err(format!("Failed to click Insert key: {}", e));
         }
         Ok(())
-    })?;
-
-    sleep_modifier_hold();
-
-    release_hop_with_retry(app, move |enigo| {
+    });
+    if press.is_ok() {
+        sleep_modifier_hold();
+    }
+    let release = release_hop_with_retry(app, move |enigo| {
         enigo
             .key(Key::Shift, enigo::Direction::Release)
             .map_err(|e| format!("Failed to release Shift key: {}", e))?;
         Ok(())
-    })?;
-
-    Ok(())
+    });
+    // Press error wins. On success this is the release hop's result.
+    press.and(release)
 }
 
 /// Pastes text directly using the enigo text method.
