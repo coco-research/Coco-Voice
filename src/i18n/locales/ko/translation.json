@@ -649,7 +649,8 @@
   },
   "overlay": {
     "transcribing": "텍스트로 변환 중...",
-    "processing": "처리 중..."
+    "processing": "처리 중...",
+    "polishing": "다듬는 중..."
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}}의 새 소식"

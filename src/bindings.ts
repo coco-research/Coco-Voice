@@ -889,11 +889,13 @@ async isLaptop() : Promise<Result<boolean, string>> {
 
 
 export const events = __makeEvents__<{
+cleanupProgress: CleanupProgress,
 cleanupStatus: CleanupStatus,
 historyUpdatePayload: HistoryUpdatePayload,
 streamPhaseEvent: StreamPhaseEvent,
 streamTextEvent: StreamTextEvent
 }>({
+cleanupProgress: "cleanup-progress",
 cleanupStatus: "cleanup-status",
 historyUpdatePayload: "history-update-payload",
 streamPhaseEvent: "stream-phase-event",
@@ -942,6 +944,8 @@ export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
 export type AvailableAccelerators = { transcribe: string[]; ort: string[]; gpu_devices: GpuDeviceOption[] }
 export type BindingResponse = { success: boolean; binding: ShortcutBinding | null; error: string | null }
+/** Cleaned text so far while the on-device model runs. `done` is the last snapshot. */
+export type CleanupProgress = { text: string; done: boolean }
 export type CleanupStatus = { reason: CleanupStatusReason; needs_action: boolean }
 export type CleanupStatusReason = "no_provider_selected" | "no_model_configured" | "no_prompt_selected" | "prompt_not_found" | "prompt_empty" | "no_api_key" | "provider_unavailable_in_this_build" | "apple_intelligence_unavailable" | "local_model_not_downloaded" | "provider_not_found" | "too_long" | "stopped_early" | "model_load_failed"
 export type ClipboardHandling = "dont_modify" | "copy_to_clipboard"

@@ -652,7 +652,8 @@
   },
   "overlay": {
     "transcribing": "ट्रान्सक्राइब गरिँदैछ...",
-    "processing": "प्रशोधन गरिँदैछ..."
+    "processing": "प्रशोधन गरिँदैछ...",
+    "polishing": "सम्पादन..."
   },
   "cleanupStatus": {
     "chip": {

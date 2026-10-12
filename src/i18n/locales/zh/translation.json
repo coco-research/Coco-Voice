@@ -649,7 +649,8 @@
   },
   "overlay": {
     "transcribing": "正在转录...",
-    "processing": "处理中..."
+    "processing": "处理中...",
+    "polishing": "润色中..."
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} 新功能"
