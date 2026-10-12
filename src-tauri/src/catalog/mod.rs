@@ -15,6 +15,7 @@
 
 use std::collections::HashMap;
 
+use log::error;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 
@@ -30,7 +31,7 @@ struct CatalogRoot {
 
 /// One model as written in `catalog.json`. Only the fields the descriptor needs
 /// are declared; serde ignores the rest (slug, family, license, …).
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 struct CatalogModel {
     /// HF repo id, e.g. `handy-computer/whisper-small-gguf`.
     id: String,
@@ -50,9 +51,12 @@ struct CatalogModel {
     recommended: bool,
     #[serde(default)]
     license: Option<String>,
+    /// SHA-256 of the default quant file. Absent skips integrity verification.
+    #[serde(default)]
+    sha256: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 struct CatalogCaps {
     streaming: bool,
     translate: bool,
@@ -61,8 +65,32 @@ struct CatalogCaps {
     // `CapabilityProbe` field yet — wire it through when the probe gains one.
 }
 
-impl From<CatalogModel> for ModelDescriptor {
-    fn from(m: CatalogModel) -> Self {
+/// Normalizes an optional raw SHA-256 string: trims leading and trailing whitespace,
+/// converts to lowercase, and accepts it only if it is exactly 64 ASCII hex characters.
+fn normalize_sha256(raw: Option<&str>) -> Option<String> {
+    let s = raw?.trim();
+    if s.len() == 64 && s.chars().all(|c| c.is_ascii_hexdigit()) {
+        Some(s.to_ascii_lowercase())
+    } else {
+        None
+    }
+}
+
+/// Validates an optional SHA-256 pin:
+/// - `None` -> `Ok(None)` (not pinned yet)
+/// - valid 64 ASCII hex chars -> `Ok(Some(lowercase))`
+/// - invalid or blank-but-present -> `Err(())`
+fn pinned_sha256(raw: Option<&str>) -> Result<Option<String>, ()> {
+    match raw {
+        None => Ok(None),
+        Some(s) => normalize_sha256(Some(s)).map(Some).ok_or(()),
+    }
+}
+
+impl TryFrom<CatalogModel> for ModelDescriptor {
+    type Error = ();
+
+    fn try_from(m: CatalogModel) -> Result<Self, Self::Error> {
         // The default download file. Its name is folded into the id so a catalog
         // entry collides (dedups) with the very same file later discovered in
         // the HF cache — both compute `"{repo_id}/{filename}"`.
@@ -70,11 +98,19 @@ impl From<CatalogModel> for ModelDescriptor {
             .map(|f| f.filename.clone())
             .unwrap_or_default();
 
-        ModelDescriptor {
+        let sha256 = pinned_sha256(m.sha256.as_deref()).map_err(|()| {
+            error!(
+                "Invalid sha256 for catalog model '{}': expected 64 ASCII hex characters",
+                m.id
+            );
+        })?;
+
+        Ok(ModelDescriptor {
             id: format!("{}/{}", m.id, default_filename),
             source: ModelSource::HuggingFace {
                 repo_id: m.id,
                 revision: "main".to_string(),
+                sha256,
             },
             name: m.name,
             description: m.description,
@@ -96,7 +132,7 @@ impl From<CatalogModel> for ModelDescriptor {
             accuracy_score: m.accuracy_score.unwrap_or(0.0) / 100.0,
             recommended_rank: m.recommended_rank,
             recommended: m.recommended,
-        }
+        })
     }
 }
 
@@ -184,15 +220,27 @@ pub(crate) fn repo_withheld(repo_id: &str) -> bool {
     WITHHELD_REPOS.contains(&repo_id.to_lowercase())
 }
 
+/// Builds a catalog of descriptors from an iterator of [`CatalogModel`] entries,
+/// filtering out entries on legal hold, disallowed licenses, or with malformed SHA-256 pins.
+fn build_catalog(models: impl IntoIterator<Item = CatalogModel>) -> Vec<ModelDescriptor> {
+    models
+        .into_iter()
+        .filter(|m| is_allowed_catalog_entry(&m.id, m.license.as_deref()))
+        .filter_map(|m| ModelDescriptor::try_from(m).ok())
+        .collect()
+}
+
+/// Convenience builder taking a slice of [`CatalogModel`] entries.
+#[cfg(test)]
+fn build_catalog_from_slice(models: &[CatalogModel]) -> Vec<ModelDescriptor> {
+    build_catalog(models.iter().cloned())
+}
+
 /// The bundled catalog, parsed once and normalised into descriptors.
 pub static CATALOG: Lazy<Vec<ModelDescriptor>> = Lazy::new(|| {
     let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json"))
         .expect("bundled catalog.json is valid JSON matching the catalog schema");
-    root.models
-        .into_iter()
-        .filter(|m| is_allowed_catalog_entry(&m.id, m.license.as_deref()))
-        .map(ModelDescriptor::from)
-        .collect()
+    build_catalog(root.models)
 });
 
 /// Editorial recommended rank keyed by descriptor id (the same id the model
@@ -251,6 +299,170 @@ mod tests {
             "catalog architecture(s) missing from KNOWN_ARCHES: {:?}",
             missing
         );
+    }
+
+    #[test]
+    fn catalog_sha256_reaches_hugging_face_source() {
+        // Round-trip a real entry so the test follows the catalog schema.
+        let root: serde_json::Value = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        let source_sha256 = |pinned: Option<&str>| {
+            let mut entry = root["models"][0].clone();
+            if let Some(hash) = pinned {
+                entry["sha256"] = serde_json::json!(hash);
+            }
+            let model: CatalogModel = serde_json::from_value(entry).unwrap();
+            ModelDescriptor::try_from(model).map(|d| match d.source {
+                ModelSource::HuggingFace { sha256, .. } => sha256,
+                other => panic!("expected a Hugging Face source, got {other:?}"),
+            })
+        };
+
+        let hash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        assert_eq!(source_sha256(Some(hash)), Ok(Some(hash.to_string())));
+        let upper = "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF";
+        assert_eq!(source_sha256(Some(upper)), Ok(Some(hash.to_string())));
+        // An entry that does not declare a hash does not grow one.
+        assert_eq!(source_sha256(None), Ok(None));
+        // Malformed hashes fail closed.
+        assert_eq!(source_sha256(Some("  ")), Err(()));
+        assert_eq!(source_sha256(Some("not-a-valid-sha256")), Err(()));
+    }
+
+    #[test]
+    fn normalize_sha256_cases() {
+        let valid_lower = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let valid_upper = "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF";
+
+        // valid lowercase
+        assert_eq!(
+            normalize_sha256(Some(valid_lower)),
+            Some(valid_lower.to_string())
+        );
+
+        // valid uppercase -> lowercased
+        assert_eq!(
+            normalize_sha256(Some(valid_upper)),
+            Some(valid_lower.to_string())
+        );
+
+        // padded with spaces -> trimmed
+        let padded = format!("   {valid_lower}   ");
+        assert_eq!(
+            normalize_sha256(Some(&padded)),
+            Some(valid_lower.to_string())
+        );
+        let padded_upper = format!("  {valid_upper}  ");
+        assert_eq!(
+            normalize_sha256(Some(&padded_upper)),
+            Some(valid_lower.to_string())
+        );
+
+        // 63 chars -> None
+        assert_eq!(normalize_sha256(Some(&valid_lower[..63])), None);
+
+        // non-hex -> None
+        let non_hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeg";
+        assert_eq!(normalize_sha256(Some(non_hex)), None);
+
+        // blank -> None
+        assert_eq!(normalize_sha256(Some("")), None);
+        assert_eq!(normalize_sha256(Some("   ")), None);
+        assert_eq!(normalize_sha256(Some("\t\n ")), None);
+
+        // None -> None
+        assert_eq!(normalize_sha256(None), None);
+    }
+
+    #[test]
+    fn pinned_sha256_cases() {
+        let valid_lower = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let valid_upper = "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF";
+
+        // missing -> Ok(None)
+        assert_eq!(pinned_sha256(None), Ok(None));
+
+        // valid upper -> Ok(Some(lower))
+        assert_eq!(
+            pinned_sha256(Some(valid_upper)),
+            Ok(Some(valid_lower.to_string()))
+        );
+
+        // blank present -> Err
+        assert_eq!(pinned_sha256(Some("")), Err(()));
+        assert_eq!(pinned_sha256(Some("   ")), Err(()));
+        assert_eq!(pinned_sha256(Some("\t\n ")), Err(()));
+
+        // 63 chars -> Err
+        assert_eq!(pinned_sha256(Some(&valid_lower[..63])), Err(()));
+
+        // non-hex -> Err
+        let non_hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeg";
+        assert_eq!(pinned_sha256(Some(non_hex)), Err(()));
+    }
+
+    #[test]
+    fn catalog_builder_drops_malformed_sha256() {
+        let root: serde_json::Value = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        let mut valid_entry = root["models"][0].clone();
+        valid_entry["id"] = serde_json::json!("test/valid-model");
+        valid_entry["license"] = serde_json::json!("mit");
+        valid_entry["sha256"] =
+            serde_json::json!("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+
+        let mut malformed_entry = root["models"][0].clone();
+        malformed_entry["id"] = serde_json::json!("test/malformed-model");
+        malformed_entry["license"] = serde_json::json!("mit");
+        malformed_entry["sha256"] = serde_json::json!("not-a-valid-sha");
+
+        let valid: CatalogModel = serde_json::from_value(valid_entry).unwrap();
+        let malformed: CatalogModel = serde_json::from_value(malformed_entry).unwrap();
+
+        let entries = [valid, malformed];
+        let built = build_catalog_from_slice(&entries);
+
+        assert_eq!(built.len(), 1);
+        assert!(built[0].id.starts_with("test/valid-model/"));
+    }
+
+    #[test]
+    fn bundled_catalog_sha256_pins_are_valid() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json"))
+            .expect("bundled catalog.json is valid JSON matching the catalog schema");
+        for model in &root.models {
+            if let Some(ref raw) = model.sha256 {
+                let normalized = normalize_sha256(Some(raw));
+                assert!(
+                    normalized.is_some(),
+                    "bundled catalog model {} has malformed sha256 pin: {:?}",
+                    model.id,
+                    raw
+                );
+                let hash = normalized.unwrap();
+                assert_eq!(hash.len(), 64);
+                assert!(hash
+                    .chars()
+                    .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+            }
+        }
+
+        for descriptor in CATALOG.iter() {
+            if let ModelSource::HuggingFace {
+                sha256: Some(ref hash),
+                ..
+            } = descriptor.source
+            {
+                let normalized = normalize_sha256(Some(hash));
+                assert!(
+                    normalized.is_some(),
+                    "CATALOG descriptor {} has malformed sha256: {:?}",
+                    descriptor.id,
+                    hash
+                );
+                let h = normalized.unwrap();
+                assert_eq!(h.len(), 64);
+                assert_eq!(&h, hash);
+            }
+        }
     }
 
     #[test]
