@@ -102,6 +102,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
       "model-download-complete",
       (event) => {
         const modelId = event.payload;
+        // The local cleanup model (downloaded from Post-processing settings) is
+        // not in the speech-model list, so it is never auto-selected.
+        if (!useModelStore.getState().models.some((m) => m.id === modelId)) {
+          return;
+        }
         setTimeout(async () => {
           try {
             const isRecording = await commands.isRecording();

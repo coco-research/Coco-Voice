@@ -408,6 +408,17 @@
           "placeholderWithOptions": "Шукайте або оберіть модель",
           "placeholderNoOptions": "Введіть назву моделі",
           "refreshModels": "Оновити моделі"
+        },
+        "localLlm": {
+          "title": "Локальна модель",
+          "description": "Локальна модель для редагування транскрипцій. Завантажується один раз.",
+          "notDownloaded": "Не завантажено",
+          "downloading": "Завантаження {{percent}}%",
+          "ready": "Готово",
+          "download": "Завантажити",
+          "cancel": "Скасувати",
+          "checking": "Перевірка...",
+          "unavailable": "Локальна модель недоступна."
         }
       },
       "prompts": {

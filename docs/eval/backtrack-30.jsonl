@@ -1,0 +1,30 @@
+{"id":"r01","kind":"retract","input":"Can you send the report to Priya, scratch that, send it to Marcus.","keep":["report","Marcus"],"drop":["Priya"]}
+{"id":"r02","kind":"retract","input":"The meeting is in room 4B, sorry, I mean room 6A.","keep":["6A"],"drop":["4B"]}
+{"id":"r03","kind":"retract","input":"Let's ship it on Wednesday, no wait, Thursday morning.","keep":["Thursday"],"drop":["Wednesday"]}
+{"id":"r04","kind":"retract","input":"I'll bring the blue folder, actually the green folder.","keep":["green","folder"],"drop":["blue"]}
+{"id":"r05","kind":"retract","input":"Please book a flight to Denver, never mind, book a train to Boston instead.","keep":["train","Boston"],"drop":["Denver","flight"]}
+{"id":"r06","kind":"retract","input":"We need twelve chairs, I mean fifteen chairs.","keep":["fifteen|15","chairs"],"drop":["twelve","12"]}
+{"id":"r07","kind":"retract","input":"Tell Anna the deadline is Friday, or rather Monday next week.","keep":["Anna","Monday"],"drop":["Friday"]}
+{"id":"r08","kind":"retract","input":"Add milk, eggs and butter, scratch the butter, add cheese.","keep":["milk","eggs","cheese"],"drop":["butter"]}
+{"id":"r09","kind":"retract","input":"The reset link expires in one hour, correction, twenty four hours.","keep":["24|twenty-four|twenty four","reset link"],"drop":["one hour","1 hour"]}
+{"id":"r10","kind":"retract","input":"Ping the design team, sorry, the engineering team, about the release.","keep":["engineering","release"],"drop":["design"]}
+{"id":"r11","kind":"retract","input":"Use the staging server, no, the production server, for the demo.","keep":["production","demo"],"drop":["staging"]}
+{"id":"r12","kind":"retract","input":"I think we should hire two contractors, let me rephrase, one senior contractor.","keep":["one|1|a senior","senior"],"drop":["two contractors","2 contractors"]}
+{"id":"r13","kind":"retract","input":"Move the standup to 9:30, actually make it 10.","keep":["10","standup|stand-up"],"drop":["9:30"]}
+{"id":"r14","kind":"retract","input":"The client is based in Toronto, I mean Vancouver.","keep":["Vancouver","client"],"drop":["Toronto"]}
+{"id":"r15","kind":"retract","input":"Can you review pull request 412, sorry, 421?","keep":["421"],"drop":["412"]}
+{"id":"r16","kind":"retract","input":"Order the large pizza, scratch that, two medium pizzas.","keep":["medium","two|2"],"drop":["large"]}
+{"id":"r17","kind":"retract","input":"Send the invoice to Lisa, I mean Laura, and cc Raj, no wait, cc Omar.","keep":["invoice","Laura","Omar"],"drop":["Lisa","Raj"]}
+{"id":"r18","kind":"retract","input":"Quick update on the launch. The landing page is done and the copy has been reviewed by marketing. We still need the pricing table, which Dev is finishing today. The launch date is October 20th, sorry, I mean October 27th, because legal needs another week. After launch we will run the email campaign and watch signups for the first 48 hours.","keep":["landing page","marketing","pricing table","Dev","27","legal","email campaign","48"],"drop":["20th","October 20"]}
+{"id":"r19","kind":"retract","input":"The budget is capped at 5000 dollars, never mind, there is no cap this quarter.","keep":["quarter","cap"],"drop":["5000","5,000","5k"]}
+{"id":"r20","kind":"retract","input":"Meet me at the north entrance, actually the south entrance, at noon.","keep":["south","noon"],"drop":["north"]}
+{"id":"r21","kind":"retract","input":"Save the file as final v2, sorry, final v3.","keep":["v3"],"drop":["v2"]}
+{"id":"r22","kind":"retract","input":"We'll use Postgres for this, scratch that, SQLite is enough for a prototype.","keep":["SQLite","prototype"],"drop":["Postgres"]}
+{"id":"k01","kind":"keep","input":"I actually think the new design is better.","keep":["actually","new design","better"],"drop":[]}
+{"id":"k02","kind":"keep","input":"Do you want the red one or the black one?","keep":["red","black"],"drop":[]}
+{"id":"k03","kind":"keep","input":"I mean it, this is the best release we have done.","keep":["I mean it","best release"],"drop":[]}
+{"id":"k04","kind":"keep","input":"Scratch that off the list once it is done.","keep":["scratch","list"],"drop":[]}
+{"id":"k05","kind":"keep","input":"No wait times were reported during the outage.","keep":["no wait times","outage"],"drop":[]}
+{"id":"k06","kind":"keep","input":"Never mind the noise in the background, the recording is fine.","keep":["noise","recording"],"drop":[]}
+{"id":"k07","kind":"keep","input":"Sorry I'm late, the train was delayed.","keep":["sorry","late","train"],"drop":[]}
+{"id":"k08","kind":"keep","input":"It costs fifty dollars, which is actually cheaper than last year.","keep":["50|fifty","cheaper","last year"],"drop":[]}
