@@ -220,6 +220,32 @@ pub(crate) fn repo_withheld(repo_id: &str) -> bool {
     WITHHELD_REPOS.contains(&repo_id.to_lowercase())
 }
 
+/// Repo ids whose catalog row was dropped because the SHA-256 pin was present
+/// but not 64 hex characters. Allowlisted repos with no pin are not included.
+fn pin_rejected_repo_ids(
+    models: impl IntoIterator<Item = CatalogModel>,
+) -> std::collections::HashSet<String> {
+    models
+        .into_iter()
+        .filter(|m| {
+            is_allowed_catalog_entry(&m.id, m.license.as_deref())
+                && pinned_sha256(m.sha256.as_deref()).is_err()
+        })
+        .map(|m| m.id.to_lowercase())
+        .collect()
+}
+
+static PIN_REJECTED_REPOS: Lazy<std::collections::HashSet<String>> = Lazy::new(|| {
+    let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json"))
+        .expect("bundled catalog.json is valid JSON matching the catalog schema");
+    pin_rejected_repo_ids(root.models)
+});
+
+/// True when this repo's catalog entry was dropped for a malformed SHA-256 pin.
+pub(crate) fn repo_pin_rejected(repo_id: &str) -> bool {
+    PIN_REJECTED_REPOS.contains(&repo_id.to_lowercase())
+}
+
 /// Builds a catalog of descriptors from an iterator of [`CatalogModel`] entries,
 /// filtering out entries on legal hold, disallowed licenses, or with malformed SHA-256 pins.
 fn build_catalog(models: impl IntoIterator<Item = CatalogModel>) -> Vec<ModelDescriptor> {
@@ -417,11 +443,30 @@ mod tests {
         let valid: CatalogModel = serde_json::from_value(valid_entry).unwrap();
         let malformed: CatalogModel = serde_json::from_value(malformed_entry).unwrap();
 
-        let entries = [valid, malformed];
+        let entries = [valid.clone(), malformed.clone()];
         let built = build_catalog_from_slice(&entries);
 
         assert_eq!(built.len(), 1);
         assert!(built[0].id.starts_with("test/valid-model/"));
+
+        let mut unpinned_entry = root["models"][0].clone();
+        unpinned_entry["id"] = serde_json::json!("test/unpinned-model");
+        unpinned_entry["license"] = serde_json::json!("mit");
+        unpinned_entry["sha256"] = serde_json::Value::Null;
+        let unpinned: CatalogModel = serde_json::from_value(unpinned_entry).unwrap();
+
+        let mut held_entry = root["models"][0].clone();
+        held_entry["id"] = serde_json::json!("handy-computer/SenseVoiceSmall-gguf");
+        held_entry["license"] = serde_json::json!("mit");
+        held_entry["sha256"] = serde_json::json!("not-a-valid-sha");
+        let held: CatalogModel = serde_json::from_value(held_entry).unwrap();
+
+        let rejected = pin_rejected_repo_ids([valid, malformed, unpinned, held]);
+        assert!(rejected.contains("test/malformed-model"));
+        assert!(!rejected.contains("test/valid-model"));
+        assert!(!rejected.contains("test/unpinned-model"));
+        // Withheld repos are skipped by repo_withheld, not by the bad-pin set.
+        assert!(!rejected.contains("handy-computer/sensevoicesmall-gguf"));
     }
 
     #[test]
