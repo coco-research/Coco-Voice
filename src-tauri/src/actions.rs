@@ -914,12 +914,18 @@ async fn post_process_with_local_llm(
                 "Local LLM post-processing succeeded. Output length: {} chars",
                 result.len()
             );
-            // Not held to the throttle, including a last word with no trailing
-            // space. This is the string the paste path receives from this function.
+            // Same gate as paste (`non_blank`). A blank, whitespace-only, or
+            // zero-width-only result is not a cleaned snapshot: the overlay
+            // keeps the raw transcript, which is what gets pasted. A real
+            // result is not held to the throttle, including a last word with
+            // no trailing space.
+            let cleaned = non_blank(Some(result));
             if stream_progress {
-                emit_cleanup_progress(app, &result, true);
+                if let Some(text) = &cleaned {
+                    emit_cleanup_progress(app, text, true);
+                }
             }
-            Some(result)
+            cleaned
         }
         Err(crate::local_llm::LocalLlmError::Cancelled) => {
             debug!("Local LLM cleanup was cancelled");
@@ -1850,6 +1856,7 @@ mod tests {
     fn cleanup_preview_emits_on_word_boundaries_at_most_15_hz() {
         let gap = CLEANUP_PROGRESS_MIN_GAP_MS;
         assert!(gap * 15 >= 1000, "gap must keep the rate at or under 15 Hz");
+        assert!(gap <= 67, "15 Hz cadence is a gap of at most 67 ms");
 
         assert_eq!(next_cleanup_preview("Hel", "", None, gap), None);
         assert_eq!(next_cleanup_preview("Hello", "", None, gap), None);

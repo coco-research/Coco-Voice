@@ -185,6 +185,7 @@ const RecordingOverlay: React.FC = () => {
       media.removeEventListener("change", sync);
       if (polishTimerRef.current !== null) {
         window.clearTimeout(polishTimerRef.current);
+        polishTimerRef.current = null;
       }
     };
   }, []);
@@ -267,8 +268,9 @@ const RecordingOverlay: React.FC = () => {
           setOnDevicePolish(true);
         }
         // Compact pill only needs the label. The live card shows the words.
+        // Whitespace is not cleaned text yet.
         if (stateRef.current !== "streaming") return;
-        if (payload.done || payload.text.length > 0) {
+        if (payload.done || payload.text.trim().length > 0) {
           schedulePolishRef.current({ text: payload.text, done: payload.done });
         }
       });
@@ -396,13 +398,14 @@ const RecordingOverlay: React.FC = () => {
   if (state === "streaming") {
     const polishingView = phase === "working" && onDevicePolish;
     const cleanedNow = polish?.text ?? "";
-    // Before the first cleaned snapshot, keep the raw transcript. After it,
-    // the transcript is only the cleaned text so far.
-    const showCleaned = polishingView && polish !== null;
+    // Before the first non-blank cleaned snapshot, keep the raw transcript.
+    // After it, the transcript is only the cleaned text so far.
+    const hasCleaned = cleanedNow.trim().length > 0;
+    const showCleaned = polishingView && hasCleaned;
     const hasText =
       streamText.committed.length > 0 ||
       streamText.tentative.length > 0 ||
-      cleanedNow.length > 0;
+      hasCleaned;
     const working = phase === "working";
     // Keep the panel open whenever there's text — even while finalizing — so the
     // transcript stays put under a working spinner instead of collapsing and
