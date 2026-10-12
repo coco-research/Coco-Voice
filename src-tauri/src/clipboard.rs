@@ -1,17 +1,31 @@
-use crate::input::{self, EnigoState};
+use crate::input;
 #[cfg(target_os = "linux")]
 use crate::settings::TypingTool;
 use crate::settings::{get_settings, AutoSubmitKey, ClipboardHandling, PasteMethod};
 use enigo::{Direction, Enigo, Key, Keyboard};
 use log::info;
 use std::process::Command;
+use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[cfg(target_os = "linux")]
 use crate::utils::{is_kde_wayland, is_wayland};
+
+/// One paste at a time. Not reentrant.
+///
+/// [`replace_previous`], the only paste entry, takes it for the backspaces and
+/// then calls [`paste_locked`], which does not lock. Nothing locks this twice
+/// on one path. Held across the caller's sleeps (backspaces, clipboard write,
+/// keystrokes, modifier hold, clipboard restore). Those sleeps are off the UI
+/// thread.
+static PASTE_LOCK: Mutex<()> = Mutex::new(());
+
+/// Key events, or grapheme clusters, per main-thread hop. The UI loop runs
+/// between hops. There is no sleep between them.
+const MAIN_THREAD_HOP: usize = 100;
 
 /// How a clipboard paste treats whatever the clipboard currently holds.
 #[derive(Debug, PartialEq)]
@@ -36,8 +50,10 @@ fn plan_clipboard_paste<E>(read: Result<String, E>) -> ClipboardPlan {
 
 /// Pastes text using the clipboard: writes `text`, sends the paste keystroke, then restores
 /// `clipboard_content`, the text the caller saved beforehand. The clipboard is restored whether or not the keystroke succeeds.
+///
+/// Sleeps run on the caller. Enigo key events hop to the main thread inside
+/// `send_paste_*` and do not hold the Enigo mutex across a sleep.
 fn paste_via_clipboard(
-    enigo: &mut Enigo,
     text: &str,
     app_handle: &AppHandle,
     paste_method: &PasteMethod,
@@ -79,9 +95,9 @@ fn paste_via_clipboard(
         // Fall back to enigo if no native tool handled it
         if !key_combo_sent {
             match paste_method {
-                PasteMethod::CtrlV => input::send_paste_ctrl_v(enigo)?,
-                PasteMethod::CtrlShiftV => input::send_paste_ctrl_shift_v(enigo)?,
-                PasteMethod::ShiftInsert => input::send_paste_shift_insert(enigo)?,
+                PasteMethod::CtrlV => input::send_paste_ctrl_v(app_handle)?,
+                PasteMethod::CtrlShiftV => input::send_paste_ctrl_shift_v(app_handle)?,
+                PasteMethod::ShiftInsert => input::send_paste_shift_insert(app_handle)?,
                 _ => return Err("Invalid paste method for clipboard paste".into()),
             }
         }
@@ -553,7 +569,7 @@ fn paste_via_external_script(text: &str, script_path: &str) -> Result<(), String
 
 /// Types text directly by simulating individual key presses.
 fn paste_direct(
-    enigo: &mut Enigo,
+    app_handle: &AppHandle,
     text: &str,
     #[cfg(target_os = "linux")] typing_tool: TypingTool,
 ) -> Result<(), String> {
@@ -565,7 +581,44 @@ fn paste_direct(
         info!("Falling back to enigo for direct text input");
     }
 
-    input::paste_text_direct(enigo, text)
+    // One hop per slice so a long dictation does not occupy the UI thread for
+    // the whole string. No sleep between hops. Clusters stay in one slice.
+    for hop in grapheme_hops(text, MAIN_THREAD_HOP) {
+        let hop = hop.to_string();
+        input::with_enigo_on_main(app_handle, move |enigo| {
+            input::paste_text_direct(enigo, &hop)
+        })?;
+    }
+    Ok(())
+}
+
+/// Slices of at most `limit` grapheme clusters. A cluster is never split.
+/// An empty string is one empty slice, matching a single `text("")` call.
+/// `limit == 0` is clamped to 1 so chunking stays on.
+fn grapheme_hops(text: &str, limit: usize) -> Vec<&str> {
+    // A zero limit used to return the whole string and turn chunking off.
+    let limit = limit.max(1);
+    debug_assert!(limit > 0);
+    if text.is_empty() {
+        return vec![text];
+    }
+    let mut hops = Vec::new();
+    let mut start = 0;
+    let mut count = 0;
+    let mut end = 0;
+    for (idx, grapheme) in text.grapheme_indices(true) {
+        if count == limit {
+            hops.push(&text[start..end]);
+            start = idx;
+            count = 0;
+        }
+        end = idx + grapheme.len();
+        count += 1;
+    }
+    if start < text.len() {
+        hops.push(&text[start..end]);
+    }
+    hops
 }
 
 fn send_return_key(enigo: &mut Enigo, key_type: AutoSubmitKey) -> Result<(), String> {
@@ -615,7 +668,11 @@ fn should_send_auto_submit(auto_submit: bool, paste_method: PasteMethod) -> bool
     auto_submit && paste_method != PasteMethod::None
 }
 
-pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
+/// Paste body for a caller that already holds [`PASTE_LOCK`].
+///
+/// [`replace_previous`] holds the lock
+/// across its backspaces and this call. Do not lock [`PASTE_LOCK`] here.
+fn paste_locked(text: String, app_handle: AppHandle) -> Result<(), String> {
     let settings = get_settings(&app_handle);
     let paste_method = settings.paste_method;
     let paste_delay_ms = settings.paste_delay_ms;
@@ -633,23 +690,14 @@ pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
         paste_method, paste_delay_ms, paste_delay_after_ms
     );
 
-    // Get the managed Enigo instance
-    let enigo_state = app_handle
-        .try_state::<EnigoState>()
-        .ok_or("Enigo state not initialized")?;
-    let mut enigo = enigo_state
-        .0
-        .lock()
-        .map_err(|e| format!("Failed to lock Enigo: {}", e))?;
-
-    // Perform the paste operation
+    // Perform the paste operation. Enigo is locked only inside each key send.
     match paste_method {
         PasteMethod::None => {
             info!("PasteMethod::None selected - skipping paste action");
         }
         PasteMethod::Direct => {
             paste_direct(
-                &mut enigo,
+                &app_handle,
                 &text,
                 #[cfg(target_os = "linux")]
                 settings.typing_tool,
@@ -658,7 +706,6 @@ pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
         PasteMethod::CtrlV | PasteMethod::CtrlShiftV | PasteMethod::ShiftInsert => {
             match plan_clipboard_paste(app_handle.clipboard().read_text()) {
                 ClipboardPlan::SwapAndRestore(clipboard_content) => paste_via_clipboard(
-                    &mut enigo,
                     &text,
                     &app_handle,
                     &paste_method,
@@ -669,7 +716,7 @@ pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
                 ClipboardPlan::TypeDirectly => {
                     info!("Clipboard holds non-text content; typing directly to preserve it");
                     paste_direct(
-                        &mut enigo,
+                        &app_handle,
                         &text,
                         #[cfg(target_os = "linux")]
                         settings.typing_tool,
@@ -689,7 +736,8 @@ pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
 
     if should_send_auto_submit(settings.auto_submit, paste_method) {
         std::thread::sleep(Duration::from_millis(50));
-        send_return_key(&mut enigo, settings.auto_submit_key)?;
+        let key = settings.auto_submit_key;
+        input::with_enigo_on_main(&app_handle, move |enigo| send_return_key(enigo, key))?;
     }
 
     // After pasting, optionally copy to clipboard based on settings
@@ -709,7 +757,7 @@ pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
 /// rather than risk hammering Backspace across the user's whole document.
 pub const MAX_REPLACE_BACKSPACES: usize = 100_000;
 
-/// Number of Backspace presses needed to delete `text` exactly as [`paste`] types
+/// Number of Backspace presses needed to delete `text` exactly as [`paste_locked`] types
 /// it. On macOS one Backspace removes one grapheme cluster, so base letter plus
 /// combining accent, or a joined emoji sequence, is one press, not one per scalar.
 /// `append_trailing_space` mirrors the setting `paste` honours: the space it adds
@@ -747,7 +795,8 @@ fn send_backspaces(enigo: &mut Enigo, count: usize) -> Result<(), String> {
 ///
 /// When `prev_char_count` indicates a replace (see [`backspaces_for_replace`]),
 /// that many characters are deleted with Backspace and then `new_text` is pasted
-/// through the normal [`paste`] path; otherwise this is exactly an append paste
+/// through [`paste_locked`] (without locking again);
+/// otherwise this is exactly an append paste
 /// (`prev_char_count == 0`). This is what fixes the iterative-correction
 /// double-paste: the corrected text overwrites the prior output instead of being
 /// appended after it.
@@ -755,32 +804,65 @@ fn send_backspaces(enigo: &mut Enigo, count: usize) -> Result<(), String> {
 /// NOTE: the Backspace deletion is real OS keystroke simulation via Enigo and can
 /// only be verified on-device. The unit tests cover the pure
 /// `backspaces_for_replace` decision, not the keystrokes themselves.
+///
+/// Holds [`PASTE_LOCK`] for the backspaces and the paste. The paste goes through
+/// [`paste_locked`], which does not take the lock again.
 pub fn replace_previous(
     prev_char_count: usize,
     new_text: String,
     app_handle: AppHandle,
 ) -> Result<(), String> {
-    let backspaces = backspaces_for_replace(prev_char_count);
-    if backspaces > 0 {
-        let enigo_state = app_handle
-            .try_state::<EnigoState>()
-            .ok_or("Enigo state not initialized")?;
-        // Scope the lock so it is released before `paste` re-locks EnigoState.
-        {
-            let mut enigo = enigo_state
-                .0
-                .lock()
-                .map_err(|e| format!("Failed to lock Enigo: {}", e))?;
-            send_backspaces(&mut enigo, backspaces)?;
-        }
+    // Held through the backspaces and `paste_locked`. Calling `paste` here
+    // would lock again and deadlock.
+    // A poisoned lock has no data to protect; keep serializing.
+    let _guard = PASTE_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+
+    let mut left = backspaces_for_replace(prev_char_count);
+    // Hops of at most MAIN_THREAD_HOP backspaces. No sleep between hops:
+    // same burst as one closure, but the UI loop can run between them.
+    while left > 0 {
+        let hop = left.min(MAIN_THREAD_HOP);
+        left -= hop;
+        input::with_enigo_on_main(&app_handle, move |enigo| send_backspaces(enigo, hop))?;
     }
 
-    paste(new_text, app_handle)
+    paste_locked(new_text, app_handle)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn typing_hops_never_split_a_grapheme_cluster() {
+        let acute = "e\u{0301}";
+        let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}";
+        let text = format!("{acute}{family}xy");
+
+        assert_eq!(grapheme_hops(&text, 1), vec![acute, family, "x", "y"]);
+
+        let pairs = grapheme_hops(&text, 2);
+        assert_eq!(pairs.join(""), text);
+        assert!(pairs.iter().all(|hop| hop.graphemes(true).count() <= 2));
+
+        assert_eq!(grapheme_hops("", MAIN_THREAD_HOP), vec![""]);
+        let hundred = "a".repeat(100);
+        let hundred_one = "a".repeat(101);
+        assert_eq!(grapheme_hops(&hundred, MAIN_THREAD_HOP).len(), 1);
+        let split = grapheme_hops(&hundred_one, MAIN_THREAD_HOP);
+        assert_eq!(split.len(), 2);
+        assert_eq!(split[0].graphemes(true).count(), 100);
+        assert_eq!(split[1].graphemes(true).count(), 1);
+    }
+
+    #[test]
+    fn zero_hop_limit_still_chunks() {
+        // 0 must not return the whole string as one slice.
+        assert_eq!(grapheme_hops("ab", 0), vec!["a", "b"]);
+        let acute = "e\u{0301}";
+        assert_eq!(grapheme_hops(&format!("{acute}x"), 0), vec![acute, "x"]);
+        assert_eq!(grapheme_hops("", 0), vec![""]);
+    }
 
     #[test]
     fn unreadable_clipboard_is_never_swapped() {
