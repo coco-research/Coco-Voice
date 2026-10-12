@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "Modèle local",
-          "description": "Modèle sur l'appareil utilisé pour améliorer les transcriptions. À télécharger une seule fois.",
+          "description": "Fonctionne sur ce Mac : quand vous corrigez ce que vous venez de dire (\"scratch that\", \"I mean\"), il ne conserve que ce que vous vouliez dire et n'omet aucun mot. Pour la relecture des mots parasites et de l'orthographe, utilisez un fournisseur cloud.",
           "notDownloaded": "Non téléchargé",
           "downloading": "Téléchargement {{percent}}%",
           "ready": "Prêt",

@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "本地模型",
-          "description": "用于润色转录文本的设备端模型。只需下载一次。",
+          "description": "在这台 Mac 上运行：当你自己改口 (\"scratch that\", \"I mean\") 时，它只保留你最终想说的，且不会漏掉任何字。填充词和拼写的润色，请使用云提供商。",
           "notDownloaded": "未下载",
           "downloading": "下载中 {{percent}}%",
           "ready": "准备就绪",

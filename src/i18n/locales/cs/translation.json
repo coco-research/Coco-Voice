@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "Místní model",
-          "description": "Model na zařízení používaný k úpravě přepisů. Stáhněte si ho pouze jednou.",
+          "description": "Běží na tomto Macu: když sami opravíte to, co jste právě řekli (\"scratch that\", \"I mean\"), ponechá jen to, co jste měli na mysli, a žádné slovo nevynechá. Pro úpravu výplňových slov a pravopisu použijte cloudového poskytovatele.",
           "notDownloaded": "Nestaženo",
           "downloading": "Stahování {{percent}}%",
           "ready": "Připraven",
