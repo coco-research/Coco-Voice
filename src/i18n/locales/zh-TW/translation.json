@@ -408,6 +408,17 @@
           "placeholderWithOptions": "搜尋或選擇模型",
           "placeholderNoOptions": "輸入模型名稱",
           "refreshModels": "重新整理模型"
+        },
+        "localLlm": {
+          "title": "本機模型",
+          "description": "用於潤飾轉錄文字的裝置端模型。只需下載一次。",
+          "notDownloaded": "未下載",
+          "downloading": "下載中 {{percent}}%",
+          "ready": "準備就緒",
+          "download": "下載",
+          "cancel": "取消",
+          "checking": "檢查中...",
+          "unavailable": "本機模型不可用。"
         }
       },
       "prompts": {

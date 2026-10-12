@@ -408,6 +408,17 @@
           "placeholderWithOptions": "Найдите или выберите модель",
           "placeholderNoOptions": "Введите название модели",
           "refreshModels": "Обновить модели"
+        },
+        "localLlm": {
+          "title": "Локальная модель",
+          "description": "Локальная модель для редактирования транскрипций. Загружается один раз.",
+          "notDownloaded": "Не загружено",
+          "downloading": "Загрузка {{percent}}%",
+          "ready": "Готово",
+          "download": "Скачать",
+          "cancel": "Отмена",
+          "checking": "Проверка...",
+          "unavailable": "Локальная модель недоступна."
         }
       },
       "prompts": {

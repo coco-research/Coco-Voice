@@ -408,6 +408,17 @@
           "placeholderWithOptions": "Model ara veya seç",
           "placeholderNoOptions": "Model adı yazın",
           "refreshModels": "Modelleri Yenile"
+        },
+        "localLlm": {
+          "title": "Yerel model",
+          "description": "Transkripsiyonları düzenlemek için kullanılan cihaz içi model. Bir kez indirin.",
+          "notDownloaded": "İndirilmedi",
+          "downloading": "İndiriliyor {{percent}}%",
+          "ready": "Hazır",
+          "download": "İndir",
+          "cancel": "İptal",
+          "checking": "Kontrol ediliyor...",
+          "unavailable": "Yerel model kullanılamıyor."
         }
       },
       "prompts": {
