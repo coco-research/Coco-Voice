@@ -1038,36 +1038,42 @@ impl ShortcutAction for TranscribeAction {
                                 // corrected text REPLACES it instead of appending.
                                 let replace_char_count = processed.replace_char_count;
                                 let rm_for_paste = Arc::clone(&rm);
-                                ah.run_on_main_thread(move || {
+                                // Sleeps in paste must not run on the UI thread.
+                                // Enigo still hops there itself. spawn_blocking
+                                // so those sleeps do not park this async worker.
+                                let pasted = tauri::async_runtime::spawn_blocking(move || {
                                     if rm_for_paste.was_cancelled_since(cancel_generation) {
-                                        debug!("Transcription operation cancelled before paste");
-                                        utils::hide_recording_overlay(&ah_clone);
-                                        change_tray_icon(&ah_clone, TrayIconState::Idle);
-                                        return;
+                                        return None;
                                     }
-
-                                    match utils::replace_previous(
+                                    Some(utils::replace_previous(
                                         replace_char_count,
                                         final_text,
-                                        ah_clone.clone(),
-                                    ) {
-                                        Ok(()) => debug!(
-                                            "Text pasted successfully in {:?}",
-                                            paste_time.elapsed()
-                                        ),
-                                        Err(e) => {
-                                            error!("Failed to paste transcription: {}", e);
-                                            let _ = ah_clone.emit("paste-error", ());
-                                        }
-                                    }
-                                    utils::hide_recording_overlay(&ah_clone);
-                                    change_tray_icon(&ah_clone, TrayIconState::Idle);
+                                        ah_clone,
+                                    ))
                                 })
-                                .unwrap_or_else(|e| {
-                                    error!("Failed to run paste on main thread: {:?}", e);
-                                    utils::hide_recording_overlay(&ah);
-                                    change_tray_icon(&ah, TrayIconState::Idle);
-                                });
+                                .await;
+
+                                match pasted {
+                                    Ok(Some(Ok(()))) => debug!(
+                                        "Text pasted successfully in {:?}",
+                                        paste_time.elapsed()
+                                    ),
+                                    Ok(Some(Err(e))) => {
+                                        error!("Failed to paste transcription: {}", e);
+                                        let _ = ah.emit("paste-error", ());
+                                    }
+                                    Ok(None) => {
+                                        debug!("Transcription operation cancelled before paste");
+                                    }
+                                    Err(e) => {
+                                        // JoinError: the blocking paste task panicked or was
+                                        // cancelled, not a main-thread dispatch failure.
+                                        error!("Paste task panicked or was cancelled: {e:?}");
+                                        let _ = ah.emit("paste-error", ());
+                                    }
+                                }
+                                utils::hide_recording_overlay(&ah);
+                                change_tray_icon(&ah, TrayIconState::Idle);
                             }
                         }
                         Err(err) => {
