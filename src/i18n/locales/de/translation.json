@@ -408,6 +408,17 @@
           "placeholderWithOptions": "Modell suchen oder auswählen",
           "placeholderNoOptions": "Modellnamen eingeben",
           "refreshModels": "Modelle aktualisieren"
+        },
+        "localLlm": {
+          "title": "Lokales Modell",
+          "description": "Lokales Modell zur Überarbeitung von Transkriptionen. Nur einmal herunterladen.",
+          "notDownloaded": "Nicht heruntergeladen",
+          "downloading": "Wird heruntergeladen {{percent}}%",
+          "ready": "Bereit",
+          "download": "Herunterladen",
+          "cancel": "Abbrechen",
+          "checking": "Wird überprüft...",
+          "unavailable": "Lokales Modell ist nicht verfügbar."
         }
       },
       "prompts": {

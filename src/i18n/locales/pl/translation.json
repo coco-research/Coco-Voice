@@ -408,6 +408,17 @@
           "placeholderWithOptions": "Wyszukaj lub wybierz model",
           "placeholderNoOptions": "Wpisz nazwę modelu",
           "refreshModels": "Odśwież modele"
+        },
+        "localLlm": {
+          "title": "Model lokalny",
+          "description": "Model na urządzeniu używany do korekty transkrypcji. Pobierz go tylko raz.",
+          "notDownloaded": "Nie pobrano",
+          "downloading": "Pobieranie {{percent}}%",
+          "ready": "Gotowy",
+          "download": "Pobierz",
+          "cancel": "Anuluj",
+          "checking": "Sprawdzanie...",
+          "unavailable": "Model lokalny jest niedostępny."
         }
       },
       "prompts": {

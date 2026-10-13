@@ -51,9 +51,18 @@ struct CatalogModel {
     recommended: bool,
     #[serde(default)]
     license: Option<String>,
+    /// Pinned HF commit for publisher repos. Absent means the `main` branch.
+    #[serde(default)]
+    revision: Option<String>,
     /// SHA-256 of the default quant file. Absent skips integrity verification.
     #[serde(default)]
     sha256: Option<String>,
+}
+
+/// Architectures served by llama.cpp for transcript cleanup (`qwen3_asr` and
+/// `canary_qwen` are transcribe-cpp speech archs and do not match).
+fn is_local_llm_arch(architecture: Option<&str>) -> bool {
+    matches!(architecture, Some("qwen2" | "qwen3"))
 }
 
 #[derive(Clone, Deserialize)]
@@ -109,12 +118,20 @@ impl TryFrom<CatalogModel> for ModelDescriptor {
             id: format!("{}/{}", m.id, default_filename),
             source: ModelSource::HuggingFace {
                 repo_id: m.id,
-                revision: "main".to_string(),
+                revision: m
+                    .revision
+                    .map(|r| r.trim().to_string())
+                    .filter(|r| !r.is_empty())
+                    .unwrap_or_else(|| "main".to_string()),
                 sha256,
             },
             name: m.name,
             description: m.description,
-            engine_type: EngineType::TranscribeCpp,
+            engine_type: if is_local_llm_arch(m.architecture.as_deref()) {
+                EngineType::LlamaCpp
+            } else {
+                EngineType::TranscribeCpp
+            },
             caps: CapabilityProbe {
                 verdict: Compatibility::Compatible, // curated org models we ship support for
                 display_name: None,
@@ -220,6 +237,32 @@ pub(crate) fn repo_withheld(repo_id: &str) -> bool {
     WITHHELD_REPOS.contains(&repo_id.to_lowercase())
 }
 
+/// Repo ids whose catalog row was dropped because the SHA-256 pin was present
+/// but not 64 hex characters. Allowlisted repos with no pin are not included.
+fn pin_rejected_repo_ids(
+    models: impl IntoIterator<Item = CatalogModel>,
+) -> std::collections::HashSet<String> {
+    models
+        .into_iter()
+        .filter(|m| {
+            is_allowed_catalog_entry(&m.id, m.license.as_deref())
+                && pinned_sha256(m.sha256.as_deref()).is_err()
+        })
+        .map(|m| m.id.to_lowercase())
+        .collect()
+}
+
+static PIN_REJECTED_REPOS: Lazy<std::collections::HashSet<String>> = Lazy::new(|| {
+    let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json"))
+        .expect("bundled catalog.json is valid JSON matching the catalog schema");
+    pin_rejected_repo_ids(root.models)
+});
+
+/// True when this repo's catalog entry was dropped for a malformed SHA-256 pin.
+pub(crate) fn repo_pin_rejected(repo_id: &str) -> bool {
+    PIN_REJECTED_REPOS.contains(&repo_id.to_lowercase())
+}
+
 /// Builds a catalog of descriptors from an iterator of [`CatalogModel`] entries,
 /// filtering out entries on legal hold, disallowed licenses, or with malformed SHA-256 pins.
 fn build_catalog(models: impl IntoIterator<Item = CatalogModel>) -> Vec<ModelDescriptor> {
@@ -288,8 +331,10 @@ mod tests {
 
     #[test]
     fn catalog_architectures_are_known_to_capability_probe() {
+        // KNOWN_ARCHES is the transcribe-cpp set; local cleanup LLMs are not in it.
         let missing: BTreeSet<&str> = CATALOG
             .iter()
+            .filter(|d| d.engine_type.is_speech())
             .filter_map(|d| d.caps.architecture.as_deref())
             .filter(|arch| !KNOWN_ARCHES.contains(arch))
             .collect();
@@ -299,6 +344,71 @@ mod tests {
             "catalog architecture(s) missing from KNOWN_ARCHES: {:?}",
             missing
         );
+    }
+
+    const QWEN3_REPO: &str = "Qwen/Qwen3-4B-GGUF";
+
+    #[test]
+    fn qwen_cleanup_entries_pass_the_allowlist_and_are_not_speech_models() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        for repo in [QWEN3_REPO] {
+            // Allowed by the licence allowlist, not on legal hold.
+            let entry = root.models.iter().find(|m| m.id == repo).expect(repo);
+            assert_eq!(entry.license.as_deref(), Some("apache-2.0"), "{repo}");
+            assert!(
+                is_allowed_catalog_entry(&entry.id, entry.license.as_deref()),
+                "{repo}"
+            );
+            assert!(!repo_withheld(repo), "{repo}");
+
+            // Offered as a local LLM, downloaded only from Qwen's own repo at a pinned commit.
+            let d = CATALOG
+                .iter()
+                .find(|d| d.id.starts_with(&format!("{repo}/")))
+                .expect(repo);
+            assert!(!d.engine_type.is_speech(), "{repo}");
+            assert!(
+                matches!(&d.source, ModelSource::HuggingFace { repo_id, revision, .. }
+                    if repo_id == repo
+                        && revision.len() == 40
+                        && revision.bytes().all(|b| b.is_ascii_hexdigit())),
+                "{repo}: {:?}",
+                d.source
+            );
+        }
+
+        // Only Qwen3-4B (the 1.5B is not offered in 0.10.0: unmeasured on the on-device
+        // prompt). The ASR archs that merely contain "qwen" stay speech models.
+        let llms = CATALOG
+            .iter()
+            .filter(|d| !d.engine_type.is_speech())
+            .count();
+        assert_eq!(llms, 1);
+        let asr = CATALOG
+            .iter()
+            .find(|d| d.caps.architecture.as_deref() == Some("qwen3_asr"))
+            .expect("qwen3_asr catalog entry");
+        assert!(asr.engine_type.is_speech());
+    }
+
+    #[test]
+    fn default_local_llm_is_the_recommended_qwen3_entry() {
+        let id = crate::settings::LOCAL_LLM_DEFAULT_MODEL_ID;
+        let d = CATALOG
+            .iter()
+            .find(|d| d.id == id)
+            .expect("default in catalog");
+        assert_eq!(d.caps.architecture.as_deref(), Some("qwen3"));
+        assert!(matches!(
+            &d.source,
+            ModelSource::HuggingFace { repo_id, revision, .. }
+                if repo_id == QWEN3_REPO
+                    && revision == "bc640142c66e1fdd12af0bd68f40445458f3869b"
+        ));
+        // Among the local LLMs only the default is recommended.
+        for llm in CATALOG.iter().filter(|d| !d.engine_type.is_speech()) {
+            assert_eq!(llm.recommended, llm.id == id, "{}", llm.id);
+        }
     }
 
     #[test]
@@ -417,11 +527,30 @@ mod tests {
         let valid: CatalogModel = serde_json::from_value(valid_entry).unwrap();
         let malformed: CatalogModel = serde_json::from_value(malformed_entry).unwrap();
 
-        let entries = [valid, malformed];
+        let entries = [valid.clone(), malformed.clone()];
         let built = build_catalog_from_slice(&entries);
 
         assert_eq!(built.len(), 1);
         assert!(built[0].id.starts_with("test/valid-model/"));
+
+        let mut unpinned_entry = root["models"][0].clone();
+        unpinned_entry["id"] = serde_json::json!("test/unpinned-model");
+        unpinned_entry["license"] = serde_json::json!("mit");
+        unpinned_entry["sha256"] = serde_json::Value::Null;
+        let unpinned: CatalogModel = serde_json::from_value(unpinned_entry).unwrap();
+
+        let mut held_entry = root["models"][0].clone();
+        held_entry["id"] = serde_json::json!("handy-computer/SenseVoiceSmall-gguf");
+        held_entry["license"] = serde_json::json!("mit");
+        held_entry["sha256"] = serde_json::json!("not-a-valid-sha");
+        let held: CatalogModel = serde_json::from_value(held_entry).unwrap();
+
+        let rejected = pin_rejected_repo_ids([valid, malformed, unpinned, held]);
+        assert!(rejected.contains("test/malformed-model"));
+        assert!(!rejected.contains("test/valid-model"));
+        assert!(!rejected.contains("test/unpinned-model"));
+        // Withheld repos are skipped by repo_withheld, not by the bad-pin set.
+        assert!(!rejected.contains("handy-computer/sensevoicesmall-gguf"));
     }
 
     #[test]

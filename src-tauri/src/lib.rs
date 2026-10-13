@@ -4,12 +4,16 @@ mod apple_intelligence;
 mod audio_feedback;
 pub mod audio_toolkit;
 mod catalog;
+mod cleanup_eval;
 pub mod cli;
 mod clipboard;
 mod commands;
 mod helpers;
 mod input;
 mod llm_client;
+#[cfg(target_os = "macos")]
+#[allow(dead_code)] // inert: nothing calls it until the wiring PR; drop this allow then
+mod local_llm;
 mod managers;
 mod overlay;
 pub mod portable;
@@ -524,6 +528,13 @@ fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run(cli_args: CliArgs) {
+    // --cleanup-eval scores the on-device cleanup model and exits before any
+    // window, tray, or single-instance plugin exists: that plugin would hand
+    // the flag to a running app and show its window.
+    if let Some(set) = &cli_args.cleanup_eval {
+        std::process::exit(cleanup_eval::run_eval(set, &cli_args));
+    }
+
     // Detect portable mode before anything else
     portable::init();
 
@@ -757,6 +768,9 @@ pub fn run(cli_args: CliArgs) {
         ))
         .manage(cli_args.clone())
         .setup(move |app| {
+            // Setup runs on the UI thread. Paste guards compare against this id.
+            input::record_ui_thread();
+
             specta_builder.mount_events(app);
 
             // Headless one-shot path (`--transcribe-file` / `--list-devices` /
