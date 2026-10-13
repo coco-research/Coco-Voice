@@ -1,67 +1,104 @@
+<h1 align="center">Coco Voice</h1>
+
 <p align="center">
-  <img src="assets/branding/coco-voice-banner.png" alt="Coco Voice" width="820">
+  Desktop dictation for people who want speech typed into the app they already
+  have open.
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2251FF.svg?style=for-the-badge"></a>
-  <img alt="Platforms" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-2251FF.svg?style=for-the-badge">
-  <img alt="Built with Tauri" src="https://img.shields.io/badge/built%20with-Tauri-24C8DB.svg?style=for-the-badge&logo=tauri&logoColor=white">
-  <a href="https://discord.com/invite/WVBeWsNXK4"><img alt="Discord" src="https://img.shields.io/badge/Discord-5865F2.svg?style=for-the-badge&logo=discord&logoColor=white"></a>
+  <a href="LICENSE"
+    ><img
+      alt="Licence: MIT"
+      src="https://img.shields.io/badge/licence-MIT-5F5F58?style=flat-square"
+  /></a>
+  <a href="https://github.com/coco-research/Coco-Voice/releases/latest"
+    ><img
+      alt="Latest release"
+      src="https://img.shields.io/github/v/release/coco-research/Coco-Voice?color=5F5F58&style=flat-square"
+  /></a>
+  <img
+    alt="Ships for macOS Apple Silicon"
+    src="https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-5F5F58?style=flat-square"
+  />
 </p>
 
-<p align="center">
-  <b>Speak freely. Your computer listens. Nothing leaves your machine.</b>
-</p>
+## Why it exists
 
-Coco Voice is a free, open-source desktop app that transcribes your speech into any text field — completely offline. No cloud. No subscriptions. No privacy tradeoffs.
+Talking is faster than typing, but most dictation tools record you, send the audio to a server, and bill you monthly. Coco Voice runs the speech model on your own computer. Hold a key, speak, and the text is pasted into whatever field you are in: a chat, an editor, an email. No account, no subscription, and recognition works offline once your model is downloaded.
 
-Press a keyboard shortcut, talk, and watch your words appear wherever you're typing.
+## Quick start
 
----
+### For users
 
-## What Makes Coco Voice Different
+Release 0.9.6 ships installers for macOS, Windows, and Linux. macOS: `Coco.Voice_0.9.6_aarch64.dmg` (Apple Silicon) and `Coco.Voice_0.9.6_x64.dmg` (Intel). Windows: x64 and arm64 installers (`-setup.exe` and `.msi`). Linux: an AppImage, a `.deb`, and an `.rpm` for x86_64/amd64 and aarch64/arm64. Builds are ad-hoc signed and not notarized, so Gatekeeper warns the first time you open the Mac app. Updater artifacts carry `.sig` files and `latest.json`. There is also a `SHA256SUMS` file. On a Mac, [INSTALL.md](INSTALL.md) covers the one-time quarantine step.
 
-Most speech-to-text tools send your audio to the cloud. Coco Voice runs **everything locally** — voice detection, speech recognition, and text output all happen on your machine.
+On an Apple Silicon Mac, one command downloads the latest release, copies Coco Voice into Applications, clears the quarantine flag, and launches it:
 
-- **Zero cloud dependency** — works offline, on airplanes, in secure environments
-- **Zero latency** — no round-trip to a server, transcription starts instantly
-- **Zero data collection** — your voice never leaves your computer, period
-- **Zero cost** — free and open source, forever
-
----
-
-## How It Works
-
+```bash
+curl -fsSL https://raw.githubusercontent.com/coco-research/Coco-Voice/main/install.sh | bash
 ```
-1. Press shortcut → 2. Speak → 3. Release → 4. Text appears
+
+Or by hand on a Mac:
+
+1. Open the `.dmg` and drag **Coco Voice** into **Applications**.
+2. Clear quarantine, then launch:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Coco Voice.app"
+open "/Applications/Coco Voice.app"
 ```
 
-The pipeline runs entirely on your hardware:
+On first launch macOS asks for the microphone and for Accessibility. Accessibility is what lets the global shortcut and the paste keystroke work. After that, the app asks you to download a speech model. Nothing is transcribed until that download finishes. The default shortcut is hold Option+Space (push-to-talk). After an update, Accessibility may need to be granted again.
 
-| Stage              | Technology                              | What it does                                 |
-| ------------------ | --------------------------------------- | -------------------------------------------- |
-| Voice detection    | Silero VAD                              | Strips silence, only captures actual speech  |
-| Speech recognition | Whisper / Parakeet V3                   | Converts audio to text using your GPU or CPU |
-| Text output        | System clipboard / keystroke simulation | Pastes directly into any app you're using    |
+### Build from source
 
----
+You need Rust (stable), [Bun](https://bun.sh/), and cmake.
 
-## Model Options
+On macOS, install full Xcode and point the active developer directory at it (`sudo xcode-select -s /Applications/Xcode.app`). With only Command Line Tools, the Apple Intelligence bridge compiles as a stub. The published 0.9.5 disk image was built that way, so Apple Intelligence is unavailable in that download.
 
-Pick the engine that fits your hardware:
+Windows also needs the Microsoft C++ build tools and the Vulkan SDK. Linux needs the libraries listed in [BUILD.md](BUILD.md), including cmake. Intel Macs have no prebuilt ONNX Runtime in this repo. [BUILD.md](BUILD.md) has the Homebrew link flags.
 
-| Model                    | Best for         | Speed           | Hardware                  |
-| ------------------------ | ---------------- | --------------- | ------------------------- |
-| **Parakeet V3**          | Everyday use     | ~5× real-time   | CPU (any modern machine)  |
-| **Whisper Turbo**        | Maximum accuracy | GPU-accelerated | NVIDIA, AMD, Intel GPU    |
-| **Whisper Large**        | Highest quality  | GPU required    | Dedicated GPU recommended |
-| **Whisper Small/Medium** | Balance          | Moderate        | Most machines             |
+```bash
+bun install
 
-Parakeet V3 auto-detects your language — no manual switching between English, Spanish, French, German, Japanese, and 90+ others.
+mkdir -p src-tauri/resources/models
+curl -o src-tauri/resources/models/silero_vad_v4.onnx https://blob.handy.computer/silero_vad_v4.onnx
 
-## Models no longer offered
+bun run tauri dev
+```
 
-Coco Voice only offers models whose licences allow it. These were removed in 0.9.5 and won't load even if you already downloaded them. If you used one, pick another model in Settings > Models.
+If cmake stops on a policy error:
+
+```bash
+CMAKE_POLICY_VERSION_MINIMUM=3.5 bun run tauri dev
+```
+
+## What it does
+
+- Hold a key to dictate, and the text lands in the focused app. Push-to-talk is the default (Option+Space on macOS, Ctrl+Space on Windows and Linux). Turn it off to toggle, or drive a running copy with `--toggle-transcription`.
+- You pick a local model: Whisper, Parakeet, Moonshine, and other architectures, through transcribe-cpp, with older ONNX models through transcribe-rs.
+- transcribe.cpp uses the GPU when one is there: Metal on macOS, Vulkan on Windows x64 and Linux, and the CPU otherwise. A Windows on ARM build of the speech engine is CPU only.
+- You can clean a transcript afterwards through an OpenAI-compatible API, or through Apple Intelligence on Apple Silicon when that provider was compiled in. The 0.9.5 download does not include Apple Intelligence because the provider is a stub.
+- Names and fixes stay local: custom words, whole-word corrections, and a transcript history stored in a database on disk.
+- The settings window is translated into 22 languages.
+
+## How it works
+
+The shortcut opens the microphone through cpal. Silero voice activity detection drops silence. A local model turns the speech into text: transcribe-cpp for the GGUF catalog, transcribe-rs for an older ONNX model. Cleanup is separate, and it runs only when that step is enabled and the chosen provider is actually available. The text is pasted into whichever app is focused.
+
+## Status and roadmap
+
+This is a beta. The latest release is 0.9.6. See [CHANGELOG.md](CHANGELOG.md) for what changed. Today, on an Apple Silicon Mac, you can hold the shortcut, speak, and paste a local transcript, with history, custom words, and corrections. The app includes an updater that reads the latest GitHub release. The Mac build is ad-hoc signed and not notarized. Apple Intelligence is not in the 0.9.5 download.
+
+Next:
+
+1. A Coco-hosted model mirror, with sha256 checks on each download. [Pull request #2](https://github.com/coco-research/Coco-Voice/pull/2) is open.
+2. Per-app profiles, plus cleanup that stays on the device with a local model. [Pull request #3](https://github.com/coco-research/Coco-Voice/pull/3) is open (still a draft).
+3. Meeting mode: long-form capture and summaries on the device. Planned. There is no pull request yet.
+
+## Models and licences
+
+The application is [MIT](LICENSE). Each speech model keeps its own licence, and Coco Voice only offers models whose licences allow it. These were removed in 0.9.5 and won't load even if you already downloaded them. If you used one, pick another model in Settings > Models.
 
 - **Held for licence review (custom licences)**: Parakeet Unified EN 0.6B, Nemotron Streaming 3.5, Nemotron Speech Streaming EN, MedASR, SenseVoice Small.
 - **Non-commercial licences**: Canary 1B, Moonshine Tiny (Vietnamese), Moonshine Tiny (Ukrainian), Moonshine Tiny (Korean), Moonshine Tiny (Chinese), Moonshine Tiny (Arabic), Moonshine Tiny (Japanese), Moonshine Base (Vietnamese), Moonshine Base (Ukrainian), Moonshine Base (Korean), Moonshine Base (Chinese), Moonshine Base (Arabic), Moonshine Base (Japanese).
@@ -69,127 +106,52 @@ Coco Voice only offers models whose licences allow it. These were removed in 0.9
 
 Licence details: [NOTICE](NOTICE).
 
----
-
-## Built With Tauri
-
-Coco Voice combines a **React/TypeScript frontend** with a **Rust backend** for native performance:
-
-- **Audio capture** — cross-platform via `cpal`, with automatic mic selection
-- **ML inference** — Whisper-family models via `transcribe-cpp` (GGML/GGUF), Parakeet via `transcribe-rs` (ONNX)
-- **Global hotkeys** — system-wide keyboard shortcuts via `rdev` and `handy-keys`
-- **Text input** — clipboard paste + direct keystroke simulation across macOS, Windows, Linux
-- **Binary size** — ~20MB (no Electron bloat)
-
----
-
-## Quick Start
-
-```bash
-# macOS
-brew install --cask coco-voice
-
-# Windows
-winget install cocoresearch.CocoVoice
-
-# Linux — download from releases
-# See BUILD.md for distro-specific instructions
-```
-
-1. Launch Coco Voice
-2. Grant microphone and accessibility permissions
-3. Set your keyboard shortcut (default: `Option+Space` on macOS, `Ctrl+Space` on Windows/Linux)
-4. Press the shortcut and start talking
-
----
-
-## Power User Features
-
-**CLI control** — trigger transcription from scripts, window managers, or automation:
-
-```bash
-coco-voice --toggle-transcription    # Remote: start/stop recording
-coco-voice --toggle-post-process     # Remote: record with AI post-processing
-coco-voice --cancel                  # Remote: cancel current operation
-coco-voice --start-hidden --no-tray  # Headless mode for autostart
-```
-
-**Push-to-talk mode** — hold the shortcut to record, release to transcribe
-
-**AI post-processing** — pipe transcriptions through OpenAI, Anthropic, or any OpenAI-compatible API to fix grammar, format text, or extract action items
-
-**Debug mode** — `Cmd+Shift+D` (macOS) / `Ctrl+Shift+D` (Windows/Linux) opens live logs, path inspector, and GPU device listing
-
-**Headless transcription** — transcribe WAV files from the terminal:
-
-```bash
-coco-voice --transcribe-file recording.wav --model whisper-large-v3-turbo --json
-```
-
----
-
-## Platform Support
-
-| Platform              | GPU Acceleration | Status                         |
-| --------------------- | ---------------- | ------------------------------ |
-| macOS (Apple Silicon) | Metal            | ✅ Fully supported             |
-| macOS (Intel)         | Metal            | ✅ Fully supported             |
-| Windows (x64)         | Vulkan, CUDA     | ✅ Fully supported             |
-| Linux (x64)           | Vulkan           | ✅ Supported (see Linux notes) |
-
----
-
 ## Contributing
 
-Coco Voice is built to be forked. The codebase is designed to be readable and extensible — a well-patterned Tauri app you can learn from, modify, and build upon.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CONTRIBUTING_TRANSLATIONS.md](CONTRIBUTING_TRANSLATIONS.md).
+
+Coco Voice is in a feature freeze. A pull request for a new feature the community has not asked for is rejected. If the community has asked for it, or you have gathered support for it, it may still be considered. Bug fixes come first. The freeze is spelled out in CONTRIBUTING.md.
+
+## Licence
+
+[MIT](LICENSE).
+
+## Credits
+
+Coco Voice is a fork of [Handy](https://github.com/cjpais/Handy) by CJ Pais, which is also MIT. Handy is the speech pipeline this app still runs: recording, local models, shortcuts, and paste. Thank you to CJ Pais and the Handy contributors.
+
+On top of that fork, Coco Voice changed the name, the parrot mark, and the blue theme. It added the macOS install helper and an updater signed for this repository. On macOS, after updating, Accessibility may need to be granted again. It also added Apple Intelligence as an on-device cleanup provider when the app is built with full Xcode, and a speak-a-correction shortcut that replaces the last dictation, including corrections learned from edits you make in history.
+
+Key libraries: [transcribe-cpp](https://github.com/handy-computer/transcribe.cpp), transcribe-rs, Silero VAD, and [Tauri](https://tauri.app/).
+
+## More
+
+### Platforms
+
+| Where you run it | What the code does                                                                                                                            |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS            | Apple Silicon and Intel disk images. transcribe.cpp uses Metal. First launch asks for the microphone and Accessibility.                       |
+| Windows x64      | An x64 `-setup.exe` and `.msi`. transcribe.cpp uses Vulkan.                                                                                   |
+| Windows on ARM   | An arm64 `-setup.exe` and `.msi`. The speech engine is CPU-only.                                                                              |
+| Linux            | An AppImage, a `.deb`, and an `.rpm` for x86_64/amd64 and aarch64/arm64. transcribe.cpp uses Vulkan. The recording overlay is off by default. |
+
+On Linux, `HANDY_NO_GTK_LAYER_SHELL=1` skips the GTK layer-shell overlay. Wayland paste depends on a typing tool such as `wtype`, `ydotool`, `dotool`, or `xdotool`. Install notes and the long build troubleshooting (Windows path length, AppImage, Intel Mac ONNX Runtime) are in [BUILD.md](BUILD.md).
+
+### Debug
+
+`Cmd+Shift+D` on macOS, or `Ctrl+Shift+D` on Windows and Linux, toggles debug mode.
+
+### Command line
+
+These flags apply to this launch only. They do not change saved settings. If the app is already running, `--toggle-transcription`, `--toggle-post-process`, and `--cancel` are forwarded to it and the new process exits. Any other second launch brings the settings window forward.
 
 ```bash
-git clone https://github.com/coco-research/Coco-Voice.git
-cd Coco-Voice
-bun install
-bun run tauri dev
+coco-voice --toggle-transcription
+coco-voice --toggle-post-process
+coco-voice --cancel
+coco-voice --start-hidden
+coco-voice --no-tray
+coco-voice --debug
 ```
 
-See [BUILD.md](BUILD.md) for platform-specific prerequisites and [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────┐
-│  React Frontend (Settings UI)       │
-│  TypeScript + Tailwind CSS          │
-├─────────────────────────────────────┤
-│  Tauri Bridge (IPC)                 │
-├─────────────────────────────────────┤
-│  Rust Backend                       │
-│  ┌──────────┐ ┌──────────┐         │
-│  │ Audio    │ │ ML       │         │
-│  │ Capture  │ │ Engine   │         │
-│  │ + VAD    │ │ Whisper  │         │
-│  └──────────┘ │ Parakeet │         │
-│  ┌──────────┐ └──────────┘         │
-│  │ Hotkeys  │ ┌──────────┐         │
-│  │ + Input  │ │ Text     │         │
-│  │ Sim      │ │ Output   │         │
-│  └──────────┘ └──────────┘         │
-└─────────────────────────────────────┘
-```
-
----
-
-## License
-
-MIT License — see [LICENSE](LICENSE) for details.
-
-The Coco Voice name, logo, icon, and brand assets are not open-source. Unofficial forks and redistributions must use their own branding.
-
----
-
-## Acknowledgments
-
-- **Whisper** by OpenAI — speech recognition models
-- **ggml / whisper.cpp** — cross-platform STT inference and acceleration
-- **Silero** — lightweight VAD
-- **Tauri** — the Rust-based app framework that makes this possible
+`--transcribe-file` transcribes a 16 kHz mono WAV with a model that is already installed. It does not open the microphone, run voice activity detection, or download anything. `--json` prints that result as JSON. `--list-models` and `--list-devices` print what this build can load.
