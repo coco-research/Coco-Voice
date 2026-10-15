@@ -649,7 +649,8 @@
   },
   "overlay": {
     "transcribing": "Transkriberar...",
-    "processing": "Bearbetar..."
+    "processing": "Bearbetar...",
+    "polishing": "Redigerar..."
   },
   "whatsNew": {
     "title": "Nytt i Coco Voice v{{version}}"

@@ -660,6 +660,7 @@ pub fn run(cli_args: CliArgs) {
             managers::transcription::StreamTextEvent,
             managers::transcription::StreamPhaseEvent,
             cleanup_resolver::CleanupStatus,
+            actions::CleanupProgress,
         ]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds

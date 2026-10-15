@@ -223,6 +223,10 @@
 .stext-cap .tentative {
   color: inherit;
 }
+/* Raw transcript before the first cleaned snapshot. Quiet ink, no extra motion. */
+.stext-cap .raw {
+  color: var(--color-quiet);
+}
 .scaret {
   display: inline-block;
   width: 2px;

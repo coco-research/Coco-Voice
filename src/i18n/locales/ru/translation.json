@@ -649,7 +649,8 @@
   },
   "overlay": {
     "transcribing": "Расшифровка...",
-    "processing": "Обработка..."
+    "processing": "Обработка...",
+    "polishing": "Правка..."
   },
   "whatsNew": {
     "title": "Новое в Coco Voice v{{version}}"
