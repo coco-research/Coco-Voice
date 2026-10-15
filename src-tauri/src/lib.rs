@@ -53,15 +53,35 @@ use crate::settings::get_settings;
 
 // Global atomic to store the file log level filter
 // We use u8 to store the log::LevelFilter as a number
-pub static FILE_LOG_LEVEL: AtomicU8 = AtomicU8::new(log::LevelFilter::Debug as u8);
+pub static FILE_LOG_LEVEL: AtomicU8 = AtomicU8::new(log::LevelFilter::Info as u8);
 
 /// When `true`, log records are also forwarded to the webview via the
 /// `log://log` event for the debug panel's live log viewer. Gated on debug
 /// mode — the live log viewer is its only consumer and only exists in debug
 /// mode — so normal runs never broadcast log records (which can include file
-/// paths or transcribed text) onto the frontend event bus. Synced at startup
+/// paths) onto the frontend event bus. Synced at startup
 /// and whenever debug mode is toggled (see `shortcut::change_debug_mode_setting`).
 pub static WEBVIEW_LOG_STREAMING: AtomicBool = AtomicBool::new(false);
+
+/// Wipe log files that may hold dictated text, once. A failure only warns:
+/// startup continues and the next launch tries again.
+fn clear_legacy_transcript_logs(app: &AppHandle) {
+    if settings::get_settings(app).old_logs_cleared {
+        return;
+    }
+    let log_dir = match portable::app_log_dir(app) {
+        Ok(dir) => dir,
+        Err(e) => {
+            log::warn!("Could not resolve the log directory; leaving old logs in place: {e}");
+            return;
+        }
+    };
+    if let Err(e) = settings::clear_old_voice_logs(&log_dir) {
+        log::warn!("Could not clear old voice logs; will retry next launch: {e}");
+        return;
+    }
+    settings::update_settings(app, |s| s.old_logs_cleared = true);
+}
 
 fn level_filter_from_u8(value: u8) -> log::LevelFilter {
     match value {
@@ -772,6 +792,10 @@ pub fn run(cli_args: CliArgs) {
             input::record_ui_thread();
 
             specta_builder.mount_events(app);
+
+            // Before the headless return, so both GUI and one-shot runs wipe once.
+            // Persisted here, before the `--debug` Trace override, which stays in memory.
+            clear_legacy_transcript_logs(app.handle());
 
             // Headless one-shot path (`--transcribe-file` / `--list-devices` /
             // `--list-models`): initialize only what transcription needs — the

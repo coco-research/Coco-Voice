@@ -201,8 +201,8 @@ fn refine_base_for_correction(settings: &AppSettings) -> Option<String> {
 
     guard.as_ref().map(|buf| {
         debug!(
-            "Correction hotkey: editing previous output (prior raw transcript: {:?})",
-            buf.raw_transcript
+            "Correction hotkey: editing previous output (prior raw transcript: {} chars)",
+            buf.raw_transcript.chars().count()
         );
         buf.produced_output.clone()
     })
@@ -1175,9 +1175,9 @@ impl ShortcutAction for TranscribeAction {
                     match transcription_result {
                         Ok(transcription) => {
                             debug!(
-                                "Transcription completed in {:?}: '{}'",
+                                "Transcription completed in {:?}: {} chars",
                                 transcription_time.elapsed(),
-                                transcription
+                                transcription.chars().count()
                             );
 
                             if post_process {
