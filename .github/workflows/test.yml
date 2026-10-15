@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - "src-tauri/**"
+      - ".cargo/**"
       - ".github/workflows/test.yml"
   pull_request:
     paths:
       - "src-tauri/**"
+      - ".cargo/**"
       - ".github/workflows/test.yml"
 
 permissions:
