@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "Modello locale",
-          "description": "Modello sul dispositivo utilizzato per migliorare le trascrizioni. Scaricalo una sola volta.",
+          "description": "Funziona su questo Mac: quando correggi ciò che hai appena detto (\"scratch that\", \"I mean\"), tiene solo quello che intendevi e non omette nessuna parola. Per la revisione delle parole riempitive e dell'ortografia, usa un provider cloud.",
           "notDownloaded": "Non scaricato",
           "downloading": "Download in corso {{percent}}%",
           "ready": "Pronto",

@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "Mô hình cục bộ",
-          "description": "Mô hình trên thiết bị dùng để chỉnh sửa bản ghi âm. Chỉ tải xuống một lần.",
+          "description": "Chạy trên Mac này: khi bạn tự sửa điều vừa nói (\"scratch that\", \"I mean\"), nó chỉ giữ lại đúng phần bạn muốn nói và không bỏ sót từ nào. Để biên tập từ đệm và chính tả, hãy dùng nhà cung cấp đám mây.",
           "notDownloaded": "Chưa tải xuống",
           "downloading": "Đang tải xuống {{percent}}%",
           "ready": "Sẵn sàng",

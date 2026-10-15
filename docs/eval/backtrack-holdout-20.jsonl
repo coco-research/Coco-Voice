@@ -1,0 +1,20 @@
+{"id":"h01","kind":"retract","input":"Pack the gloves, the scarf, and the whistle, scratch the whistle, add the compass.","keep":["gloves","scarf","compass"],"drop":["whistle"]}
+{"id":"h02","kind":"retract","input":"Thirty gallons will not be enough, I mean fifty gallons, once the kiln is running.","keep":["fifty|50","enough","kiln"],"drop":["thirty","30"]}
+{"id":"h03","kind":"retract","input":"Give the spare key to Denise, or rather to Camille.","keep":["Camille","key"],"drop":["Denise"]}
+{"id":"h04","kind":"retract","input":"The ferry leaves at 6:10, correction, at 6:40.","keep":["6:40","ferry"],"drop":["6:10"]}
+{"id":"h05","kind":"retract","input":"Paint it navy, let me rephrase, paint it cream, before the guests arrive.","keep":["cream","guests"],"drop":["navy"]}
+{"id":"h06","kind":"retract","input":"Hold the workshop in the atrium, never mind, use the library basement.","keep":["library","basement"],"drop":["atrium"]}
+{"id":"h07","kind":"retract","input":"Reserve table 14 actually table 22 for the birthday.","keep":["Reserve","22","birthday"],"drop":["14","fourteen"]}
+{"id":"h08","kind":"retract","input":"Print the posters on glossy paper. Scratch that. Use matte paper and a heavier card stock.","keep":["matte","card stock"],"drop":["glossy"]}
+{"id":"h09","kind":"retract","input":"Tell the choir the rehearsal is at the chapel, sorry, at the gym, and bring the tuners.","keep":["choir","rehearsal","gym","tuners"],"drop":["chapel"]}
+{"id":"h10","kind":"retract","input":"The border should be wool yarn, no, cotton yarn.","keep":["border","cotton"],"drop":["wool"]}
+{"id":"h11","kind":"retract","input":"The award goes to Hector, no wait, to Simone.","keep":["Simone","award"],"drop":["Hector"]}
+{"id":"h12","kind":"retract","input":"After lunch the notary is free on Tuesday, or rather Thursday, and the lease goes to Anton, I mean Anika.","keep":["lunch","notary","Thursday","lease","Anika"],"drop":["Tuesday","Anton"]}
+{"id":"h13","kind":"retract","input":"The bakery opens early on Saturday. Maya will frost the cakes and Jonas will set up the counter. We ordered three sheet cakes, correction, five sheet cakes, for the school fair. The banner is already printed and the playlist is on the shop tablet.","keep":["bakery","Saturday","Maya","Jonas","five|5","school fair","banner","playlist","tablet"],"drop":["three","3"]}
+{"id":"h14","kind":"retract","input":"Leave the samples with the receptionist, actually with the lab tech, before you go.","keep":["samples","lab tech","before you go"],"drop":["receptionist"]}
+{"id":"h15","kind":"keep","input":"Can you scratch my back when we get home from the hike?","keep":["Can you scratch my back","hike"],"drop":[]}
+{"id":"h16","kind":"keep","input":"Please scratch that item off the registry before Friday.","keep":["scratch that item off","registry","Friday"],"drop":[]}
+{"id":"h17","kind":"keep","input":"I mean what I say about the warranty period.","keep":["I mean what I say","warranty"],"drop":[]}
+{"id":"h18","kind":"keep","input":"I looked again and actually, that is correct, so leave the total unchanged.","keep":["actually, that is correct","total"],"drop":[]}
+{"id":"h19","kind":"keep","input":"She actually finished the mural before the rain started.","keep":["actually","mural","rain"],"drop":[]}
+{"id":"h20","kind":"keep","input":"Sorry about the locked gate, the keypad code is 1944.","keep":["sorry","gate","1944"],"drop":[]}

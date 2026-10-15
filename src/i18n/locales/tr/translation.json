@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "Yerel model",
-          "description": "Transkripsiyonları düzenlemek için kullanılan cihaz içi model. Bir kez indirin.",
+          "description": "Bu Mac'te çalışır: az önce söylediğinizi kendiniz düzelttiğinizde (\"scratch that\", \"I mean\"), yalnızca kastettiğinizi tutar ve hiçbir sözcüğü düşürmez. Dolgu sözcükleri ve yazım düzeltmesi için bir bulut sağlayıcı kullanın.",
           "notDownloaded": "İndirilmedi",
           "downloading": "İndiriliyor {{percent}}%",
           "ready": "Hazır",

@@ -482,10 +482,20 @@ async fn post_process_transcription_inner(
     // local cleanup reachable.
     #[cfg(target_os = "macos")]
     if provider.id == LOCAL_LLM_PROVIDER_ID {
+        // Qwen3-4B follows the short on-device prompt. This branch is the only
+        // one that substitutes it, so other providers still see `prompt`.
+        let local_prompt = settings
+            .post_process_prompts
+            .iter()
+            .find(|candidate| {
+                settings.post_process_selected_prompt_id.as_deref() == Some(candidate.id.as_str())
+            })
+            .map(crate::settings::prompt_for_local_llm)
+            .unwrap_or(prompt.as_str());
         return post_process_with_local_llm(
             app,
             &model,
-            &prompt,
+            local_prompt,
             transcription,
             prior_output,
             local_llm_cancel,

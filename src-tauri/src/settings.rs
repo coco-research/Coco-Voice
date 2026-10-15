@@ -825,6 +825,23 @@ fn insert_backtrack_rule(previous: &str, preceding_item: &str, number: u8) -> St
     format!("{head}{to}{tail}")
 }
 
+/// Tuned for small on-device models and measured by docs/eval (three sets,
+/// meaning 70/70 and retractions 45/49 on Qwen3-4B Q4_K_M, 2026-10-11).
+pub(crate) const LOCAL_LLM_CLEANUP_PROMPT: &str = r#"<transcript>
+${output}
+</transcript>
+
+The above is dictated speech. The speaker sometimes corrects themselves mid-sentence. Output the sentence as they finally meant it: when they say something and then replace it ("X, scratch that, Y", "X, I mean Y", "X, or rather Y", "X, correction, Y", "X, no wait, Y", "X actually Y", "X, let me rephrase, Y", "X, never mind, Y"), delete X and the cue and keep Y, plus everything that comes after Y (reasons, clauses, later sentences). Change nothing else: keep every other word, the language, and the order. If nothing is corrected, output the text unchanged.
+"Buy rice, beans, and ham, scratch the ham, add tofu" → "Buy rice, beans, and tofu"
+"We printed 40 copies, correction, 70 copies" → "We printed 70 copies"
+"Ask Pedro, I mean Pablo, and tell Greta, or rather Helen" → "Ask Pablo, and tell Helen"
+"The gate is B12 actually C7" → "The gate is C7"
+"Please scratch the label off the box" → "Please scratch the label off the box"
+"I mean it, the lock stays on" → "I mean it, the lock stays on"
+"Meet at 3, I mean 4, because the room is booked" → "Meet at 4, because the room is booked"
+"Actually, that sounds right to me" → "Actually, that sounds right to me"
+Output only the corrected text."#;
+
 fn default_post_process_prompts() -> Vec<LLMPrompt> {
     vec![
         LLMPrompt {
@@ -867,6 +884,45 @@ fn upgrade_unchanged_default_prompts(settings: &mut AppSettings) {
             prompt.prompt = replacement.prompt.clone();
         }
     }
+}
+
+/// Prompt text the on-device model should see.
+///
+/// A stock prompt the user has not edited (id `default_improve_transcriptions`
+/// or `coco_formatted`, text still equal to the body from
+/// [`default_post_process_prompts`] or a `PREVIOUS_*` stock body) is replaced
+/// by [`LOCAL_LLM_CLEANUP_PROMPT`]. An edited or custom prompt is returned as stored.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(crate) fn prompt_for_local_llm(selected: &LLMPrompt) -> &str {
+    if unedited_stock_prompt(selected) {
+        LOCAL_LLM_CLEANUP_PROMPT
+    } else {
+        selected.prompt.as_str()
+    }
+}
+
+/// `true` when `selected` is a stock id whose stored text is still a stock body.
+///
+/// `PREVIOUS_*` is where an old stock body goes when `default_post_process_prompts`
+/// changes. This repo has not replaced one, so only the current body matches.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn unedited_stock_prompt(selected: &LLMPrompt) -> bool {
+    const STOCK_IDS: &[&str] = &["default_improve_transcriptions", "coco_formatted"];
+    const PREVIOUS_DEFAULT_IMPROVE_TRANSCRIPTIONS: &[&str] = &[];
+    const PREVIOUS_COCO_FORMATTED: &[&str] = &[];
+
+    if !STOCK_IDS.contains(&selected.id.as_str()) {
+        return false;
+    }
+    let previous: &[&str] = match selected.id.as_str() {
+        "default_improve_transcriptions" => PREVIOUS_DEFAULT_IMPROVE_TRANSCRIPTIONS,
+        "coco_formatted" => PREVIOUS_COCO_FORMATTED,
+        _ => &[],
+    };
+    default_post_process_prompts()
+        .iter()
+        .any(|stock| stock.id == selected.id && stock.prompt == selected.prompt)
+        || previous.iter().any(|body| *body == selected.prompt)
 }
 
 fn default_transcribe_gpu_device() -> i32 {
@@ -2107,5 +2163,31 @@ mod tests {
             settings.settings_schema_version,
             CURRENT_SETTINGS_SCHEMA_VERSION
         );
+    }
+
+    #[test]
+    fn an_unedited_stock_prompt_uses_the_on_device_cleanup_prompt() {
+        for stock in default_post_process_prompts() {
+            assert_eq!(prompt_for_local_llm(&stock), LOCAL_LLM_CLEANUP_PROMPT);
+        }
+    }
+
+    #[test]
+    fn an_edited_stock_prompt_keeps_the_user_text() {
+        for mut prompt in default_post_process_prompts() {
+            prompt.prompt.push('!');
+            assert_eq!(prompt_for_local_llm(&prompt), prompt.prompt.as_str());
+            assert_ne!(prompt_for_local_llm(&prompt), LOCAL_LLM_CLEANUP_PROMPT);
+        }
+    }
+
+    #[test]
+    fn a_custom_prompt_keeps_the_user_text() {
+        let prompt = LLMPrompt {
+            id: "mine".to_string(),
+            name: "Mine".to_string(),
+            prompt: default_post_process_prompts()[0].prompt.clone(),
+        };
+        assert_eq!(prompt_for_local_llm(&prompt), prompt.prompt.as_str());
     }
 }

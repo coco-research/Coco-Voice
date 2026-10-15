@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "Model lokalny",
-          "description": "Model na urządzeniu używany do korekty transkrypcji. Pobierz go tylko raz.",
+          "description": "Działa na tym Macu: gdy samodzielnie poprawiasz właśnie wypowiedziane słowa (\"scratch that\", \"I mean\"), zostawia tylko ostatecznie zamierzoną wersję i nie pomija żadnego słowa. Do redakcji słów wypełniających i pisowni użyj dostawcy w chmurze.",
           "notDownloaded": "Nie pobrano",
           "downloading": "Pobieranie {{percent}}%",
           "ready": "Gotowy",

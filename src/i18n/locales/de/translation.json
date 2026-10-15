@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "Lokales Modell",
-          "description": "Lokales Modell zur Überarbeitung von Transkriptionen. Nur einmal herunterladen.",
+          "description": "Läuft auf diesem Mac: Wenn du korrigierst, was du gerade gesagt hast (\"scratch that\", \"I mean\"), behält es nur, was du gemeint hast, und lässt kein Wort weg. Für die Überarbeitung von Füllwörtern und Rechtschreibung nutze einen Cloud-Anbieter.",
           "notDownloaded": "Nicht heruntergeladen",
           "downloading": "Wird heruntergeladen {{percent}}%",
           "ready": "Bereit",

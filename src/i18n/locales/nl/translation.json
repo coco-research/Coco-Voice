@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "Lokaal model",
-          "description": "Lokaal model om transcripties te verbeteren. Download het één keer.",
+          "description": "Draait op deze Mac: als je corrigeert wat je net zei (\"scratch that\", \"I mean\"), bewaart het alleen wat je bedoelde en laat het geen woord weg. Voor het redigeren van stopwoordjes en de spelling gebruik je een cloudprovider.",
           "notDownloaded": "Niet gedownload",
           "downloading": "Downloaden {{percent}}%",
           "ready": "Klaar",

@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "Modelo local",
-          "description": "Modelo no dispositivo usado para melhorar transcrições. Baixe apenas uma vez.",
+          "description": "Roda neste Mac: quando você corrige o que acabou de dizer (\"scratch that\", \"I mean\"), ele mantém só o que você quis dizer e não omite nenhuma palavra. Para revisar palavras de preenchimento e a ortografia, use um provedor na nuvem.",
           "notDownloaded": "Não baixado",
           "downloading": "Baixando {{percent}}%",
           "ready": "Pronto",
