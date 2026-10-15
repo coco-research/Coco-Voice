@@ -653,5 +653,32 @@
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} の新機能"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "後処理なし: モデルなし",
+      "noApiKey": "後処理なし: API キーなし",
+      "noModelChosen": "後処理なし: モデル未選択",
+      "noPrompt": "後処理なし: プロンプトなし",
+      "noProvider": "後処理なし: プロバイダーなし",
+      "appleOff": "後処理なし: Apple AI オフ",
+      "tooLong": "長すぎるためそのまま貼り付け",
+      "stoppedEarly": "そのまま貼り付け",
+      "modelFailed": "モデル読み込み失敗、そのまま貼り付け",
+      "fallbackNeedsYou": "後処理なし",
+      "fallbackThisTake": "そのまま貼り付け"
+    },
+    "sentence": {
+      "noModel": "後処理はオフです: デバイス上のモデルがダウンロードされていません。",
+      "noApiKey": "後処理はオフです: プロバイダーの API キーがありません。",
+      "noModelChosen": "後処理はオフです: モデルが選択されていません。",
+      "noPrompt": "後処理はオフです: プロンプトが設定されていません。",
+      "noProvider": "後処理はオフです: プロバイダーが選択されていません。",
+      "appleOff": "後処理はオフです: この Mac では Apple Intelligence を利用できません。",
+      "tooLong": "今回は後処理を実行しませんでした: テキストがデバイス上のモデルには長すぎました。",
+      "stoppedEarly": "今回は後処理を実行しませんでした: デバイス上のモデルが途中で停止しました。",
+      "modelFailed": "今回は後処理を実行しませんでした: デバイス上のモデルを読み込めませんでした。"
+    },
+    "announce": "{{sentence}} そのまま貼り付けました。"
   }
 }

@@ -653,5 +653,32 @@
   },
   "whatsNew": {
     "title": "Novidades no Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "Não melhorado: sem modelo",
+      "noApiKey": "Não melhorado: sem chave da API",
+      "noModelChosen": "Não melhorado: nenhum modelo escolhido",
+      "noPrompt": "Não melhorado: sem prompt",
+      "noProvider": "Não melhorado: sem provedor",
+      "appleOff": "Não melhorado: Apple AI desativada",
+      "tooLong": "Longo demais, colado como está",
+      "stoppedEarly": "Colado como está",
+      "modelFailed": "Modelo não carregou, colado como está",
+      "fallbackNeedsYou": "Não melhorado",
+      "fallbackThisTake": "Colado como está"
+    },
+    "sentence": {
+      "noModel": "O pós-processamento está desativado: o modelo no dispositivo não foi baixado.",
+      "noApiKey": "O pós-processamento está desativado: o provedor não tem chave da API.",
+      "noModelChosen": "O pós-processamento está desativado: nenhum modelo foi escolhido.",
+      "noPrompt": "O pós-processamento está desativado: nenhum prompt foi definido.",
+      "noProvider": "O pós-processamento está desativado: nenhum provedor foi escolhido.",
+      "appleOff": "O pós-processamento está desativado: o Apple Intelligence não está disponível neste Mac.",
+      "tooLong": "O pós-processamento não foi executado desta vez: o texto era longo demais para o modelo no dispositivo.",
+      "stoppedEarly": "O pós-processamento não foi executado desta vez: o modelo no dispositivo parou cedo demais.",
+      "modelFailed": "O pós-processamento não foi executado desta vez: o modelo no dispositivo não carregou."
+    },
+    "announce": "{{sentence}} Colado como está."
   }
 }

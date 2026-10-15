@@ -653,5 +653,32 @@
   },
   "whatsNew": {
     "title": "Novità in Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "Non migliorato: nessun modello",
+      "noApiKey": "Non migliorato: nessuna chiave API",
+      "noModelChosen": "Non migliorato: modello non scelto",
+      "noPrompt": "Non migliorato: nessun prompt",
+      "noProvider": "Non migliorato: nessun provider",
+      "appleOff": "Non migliorato: Apple AI disattivata",
+      "tooLong": "Troppo lungo, incollato così com'è",
+      "stoppedEarly": "Incollato così com'è",
+      "modelFailed": "Modello non caricato, testo invariato",
+      "fallbackNeedsYou": "Non migliorato",
+      "fallbackThisTake": "Incollato così com'è"
+    },
+    "sentence": {
+      "noModel": "La post-elaborazione è disattivata: il modello sul dispositivo non è scaricato.",
+      "noApiKey": "La post-elaborazione è disattivata: il provider non ha una chiave API.",
+      "noModelChosen": "La post-elaborazione è disattivata: nessun modello scelto.",
+      "noPrompt": "La post-elaborazione è disattivata: nessun prompt impostato.",
+      "noProvider": "La post-elaborazione è disattivata: nessun provider scelto.",
+      "appleOff": "La post-elaborazione è disattivata: Apple Intelligence non è disponibile su questo Mac.",
+      "tooLong": "La post-elaborazione non è stata eseguita questa volta: il testo era troppo lungo per il modello sul dispositivo.",
+      "stoppedEarly": "La post-elaborazione non è stata eseguita questa volta: il modello sul dispositivo si è fermato in anticipo.",
+      "modelFailed": "La post-elaborazione non è stata eseguita questa volta: il modello sul dispositivo non si è caricato."
+    },
+    "announce": "{{sentence}} Incollato così com'è."
   }
 }

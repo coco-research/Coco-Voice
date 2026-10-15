@@ -653,5 +653,32 @@
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} yenilikleri"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "Düzenlenmedi: model yok",
+      "noApiKey": "Düzenlenmedi: API anahtarı yok",
+      "noModelChosen": "Düzenlenmedi: model seçilmedi",
+      "noPrompt": "Düzenlenmedi: prompt yok",
+      "noProvider": "Düzenlenmedi: sağlayıcı yok",
+      "appleOff": "Düzenlenmedi: Apple AI kapalı",
+      "tooLong": "Çok uzun, aynen yapıştırıldı",
+      "stoppedEarly": "Aynen yapıştırıldı",
+      "modelFailed": "Model yüklenmedi, aynen yapıştırıldı",
+      "fallbackNeedsYou": "Düzenlenmedi",
+      "fallbackThisTake": "Aynen yapıştırıldı"
+    },
+    "sentence": {
+      "noModel": "Son işlem kapalı: cihaz içi model indirilmedi.",
+      "noApiKey": "Son işlem kapalı: sağlayıcının API anahtarı yok.",
+      "noModelChosen": "Son işlem kapalı: model seçilmedi.",
+      "noPrompt": "Son işlem kapalı: prompt ayarlanmadı.",
+      "noProvider": "Son işlem kapalı: sağlayıcı seçilmedi.",
+      "appleOff": "Son işlem kapalı: Apple Intelligence bu Mac'te kullanılamıyor.",
+      "tooLong": "Son işlem bu kez çalışmadı: metin cihaz içi model için çok uzundu.",
+      "stoppedEarly": "Son işlem bu kez çalışmadı: cihaz içi model erken durdu.",
+      "modelFailed": "Son işlem bu kez çalışmadı: cihaz içi model yüklenmedi."
+    },
+    "announce": "{{sentence}} Aynen yapıştırıldı."
   }
 }

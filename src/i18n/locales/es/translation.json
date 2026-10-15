@@ -653,5 +653,32 @@
   },
   "whatsNew": {
     "title": "Nuevo en Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "Sin mejorar: falta el modelo",
+      "noApiKey": "Sin mejorar: falta la clave API",
+      "noModelChosen": "Sin mejorar: no hay modelo elegido",
+      "noPrompt": "Sin mejorar: falta el prompt",
+      "noProvider": "Sin mejorar: falta el proveedor",
+      "appleOff": "Sin mejorar: Apple AI desactivada",
+      "tooLong": "Demasiado largo, pegado tal cual",
+      "stoppedEarly": "Pegado tal cual",
+      "modelFailed": "El modelo no cargó, pegado tal cual",
+      "fallbackNeedsYou": "Sin mejorar",
+      "fallbackThisTake": "Pegado tal cual"
+    },
+    "sentence": {
+      "noModel": "El post procesamiento está desactivado: el modelo en el dispositivo no está descargado.",
+      "noApiKey": "El post procesamiento está desactivado: el proveedor no tiene clave API.",
+      "noModelChosen": "El post procesamiento está desactivado: no hay ningún modelo elegido.",
+      "noPrompt": "El post procesamiento está desactivado: no hay ningún prompt configurado.",
+      "noProvider": "El post procesamiento está desactivado: no hay ningún proveedor elegido.",
+      "appleOff": "El post procesamiento está desactivado: Apple Intelligence no está disponible en este Mac.",
+      "tooLong": "El post procesamiento no se ejecutó esta vez: el texto era demasiado largo para el modelo en el dispositivo.",
+      "stoppedEarly": "El post procesamiento no se ejecutó esta vez: el modelo en el dispositivo se detuvo antes de tiempo.",
+      "modelFailed": "El post procesamiento no se ejecutó esta vez: el modelo en el dispositivo no se cargó."
+    },
+    "announce": "{{sentence}} Pegado tal cual."
   }
 }
