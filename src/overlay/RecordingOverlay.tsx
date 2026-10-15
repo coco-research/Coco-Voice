@@ -140,17 +140,18 @@ const RecordingOverlay: React.FC = () => {
     };
 
     schedulePolishRef.current = (next) => {
+      // Every apply drops any queued batch, so an older snapshot never lands after a newer one.
       const apply = (snapshot: PolishSnapshot) => {
-        lastPolishApplyRef.current = performance.now();
-        setPolish(snapshot);
-      };
-      // The last snapshot has to land even when a batch is still waiting.
-      if (next.done || !reducedMotionRef.current) {
         if (polishTimerRef.current !== null) {
           window.clearTimeout(polishTimerRef.current);
           polishTimerRef.current = null;
         }
         pendingPolishRef.current = null;
+        lastPolishApplyRef.current = performance.now();
+        setPolish(snapshot);
+      };
+      // The last snapshot has to land even when a batch is still waiting.
+      if (next.done || !reducedMotionRef.current) {
         apply(next);
         return;
       }
