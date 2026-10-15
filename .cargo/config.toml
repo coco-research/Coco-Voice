@@ -1,1 +1,7 @@
 [build]
+
+[env]
+# llama-cpp-sys-2 forwards CMAKE_* vars to CMake. We never use llama.cpp's
+# HTTPS client, and newer macOS runner images break its OpenSSL lookup
+# ("OpenSSL::SSL target not found"), so skip the lookup entirely.
+CMAKE_DISABLE_FIND_PACKAGE_OpenSSL = "ON"
