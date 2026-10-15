@@ -147,6 +147,8 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
           key: ${{ inputs.platform }}-${{ inputs.target }}
+          # Separate caches per runner image: a CMake build dir from an older image can't regenerate on a newer one.
+          env-vars: "ImageVersion"
 
       - name: install dependencies (ubuntu 24.04 x64)
         if: contains(inputs.platform, 'ubuntu-24.04') && !contains(inputs.platform, 'arm')
