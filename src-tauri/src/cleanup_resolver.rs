@@ -5,6 +5,7 @@
 //! provider the user did not select.
 
 use crate::settings::LOCAL_LLM_PROVIDER_ID;
+use serde::Serialize;
 
 /// Why cleanup did not run. `Display` is the text that goes in the log.
 // Some variants are only produced on some platforms.
@@ -46,6 +47,87 @@ impl std::fmt::Display for SkipReason {
                 write!(f, "selected provider was not found in settings")
             }
         }
+    }
+}
+
+// Why cleanup did not run, as the UI is told. The snake_case names are the keys of
+// the `cleanupStatus.*` strings, so renaming a variant breaks its translations.
+// (A plain comment, not a doc comment: a doc comment would be copied into bindings.ts.)
+#[derive(Debug, Clone, Serialize, specta::Type, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum CleanupStatusReason {
+    NoProviderSelected,
+    NoModelConfigured,
+    NoPromptSelected,
+    PromptNotFound,
+    PromptEmpty,
+    NoApiKey,
+    ProviderUnavailableInThisBuild,
+    AppleIntelligenceUnavailable,
+    LocalModelNotDownloaded,
+    ProviderNotFound,
+    TooLong,
+    StoppedEarly,
+    ModelLoadFailed,
+}
+
+// The `cleanup-status` event: sent when cleanup was skipped or its output refused.
+// `needs_action` means the user can fix the cause in Settings; without it the status
+// concerns this take only.
+#[derive(Debug, Clone, Serialize, specta::Type, PartialEq, tauri_specta::Event)]
+pub struct CleanupStatus {
+    pub reason: CleanupStatusReason,
+    pub needs_action: bool,
+}
+
+impl CleanupStatus {
+    /// The status for a skipped cleanup, or `None` when there is nothing to explain
+    /// (an empty take).
+    pub fn status_for_skip(reason: &SkipReason) -> Option<Self> {
+        let reason = match reason {
+            SkipReason::EmptyTranscription => return None,
+            SkipReason::NoProviderSelected => CleanupStatusReason::NoProviderSelected,
+            SkipReason::NoModelConfigured => CleanupStatusReason::NoModelConfigured,
+            SkipReason::NoPromptSelected => CleanupStatusReason::NoPromptSelected,
+            SkipReason::PromptNotFound => CleanupStatusReason::PromptNotFound,
+            SkipReason::PromptEmpty => CleanupStatusReason::PromptEmpty,
+            SkipReason::NoApiKey => CleanupStatusReason::NoApiKey,
+            SkipReason::ProviderUnavailableInThisBuild => {
+                CleanupStatusReason::ProviderUnavailableInThisBuild
+            }
+            SkipReason::AppleIntelligenceUnavailable => {
+                CleanupStatusReason::AppleIntelligenceUnavailable
+            }
+            SkipReason::LocalModelNotDownloaded => CleanupStatusReason::LocalModelNotDownloaded,
+            SkipReason::ProviderNotFound => CleanupStatusReason::ProviderNotFound,
+        };
+        Some(Self {
+            reason,
+            needs_action: true,
+        })
+    }
+
+    fn this_take_only(reason: CleanupStatusReason) -> Self {
+        Self {
+            reason,
+            needs_action: false,
+        }
+    }
+
+    // The three below are only used for the macOS-only on-device model.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub fn too_long() -> Self {
+        Self::this_take_only(CleanupStatusReason::TooLong)
+    }
+
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub fn stopped_early() -> Self {
+        Self::this_take_only(CleanupStatusReason::StoppedEarly)
+    }
+
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub fn model_load_failed() -> Self {
+        Self::this_take_only(CleanupStatusReason::ModelLoadFailed)
     }
 }
 
@@ -272,6 +354,72 @@ mod tests {
         assert_eq!(
             check_global_preconditions("  text  ", Some("valid"), prompt),
             Ok("prompt text")
+        );
+    }
+
+    #[test]
+    fn a_skip_tells_the_ui_its_reason_and_asks_for_action() {
+        // The names are the keys of the `cleanupStatus.*` translations.
+        let skips = [
+            (SkipReason::NoProviderSelected, "no_provider_selected"),
+            (SkipReason::NoModelConfigured, "no_model_configured"),
+            (SkipReason::NoPromptSelected, "no_prompt_selected"),
+            (SkipReason::PromptNotFound, "prompt_not_found"),
+            (SkipReason::PromptEmpty, "prompt_empty"),
+            (SkipReason::NoApiKey, "no_api_key"),
+            (
+                SkipReason::ProviderUnavailableInThisBuild,
+                "provider_unavailable_in_this_build",
+            ),
+            (
+                SkipReason::AppleIntelligenceUnavailable,
+                "apple_intelligence_unavailable",
+            ),
+            (
+                SkipReason::LocalModelNotDownloaded,
+                "local_model_not_downloaded",
+            ),
+            (SkipReason::ProviderNotFound, "provider_not_found"),
+        ];
+        for (skip, name) in skips {
+            let status = CleanupStatus::status_for_skip(&skip).expect("a skip with a status");
+            assert_eq!(
+                serde_json::to_value(&status).unwrap(),
+                serde_json::json!({ "reason": name, "needs_action": true }),
+                "{skip}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_empty_take_has_nothing_to_explain() {
+        assert_eq!(
+            CleanupStatus::status_for_skip(&SkipReason::EmptyTranscription),
+            None
+        );
+    }
+
+    #[test]
+    fn a_refused_on_device_run_concerns_this_take_only() {
+        let refusals = [
+            (CleanupStatus::too_long(), "too_long"),
+            (CleanupStatus::stopped_early(), "stopped_early"),
+            (CleanupStatus::model_load_failed(), "model_load_failed"),
+        ];
+        for (status, name) in refusals {
+            assert_eq!(
+                serde_json::to_value(&status).unwrap(),
+                serde_json::json!({ "reason": name, "needs_action": false })
+            );
+        }
+    }
+
+    #[test]
+    fn the_event_is_named_cleanup_status() {
+        // `events.cleanupStatus` in bindings.ts listens for this name.
+        assert_eq!(
+            <CleanupStatus as tauri_specta::Event>::NAME,
+            "cleanup-status"
         );
     }
 }
