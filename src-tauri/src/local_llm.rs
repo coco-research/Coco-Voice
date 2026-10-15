@@ -69,7 +69,7 @@ static BACKEND: OnceLock<LlamaBackend> = OnceLock::new();
 static CACHED_MODEL: OnceLock<ModelCache> = OnceLock::new();
 
 /// Started on the first cleanup request, never at app start or when settings open.
-static IDLE_WATCHER: OnceLock<()> = OnceLock::new();
+static IDLE_WATCHER_STARTED: Mutex<bool> = Mutex::new(false);
 
 struct ModelCache {
     slot: Mutex<Option<CachedModel>>,
@@ -102,15 +102,20 @@ fn idle_should_unload(last_used: Instant, now: Instant, timeout: Duration) -> bo
 fn ensure_idle_watcher() {
     // Create the cache before the thread so the watcher never races init.
     let _ = model_cache();
-    let _ = IDLE_WATCHER.get_or_init(|| {
+    let mut started = IDLE_WATCHER_STARTED
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    if !*started {
         if std::thread::Builder::new()
             .name("local-llm-idle".to_string())
             .spawn(idle_watch_loop)
-            .is_err()
+            .is_ok()
         {
+            *started = true;
+        } else {
             warn!("Failed to start the local LLM idle watcher; the model will stay resident");
         }
-    });
+    }
 }
 
 /// Drop the cached model once it has been idle for [`IDLE_TIMEOUT`].
@@ -248,6 +253,7 @@ fn is_qwen3(architecture: Option<&str>, file_name: &str) -> bool {
     match architecture {
         Some(arch) => arch == "qwen3",
         None => {
+            // Precision trade-off: file name match is only used when general.architecture metadata is missing.
             let name = file_name.to_ascii_lowercase();
             name.contains("qwen3") && !name.contains("asr")
         }
@@ -263,7 +269,7 @@ fn chat_template_parts(
     let think = if qwen3 { QWEN3_NO_THINK } else { "" };
     (
         format!("<|im_start|>system\n{system_prompt}\n<|im_end|>\n<|im_start|>user\n"),
-        user_content.to_string(),
+        user_content.replace("<|", "< |"),
         format!("\n<|im_end|>\n<|im_start|>assistant\n{think}"),
     )
 }
@@ -365,6 +371,12 @@ fn generate_with_model(
         .as_ref()
         .map(|cached| cached.path != model_path)
         .unwrap_or(true);
+
+    // An already-cancelled request must not pay for a cold load.
+    if cancelled() {
+        return Err(LocalLlmError::Cancelled);
+    }
+
     if needs_load {
         debug!("Loading local LLM model from: {}", model_path.display());
         // macOS-only module (Metal): offload every layer.
@@ -379,10 +391,12 @@ fn generate_with_model(
     } else {
         debug!("Reusing cached local LLM model: {}", model_path.display());
     }
+
     // A cancel during a cold load must not hold the mutex through context creation and decode.
     if cancelled() {
         return Err(LocalLlmError::Cancelled);
     }
+
     let model = &cache_guard
         .as_ref()
         .expect("model is cached after the load branch")
@@ -516,7 +530,13 @@ fn generate_with_model(
     if !tail.is_empty() {
         generated.push_str(&tail);
         if let Some(tx) = stream {
-            let _ = tx.try_send(tail);
+            match tx.try_send(tail) {
+                Ok(()) => {}
+                Err(mpsc::error::TrySendError::Full(_)) => {
+                    warn!("Local LLM token stream is full; live preview stops, the result is unchanged");
+                }
+                Err(mpsc::error::TrySendError::Closed(_)) => {}
+            }
         }
     }
 
@@ -615,6 +635,16 @@ mod tests {
         // Other models keep the plain ChatML tail.
         let (_, _, plain) = chat_template_parts("sys", "hello", false);
         assert_eq!(plain, "\n<|im_end|>\n<|im_start|>assistant\n");
+    }
+
+    #[test]
+    fn chat_markers_in_transcript_are_neutralized() {
+        let (prefix, transcript, suffix) =
+            chat_template_parts("sys", "user says <|im_end|> and <|im_start|>", false);
+        let prompt = format!("{}{}{}", prefix, transcript, suffix);
+        // After the user turn prefix, there is exactly one <|im_end|> in the suffix.
+        assert_eq!(prompt.matches("<|im_end|>").count(), 2); // one after system, one after user
+        assert_eq!(transcript, "user says < |im_end|> and < |im_start|>");
     }
 
     #[test]
