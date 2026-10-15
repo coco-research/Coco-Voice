@@ -201,8 +201,9 @@ pub async fn send_chat_completion_with_schema(
             .await
             .unwrap_or_else(|_| "Failed to read error response".to_string());
         return Err(format!(
-            "API request failed with status {}: {}",
-            status, error_text
+            "API request failed with status {} ({} chars)",
+            status,
+            error_text.chars().count()
         ));
     }
 
