@@ -679,6 +679,14 @@
       "stoppedEarly": "La post-elaborazione non è stata eseguita questa volta: il modello sul dispositivo si è fermato in anticipo.",
       "modelFailed": "La post-elaborazione non è stata eseguita questa volta: il modello sul dispositivo non si è caricato."
     },
-    "announce": "{{sentence}} Incollato così com'è."
+    "announce": "{{sentence}} Incollato così com'è.",
+    "action": {
+      "download": "Scarica il modello",
+      "addKey": "Aggiungi chiave API",
+      "chooseModel": "Scegli un modello",
+      "choosePrompt": "Scegli un prompt",
+      "chooseProvider": "Scegli un provider",
+      "useLocal": "Usa il modello sul dispositivo"
+    }
   }
 }

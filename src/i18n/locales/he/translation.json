@@ -679,6 +679,14 @@
       "stoppedEarly": "העיבוד המשלים לא רץ הפעם: המודל המקומי נעצר מוקדם.",
       "modelFailed": "העיבוד המשלים לא רץ הפעם: המודל המקומי לא נטען."
     },
-    "announce": "{{sentence}} הטקסט הודבק כפי שהוא."
+    "announce": "{{sentence}} הטקסט הודבק כפי שהוא.",
+    "action": {
+      "download": "הורד מודל",
+      "addKey": "הוסף מפתח API",
+      "chooseModel": "בחר מודל",
+      "choosePrompt": "בחר פרומפט",
+      "chooseProvider": "בחר ספק",
+      "useLocal": "השתמש במודל המקומי"
+    }
   }
 }

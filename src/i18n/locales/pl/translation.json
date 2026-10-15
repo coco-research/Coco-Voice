@@ -679,6 +679,14 @@
       "stoppedEarly": "Postproces tym razem nie został uruchomiony: model na urządzeniu zatrzymał się za wcześnie.",
       "modelFailed": "Postproces tym razem nie został uruchomiony: model na urządzeniu się nie załadował."
     },
-    "announce": "{{sentence}} Wklejono bez zmian."
+    "announce": "{{sentence}} Wklejono bez zmian.",
+    "action": {
+      "download": "Pobierz model",
+      "addKey": "Dodaj klucz API",
+      "chooseModel": "Wybierz model",
+      "choosePrompt": "Wybierz prompt",
+      "chooseProvider": "Wybierz dostawcę",
+      "useLocal": "Użyj modelu na urządzeniu"
+    }
   }
 }

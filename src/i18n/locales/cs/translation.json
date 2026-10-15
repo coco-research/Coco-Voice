@@ -679,6 +679,14 @@
       "stoppedEarly": "Následné zpracování tentokrát neproběhlo: místní model skončil předčasně.",
       "modelFailed": "Následné zpracování tentokrát neproběhlo: místní model se nenačetl."
     },
-    "announce": "{{sentence}} Vloženo beze změny."
+    "announce": "{{sentence}} Vloženo beze změny.",
+    "action": {
+      "download": "Stáhnout model",
+      "addKey": "Přidat API klíč",
+      "chooseModel": "Vybrat model",
+      "choosePrompt": "Vybrat prompt",
+      "chooseProvider": "Vybrat poskytovatele",
+      "useLocal": "Použít místní model"
+    }
   }
 }

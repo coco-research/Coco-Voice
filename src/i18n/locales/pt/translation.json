@@ -679,6 +679,14 @@
       "stoppedEarly": "O pós-processamento não foi executado desta vez: o modelo no dispositivo parou cedo demais.",
       "modelFailed": "O pós-processamento não foi executado desta vez: o modelo no dispositivo não carregou."
     },
-    "announce": "{{sentence}} Colado como está."
+    "announce": "{{sentence}} Colado como está.",
+    "action": {
+      "download": "Baixar modelo",
+      "addKey": "Adicionar chave da API",
+      "chooseModel": "Selecionar modelo",
+      "choosePrompt": "Selecionar prompt",
+      "chooseProvider": "Selecionar provedor",
+      "useLocal": "Usar modelo no dispositivo"
+    }
   }
 }

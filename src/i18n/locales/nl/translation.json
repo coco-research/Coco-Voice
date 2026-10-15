@@ -679,6 +679,14 @@
       "stoppedEarly": "Naverwerking is deze keer niet uitgevoerd: het lokale model stopte te vroeg.",
       "modelFailed": "Naverwerking is deze keer niet uitgevoerd: het lokale model is niet geladen."
     },
-    "announce": "{{sentence}} Ongewijzigd geplakt."
+    "announce": "{{sentence}} Ongewijzigd geplakt.",
+    "action": {
+      "download": "Model downloaden",
+      "addKey": "API-sleutel toevoegen",
+      "chooseModel": "Model selecteren",
+      "choosePrompt": "Prompt selecteren",
+      "chooseProvider": "Provider selecteren",
+      "useLocal": "Lokaal model gebruiken"
+    }
   }
 }

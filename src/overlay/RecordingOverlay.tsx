@@ -83,6 +83,10 @@ const RecordingOverlay: React.FC = () => {
   const [overflowing, setOverflowing] = useState(false);
 
   const smoothedLevelsRef = useRef<number[]>(Array(16).fill(0));
+  // The cleanup listener is registered once, so it reads these instead of the
+  // state closed over on mount. Written wherever state and phase are set.
+  const stateRef = useRef<OverlayState>("recording");
+  const phaseRef = useRef<StreamPhase>("listening");
   // Live-text scroll-back: the text region "sticks" to the newest line while the
   // user is at the bottom; if they scroll up to read history, auto-follow pauses
   // until they scroll back down.
@@ -107,12 +111,14 @@ const RecordingOverlay: React.FC = () => {
           // Keep the previous/default placement if settings can't be read.
         }
         const overlayState = event.payload as OverlayState;
+        stateRef.current = overlayState;
         setState(overlayState);
         if (overlayState === "recording" || overlayState === "streaming") {
           setStreamText({ committed: "", tentative: "" });
           setCleanupStatus(null);
         }
         if (overlayState === "streaming") {
+          phaseRef.current = "listening";
           setPhase("listening");
           setWorkKind("transcribing");
           setElapsed(0);
@@ -143,11 +149,20 @@ const RecordingOverlay: React.FC = () => {
 
       const unlistenPhase = await events.streamPhaseEvent.listen((event) => {
         const payload: StreamPhaseEvent = event.payload;
+        phaseRef.current = payload.phase;
         setPhase(payload.phase);
         if (payload.kind) setWorkKind(payload.kind);
       });
 
       const unlistenCleanup = await events.cleanupStatus.listen((event) => {
+        // A late status from the previous take can arrive after this take has
+        // started capturing. A real one arrives while transcribing, processing,
+        // or in the streaming "working" phase.
+        const capturing =
+          stateRef.current === "recording" ||
+          (stateRef.current === "streaming" &&
+            phaseRef.current === "listening");
+        if (capturing) return;
         setCleanupStatus(event.payload);
       });
 
