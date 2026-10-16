@@ -15,6 +15,7 @@ src-tauri/gen
 # Generated files
 src/bindings.ts
 src-tauri/src/catalog/catalog.json
+sbom/*.cdx.json
 
 # Rewritten by release-please (its JSON writer expands arrays Prettier collapses)
 CHANGELOG.md
