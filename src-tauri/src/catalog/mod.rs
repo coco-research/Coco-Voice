@@ -615,11 +615,12 @@ mod tests {
     #[test]
     fn compliance_gated_models_are_dropped() {
         let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
-        // Every held id must exist in catalog.json, so a typo fails here.
+        // Held rows are cut from catalog.json; the list stays so copies already in
+        // the HF cache are still withheld.
         for id in LEGAL_HOLD_IDS {
             assert!(
-                root.models.iter().any(|m| m.id == *id),
-                "LEGAL_HOLD_IDS entry {id} is not in catalog.json"
+                !root.models.iter().any(|m| m.id == *id),
+                "held id {id} is back in catalog.json"
             );
             assert!(
                 !CATALOG.iter().any(|d| d.id.starts_with(&format!("{id}/"))),
@@ -630,7 +631,7 @@ mod tests {
         // A new non-allowlisted model in a regenerated catalog must fail here and be reviewed.
         assert_eq!(
             root.models.len() - CATALOG.len(),
-            18,
+            0,
             "a new non-allowlisted model in a regenerated catalog must fail here and be reviewed"
         );
 
