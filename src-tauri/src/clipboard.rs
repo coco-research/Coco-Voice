@@ -556,11 +556,11 @@ fn paste_via_external_script(text: &str, script_path: &str) -> Result<(), String
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
         return Err(format!(
-            "External script '{}' failed with exit code {:?}. stderr: {}, stdout: {}",
+            "External script '{}' failed with exit code {:?} (stderr {} chars, stdout {} chars)",
             script_path,
             output.status.code(),
-            stderr.trim(),
-            stdout.trim()
+            stderr.trim().chars().count(),
+            stdout.trim().chars().count()
         ));
     }
 

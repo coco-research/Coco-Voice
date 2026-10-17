@@ -615,11 +615,12 @@ mod tests {
     #[test]
     fn compliance_gated_models_are_dropped() {
         let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
-        // Every held id must exist in catalog.json, so a typo fails here.
+        // Held rows are cut from catalog.json; the list stays so copies already in
+        // the HF cache are still withheld.
         for id in LEGAL_HOLD_IDS {
             assert!(
-                root.models.iter().any(|m| m.id == *id),
-                "LEGAL_HOLD_IDS entry {id} is not in catalog.json"
+                !root.models.iter().any(|m| m.id == *id),
+                "held id {id} is back in catalog.json"
             );
             assert!(
                 !CATALOG.iter().any(|d| d.id.starts_with(&format!("{id}/"))),
@@ -630,7 +631,7 @@ mod tests {
         // A new non-allowlisted model in a regenerated catalog must fail here and be reviewed.
         assert_eq!(
             root.models.len() - CATALOG.len(),
-            18,
+            0,
             "a new non-allowlisted model in a regenerated catalog must fail here and be reviewed"
         );
 
@@ -649,6 +650,27 @@ mod tests {
         assert!(is_allowed_catalog_entry(cleared_id, Some("other")));
         assert!(!is_allowed_catalog_entry(cleared_id, Some("cc-by-nc-4.0")));
         assert!(!is_allowed_catalog_entry(cleared_id, None));
+    }
+
+    #[test]
+    fn legal_hold_ids_match_the_generator_held_list() {
+        // Two independent lists: a typo in either fails here, so a held copy in the
+        // HF cache can't slip past repo_on_legal_hold.
+        let gen = include_str!("../../../scripts/gen_catalog.py");
+        let block = gen
+            .split("HELD = {")
+            .nth(1)
+            .and_then(|s| s.split('}').next())
+            .expect("HELD set in scripts/gen_catalog.py");
+        let held: Vec<&str> = block.split('"').skip(1).step_by(2).collect();
+        assert_eq!(held.len(), LEGAL_HOLD_IDS.len());
+        for id in LEGAL_HOLD_IDS {
+            let slug = id
+                .strip_prefix("handy-computer/")
+                .and_then(|s| s.strip_suffix("-gguf"))
+                .unwrap_or_else(|| panic!("held id {id} is not handy-computer/<slug>-gguf"));
+            assert!(held.contains(&slug), "{id} is not in gen_catalog.py HELD");
+        }
     }
 
     #[test]
