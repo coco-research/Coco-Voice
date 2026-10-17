@@ -4,6 +4,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
 use std::collections::HashMap;
 use std::fmt;
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Set once a settings read fell back to defaults. After that, writes are
@@ -411,6 +412,9 @@ pub struct AppSettings {
     pub debug_mode: bool,
     #[serde(default = "default_log_level")]
     pub log_level: LogLevel,
+    /// One-time wipe of log files that may contain dictated text. Missing means not yet.
+    #[serde(default)]
+    pub old_logs_cleared: bool,
     #[serde(default)]
     pub custom_words: Vec<String>,
     /// Deterministic user correction map applied as the final output pass. Empty
@@ -508,7 +512,11 @@ fn default_model() -> String {
 /// 3: stock cleanup prompts gain spoken self-correction. Only a stored prompt
 ///    whose id is a default and whose text still equals the previous stock
 ///    prompt is replaced.
-const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 3;
+/// 4: the file-log default moves from Debug to Info. A stored Debug is that
+///    old default, not a choice. Trace and every other level stay. A user who
+///    deliberately picked Debug before this version is reset once too. A later
+///    Debug (schema already 4) is kept.
+const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 4;
 
 fn default_settings_schema_version() -> u32 {
     CURRENT_SETTINGS_SCHEMA_VERSION
@@ -574,7 +582,7 @@ fn default_debug_mode() -> bool {
 }
 
 fn default_log_level() -> LogLevel {
-    LogLevel::Debug
+    LogLevel::Info
 }
 
 fn default_word_correction_threshold() -> f64 {
@@ -1028,6 +1036,7 @@ pub fn get_default_settings() -> AppSettings {
         overlay_position: default_overlay_position(),
         debug_mode: false,
         log_level: default_log_level(),
+        old_logs_cleared: false,
         custom_words: Vec::new(),
         corrections: Vec::new(),
         model_unload_timeout: ModelUnloadTimeout::default(),
@@ -1093,10 +1102,15 @@ impl AppSettings {
 
 /// Startup entry point. Same load-or-create/salvage/migrate behavior as
 /// `get_settings`; kept as a named alias for call-site clarity, plus a
-/// one-time debug dump of the loaded settings.
+/// one-time log of schema, level, and prompt count.
 pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
     let settings = get_settings(app);
-    debug!("Loaded settings: {:?}", settings);
+    debug!(
+        "Loaded settings: schema v{}, log level {:?}, {} prompts",
+        settings.settings_schema_version,
+        settings.log_level,
+        settings.post_process_prompts.len()
+    );
     settings
 }
 
@@ -1259,6 +1273,16 @@ fn apply_settings_migrations(
         updated = true;
     }
 
+    // v4: Debug was the file-log default. Trace and any other level is a choice.
+    // A later explicit Debug (schema already 4) does not enter this block.
+    if stored_schema_version < 4 {
+        if settings.log_level == LogLevel::Debug {
+            settings.log_level = LogLevel::Info;
+        }
+        settings.settings_schema_version = CURRENT_SETTINGS_SCHEMA_VERSION;
+        updated = true;
+    }
+
     // One-time overlay migration (only while the new key is absent): the retired
     // overlay_position `none` meant "hide the overlay" → OverlayStyle::None; any
     // other position had it visible → Live. The position enum no longer has a
@@ -1349,6 +1373,102 @@ pub fn get_history_limit(app: &AppHandle) -> usize {
 pub fn get_recording_retention_period(app: &AppHandle) -> RecordingRetentionPeriod {
     let settings = get_settings(app);
     settings.recording_retention_period
+}
+
+/// Truncate `coco-voice.log` and delete rotated `coco-voice*.log` files in
+/// `dir` only. Symlinks are skipped, never followed. A missing directory is
+/// success (nothing to clear).
+pub(crate) fn clear_old_voice_logs(dir: &Path) -> std::io::Result<()> {
+    let meta = match std::fs::symlink_metadata(dir) {
+        Ok(meta) => meta,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(e),
+    };
+    if meta.file_type().is_symlink() || !meta.is_dir() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "log directory is not a real directory",
+        ));
+    }
+
+    let mut first_err = None;
+    for entry in std::fs::read_dir(dir)? {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(e) => {
+                remember_io(&mut first_err, e);
+                continue;
+            }
+        };
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(e) => {
+                remember_io(&mut first_err, e);
+                continue;
+            }
+        };
+        // DirEntry::file_type does not follow symlinks.
+        if file_type.is_symlink() || !file_type.is_file() {
+            continue;
+        }
+        let Ok(name) = entry.file_name().into_string() else {
+            continue;
+        };
+        let result = if name == "coco-voice.log" {
+            truncate_voice_log(&entry.path())
+        } else if is_rotated_voice_log(&name) {
+            std::fs::remove_file(entry.path())
+        } else {
+            continue;
+        };
+        if let Err(e) = result {
+            remember_io(&mut first_err, e);
+        }
+    }
+    match first_err {
+        Some(e) => Err(e),
+        None => Ok(()),
+    }
+}
+
+fn remember_io(first: &mut Option<std::io::Error>, err: std::io::Error) {
+    if err.kind() != std::io::ErrorKind::NotFound && first.is_none() {
+        *first = Some(err);
+    }
+}
+
+fn is_rotated_voice_log(name: &str) -> bool {
+    if !name.starts_with("coco-voice") || name == "coco-voice.log" {
+        return false;
+    }
+    if name.ends_with(".log") || name.ends_with(".log.bak") {
+        return true;
+    }
+    // logrotate-style `coco-voice.log.1`
+    match name.strip_prefix("coco-voice.log.") {
+        Some(suffix) => !suffix.is_empty() && suffix.bytes().all(|b| b.is_ascii_digit()),
+        None => false,
+    }
+}
+
+fn truncate_voice_log(path: &Path) -> std::io::Result<()> {
+    let meta = match std::fs::symlink_metadata(path) {
+        Ok(meta) => meta,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(e),
+    };
+    if meta.file_type().is_symlink() || !meta.is_file() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "refusing to truncate a non-regular log file",
+        ));
+    }
+    // ponytail: check-then-open leaves a tiny symlink-swap window in our own log dir; add O_NOFOLLOW via libc if that ever matters.
+    std::fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(path)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1491,10 +1611,12 @@ mod tests {
             "Clean up the transcript."
         );
 
-        // Schema v1 (this fixture) is rewritten once to v3. It has no
-        // paste_delay_after_ms, so the delay stays the serde default, and its
-        // prompt is not a stock one, so the v3 prompt upgrade leaves it.
+        // Schema v1 (this fixture) is rewritten once to the current version. It
+        // has no paste_delay_after_ms, so the delay stays the serde default, and
+        // its prompt is not a stock one, so the v3 prompt upgrade leaves it.
+        // Its log_level is the old numeric Debug default, so v4 moves it to Info.
         assert!(apply_settings_migrations(&mut settings, &stored));
+        assert_eq!(settings.log_level, LogLevel::Info);
         assert_eq!(settings.paste_delay_after_ms, DEFAULT_PASTE_DELAY_AFTER_MS);
         assert_eq!(
             settings.post_process_prompts[0].prompt,
@@ -2073,7 +2195,8 @@ mod tests {
         let mut raw = store_at_schema(1);
         raw["paste_delay_after_ms"] = serde_json::json!(LEGACY_PASTE_DELAY_AFTER_MS);
 
-        // One pass runs v2 (60 ms -> 300 ms) and then v3 (stock prompts upgrade).
+        // One pass runs v2 (60 ms -> 300 ms), v3 (stock prompts), and v4
+        // (Debug -> Info; this store is already Info).
         assert!(apply_settings_migrations(&mut settings, &raw));
         assert_eq!(settings.paste_delay_after_ms, DEFAULT_PASTE_DELAY_AFTER_MS);
         for default in default_post_process_prompts() {
@@ -2107,5 +2230,93 @@ mod tests {
             settings.settings_schema_version,
             CURRENT_SETTINGS_SCHEMA_VERSION
         );
+    }
+
+    #[test]
+    fn schema_v3_debug_log_level_migrates_to_info() {
+        let mut settings = get_default_settings();
+        settings.log_level = LogLevel::Debug;
+        let mut raw = store_at_schema(3);
+        raw["log_level"] = serde_json::json!("debug");
+
+        assert!(apply_settings_migrations(&mut settings, &raw));
+        assert_eq!(settings.log_level, LogLevel::Info);
+        assert_eq!(
+            settings.settings_schema_version,
+            CURRENT_SETTINGS_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
+    fn schema_v3_trace_log_level_stays_trace() {
+        let mut settings = get_default_settings();
+        settings.log_level = LogLevel::Trace;
+        let mut raw = store_at_schema(3);
+        raw["log_level"] = serde_json::json!("trace");
+
+        assert!(apply_settings_migrations(&mut settings, &raw));
+        assert_eq!(settings.log_level, LogLevel::Trace);
+        assert_eq!(
+            settings.settings_schema_version,
+            CURRENT_SETTINGS_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
+    fn schema_v4_debug_log_level_is_a_user_choice() {
+        let mut settings = get_default_settings();
+        settings.log_level = LogLevel::Debug;
+        settings.settings_schema_version = 4;
+        let mut raw = store_at_schema(4);
+        raw["log_level"] = serde_json::json!("debug");
+
+        assert!(!apply_settings_migrations(&mut settings, &raw));
+        assert_eq!(settings.log_level, LogLevel::Debug);
+    }
+
+    #[test]
+    fn fresh_default_log_level_is_info() {
+        assert_eq!(default_log_level(), LogLevel::Info);
+        assert_eq!(get_default_settings().log_level, LogLevel::Info);
+        let settings: AppSettings = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(settings.log_level, LogLevel::Info);
+        assert!(!settings.old_logs_cleared);
+    }
+
+    #[test]
+    fn clear_old_voice_logs_truncates_main_and_drops_rotated_only() {
+        let dir = std::env::temp_dir().join(format!(
+            "coco-voice-log-clear-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let main = dir.join("coco-voice.log");
+        let notes = dir.join("notes.txt");
+        std::fs::write(&main, "secret transcript").unwrap();
+        std::fs::write(dir.join("coco-voice.log.1"), "rotated one").unwrap();
+        std::fs::write(dir.join("coco-voice_2026-01-01_00-00-00.log"), "dated").unwrap();
+        std::fs::write(dir.join("coco-voice_2026-01-01_00-00-00.log.bak"), "backup").unwrap();
+        std::fs::write(&notes, "keep me").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&notes, dir.join("coco-voice.log.9")).unwrap();
+
+        let result = clear_old_voice_logs(&dir);
+
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(std::fs::read_to_string(&main).unwrap(), "");
+        assert!(!dir.join("coco-voice.log.1").exists());
+        assert!(!dir.join("coco-voice_2026-01-01_00-00-00.log").exists());
+        assert!(!dir.join("coco-voice_2026-01-01_00-00-00.log.bak").exists());
+        assert_eq!(std::fs::read_to_string(&notes).unwrap(), "keep me");
+        #[cfg(unix)]
+        {
+            let link = std::fs::symlink_metadata(dir.join("coco-voice.log.9")).unwrap();
+            assert!(link.file_type().is_symlink());
+        }
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }

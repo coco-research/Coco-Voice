@@ -50,6 +50,14 @@ CURATION = {
     # description-only (unranked, not recommended) — carried over from the legacy .bin entry
     "Breeze-ASR-25":                   {"desc": "Optimized for Taiwanese Mandarin. Code-switching support."},
 }
+# Held for licence review or non-commercial licences: never emitted. Must match
+# LEGAL_HOLD_IDS in src-tauri/src/catalog/mod.rs (a Rust test checks both agree).
+HELD = {
+    "parakeet-unified-en-0.6b", "nemotron-3.5-asr-streaming-0.6b", "nemotron-speech-streaming-en-0.6b",
+    "medasr", "SenseVoiceSmall", "canary-1b",
+    "moonshine-tiny-vi", "moonshine-tiny-uk", "moonshine-tiny-ko", "moonshine-tiny-zh", "moonshine-tiny-ar", "moonshine-tiny-ja",
+    "moonshine-base-ar", "moonshine-base-ko", "moonshine-base-uk", "moonshine-base-ja", "moonshine-base-vi", "moonshine-base-zh",
+}
 # temporary capability corrections pending a card re-push (remove once cards fixed)
 OVERRIDES = {
     "granite-4.0-1b-speech": {"timestamps": "none"},
@@ -232,7 +240,7 @@ def main():
         for f in as_completed(futs):
             try:
                 m = f.result()
-                if not CURATION.get(m["slug"], {}).get("hidden"): models.append(m)
+                if m["slug"] not in HELD and not CURATION.get(m["slug"], {}).get("hidden"): models.append(m)
             except Exception as e:
                 failures.append((futs[f], e))
                 print(f"!! {futs[f]}: {e}", file=sys.stderr)
