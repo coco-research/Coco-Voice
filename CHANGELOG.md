@@ -6,6 +6,31 @@ from the conventional commit titles when a release is cut. The user-facing notes
 for each version are in [src/content/release-notes/](src/content/release-notes/)
 and on the [GitHub Release](https://github.com/coco-research/Coco-Voice/releases).
 
+## [0.10.0](https://github.com/coco-research/Coco-Voice/compare/v0.9.6...v0.10.0) (2026-10-17)
+
+
+### Added
+
+* add an on-device cleanup eval (30 takes, one command) ([#101](https://github.com/coco-research/Coco-Voice/issues/101)) ([36d202a](https://github.com/coco-research/Coco-Voice/commit/36d202ab5d5985ad4069defbbcc85d5df5305533))
+* add the on-device llama.cpp cleanup module (macOS, not wired yet) ([#89](https://github.com/coco-research/Coco-Voice/issues/89)) ([00c234e](https://github.com/coco-research/Coco-Voice/commit/00c234e9b48813cebc6c4c7892458306d07196dd))
+* drop spoken self-corrections in the default cleanup prompts ([#90](https://github.com/coco-research/Coco-Voice/issues/90)) ([634dde2](https://github.com/coco-research/Coco-Voice/commit/634dde244e003dfc849d9c1c1a7a0afb43259ce1))
+* list Qwen3-4B for on-device cleanup and add its settings row ([#103](https://github.com/coco-research/Coco-Voice/issues/103)) ([a1b95d0](https://github.com/coco-research/Coco-Voice/commit/a1b95d04daacb07189650c11282cdcbfc4cded54))
+* run cleanup on the on-device model and resolve the provider ([#104](https://github.com/coco-research/Coco-Voice/issues/104)) ([043bc7d](https://github.com/coco-research/Coco-Voice/commit/043bc7d9c6972a226d4fc41487071d31b3763121))
+* show a "not cleaned" row in the overlay when cleanup did not run ([#112](https://github.com/coco-research/Coco-Voice/issues/112)) ([449d9c6](https://github.com/coco-research/Coco-Voice/commit/449d9c6e1883996ddc8a0e0522b0de30cf1464d7))
+* tell the UI why cleanup did not run, and hold the overlay ([#107](https://github.com/coco-research/Coco-Voice/issues/107)) ([35f63b5](https://github.com/coco-research/Coco-Voice/commit/35f63b509b14bed3a18584a4579803c74ec64b80))
+
+
+### Fixed
+
+* bind verified models to the exact file that was hashed ([#100](https://github.com/coco-research/Coco-Voice/issues/100)) ([a6dbeb1](https://github.com/coco-research/Coco-Voice/commit/a6dbeb1fd4756f59c6b96384907b8643bce1b9e1))
+* **ci:** keep a separate Rust cache per runner image ([#106](https://github.com/coco-research/Coco-Voice/issues/106)) ([b0b2e5d](https://github.com/coco-research/Coco-Voice/commit/b0b2e5d4d6c012fb0fcd4e6c1f607a3d8d2225c6))
+* **ci:** skip llama.cpp's OpenSSL lookup so macOS builds work again ([#105](https://github.com/coco-research/Coco-Voice/issues/105)) ([8a42400](https://github.com/coco-research/Coco-Voice/commit/8a42400e048523de94506db52df9a22144250593))
+* drop held and non-commercial models from the catalog ([#110](https://github.com/coco-research/Coco-Voice/issues/110)) ([50f632e](https://github.com/coco-research/Coco-Voice/commit/50f632ee3dc08f499e1d7c81fce1227d5b3984a4))
+* never write dictated text to the log file ([#108](https://github.com/coco-research/Coco-Voice/issues/108)) ([61be943](https://github.com/coco-research/Coco-Voice/commit/61be9438e1d604f7cafd2144e462f6fd0d9ccf78))
+* paste without freezing the Coco Voice window ([#102](https://github.com/coco-research/Coco-Voice/issues/102)) ([13d3df9](https://github.com/coco-research/Coco-Voice/commit/13d3df987bdb2552d3cbff3c8ba53e5491d085e4))
+* save every settings change under the settings lock ([#93](https://github.com/coco-research/Coco-Voice/issues/93)) ([398a154](https://github.com/coco-research/Coco-Voice/commit/398a154a77c872b31074be09659838476362641e))
+* verify the SHA-256 of Hugging Face model downloads ([#92](https://github.com/coco-research/Coco-Voice/issues/92)) ([a6606d2](https://github.com/coco-research/Coco-Voice/commit/a6606d292546172fe8dea0c746491eb2a55c6a86))
+
 ## [0.9.6](https://github.com/coco-research/Coco-Voice/compare/v0.9.5...v0.9.6) (2026-10-08)
 
 
