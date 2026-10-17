@@ -653,5 +653,32 @@
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}}의 새 소식"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "다듬지 않음: 모델 없음",
+      "noApiKey": "다듬지 않음: API 키 없음",
+      "noModelChosen": "다듬지 않음: 모델 미선택",
+      "noPrompt": "다듬지 않음: 프롬프트 없음",
+      "noProvider": "다듬지 않음: 제공자 없음",
+      "appleOff": "다듬지 않음: Apple AI 꺼짐",
+      "tooLong": "너무 길어 그대로 붙여넣음",
+      "stoppedEarly": "그대로 붙여넣음",
+      "modelFailed": "모델 로드 실패, 그대로 붙여넣음",
+      "fallbackNeedsYou": "다듬지 않음",
+      "fallbackThisTake": "그대로 붙여넣음"
+    },
+    "sentence": {
+      "noModel": "후처리가 꺼져 있습니다: 기기 내 모델이 다운로드되지 않았습니다.",
+      "noApiKey": "후처리가 꺼져 있습니다: 제공자에 API 키가 없습니다.",
+      "noModelChosen": "후처리가 꺼져 있습니다: 모델이 선택되지 않았습니다.",
+      "noPrompt": "후처리가 꺼져 있습니다: 프롬프트가 설정되지 않았습니다.",
+      "noProvider": "후처리가 꺼져 있습니다: 제공자가 선택되지 않았습니다.",
+      "appleOff": "후처리가 꺼져 있습니다: 이 Mac에서는 Apple Intelligence를 사용할 수 없습니다.",
+      "tooLong": "이번에는 후처리가 실행되지 않았습니다: 텍스트가 기기 내 모델에 비해 너무 깁니다.",
+      "stoppedEarly": "이번에는 후처리가 실행되지 않았습니다: 기기 내 모델이 일찍 중단되었습니다.",
+      "modelFailed": "이번에는 후처리가 실행되지 않았습니다: 기기 내 모델을 불러오지 못했습니다."
+    },
+    "announce": "{{sentence}} 그대로 붙여넣었습니다."
   }
 }

@@ -653,5 +653,32 @@
   },
   "whatsNew": {
     "title": "Nytt i Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "Inte förbättrad: ingen modell",
+      "noApiKey": "Inte förbättrad: ingen API-nyckel",
+      "noModelChosen": "Inte förbättrad: ingen modell vald",
+      "noPrompt": "Inte förbättrad: ingen prompt",
+      "noProvider": "Inte förbättrad: ingen leverantör",
+      "appleOff": "Inte förbättrad: Apple AI av",
+      "tooLong": "För lång, infogad oförändrad",
+      "stoppedEarly": "Infogad oförändrad",
+      "modelFailed": "Modell ej laddad, infogad oförändrad",
+      "fallbackNeedsYou": "Inte förbättrad",
+      "fallbackThisTake": "Infogad oförändrad"
+    },
+    "sentence": {
+      "noModel": "Efterbearbetning är av: den lokala modellen är inte nedladdad.",
+      "noApiKey": "Efterbearbetning är av: leverantören saknar API-nyckel.",
+      "noModelChosen": "Efterbearbetning är av: ingen modell är vald.",
+      "noPrompt": "Efterbearbetning är av: ingen prompt är angiven.",
+      "noProvider": "Efterbearbetning är av: ingen leverantör är vald.",
+      "appleOff": "Efterbearbetning är av: Apple Intelligence är inte tillgängligt på den här Macen.",
+      "tooLong": "Efterbearbetning kördes inte den här gången: texten var för lång för den lokala modellen.",
+      "stoppedEarly": "Efterbearbetning kördes inte den här gången: den lokala modellen stoppade i förtid.",
+      "modelFailed": "Efterbearbetning kördes inte den här gången: den lokala modellen laddades inte."
+    },
+    "announce": "{{sentence}} Infogad oförändrad."
   }
 }

@@ -4,12 +4,15 @@ import { useTranslation } from "react-i18next";
 import "./RecordingOverlay.css";
 import { commands, events } from "@/bindings";
 import type {
+  CleanupStatus,
   StreamPhase,
   StreamPhaseEvent,
   StreamTextEvent,
   StreamWorkKind,
 } from "@/bindings";
+import { CleanupMark } from "@/components/shared/CleanupMark";
 import i18n, { syncLanguageFromSettings } from "@/i18n";
+import { CLEANUP_NOTE } from "@/lib/utils/cleanupStatus";
 import { getLanguageDirection } from "@/lib/utils/rtl";
 
 type OverlayState = "recording" | "streaming" | "transcribing" | "processing";
@@ -17,6 +20,41 @@ type OverlayState = "recording" | "streaming" | "transcribing" | "processing";
 // Number of reactive bars in the waveform (the simple, smoothed style shared by
 // every overlay form). Mic levels arrive as 16 FFT buckets; we take the first N.
 const WAVE_BARS = 9;
+
+// The status row for a take where cleanup did not run: the mark, then a few words
+// that never wrap and never end in an ellipsis. If the words do not fit the line,
+// only the short form shows; the reason is in the tooltip and in Settings.
+const CleanupChip: React.FC<{ status: CleanupStatus }> = ({ status }) => {
+  const { t } = useTranslation();
+  const wordsRef = useRef<HTMLSpanElement>(null);
+  const [short, setShort] = useState(false);
+  const note = CLEANUP_NOTE[status.reason];
+  const announce = t("cleanupStatus.announce", {
+    sentence: t(`cleanupStatus.sentence.${note}`),
+  });
+  const fallback = status.needs_action
+    ? "fallbackNeedsYou"
+    : "fallbackThisTake";
+
+  useLayoutEffect(() => {
+    const el = wordsRef.current;
+    if (el && el.scrollWidth > el.clientWidth) setShort(true);
+  }, []);
+
+  return (
+    <div
+      className={`sbase schip ${status.needs_action ? "needs-you" : "quiet"}`}
+      role="status"
+      title={announce}
+      aria-label={announce}
+    >
+      <CleanupMark needsAction={status.needs_action} />
+      <span className="schip-words" ref={wordsRef}>
+        {t(`cleanupStatus.chip.${short ? fallback : note}`)}
+      </span>
+    </div>
+  );
+};
 
 const RecordingOverlay: React.FC = () => {
   const { t } = useTranslation();
@@ -29,6 +67,10 @@ const RecordingOverlay: React.FC = () => {
   });
   const [phase, setPhase] = useState<StreamPhase>("listening");
   const [workKind, setWorkKind] = useState<StreamWorkKind>("transcribing");
+  // Why cleanup did not run for this take; cleared when the next recording starts.
+  const [cleanupStatus, setCleanupStatus] = useState<CleanupStatus | null>(
+    null,
+  );
   const [elapsed, setElapsed] = useState(0);
   // Bumped on each new streaming session so the Live card remounts fresh (replays
   // the pop-in, and never animates in from the previous panel's open size).
@@ -68,6 +110,7 @@ const RecordingOverlay: React.FC = () => {
         setState(overlayState);
         if (overlayState === "recording" || overlayState === "streaming") {
           setStreamText({ committed: "", tentative: "" });
+          setCleanupStatus(null);
         }
         if (overlayState === "streaming") {
           setPhase("listening");
@@ -104,12 +147,17 @@ const RecordingOverlay: React.FC = () => {
         if (payload.kind) setWorkKind(payload.kind);
       });
 
+      const unlistenCleanup = await events.cleanupStatus.listen((event) => {
+        setCleanupStatus(event.payload);
+      });
+
       return () => {
         unlistenShow();
         unlistenHide();
         unlistenLevel();
         unlistenStream();
         unlistenPhase();
+        unlistenCleanup();
       };
     };
 
@@ -197,7 +245,7 @@ const RecordingOverlay: React.FC = () => {
 
   // spinner (left) | label (center) | cancel (right) — same 3-zone grid as the
   // listening row, so the label is centered.
-  const workingRow = (label: string, showCancel: boolean) => (
+  const spinnerRow = (label: string, showCancel: boolean) => (
     <div className="sbase">
       <div className="sbase-l">
         <span className="sspinner" />
@@ -206,6 +254,15 @@ const RecordingOverlay: React.FC = () => {
       <div className="sbase-r">{showCancel && cancelBtn}</div>
     </div>
   );
+
+  // No cancel button here: by the time the status arrives there is nothing to cancel.
+  const cleanupRow = cleanupStatus && (
+    <CleanupChip key={cleanupStatus.reason} status={cleanupStatus} />
+  );
+
+  // The status arrives while the take is being cleaned, so it replaces the working row.
+  const workingRow = (label: string, showCancel: boolean) =>
+    cleanupRow ?? spinnerRow(label, showCancel);
 
   // ---- Live overlay: a pill that sculpts open into a panel ----
   if (state === "streaming") {
@@ -224,8 +281,8 @@ const RecordingOverlay: React.FC = () => {
         <div
           key={session}
           className={`scard ${open ? "open" : ""} ${collapsed ? "working" : ""} ${
-            isVisible ? "" : "leaving"
-          }`}
+            cleanupStatus ? "with-chip" : ""
+          } ${isVisible ? "" : "leaving"}`}
         >
           <div className="stext">
             <div className="stext-clip">
@@ -274,7 +331,9 @@ const RecordingOverlay: React.FC = () => {
       className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
     >
       <div
-        className={`scard compact ${working && isVisible ? "cworking" : ""}`}
+        className={`scard compact ${
+          working && (isVisible || cleanupStatus) ? "cworking" : ""
+        } ${cleanupStatus ? "with-chip" : ""}`}
       >
         {working ? workingRow(workLabel, true) : listeningRow(false, true)}
       </div>

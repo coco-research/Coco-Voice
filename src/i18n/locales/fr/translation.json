@@ -653,5 +653,32 @@
   },
   "whatsNew": {
     "title": "Nouveautés de Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "Non amélioré : pas de modèle",
+      "noApiKey": "Non amélioré : pas de clé API",
+      "noModelChosen": "Non amélioré : aucun modèle choisi",
+      "noPrompt": "Non amélioré : pas de prompt",
+      "noProvider": "Non amélioré : pas de fournisseur",
+      "appleOff": "Non amélioré : Apple AI désactivée",
+      "tooLong": "Trop long, collé tel quel",
+      "stoppedEarly": "Collé tel quel",
+      "modelFailed": "Modèle non chargé, collé tel quel",
+      "fallbackNeedsYou": "Non amélioré",
+      "fallbackThisTake": "Collé tel quel"
+    },
+    "sentence": {
+      "noModel": "Le post-traitement est désactivé : le modèle sur l'appareil n'est pas téléchargé.",
+      "noApiKey": "Le post-traitement est désactivé : le fournisseur n'a pas de clé API.",
+      "noModelChosen": "Le post-traitement est désactivé : aucun modèle n'est choisi.",
+      "noPrompt": "Le post-traitement est désactivé : aucun prompt n'est défini.",
+      "noProvider": "Le post-traitement est désactivé : aucun fournisseur n'est choisi.",
+      "appleOff": "Le post-traitement est désactivé : Apple Intelligence n'est pas disponible sur ce Mac.",
+      "tooLong": "Le post-traitement n'a pas été exécuté cette fois : le texte était trop long pour le modèle sur l'appareil.",
+      "stoppedEarly": "Le post-traitement n'a pas été exécuté cette fois : le modèle sur l'appareil s'est arrêté trop tôt.",
+      "modelFailed": "Le post-traitement n'a pas été exécuté cette fois : le modèle sur l'appareil ne s'est pas chargé."
+    },
+    "announce": "{{sentence}} Collé tel quel."
   }
 }

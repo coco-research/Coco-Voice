@@ -653,5 +653,32 @@
   "overlay": {
     "transcribing": "Transcribing...",
     "processing": "Processing..."
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "Not cleaned: no model",
+      "noApiKey": "Not cleaned: no API key",
+      "noModelChosen": "Not cleaned: no model chosen",
+      "noPrompt": "Not cleaned: no prompt",
+      "noProvider": "Not cleaned: no provider",
+      "appleOff": "Not cleaned: Apple AI off",
+      "tooLong": "Too long, pasted as said",
+      "stoppedEarly": "Pasted as said",
+      "modelFailed": "Model didn't load, pasted as said",
+      "fallbackNeedsYou": "Not cleaned",
+      "fallbackThisTake": "Pasted as said"
+    },
+    "sentence": {
+      "noModel": "Cleanup is off: the on-device model isn't downloaded.",
+      "noApiKey": "Cleanup is off: the provider has no API key.",
+      "noModelChosen": "Cleanup is off: no model is chosen.",
+      "noPrompt": "Cleanup is off: no cleanup prompt is set.",
+      "noProvider": "Cleanup is off: no cleanup provider is chosen.",
+      "appleOff": "Cleanup is off: Apple Intelligence isn't available on this Mac.",
+      "tooLong": "Cleanup didn't run this time: the text was too long for the on-device model.",
+      "stoppedEarly": "Cleanup didn't run this time: the on-device model stopped early.",
+      "modelFailed": "Cleanup didn't run this time: the on-device model didn't load."
+    },
+    "announce": "{{sentence}} Pasted as said."
   }
 }

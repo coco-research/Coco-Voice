@@ -653,5 +653,32 @@
   },
   "whatsNew": {
     "title": "Nowości w Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "Nie ulepszono: brak modelu",
+      "noApiKey": "Nie ulepszono: brak klucza API",
+      "noModelChosen": "Nie ulepszono: nie wybrano modelu",
+      "noPrompt": "Nie ulepszono: brak promptu",
+      "noProvider": "Nie ulepszono: brak dostawcy",
+      "appleOff": "Nie ulepszono: Apple AI wyłączone",
+      "tooLong": "Za długie, wklejono bez zmian",
+      "stoppedEarly": "Wklejono bez zmian",
+      "modelFailed": "Nie wczytano modelu, wklejono bez zmian",
+      "fallbackNeedsYou": "Nie ulepszono",
+      "fallbackThisTake": "Wklejono bez zmian"
+    },
+    "sentence": {
+      "noModel": "Postproces jest wyłączony: model na urządzeniu nie został pobrany.",
+      "noApiKey": "Postproces jest wyłączony: dostawca nie ma klucza API.",
+      "noModelChosen": "Postproces jest wyłączony: nie wybrano modelu.",
+      "noPrompt": "Postproces jest wyłączony: nie ustawiono promptu.",
+      "noProvider": "Postproces jest wyłączony: nie wybrano dostawcy.",
+      "appleOff": "Postproces jest wyłączony: Apple Intelligence nie jest dostępne na tym Macu.",
+      "tooLong": "Postproces tym razem nie został uruchomiony: tekst był zbyt długi dla modelu na urządzeniu.",
+      "stoppedEarly": "Postproces tym razem nie został uruchomiony: model na urządzeniu zatrzymał się za wcześnie.",
+      "modelFailed": "Postproces tym razem nie został uruchomiony: model na urządzeniu się nie załadował."
+    },
+    "announce": "{{sentence}} Wklejono bez zmian."
   }
 }

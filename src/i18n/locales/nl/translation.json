@@ -653,5 +653,32 @@
   "overlay": {
     "transcribing": "Transcriberen...",
     "processing": "Verwerken..."
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "Niet verbeterd: geen model",
+      "noApiKey": "Niet verbeterd: geen API-sleutel",
+      "noModelChosen": "Niet verbeterd: geen model gekozen",
+      "noPrompt": "Niet verbeterd: geen prompt",
+      "noProvider": "Niet verbeterd: geen provider",
+      "appleOff": "Niet verbeterd: Apple AI uit",
+      "tooLong": "Te lang, ongewijzigd geplakt",
+      "stoppedEarly": "Ongewijzigd geplakt",
+      "modelFailed": "Model niet geladen, ongewijzigd geplakt",
+      "fallbackNeedsYou": "Niet verbeterd",
+      "fallbackThisTake": "Ongewijzigd geplakt"
+    },
+    "sentence": {
+      "noModel": "Naverwerking staat uit: het lokale model is niet gedownload.",
+      "noApiKey": "Naverwerking staat uit: de provider heeft geen API-sleutel.",
+      "noModelChosen": "Naverwerking staat uit: er is geen model gekozen.",
+      "noPrompt": "Naverwerking staat uit: er is geen prompt ingesteld.",
+      "noProvider": "Naverwerking staat uit: er is geen provider gekozen.",
+      "appleOff": "Naverwerking staat uit: Apple Intelligence is niet beschikbaar op deze Mac.",
+      "tooLong": "Naverwerking is deze keer niet uitgevoerd: de tekst was te lang voor het lokale model.",
+      "stoppedEarly": "Naverwerking is deze keer niet uitgevoerd: het lokale model stopte te vroeg.",
+      "modelFailed": "Naverwerking is deze keer niet uitgevoerd: het lokale model is niet geladen."
+    },
+    "announce": "{{sentence}} Ongewijzigd geplakt."
   }
 }

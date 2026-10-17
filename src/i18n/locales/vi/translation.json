@@ -653,5 +653,32 @@
   },
   "whatsNew": {
     "title": "Điểm mới trong Coco Voice v{{version}}"
+  },
+  "cleanupStatus": {
+    "chip": {
+      "noModel": "Chưa chỉnh sửa: chưa có mô hình",
+      "noApiKey": "Chưa chỉnh sửa: thiếu khóa API",
+      "noModelChosen": "Chưa chỉnh sửa: chưa chọn mô hình",
+      "noPrompt": "Chưa chỉnh sửa: chưa có prompt",
+      "noProvider": "Chưa chỉnh sửa: chưa có nhà cung cấp",
+      "appleOff": "Chưa chỉnh sửa: Apple AI đang tắt",
+      "tooLong": "Quá dài, đã dán nguyên văn",
+      "stoppedEarly": "Đã dán nguyên văn",
+      "modelFailed": "Lỗi tải mô hình, đã dán nguyên văn",
+      "fallbackNeedsYou": "Chưa chỉnh sửa",
+      "fallbackThisTake": "Đã dán nguyên văn"
+    },
+    "sentence": {
+      "noModel": "Xử lý sau đang tắt: mô hình trên thiết bị chưa được tải xuống.",
+      "noApiKey": "Xử lý sau đang tắt: nhà cung cấp chưa có khóa API.",
+      "noModelChosen": "Xử lý sau đang tắt: chưa chọn mô hình.",
+      "noPrompt": "Xử lý sau đang tắt: chưa đặt prompt.",
+      "noProvider": "Xử lý sau đang tắt: chưa chọn nhà cung cấp.",
+      "appleOff": "Xử lý sau đang tắt: Apple Intelligence không khả dụng trên Mac này.",
+      "tooLong": "Lần này xử lý sau không chạy: văn bản quá dài so với mô hình trên thiết bị.",
+      "stoppedEarly": "Lần này xử lý sau không chạy: mô hình trên thiết bị đã dừng sớm.",
+      "modelFailed": "Lần này xử lý sau không chạy: mô hình trên thiết bị không tải được."
+    },
+    "announce": "{{sentence}} Đã dán nguyên văn."
   }
 }
