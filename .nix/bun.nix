@@ -661,9 +661,9 @@
     url = "https://registry.npmjs.org/@types/prop-types/-/prop-types-15.7.15.tgz";
     hash = "sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==";
   };
-  "@types/react-dom@18.3.7" = fetchurl {
-    url = "https://registry.npmjs.org/@types/react-dom/-/react-dom-18.3.7.tgz";
-    hash = "sha512-MEe3UeoENYVFXzoXEWsvcpg6ZvlrFNlOQ7EOsvhI3CfAXwzPfO8Qwuxd40nepsYKqyyVQnTdEfv68q91yLcKrQ==";
+  "@types/react-dom@19.3.0" = fetchurl {
+    url = "https://registry.npmjs.org/@types/react-dom/-/react-dom-19.3.0.tgz";
+    hash = "sha512-ZI7bU42mZXXKHn/qNLEw2IrbiINU7X5+vfgdixBHkCNpYWXjKgfQ/P+uyGb5CjOLB9UcnTeg3rylQtV2hym44Q==";
   };
   "@types/react-select@5.0.1" = fetchurl {
     url = "https://registry.npmjs.org/@types/react-select/-/react-select-5.0.1.tgz";
@@ -1525,9 +1525,9 @@
     url = "https://registry.npmjs.org/punycode/-/punycode-2.3.1.tgz";
     hash = "sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==";
   };
-  "react-dom@18.3.1" = fetchurl {
-    url = "https://registry.npmjs.org/react-dom/-/react-dom-18.3.1.tgz";
-    hash = "sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==";
+  "react-dom@19.3.1" = fetchurl {
+    url = "https://registry.npmjs.org/react-dom/-/react-dom-19.3.1.tgz";
+    hash = "sha512-Y0bARz53lhEC1NMCASs0/j+faB/zqt3R8hpvg1e8+61ZVJ4UL0UdC4cBbXfZMcIuhrfgeILTLe+ZeBCavQPtKQ==";
   };
   "react-i18next@16.4.1" = fetchurl {
     url = "https://registry.npmjs.org/react-i18next/-/react-i18next-16.4.1.tgz";
@@ -1589,9 +1589,9 @@
     url = "https://registry.npmjs.org/rollup/-/rollup-4.52.5.tgz";
     hash = "sha512-3GuObel8h7Kqdjt0gxkEzaifHTqLVW56Y/bjN7PSQtkKr0w3V/QYSdt6QWYtd7A1xUtYQigtdUfgj1RvWVtorw==";
   };
-  "scheduler@0.23.2" = fetchurl {
-    url = "https://registry.npmjs.org/scheduler/-/scheduler-0.23.2.tgz";
-    hash = "sha512-UOShsPwz7NrMUqhR6t0hWjFduvOzbtv7toDH1/hIrfRNIDBnnBWd0CwJTGvTpngVlmwGCdP9/Zl/tVrDqcuYzQ==";
+  "scheduler@0.28.0" = fetchurl {
+    url = "https://registry.npmjs.org/scheduler/-/scheduler-0.28.0.tgz";
+    hash = "sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==";
   };
   "semver@6.3.1" = fetchurl {
     url = "https://registry.npmjs.org/semver/-/semver-6.3.1.tgz";
