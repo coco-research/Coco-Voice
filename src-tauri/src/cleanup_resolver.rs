@@ -50,8 +50,9 @@ impl std::fmt::Display for SkipReason {
     }
 }
 
-// Why cleanup did not run, as the UI is told. The snake_case names are the keys of
-// the `cleanupStatus.*` strings, so renaming a variant breaks its translations.
+// Why cleanup did not run, as the UI is told. `CLEANUP_NOTE` in
+// src/lib/utils/cleanupStatus.ts maps each snake_case name to its words, so a new
+// variant needs an entry there (the frontend build fails until it has one).
 // (A plain comment, not a doc comment: a doc comment would be copied into bindings.ts.)
 #[derive(Debug, Clone, Serialize, specta::Type, PartialEq)]
 #[serde(rename_all = "snake_case")]

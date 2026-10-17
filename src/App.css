@@ -71,6 +71,9 @@
   --color-background: var(--light-color-background);
   --color-logo-primary: var(--light-color-logo-primary);
   --color-logo-stroke: var(--light-color-logo-stroke);
+  --color-needs-you: var(--light-color-needs-you);
+  --color-needs-you-fill: var(--light-color-needs-you-fill);
+  --color-quiet: var(--light-color-quiet);
 }
 
 :root[data-theme="dark"] {
@@ -78,6 +81,9 @@
   --color-background: var(--dark-color-background);
   --color-logo-primary: var(--dark-color-logo-primary);
   --color-logo-stroke: var(--dark-color-logo-stroke);
+  --color-needs-you: var(--dark-color-needs-you);
+  --color-needs-you-fill: var(--dark-color-needs-you-fill);
+  --color-quiet: var(--dark-color-quiet);
 }
 
 /* macOS - tint native overlay scrollbar thumb */

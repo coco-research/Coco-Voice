@@ -679,6 +679,14 @@
       "stoppedEarly": "Nachbearbeitung wurde diesmal nicht ausgeführt: Das lokale Modell hat zu früh gestoppt.",
       "modelFailed": "Nachbearbeitung wurde diesmal nicht ausgeführt: Das lokale Modell wurde nicht geladen."
     },
-    "announce": "{{sentence}} Unverändert eingefügt."
+    "announce": "{{sentence}} Unverändert eingefügt.",
+    "action": {
+      "download": "Modell herunterladen",
+      "addKey": "API-Schlüssel hinzufügen",
+      "chooseModel": "Modell auswählen",
+      "choosePrompt": "Prompt auswählen",
+      "chooseProvider": "Anbieter auswählen",
+      "useLocal": "Lokales Modell verwenden"
+    }
   }
 }

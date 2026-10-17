@@ -679,6 +679,14 @@
       "stoppedEarly": "本次未執行後處理：裝置端模型提前停止。",
       "modelFailed": "本次未執行後處理：裝置端模型未能載入。"
     },
-    "announce": "{{sentence}}已原樣貼上。"
+    "announce": "{{sentence}}已原樣貼上。",
+    "action": {
+      "download": "下載模型",
+      "addKey": "新增 API 金鑰",
+      "chooseModel": "選擇模型",
+      "choosePrompt": "選擇提示詞",
+      "chooseProvider": "選擇供應商",
+      "useLocal": "使用裝置端模型"
+    }
   }
 }

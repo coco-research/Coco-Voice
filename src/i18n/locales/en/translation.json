@@ -679,6 +679,14 @@
       "stoppedEarly": "Cleanup didn't run this time: the on-device model stopped early.",
       "modelFailed": "Cleanup didn't run this time: the on-device model didn't load."
     },
-    "announce": "{{sentence}} Pasted as said."
+    "announce": "{{sentence}} Pasted as said.",
+    "action": {
+      "download": "Download model",
+      "addKey": "Add API key",
+      "chooseModel": "Choose model",
+      "choosePrompt": "Choose prompt",
+      "chooseProvider": "Choose provider",
+      "useLocal": "Use on-device model"
+    }
   }
 }

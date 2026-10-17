@@ -679,6 +679,14 @@
       "stoppedEarly": "이번에는 후처리가 실행되지 않았습니다: 기기 내 모델이 일찍 중단되었습니다.",
       "modelFailed": "이번에는 후처리가 실행되지 않았습니다: 기기 내 모델을 불러오지 못했습니다."
     },
-    "announce": "{{sentence}} 그대로 붙여넣었습니다."
+    "announce": "{{sentence}} 그대로 붙여넣었습니다.",
+    "action": {
+      "download": "모델 다운로드",
+      "addKey": "API 키 추가",
+      "chooseModel": "모델 선택",
+      "choosePrompt": "프롬프트 선택",
+      "chooseProvider": "제공자 선택",
+      "useLocal": "기기 내 모델 사용"
+    }
   }
 }
