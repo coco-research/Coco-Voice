@@ -12,6 +12,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    # ponytail: cpal is pinned to the version rodio (git) builds on; rodio passes cpal::Device across that API,
+    # so a cpal bump alone fails to compile (#99). Upgrade cpal together with a rodio release that targets it.
+    ignore:
+      - dependency-name: "cpal"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
   - package-ecosystem: bun
     directory: /
     schedule:
