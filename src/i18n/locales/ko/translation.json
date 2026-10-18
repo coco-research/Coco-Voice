@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "로컬 모델",
-          "description": "텍스트를 다듬는 데 사용되는 기기 내 모델입니다. 한 번만 다운로드하면 됩니다.",
+          "description": "이 Mac에서 실행되며, 방금 한 말을 스스로 고칠 때 (\"scratch that\", \"I mean\") 모델은 의도한 말만 남기고 단어는 빠뜨리지 않습니다. 추임새와 맞춤법을 다듬으려면 클라우드 제공자를 사용하세요.",
           "notDownloaded": "다운로드되지 않음",
           "downloading": "다운로드 중 {{percent}}%",
           "ready": "준비 완료",

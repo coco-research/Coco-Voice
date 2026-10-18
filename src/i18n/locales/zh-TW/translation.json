@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "本機模型",
-          "description": "用於潤飾轉錄文字的裝置端模型。只需下載一次。",
+          "description": "在這台 Mac 上執行：當你自己改口 (\"scratch that\", \"I mean\") 時，它只保留你最終想說的，且不會漏掉任何字。填充詞和拼寫的潤色，請使用雲端供應商。",
           "notDownloaded": "未下載",
           "downloading": "下載中 {{percent}}%",
           "ready": "準備就緒",

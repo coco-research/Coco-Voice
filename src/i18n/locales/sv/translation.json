@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "Lokal modell",
-          "description": "Lokal modell på enheten som används för att förbättra transkriptioner. Ladda ner den en gång.",
+          "description": "Körs på den här Macen: när du rättar det du just sa (\"scratch that\", \"I mean\"), behåller den bara det du menade och utelämnar inga ord. För redigering av utfyllnadsord och stavning, använd en molnleverantör.",
           "notDownloaded": "Inte nedladdad",
           "downloading": "Laddar ner {{percent}}%",
           "ready": "Klar",

@@ -76,7 +76,8 @@ pub struct CliArgs {
     pub eval_model: Option<PathBuf>,
 
     /// Built-in cleanup prompt id for --cleanup-eval.
-    /// Defaults to default_improve_transcriptions.
+    /// Omit to score the on-device prompt the app ships. A stock id
+    /// (default_improve_transcriptions, coco_formatted) scores that prompt.
     #[arg(long, value_name = "ID", requires = "cleanup_eval")]
     pub eval_prompt: Option<String>,
 

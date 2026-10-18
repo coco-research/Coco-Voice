@@ -411,7 +411,7 @@
         },
         "localLlm": {
           "title": "Local model",
-          "description": "On-device model used to clean transcriptions. Download it once.",
+          "description": "Runs on this Mac. When you correct yourself (\"scratch that\", \"I mean\"), it keeps only what you meant and never drops words. For filler and spelling polish, use a cloud provider.",
           "notDownloaded": "Not downloaded",
           "downloading": "Downloading {{percent}}%",
           "ready": "Ready",
