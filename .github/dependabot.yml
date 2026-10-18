@@ -12,6 +12,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    # ponytail: cpal is pinned to the version rodio (git) builds on; rodio passes cpal::Device across that API,
+    # so a cpal bump alone fails to compile (#99). Upgrade cpal together with a rodio release that targets it.
+    ignore:
+      - dependency-name: "cpal"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
   - package-ecosystem: bun
     directory: /
     schedule:
@@ -22,3 +28,13 @@ updates:
       - dependency-name: "@tauri-apps/*"
         update-types:
           ["version-update:semver-minor", "version-update:semver-major"]
+      # ponytail: React's major moves as one hand-made upgrade (react, react-dom and both @types together);
+      # a split bump builds but react-dom 19 fails at runtime on react 18 (#114). Upgrade path: one PR bumping all four.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
