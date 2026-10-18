@@ -57,7 +57,7 @@
     "@types/react-select": "^5.0.1",
     "@typescript-eslint/eslint-plugin": "^8.71.2",
     "@typescript-eslint/parser": "^8.71.2",
-    "@vitejs/plugin-react": "^4.7.0",
+    "@vitejs/plugin-react": "^6.1.2",
     "eslint": "^9.39.1",
     "eslint-plugin-i18next": "^6.1.5",
     "prettier": "^3.9.10",
