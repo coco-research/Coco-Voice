@@ -652,7 +652,8 @@
   },
   "overlay": {
     "transcribing": "Transcriberen...",
-    "processing": "Verwerken..."
+    "processing": "Verwerken...",
+    "polishing": "Redigeren..."
   },
   "cleanupStatus": {
     "chip": {

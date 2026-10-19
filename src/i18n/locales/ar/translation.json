@@ -649,7 +649,8 @@
   },
   "overlay": {
     "transcribing": "...جاري التفريغ",
-    "processing": "...جاري المعالجة"
+    "processing": "...جاري المعالجة",
+    "polishing": "...جاري التحرير"
   },
   "whatsNew": {
     "title": "الجديد في Coco Voice v{{version}}"

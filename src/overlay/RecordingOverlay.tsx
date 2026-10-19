@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import "./RecordingOverlay.css";
 import { commands, events } from "@/bindings";
 import type {
+  CleanupProgress,
   CleanupStatus,
   StreamPhase,
   StreamPhaseEvent,
@@ -20,6 +21,22 @@ type OverlayState = "recording" | "streaming" | "transcribing" | "processing";
 // Number of reactive bars in the waveform (the simple, smoothed style shared by
 // every overlay form). Mic levels arrive as 16 FFT buckets; we take the first N.
 const WAVE_BARS = 9;
+
+// Reduced motion batches word updates. 250 ms is 4 Hz.
+const REDUCED_MOTION_GAP_MS = 250;
+
+type PolishSnapshot = { text: string; done: boolean };
+
+function overlayWorkLabel(
+  polishing: boolean,
+  onDevice: boolean,
+  t: (
+    key: "overlay.transcribing" | "overlay.processing" | "overlay.polishing",
+  ) => string,
+): string {
+  if (!polishing) return t("overlay.transcribing");
+  return t(onDevice ? "overlay.polishing" : "overlay.processing");
+}
 
 // The status row for a take where cleanup did not run: the mark, then a few words
 // that never wrap and never end in an ellipsis. If the words do not fit the line,
@@ -71,6 +88,9 @@ const RecordingOverlay: React.FC = () => {
   const [cleanupStatus, setCleanupStatus] = useState<CleanupStatus | null>(
     null,
   );
+  // On-device cleanup is streaming into the overlay. Cloud never sets this.
+  const [onDevicePolish, setOnDevicePolish] = useState(false);
+  const [polish, setPolish] = useState<PolishSnapshot | null>(null);
   const [elapsed, setElapsed] = useState(0);
   // Bumped on each new streaming session so the Live card remounts fresh (replays
   // the pop-in, and never animates in from the previous panel's open size).
@@ -87,12 +107,89 @@ const RecordingOverlay: React.FC = () => {
   // state closed over on mount. Written wherever state and phase are set.
   const stateRef = useRef<OverlayState>("recording");
   const phaseRef = useRef<StreamPhase>("listening");
+  const onDeviceRef = useRef(false);
+  const reducedMotionRef = useRef(false);
+  const polishTimerRef = useRef<number | null>(null);
+  const lastPolishApplyRef = useRef(0);
+  const pendingPolishRef = useRef<PolishSnapshot | null>(null);
+  const resetPolishRef = useRef(() => {});
+  const schedulePolishRef = useRef<(next: PolishSnapshot) => void>(() => {});
+  // A late status or snapshot from the previous take can arrive after this one
+  // has started capturing. Both listeners share this.
+  const freshTakeCapturing = () =>
+    stateRef.current === "recording" ||
+    (stateRef.current === "streaming" && phaseRef.current === "listening");
   // Live-text scroll-back: the text region "sticks" to the newest line while the
   // user is at the bottom; if they scroll up to read history, auto-follow pauses
   // until they scroll back down.
   const capRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
   const direction = getLanguageDirection(i18n.language);
+
+  useEffect(() => {
+    resetPolishRef.current = () => {
+      onDeviceRef.current = false;
+      setOnDevicePolish(false);
+      setPolish(null);
+      pendingPolishRef.current = null;
+      lastPolishApplyRef.current = 0;
+      if (polishTimerRef.current !== null) {
+        window.clearTimeout(polishTimerRef.current);
+        polishTimerRef.current = null;
+      }
+    };
+
+    schedulePolishRef.current = (next) => {
+      // Every apply drops any queued batch, so an older snapshot never lands after a newer one.
+      const apply = (snapshot: PolishSnapshot) => {
+        if (polishTimerRef.current !== null) {
+          window.clearTimeout(polishTimerRef.current);
+          polishTimerRef.current = null;
+        }
+        pendingPolishRef.current = null;
+        lastPolishApplyRef.current = performance.now();
+        setPolish(snapshot);
+      };
+      // The last snapshot has to land even when a batch is still waiting.
+      if (next.done || !reducedMotionRef.current) {
+        apply(next);
+        return;
+      }
+      const elapsed = performance.now() - lastPolishApplyRef.current;
+      if (
+        lastPolishApplyRef.current === 0 ||
+        elapsed >= REDUCED_MOTION_GAP_MS
+      ) {
+        apply(next);
+        return;
+      }
+      pendingPolishRef.current = next;
+      if (polishTimerRef.current === null) {
+        polishTimerRef.current = window.setTimeout(() => {
+          polishTimerRef.current = null;
+          const pending = pendingPolishRef.current;
+          pendingPolishRef.current = null;
+          if (pending) apply(pending);
+        }, REDUCED_MOTION_GAP_MS - elapsed);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => {
+      reducedMotionRef.current = media.matches;
+    };
+    sync();
+    media.addEventListener("change", sync);
+    return () => {
+      media.removeEventListener("change", sync);
+      if (polishTimerRef.current !== null) {
+        window.clearTimeout(polishTimerRef.current);
+        polishTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const setupEventListeners = async () => {
@@ -116,6 +213,7 @@ const RecordingOverlay: React.FC = () => {
         if (overlayState === "recording" || overlayState === "streaming") {
           setStreamText({ committed: "", tentative: "" });
           setCleanupStatus(null);
+          resetPolishRef.current();
         }
         if (overlayState === "streaming") {
           phaseRef.current = "listening";
@@ -155,15 +253,27 @@ const RecordingOverlay: React.FC = () => {
       });
 
       const unlistenCleanup = await events.cleanupStatus.listen((event) => {
-        // A late status from the previous take can arrive after this take has
-        // started capturing. A real one arrives while transcribing, processing,
-        // or in the streaming "working" phase.
-        const capturing =
-          stateRef.current === "recording" ||
-          (stateRef.current === "streaming" &&
-            phaseRef.current === "listening");
-        if (capturing) return;
+        // A real status arrives while transcribing, processing, or in the
+        // streaming "working" phase.
+        if (freshTakeCapturing()) return;
         setCleanupStatus(event.payload);
+        // A refused run pastes the raw text, so drop the partial rewrite.
+        resetPolishRef.current();
+      });
+
+      const unlistenProgress = await events.cleanupProgress.listen((event) => {
+        if (freshTakeCapturing()) return;
+        const payload: CleanupProgress = event.payload;
+        if (!onDeviceRef.current) {
+          onDeviceRef.current = true;
+          setOnDevicePolish(true);
+        }
+        // Compact pill only needs the label. The live card shows the words.
+        // Whitespace is not cleaned text yet.
+        if (stateRef.current !== "streaming") return;
+        if (payload.done || payload.text.trim().length > 0) {
+          schedulePolishRef.current({ text: payload.text, done: payload.done });
+        }
       });
 
       return () => {
@@ -173,6 +283,7 @@ const RecordingOverlay: React.FC = () => {
         unlistenStream();
         unlistenPhase();
         unlistenCleanup();
+        unlistenProgress();
       };
     };
 
@@ -194,7 +305,7 @@ const RecordingOverlay: React.FC = () => {
     // Fade the top edge only once text actually overflows the cap.
     setOverflowing(el.scrollHeight > el.clientHeight + 1);
     if (pinnedRef.current) el.scrollTop = el.scrollHeight;
-  }, [streamText]);
+  }, [streamText, polish, onDevicePolish]);
 
   // Each fresh streaming session starts pinned to the bottom, fade cleared.
   useEffect(() => {
@@ -260,8 +371,13 @@ const RecordingOverlay: React.FC = () => {
 
   // spinner (left) | label (center) | cancel (right) — same 3-zone grid as the
   // listening row, so the label is centered.
-  const spinnerRow = (label: string, showCancel: boolean) => (
-    <div className="sbase">
+  const spinnerRow = (label: string, showCancel: boolean, announce = false) => (
+    <div
+      className="sbase"
+      role={announce ? "status" : undefined}
+      aria-live={announce ? "polite" : undefined}
+      aria-atomic={announce ? true : undefined}
+    >
       <div className="sbase-l">
         <span className="sspinner" />
       </div>
@@ -276,13 +392,21 @@ const RecordingOverlay: React.FC = () => {
   );
 
   // The status arrives while the take is being cleaned, so it replaces the working row.
-  const workingRow = (label: string, showCancel: boolean) =>
-    cleanupRow ?? spinnerRow(label, showCancel);
+  const workingRow = (label: string, showCancel: boolean, announce = false) =>
+    cleanupRow ?? spinnerRow(label, showCancel, announce);
 
   // ---- Live overlay: a pill that sculpts open into a panel ----
   if (state === "streaming") {
+    const polishingView = phase === "working" && onDevicePolish;
+    const cleanedNow = polish?.text ?? "";
+    // Before the first non-blank cleaned snapshot, keep the raw transcript.
+    // After it, the transcript is only the cleaned text so far.
+    const hasCleaned = cleanedNow.trim().length > 0;
+    const showCleaned = polishingView && hasCleaned;
     const hasText =
-      streamText.committed.length > 0 || streamText.tentative.length > 0;
+      streamText.committed.length > 0 ||
+      streamText.tentative.length > 0 ||
+      hasCleaned;
     const working = phase === "working";
     // Keep the panel open whenever there's text — even while finalizing — so the
     // transcript stays put under a working spinner instead of collapsing and
@@ -299,7 +423,7 @@ const RecordingOverlay: React.FC = () => {
             cleanupStatus ? "with-chip" : ""
           } ${isVisible ? "" : "leaving"}`}
         >
-          <div className="stext">
+          <div className="stext" aria-busy={polishingView ? true : undefined}>
             <div className="stext-clip">
               <div
                 className={`stext-cap ${overflowing ? "overflowing" : ""}`}
@@ -307,23 +431,30 @@ const RecordingOverlay: React.FC = () => {
                 onScroll={handleStreamScroll}
               >
                 <p>
-                  <span className="committed">
-                    {streamText.committed ? streamText.committed + " " : ""}
-                  </span>
-                  <span className="tentative">{streamText.tentative}</span>
-                  {/* Drop the blinking caret once finalizing — it's no longer
-                      capturing, and a static spinner conveys the work. */}
-                  {!working && <span className="scaret" />}
+                  {showCleaned ? (
+                    cleanedNow
+                  ) : (
+                    <>
+                      <span className={polishingView ? "raw" : "committed"}>
+                        {streamText.committed ? streamText.committed + " " : ""}
+                      </span>
+                      <span className={polishingView ? "raw" : "tentative"}>
+                        {streamText.tentative}
+                      </span>
+                      {/* Drop the blinking caret once finalizing — it's no longer
+                          capturing, and a static spinner conveys the work. */}
+                      {!working && <span className="scaret" />}
+                    </>
+                  )}
                 </p>
               </div>
             </div>
           </div>
           {working
             ? workingRow(
-                workKind === "polishing"
-                  ? t("overlay.processing")
-                  : t("overlay.transcribing"),
+                overlayWorkLabel(workKind === "polishing", onDevicePolish, t),
                 true,
+                workKind === "polishing" && onDevicePolish,
               )
             : listeningRow(open, true)}
         </div>
@@ -335,10 +466,7 @@ const RecordingOverlay: React.FC = () => {
   // spinner + label (transcribing / processing). Never both. The pill animates its
   // width between them; the cancel button is in both rows so it stays put.
   const working = state === "transcribing" || state === "processing";
-  const workLabel =
-    state === "processing"
-      ? t("overlay.processing")
-      : t("overlay.transcribing");
+  const workLabel = overlayWorkLabel(state === "processing", onDevicePolish, t);
 
   return (
     <div
@@ -350,7 +478,13 @@ const RecordingOverlay: React.FC = () => {
           working && (isVisible || cleanupStatus) ? "cworking" : ""
         } ${cleanupStatus ? "with-chip" : ""}`}
       >
-        {working ? workingRow(workLabel, true) : listeningRow(false, true)}
+        {working
+          ? workingRow(
+              workLabel,
+              true,
+              state === "processing" && onDevicePolish,
+            )
+          : listeningRow(false, true)}
       </div>
     </div>
   );

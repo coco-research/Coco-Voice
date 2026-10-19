@@ -649,7 +649,8 @@
   },
   "overlay": {
     "transcribing": "Transkribe ediliyor...",
-    "processing": "İşleniyor..."
+    "processing": "İşleniyor...",
+    "polishing": "Düzenleniyor..."
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} yenilikleri"
