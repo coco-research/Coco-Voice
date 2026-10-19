@@ -103,7 +103,7 @@ jobs:
           git config --system core.longpaths true
 
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.repository }}
           ref: ${{ inputs.ref }}
@@ -130,10 +130,10 @@ jobs:
           fi
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
       - name: install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
           # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
           targets: ${{ contains(inputs.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
@@ -143,7 +143,7 @@ jobs:
         # always compiled clean — no risk of a stale cached native lib being
         # linked. PR/test builds keep caching for speed.
         if: ${{ !inputs.no-cache }}
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: "./src-tauri -> target"
           key: ${{ inputs.platform }}-${{ inputs.target }}
@@ -190,7 +190,7 @@ jobs:
       # built there and no Vulkan SDK, headers, or glslc are needed.
       - name: Install Vulkan SDK (Windows x64)
         if: contains(inputs.platform, 'windows') && !contains(inputs.target, 'aarch64')
-        uses: humbletim/install-vulkan-sdk@v1.2
+        uses: humbletim/install-vulkan-sdk@30ba978f977e81b72d091fc8888feb1fb26f9aff # v1.2
         with:
           version: 1.4.309.0
           cache: true
@@ -198,7 +198,7 @@ jobs:
       - name: Cache trusted-signing-cli
         if: contains(inputs.platform, 'windows') && inputs.sign-binaries
         id: cache-tsc
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cargo/bin/trusted-signing-cli*
           key: trusted-signing-cli-${{ env.TSC_VERSION }}-${{ runner.os }}-${{ runner.arch }}
@@ -218,7 +218,7 @@ jobs:
 
       - name: Prepare Vulkan SDK for Ubuntu ARM64
         if: contains(inputs.platform, 'ubuntu') && contains(inputs.platform, 'arm')
-        uses: jakoch/install-vulkan-sdk-action@v1
+        uses: jakoch/install-vulkan-sdk-action@d17de7e2f5e50efb5d2123efed18497d3c58c533 # v1.7.0
         with:
           vulkan_version: 1.4.335.0
           cache: true
@@ -534,7 +534,7 @@ jobs:
           sudo ldconfig
 
       - name: Build with Tauri
-        uses: tauri-apps/tauri-action@v1
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_ID: ${{ inputs.sign-binaries && secrets.APPLE_ID || '' }}
@@ -585,7 +585,7 @@ jobs:
 
       - name: Upload artifacts (macOS)
         if: inputs.upload-artifacts && contains(inputs.platform, 'macos')
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ inputs.asset-prefix }}-${{ inputs.target }}
           path: |
@@ -772,7 +772,7 @@ jobs:
 
       - name: Upload artifacts (Linux)
         if: inputs.upload-artifacts && contains(inputs.platform, 'ubuntu')
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ inputs.asset-prefix }}-${{ inputs.platform }}-${{ inputs.target }}
           path: |
@@ -887,7 +887,7 @@ jobs:
 
       - name: Upload artifacts (Windows)
         if: inputs.upload-artifacts && contains(inputs.platform, 'windows')
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ inputs.asset-prefix }}-${{ inputs.target }}
           path: |
