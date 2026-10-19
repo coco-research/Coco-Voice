@@ -151,7 +151,8 @@
     },
     "cancel": "Отмена",
     "cancelDownload": "Отменить загрузку",
-    "legacy": "Устаревшее"
+    "legacy": "Устаревшее",
+    "licence": "Лицензия: {{licence}}"
   },
   "settings": {
     "modelSettings": {

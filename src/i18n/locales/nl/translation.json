@@ -122,6 +122,7 @@
   "modelSelector": {
     "custom": "Aangepast",
     "legacy": "Klassiek",
+    "licence": "Licentie: {{licence}}",
     "streaming": "Streaming",
     "active": "Actief",
     "switching": "Wisselen...",

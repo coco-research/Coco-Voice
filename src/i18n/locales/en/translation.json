@@ -122,6 +122,7 @@
   "modelSelector": {
     "custom": "Custom",
     "legacy": "Legacy",
+    "licence": "Licence: {{licence}}",
     "streaming": "Streaming",
     "active": "Active",
     "switching": "Switching...",

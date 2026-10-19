@@ -151,7 +151,8 @@
     },
     "cancel": "İptal",
     "cancelDownload": "İndirmeyi iptal et",
-    "legacy": "Eski"
+    "legacy": "Eski",
+    "licence": "Lisans: {{licence}}"
   },
   "settings": {
     "modelSettings": {

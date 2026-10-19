@@ -151,7 +151,8 @@
     },
     "cancel": "Скасувати",
     "cancelDownload": "Скасувати завантаження",
-    "legacy": "Застаріле"
+    "legacy": "Застаріле",
+    "licence": "Ліцензія: {{licence}}"
   },
   "settings": {
     "modelSettings": {

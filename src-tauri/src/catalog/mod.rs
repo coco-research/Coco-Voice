@@ -704,4 +704,91 @@ mod tests {
         // False for an unknown repo
         assert!(!repo_withheld("some/unknown-repo"));
     }
+
+    #[derive(Deserialize)]
+    struct LicenceFile {
+        models: HashMap<String, LicenceEntry>,
+    }
+
+    #[derive(Deserialize)]
+    struct LicenceEntry {
+        licence: String,
+        revision: String,
+        url: String,
+    }
+
+    /// Built-in ids `ModelManager::new` inserts before the catalog seed.
+    /// ponytail: scans those string-literal inserts instead of booting Tauri.
+    /// If a builtin stops being `"id".to_string()` on the next line, parse that
+    /// shape here.
+    fn builtin_legacy_model_ids() -> Vec<&'static str> {
+        let src = include_str!("../managers/model.rs");
+        let start = src
+            .find("let mut available_models = HashMap::new();")
+            .expect("builtin model registry");
+        let end = src
+            .find("Self::seed_catalog_models")
+            .expect("catalog seed follows builtin models");
+        let lines: Vec<&str> = src[start..end].lines().collect();
+        let mut ids = Vec::new();
+        for (i, line) in lines.iter().enumerate() {
+            if line.trim() == "available_models.insert(" {
+                let key = lines[i + 1].trim();
+                let id = key
+                    .strip_prefix('"')
+                    .and_then(|s| s.strip_suffix("\".to_string(),"))
+                    .unwrap_or_else(|| panic!("builtin insert key is not a string literal: {key}"));
+                ids.push(id);
+            }
+        }
+        ids
+    }
+
+    #[test]
+    fn every_downloadable_model_has_a_licence_entry() {
+        let file: LicenceFile =
+            serde_json::from_str(include_str!("model_licences.json")).expect("model_licences.json");
+        const ALLOWED: &[&str] = &["MIT", "Apache-2.0", "CC-BY-4.0"];
+        for (id, entry) in &file.models {
+            assert!(
+                ALLOWED.contains(&entry.licence.as_str()),
+                "{id} licence {:?} is not MIT, Apache-2.0, or CC-BY-4.0",
+                entry.licence
+            );
+            assert!(
+                entry.revision.len() == 40 && entry.revision.bytes().all(|b| b.is_ascii_hexdigit()),
+                "{id} revision {:?} is not 40 hex",
+                entry.revision
+            );
+            assert!(
+                entry.url.contains(&entry.revision),
+                "{id} url does not contain its revision"
+            );
+        }
+
+        for id in LEGAL_HOLD_IDS {
+            assert!(
+                !file.models.contains_key(*id),
+                "held model {id} must not have a licence entry"
+            );
+        }
+
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        let mut required: Vec<String> = root
+            .models
+            .iter()
+            .filter(|m| is_allowed_catalog_entry(&m.id, m.license.as_deref()))
+            .map(|m| m.id.clone())
+            .collect();
+        assert!(!required.is_empty(), "catalog offered no models");
+        let builtins = builtin_legacy_model_ids();
+        assert!(builtins.len() >= 15, "builtin id scan found {builtins:?}");
+        required.extend(builtins.iter().map(|id| (*id).to_string()));
+        for id in &required {
+            assert!(
+                file.models.contains_key(id),
+                "downloadable model {id} has no licence entry"
+            );
+        }
+    }
 }

@@ -151,7 +151,8 @@
       "translate": "Översätt till engelska",
       "streaming": "Visar transkription i realtid medan du talar"
     },
-    "legacy": "Äldre"
+    "legacy": "Äldre",
+    "licence": "Licens: {{licence}}"
   },
   "settings": {
     "modelSettings": {

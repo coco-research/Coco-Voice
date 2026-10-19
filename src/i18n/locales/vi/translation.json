@@ -151,7 +151,8 @@
     },
     "cancel": "Hủy",
     "cancelDownload": "Hủy tải xuống",
-    "legacy": "Cũ"
+    "legacy": "Cũ",
+    "licence": "Giấy phép: {{licence}}"
   },
   "settings": {
     "modelSettings": {
