@@ -22,6 +22,8 @@ use crate::TranscriptionCoordinator;
 use ferrous_opencc::{config::BuiltinConfig, OpenCC};
 use log::{debug, error, info, warn};
 use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -500,6 +502,7 @@ async fn post_process_transcription_inner(
             prior_output,
             local_llm_cancel,
             status_emitted,
+            streams_cleanup_progress(&provider.id),
         )
         .await;
     }
@@ -686,6 +689,141 @@ async fn post_process_transcription_inner(
     }
 }
 
+/// Live cleaned text while the on-device model runs. Cloud providers do not emit it.
+/// `done` is the last snapshot of a run whose text will be pasted.
+#[derive(Clone, Debug, Serialize, Deserialize, Type, tauri_specta::Event)]
+pub struct CleanupProgress {
+    pub text: String,
+    pub done: bool,
+}
+
+/// Gap between overlay snapshots. 67 ms is 1000/15 rounded up, so the rate stays
+/// at or under 15 Hz. The final snapshot is not held to this gap.
+const CLEANUP_PROGRESS_MIN_GAP_MS: u64 = 67;
+
+/// Prefix that ends on whitespace, including that whitespace. A trailing partial
+/// word is left out. Whitespace-only input is not a word.
+///
+/// ponytail: scripts without spaces (CJK) update on the final snapshot only.
+/// Upgrade path: Unicode word breaks if a space is the wrong boundary.
+#[cfg_attr(not(any(test, target_os = "macos")), allow(dead_code))]
+fn completed_words(text: &str) -> &str {
+    let Some(start) = text.rfind(char::is_whitespace) else {
+        return "";
+    };
+    // `rfind` is the first byte of the whitespace char. A non-breaking space is
+    // two bytes; slicing through only the first byte panics.
+    let Some(ws) = text[start..].chars().next() else {
+        return "";
+    };
+    let prefix = &text[..start + ws.len_utf8()];
+    if prefix.trim().is_empty() {
+        ""
+    } else {
+        prefix
+    }
+}
+
+/// Next word-boundary snapshot. `elapsed_ms` is `None` until the first emit,
+/// which is not delayed. `None` means nothing new, or the 15 Hz gap has not elapsed.
+#[cfg_attr(not(any(test, target_os = "macos")), allow(dead_code))]
+fn next_cleanup_preview<'a>(
+    accumulated: &'a str,
+    last_emitted: &str,
+    elapsed_ms: Option<u64>,
+    min_gap_ms: u64,
+) -> Option<&'a str> {
+    let visible = completed_words(accumulated);
+    if visible.is_empty() || visible == last_emitted {
+        return None;
+    }
+    if let Some(elapsed) = elapsed_ms {
+        if elapsed < min_gap_ms {
+            return None;
+        }
+    }
+    Some(visible)
+}
+
+/// Progress events exist only for the on-device model.
+#[cfg_attr(not(any(test, target_os = "macos")), allow(dead_code))]
+fn streams_cleanup_progress(provider_id: &str) -> bool {
+    provider_id == LOCAL_LLM_PROVIDER_ID
+}
+
+#[cfg(target_os = "macos")]
+fn emit_cleanup_progress(app: &AppHandle, text: &str, done: bool) {
+    let _ = CleanupProgress {
+        text: text.to_string(),
+        done,
+    }
+    .emit(app);
+}
+
+/// Cancelling cleanup drops the caller future. Abort the preview then, and leave
+/// the cancel watcher alone so it can still stop the model.
+#[cfg(target_os = "macos")]
+struct AbortOnDrop(Option<tauri::async_runtime::JoinHandle<()>>);
+
+#[cfg(target_os = "macos")]
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        if let Some(handle) = self.0.take() {
+            handle.abort();
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn elapsed_ms(since: Option<Instant>) -> Option<u64> {
+    since.map(|t| u64::try_from(t.elapsed().as_millis()).unwrap_or(u64::MAX))
+}
+
+/// Forward model pieces at ≤ 15 Hz, only on a word boundary. The caller aborts
+/// this task when generation ends and emits the final snapshot itself.
+#[cfg(target_os = "macos")]
+async fn forward_cleanup_progress(mut rx: tokio::sync::mpsc::Receiver<String>, app: AppHandle) {
+    let mut accumulated = String::new();
+    // Think-stripped text. Recomputed only after a new piece is appended.
+    let mut visible = String::new();
+    let mut last_emitted = String::new();
+    let mut last_emit: Option<Instant> = None;
+    loop {
+        if let Some(text) = next_cleanup_preview(
+            &visible,
+            &last_emitted,
+            elapsed_ms(last_emit),
+            CLEANUP_PROGRESS_MIN_GAP_MS,
+        ) {
+            emit_cleanup_progress(&app, text, false);
+            last_emitted = text.to_string();
+            last_emit = Some(Instant::now());
+            continue;
+        }
+
+        let pending = {
+            let boundary = completed_words(&visible);
+            !boundary.is_empty() && boundary != last_emitted
+        };
+        let piece = if pending {
+            let elapsed = elapsed_ms(last_emit).unwrap_or(0);
+            let wait = CLEANUP_PROGRESS_MIN_GAP_MS.saturating_sub(elapsed);
+            tokio::select! {
+                biased;
+                piece = rx.recv() => piece,
+                _ = tokio::time::sleep(Duration::from_millis(wait)) => continue,
+            }
+        } else {
+            rx.recv().await
+        };
+        let Some(piece) = piece else {
+            break;
+        };
+        accumulated.push_str(&piece);
+        visible = crate::local_llm::strip_think_blocks(&accumulated);
+    }
+}
+
 /// The status for an on-device run that was refused or failed. A cancel is the
 /// user's own doing, so it gets none.
 #[cfg(target_os = "macos")]
@@ -702,7 +840,7 @@ fn local_llm_error_status(err: &crate::local_llm::LocalLlmError) -> Option<Clean
 /// Cleans `transcription` with the on-device model (llama.cpp, macOS only).
 /// `None` means the raw transcript is pasted: the model is missing, refused the
 /// text, failed, or the dictation was cancelled. Sets `status_emitted` when it told
-/// the UI why.
+/// the UI why. `stream_progress` is only the live-preview decision.
 #[cfg(target_os = "macos")]
 async fn post_process_with_local_llm(
     app: &AppHandle,
@@ -712,6 +850,7 @@ async fn post_process_with_local_llm(
     prior_output: Option<&str>,
     cancel: Option<LocalLlmCancel>,
     status_emitted: &mut bool,
+    stream_progress: bool,
 ) -> Option<String> {
     let model_path = match app.state::<Arc<ModelManager>>().get_model_path(model) {
         Ok(path) => path,
@@ -724,6 +863,22 @@ async fn post_process_with_local_llm(
     let (system_prompt, user_content) =
         build_post_process_messages(prompt, transcription, prior_output);
 
+    // No words yet. The overlay switches to "Polishing…" and shows the raw
+    // text in quiet ink. Word snapshots start once a boundary exists.
+    let (token_tx, forwarder) = if stream_progress {
+        emit_cleanup_progress(app, "", false);
+        let (tx, rx) = tokio::sync::mpsc::channel(64);
+        let app_forward = app.clone();
+        (
+            Some(tx),
+            Some(AbortOnDrop(Some(tauri::async_runtime::spawn(async move {
+                forward_cleanup_progress(rx, app_forward).await;
+            })))),
+        )
+    } else {
+        (None, None)
+    };
+
     let cancel_watch = cancel.map(|cancel| {
         let flag = Arc::new(AtomicBool::new(false));
         let watcher = watch_generation_cancel(Arc::clone(&flag), cancel.started, cancel.audio);
@@ -734,10 +889,19 @@ async fn post_process_with_local_llm(
         &system_prompt,
         &user_content,
         LOCAL_LLM_MAX_TOKENS,
-        None,
+        token_tx,
         cancel_watch.as_ref().map(|(flag, _)| Arc::clone(flag)),
     )
     .await;
+    // Stop the preview before paste. Abort returns at the next await, so this
+    // does not drain the 15 Hz backlog. Dropping this future earlier skips the
+    // take and AbortOnDrop aborts the preview instead.
+    if let Some(mut preview) = forwarder {
+        if let Some(handle) = preview.0.take() {
+            handle.abort();
+            let _ = handle.await;
+        }
+    }
     // Finished run: stop polling. A dropped future skips this and leaves the
     // watcher attached so it can still raise the flag.
     if let Some((_, watcher)) = &cancel_watch {
@@ -750,7 +914,18 @@ async fn post_process_with_local_llm(
                 "Local LLM post-processing succeeded. Output length: {} chars",
                 result.len()
             );
-            Some(result)
+            // Same gate as paste (`non_blank`). A blank, whitespace-only, or
+            // zero-width-only result is not a cleaned snapshot: the overlay
+            // keeps the raw transcript, which is what gets pasted. A real
+            // result is not held to the throttle, including a last word with
+            // no trailing space.
+            let cleaned = non_blank(Some(result));
+            if stream_progress {
+                if let Some(text) = &cleaned {
+                    emit_cleanup_progress(app, text, true);
+                }
+            }
+            cleaned
         }
         Err(crate::local_llm::LocalLlmError::Cancelled) => {
             debug!("Local LLM cleanup was cancelled");
@@ -1507,9 +1682,10 @@ mod tests {
     #[cfg(target_os = "macos")]
     use super::local_llm_error_status;
     use super::{
-        build_post_process_messages, complete_unless_cancelled, non_blank,
+        build_post_process_messages, complete_unless_cancelled, next_cleanup_preview, non_blank,
         note_cancel_if_generation_moved, provider_configured, refine_base_for_correction,
-        should_hold_overlay, should_use_streaming_overlay, store_refine_buffer, SkipReason,
+        should_hold_overlay, should_use_streaming_overlay, store_refine_buffer,
+        streams_cleanup_progress, SkipReason, CLEANUP_PROGRESS_MIN_GAP_MS,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -1686,6 +1862,83 @@ mod tests {
         store_refine_buffer(&settings, "raw", "still here");
         settings.iterative_correction_enabled = false;
         assert_eq!(refine_base_for_correction(&settings), None);
+    }
+
+    #[test]
+    fn cleanup_preview_emits_on_word_boundaries_at_most_15_hz() {
+        let gap = CLEANUP_PROGRESS_MIN_GAP_MS;
+        assert!(gap * 15 >= 1000, "gap must keep the rate at or under 15 Hz");
+        assert!(gap <= 67, "15 Hz cadence is a gap of at most 67 ms");
+
+        assert_eq!(next_cleanup_preview("Hel", "", None, gap), None);
+        assert_eq!(next_cleanup_preview("Hello", "", None, gap), None);
+        assert_eq!(next_cleanup_preview("   ", "", None, gap), None);
+        // First completed word is not delayed. The partial next word stays hidden.
+        assert_eq!(
+            next_cleanup_preview("Hello ", "", None, gap),
+            Some("Hello ")
+        );
+        assert_eq!(
+            next_cleanup_preview("Hello wor", "", None, gap),
+            Some("Hello ")
+        );
+        assert_eq!(
+            next_cleanup_preview("Hello world", "", None, gap),
+            Some("Hello ")
+        );
+        // Already shown, including while the next word is still partial.
+        assert_eq!(
+            next_cleanup_preview("Hello wor", "Hello ", Some(500), gap),
+            None
+        );
+        // Next word is ready, but inside the gap.
+        assert_eq!(
+            next_cleanup_preview("Hello world ", "Hello ", Some(gap - 1), gap),
+            None
+        );
+        assert_eq!(
+            next_cleanup_preview("Hello world ", "Hello ", Some(0), gap),
+            None
+        );
+        assert_eq!(
+            next_cleanup_preview("Hello world ", "Hello ", Some(gap), gap),
+            Some("Hello world ")
+        );
+        // NBSP is a two-byte whitespace char. The prefix must include all of it.
+        assert_eq!(
+            next_cleanup_preview("Hello\u{00A0}w", "", None, gap),
+            Some("Hello\u{00A0}")
+        );
+    }
+
+    #[test]
+    fn only_the_on_device_provider_streams_cleanup_progress() {
+        assert!(streams_cleanup_progress(
+            crate::settings::LOCAL_LLM_PROVIDER_ID
+        ));
+        for id in [
+            "openai",
+            "openrouter",
+            "custom",
+            crate::settings::APPLE_INTELLIGENCE_PROVIDER_ID,
+            "",
+        ] {
+            assert!(!streams_cleanup_progress(id), "{id}");
+        }
+    }
+
+    #[test]
+    fn cleanup_progress_event_is_text_and_done() {
+        let value = serde_json::to_value(super::CleanupProgress {
+            text: "Hello ".into(),
+            done: true,
+        })
+        .unwrap();
+        assert_eq!(value, serde_json::json!({"text": "Hello ", "done": true}));
+        assert_eq!(
+            <super::CleanupProgress as tauri_specta::Event>::NAME,
+            "cleanup-progress"
+        );
     }
 
     #[test]

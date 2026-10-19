@@ -649,7 +649,8 @@
   },
   "overlay": {
     "transcribing": "מתמלל...",
-    "processing": "מעבד..."
+    "processing": "מעבד...",
+    "polishing": "עורך..."
   },
   "whatsNew": {
     "title": "חדש ב-Coco Voice v{{version}}"
