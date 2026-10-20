@@ -2,9 +2,9 @@
 
 Every model in `src-tauri/src/catalog/catalog.json`, with the licence string exactly as the catalog records it and where the files come from. Models are not bundled in the app; each is downloaded only when the user picks it.
 
-48 models. Regenerate this table whenever catalog.json changes.
+46 models. Regenerate this table whenever catalog.json changes.
 
-"other" appears on the two Fun-ASR models, whose downloadable files state the FunASR Model License v1.1; `CLEARED_OTHER_IDS` in `src-tauri/src/catalog/mod.rs` records why they are offered. Held models (`LEGAL_HOLD_IDS` in the same file) are not in the catalog and are not listed here.
+Held models (`LEGAL_HOLD_IDS` in `src-tauri/src/catalog/mod.rs`) are not in the catalog and are not listed here.
 
 | Model ID                                            | Licence (catalog) | Source                                                                                  |
 | --------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------- |
@@ -14,8 +14,6 @@ Every model in `src-tauri/src/catalog/catalog.json`, with the licence string exa
 | `handy-computer/canary-1b-v2-gguf`                  | cc-by-4.0         | https://huggingface.co/handy-computer/canary-1b-v2-gguf                                 |
 | `handy-computer/canary-qwen-2.5b-gguf`              | cc-by-4.0         | https://huggingface.co/handy-computer/canary-qwen-2.5b-gguf                             |
 | `handy-computer/cohere-transcribe-03-2026-gguf`     | apache-2.0        | https://huggingface.co/handy-computer/cohere-transcribe-03-2026-gguf                    |
-| `handy-computer/Fun-ASR-MLT-Nano-2512-gguf`         | other             | https://huggingface.co/handy-computer/Fun-ASR-MLT-Nano-2512-gguf                        |
-| `handy-computer/Fun-ASR-Nano-2512-gguf`             | other             | https://huggingface.co/handy-computer/Fun-ASR-Nano-2512-gguf                            |
 | `handy-computer/gigaam-v3-ctc-gguf`                 | mit               | https://huggingface.co/handy-computer/gigaam-v3-ctc-gguf                                |
 | `handy-computer/gigaam-v3-e2e-ctc-gguf`             | mit               | https://huggingface.co/handy-computer/gigaam-v3-e2e-ctc-gguf                            |
 | `handy-computer/gigaam-v3-e2e-rnnt-gguf`            | mit               | https://huggingface.co/handy-computer/gigaam-v3-e2e-rnnt-gguf                           |

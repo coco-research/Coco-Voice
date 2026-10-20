@@ -3,6 +3,6 @@ Coco Voice is a fork of Handy (https://github.com/cjpais/Handy), Copyright (c) 2
 Speech and cleanup models
 Models are not bundled with the app. They are downloaded at runtime, and each keeps its own license. The license of every catalog model is recorded in src-tauri/src/catalog/catalog.json and on the model's own card.
 
-The app offers models under MIT, Apache-2.0 or CC-BY-4.0, plus two Fun-ASR models (Fun-ASR-Nano-2512, Fun-ASR-MLT-Nano-2512). Those two are labelled "other" in the catalog; the files the app downloads for them state the FunASR Model License v1.1 (https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE).
+The app offers only models under MIT, Apache-2.0 or CC-BY-4.0. Fun-ASR-Nano-2512 and Fun-ASR-MLT-Nano-2512 are temporarily unavailable while we review the licence that applies to the downloadable files.
 
-Other models under a non-commercial, custom or uncleared license are not offered. They are listed in LEGAL_HOLD_IDS in src-tauri/src/catalog/mod.rs, and any other catalog license is held by default.
+Models under a non-commercial, custom or uncleared license are not offered. They are listed in LEGAL_HOLD_IDS in src-tauri/src/catalog/mod.rs, and any other catalog license is held by default.

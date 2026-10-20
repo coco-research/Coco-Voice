@@ -161,6 +161,9 @@ pub const LEGAL_HOLD_IDS: &[&str] = &[
     "handy-computer/nemotron-speech-streaming-en-0.6b-gguf",
     "handy-computer/medasr-gguf",
     "handy-computer/SenseVoiceSmall-gguf",
+    // The downloadable re-hosts carry the FunASR Model License v1.1, like SenseVoiceSmall.
+    "handy-computer/Fun-ASR-MLT-Nano-2512-gguf",
+    "handy-computer/Fun-ASR-Nano-2512-gguf",
     // non-commercial
     "handy-computer/canary-1b-gguf",
     "handy-computer/moonshine-tiny-vi-gguf",
@@ -177,11 +180,9 @@ pub const LEGAL_HOLD_IDS: &[&str] = &[
     "handy-computer/moonshine-base-zh-gguf",
 ];
 
-/// catalog says "other"; the downloadable files state the FunASR Model License v1.1.
-pub const CLEARED_OTHER_IDS: &[&str] = &[
-    "handy-computer/Fun-ASR-MLT-Nano-2512-gguf",
-    "handy-computer/Fun-ASR-Nano-2512-gguf",
-];
+/// Repos whose catalog licence is "other" but whose licence has been reviewed and
+/// cleared. None today.
+pub const CLEARED_OTHER_IDS: &[&str] = &[];
 
 /// Checks if a given repo id is on the legal hold list (case-insensitive).
 pub(crate) fn repo_on_legal_hold(repo_id: &str) -> bool {
@@ -644,11 +645,12 @@ mod tests {
         assert!(is_allowed_catalog_entry("any/model", Some(" MIT ")));
         assert!(is_allowed_catalog_entry("any/model", Some("Apache-2.0")));
 
-        // Test CLEARED_OTHER_IDS
-        let cleared_id = CLEARED_OTHER_IDS[0];
-        assert!(is_allowed_catalog_entry(cleared_id, Some("other")));
-        assert!(!is_allowed_catalog_entry(cleared_id, Some("cc-by-nc-4.0")));
-        assert!(!is_allowed_catalog_entry(cleared_id, None));
+        // Nothing is cleared, so "other" is never offered.
+        assert!(CLEARED_OTHER_IDS.is_empty());
+        assert!(!is_allowed_catalog_entry(
+            "handy-computer/Fun-ASR-Nano-2512-gguf",
+            Some("other")
+        ));
     }
 
     #[test]
@@ -686,7 +688,7 @@ mod tests {
         assert!(repo_withheld("HANDY-COMPUTER/SENSEVOICESMALL-GGUF"));
 
         // Withheld exactly when the allowlist rejects the catalog entry.
-        assert!(!LEGAL_HOLD_IDS.is_empty() && !CLEARED_OTHER_IDS.is_empty());
+        assert!(!LEGAL_HOLD_IDS.is_empty());
         let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
         for m in &root.models {
             assert_eq!(
@@ -747,11 +749,11 @@ mod tests {
     fn every_downloadable_model_has_a_licence_entry() {
         let file: LicenceFile =
             serde_json::from_str(include_str!("model_licences.json")).expect("model_licences.json");
-        const ALLOWED: &[&str] = &["MIT", "Apache-2.0", "CC-BY-4.0", "FunASR-1.1"];
+        const ALLOWED: &[&str] = &["MIT", "Apache-2.0", "CC-BY-4.0"];
         for (id, entry) in &file.models {
             assert!(
                 ALLOWED.contains(&entry.licence.as_str()),
-                "{id} licence {:?} is not MIT, Apache-2.0, CC-BY-4.0, or FunASR-1.1",
+                "{id} licence {:?} is not MIT, Apache-2.0, or CC-BY-4.0",
                 entry.licence
             );
             assert!(
