@@ -1,5 +1,5 @@
 {
-  "_about": "Licence shown for every model Coco Voice can download, as stated on the publisher's model page at the pinned revision. Generated from the 2026-09-26 model-source audit. Update when a model is added or its publisher page changes.",
+  "_about": "Licence shown for every model Coco Voice can download, as stated on the publisher's model page at the pinned revision. Generated from an earlier model-source audit; the two Fun-ASR entries point at the re-host pages the files are downloaded from. Update when a model is added or its publisher page changes.",
   "models": {
     "Qwen/Qwen3-4B-GGUF": {
       "licence": "Apache-2.0",
@@ -42,6 +42,18 @@
       "publisher": "MediaTek-Research/Breeze-ASR-25",
       "revision": "cffe7ccb404d025296a00758d0a33468bec3a9d0",
       "url": "https://huggingface.co/MediaTek-Research/Breeze-ASR-25/tree/cffe7ccb404d025296a00758d0a33468bec3a9d0"
+    },
+    "handy-computer/Fun-ASR-MLT-Nano-2512-gguf": {
+      "licence": "FunASR-1.1",
+      "publisher": "handy-computer/Fun-ASR-MLT-Nano-2512-gguf",
+      "revision": "5db7c5bcebbc70d6c372e825399c3019f6089af7",
+      "url": "https://huggingface.co/handy-computer/Fun-ASR-MLT-Nano-2512-gguf/tree/5db7c5bcebbc70d6c372e825399c3019f6089af7"
+    },
+    "handy-computer/Fun-ASR-Nano-2512-gguf": {
+      "licence": "FunASR-1.1",
+      "publisher": "handy-computer/Fun-ASR-Nano-2512-gguf",
+      "revision": "b0637e253b8805ce23e7e815a6673bed7ed6914b",
+      "url": "https://huggingface.co/handy-computer/Fun-ASR-Nano-2512-gguf/tree/b0637e253b8805ce23e7e815a6673bed7ed6914b"
     },
     "handy-computer/Qwen3-ASR-0.6B-gguf": {
       "licence": "Apache-2.0",

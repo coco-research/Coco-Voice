@@ -54,7 +54,7 @@ CURATION = {
 # LEGAL_HOLD_IDS in src-tauri/src/catalog/mod.rs (a Rust test checks both agree).
 HELD = {
     "parakeet-unified-en-0.6b", "nemotron-3.5-asr-streaming-0.6b", "nemotron-speech-streaming-en-0.6b",
-    "medasr", "SenseVoiceSmall", "canary-1b", "Fun-ASR-Nano-2512", "Fun-ASR-MLT-Nano-2512",
+    "medasr", "SenseVoiceSmall", "canary-1b",
     "moonshine-tiny-vi", "moonshine-tiny-uk", "moonshine-tiny-ko", "moonshine-tiny-zh", "moonshine-tiny-ar", "moonshine-tiny-ja",
     "moonshine-base-ar", "moonshine-base-ko", "moonshine-base-uk", "moonshine-base-ja", "moonshine-base-vi", "moonshine-base-zh",
 }

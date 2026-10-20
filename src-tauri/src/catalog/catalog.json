@@ -395,6 +395,62 @@
       "recommended_rank": 9
     },
     {
+      "id": "handy-computer/Fun-ASR-MLT-Nano-2512-gguf",
+      "slug": "Fun-ASR-MLT-Nano-2512",
+      "name": "Fun-ASR Nano Multilingual",
+      "architecture": "funasr_nano",
+      "family": "fun",
+      "parameters": "985M",
+      "description": "A tiny multilingual model",
+      "base_model": "FunAudioLLM/Fun-ASR-MLT-Nano-2512",
+      "license": "other",
+      "language_count": 31,
+      "languages": ["zh", "en", "yue", "ja", "ko", "vi", "id", "th", "ms", "tl", "ar", "hi", "bg", "hr", "cs", "da", "nl", "et", "fi", "el", "hu", "ga", "lv", "lt", "mt", "pl", "pt", "ro", "sk", "sl", "sv"],
+      "capabilities": {
+        "streaming": false,
+        "translate": false,
+        "lang_detect": false,
+        "timestamps": "none"
+      },
+      "speed_score": 68,
+      "accuracy_score": 89,
+      "files": [
+        {
+          "filename": "Fun-ASR-MLT-Nano-2512-Q4_K_M.gguf",
+          "quant": "Q4_K_M",
+          "size_bytes": 556975168
+        },
+        {
+          "filename": "Fun-ASR-MLT-Nano-2512-Q5_K_M.gguf",
+          "quant": "Q5_K_M",
+          "size_bytes": 631129152
+        },
+        {
+          "filename": "Fun-ASR-MLT-Nano-2512-Q6_K.gguf",
+          "quant": "Q6_K",
+          "size_bytes": 690744384
+        },
+        {
+          "filename": "Fun-ASR-MLT-Nano-2512-Q8_0.gguf",
+          "quant": "Q8_0",
+          "size_bytes": 891271232
+        },
+        {
+          "filename": "Fun-ASR-MLT-Nano-2512-BF16.gguf",
+          "quant": "BF16",
+          "size_bytes": 1667504192
+        },
+        {
+          "filename": "Fun-ASR-MLT-Nano-2512-F16.gguf",
+          "quant": "F16",
+          "size_bytes": 1667504192
+        }
+      ],
+      "default_quant": "Q8_0",
+      "recommended": false,
+      "recommended_rank": 10
+    },
+    {
       "id": "handy-computer/canary-1b-flash-gguf",
       "slug": "canary-1b-flash",
       "name": "Canary 1B Flash",
@@ -559,6 +615,62 @@
         }
       ],
       "default_quant": "Q5_K_M",
+      "recommended": false,
+      "recommended_rank": null
+    },
+    {
+      "id": "handy-computer/Fun-ASR-Nano-2512-gguf",
+      "slug": "Fun-ASR-Nano-2512",
+      "name": "Fun-ASR Nano",
+      "architecture": "funasr_nano",
+      "family": "fun",
+      "parameters": "985M",
+      "description": "3-language speech-to-text.",
+      "base_model": "FunAudioLLM/Fun-ASR-Nano-2512",
+      "license": "other",
+      "language_count": 3,
+      "languages": ["zh", "en", "ja"],
+      "capabilities": {
+        "streaming": false,
+        "translate": false,
+        "lang_detect": false,
+        "timestamps": "none"
+      },
+      "speed_score": 73,
+      "accuracy_score": 89,
+      "files": [
+        {
+          "filename": "Fun-ASR-Nano-2512-Q4_K_M.gguf",
+          "quant": "Q4_K_M",
+          "size_bytes": 556974848
+        },
+        {
+          "filename": "Fun-ASR-Nano-2512-Q5_K_M.gguf",
+          "quant": "Q5_K_M",
+          "size_bytes": 631128832
+        },
+        {
+          "filename": "Fun-ASR-Nano-2512-Q6_K.gguf",
+          "quant": "Q6_K",
+          "size_bytes": 690744064
+        },
+        {
+          "filename": "Fun-ASR-Nano-2512-Q8_0.gguf",
+          "quant": "Q8_0",
+          "size_bytes": 891270912
+        },
+        {
+          "filename": "Fun-ASR-Nano-2512-BF16.gguf",
+          "quant": "BF16",
+          "size_bytes": 1667503872
+        },
+        {
+          "filename": "Fun-ASR-Nano-2512-F16.gguf",
+          "quant": "F16",
+          "size_bytes": 1667503872
+        }
+      ],
+      "default_quant": "Q8_0",
       "recommended": false,
       "recommended_rank": null
     },
