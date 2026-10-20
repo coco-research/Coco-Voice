@@ -798,6 +798,21 @@ pub fn run(cli_args: CliArgs) {
             // Before the headless return, so both GUI and one-shot runs wipe once.
             // Persisted here, before the `--debug` Trace override, which stays in memory.
             clear_legacy_transcript_logs(app.handle());
+            for dir in [
+                portable::app_data_dir(app.handle()),
+                portable::app_log_dir(app.handle()),
+            ] {
+                let dir = match dir {
+                    Ok(dir) => dir,
+                    Err(e) => {
+                        log::warn!("Could not resolve a folder to make private: {e}");
+                        continue;
+                    }
+                };
+                if let Err(e) = portable::make_private(&dir) {
+                    log::warn!("Could not make {} private to this user: {e}", dir.display());
+                }
+            }
 
             // Headless one-shot path (`--transcribe-file` / `--list-devices` /
             // `--list-models`): initialize only what transcription needs — the
