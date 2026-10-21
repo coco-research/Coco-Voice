@@ -632,7 +632,7 @@
     "modelLoadFailed": "Échec du chargement du modèle : {{model}}",
     "modelLoadFailedUnknown": "modèle inconnu",
     "pasteFailedTitle": "Échec du collage du texte",
-    "pasteFailed": "Le texte n'a pas pu être collé dans l'application active.",
+    "pasteFailed": "Impossible de coller dans l'application. Votre texte est dans le presse-papiers, prêt à coller.",
     "transcriptionFailedTitle": "Échec de la transcription"
   },
   "appLanguage": {
@@ -650,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "Transcription...",
-    "processing": "Traitement..."
+    "processing": "Traitement...",
+    "polishing": "Réécriture..."
   },
   "whatsNew": {
     "title": "Nouveautés de Coco Voice v{{version}}"

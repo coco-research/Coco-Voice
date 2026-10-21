@@ -632,7 +632,7 @@
     "modelLoadFailed": "فشل في تحميل النموذج: {{model}}",
     "modelLoadFailedUnknown": "نموذج غير معروف",
     "pasteFailedTitle": "فشل لصق النص",
-    "pasteFailed": "تعذر لصق النص في التطبيق النشط.",
+    "pasteFailed": "تعذر اللصق في التطبيق. نصك في الحافظة، جاهز للصق.",
     "transcriptionFailedTitle": "فشل التفريغ النصي"
   },
   "appLanguage": {
@@ -650,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "...جاري التفريغ",
-    "processing": "...جاري المعالجة"
+    "processing": "...جاري المعالجة",
+    "polishing": "...جاري التحرير"
   },
   "whatsNew": {
     "title": "الجديد في Coco Voice v{{version}}"

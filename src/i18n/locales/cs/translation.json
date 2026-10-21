@@ -632,7 +632,7 @@
     "modelLoadFailed": "Nepodařilo se načíst model: {{model}}",
     "modelLoadFailedUnknown": "neznámý model",
     "pasteFailedTitle": "Vložení textu se nezdařilo",
-    "pasteFailed": "Text nebylo možné vložit do aktivní aplikace.",
+    "pasteFailed": "Text se nepodařilo vložit do aplikace. Je ve schránce, připravený ke vložení.",
     "transcriptionFailedTitle": "Přepis selhal"
   },
   "appLanguage": {
@@ -650,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "Přepisuji...",
-    "processing": "Zpracovávám..."
+    "processing": "Zpracovávám...",
+    "polishing": "Upravuji..."
   },
   "whatsNew": {
     "title": "Novinky v Coco Voice v{{version}}"

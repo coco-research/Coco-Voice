@@ -632,7 +632,7 @@
     "modelLoadFailed": "Не удалось загрузить модель: {{model}}",
     "modelLoadFailedUnknown": "неизвестная модель",
     "pasteFailedTitle": "Не удалось вставить текст",
-    "pasteFailed": "Не удалось вставить текст в активное приложение.",
+    "pasteFailed": "Не удалось вставить текст в приложение. Он в буфере обмена и готов к вставке.",
     "transcriptionFailedTitle": "Ошибка транскрипции"
   },
   "appLanguage": {
@@ -650,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "Расшифровка...",
-    "processing": "Обработка..."
+    "processing": "Обработка...",
+    "polishing": "Правка..."
   },
   "whatsNew": {
     "title": "Новое в Coco Voice v{{version}}"

@@ -277,7 +277,7 @@ fn chat_template_parts(
 /// Remove `<think>...</think>` blocks a Qwen3 model may still emit. An unclosed
 /// `<think>` (reasoning cut off by the token limit) drops the rest; a stray
 /// `</think>` (the opening tag was part of the prompt) drops everything before it.
-fn strip_think_blocks(text: &str) -> String {
+pub(crate) fn strip_think_blocks(text: &str) -> String {
     if !text.contains("<think>") && !text.contains("</think>") {
         return text.to_string();
     }

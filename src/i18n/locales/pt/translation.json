@@ -632,7 +632,7 @@
     "modelLoadFailed": "Falha ao carregar o modelo: {{model}}",
     "modelLoadFailedUnknown": "modelo desconhecido",
     "pasteFailedTitle": "Falha ao colar o texto",
-    "pasteFailed": "Não foi possível colar o texto no aplicativo ativo.",
+    "pasteFailed": "Não foi possível colar no aplicativo. Seu texto está na área de transferência, pronto para colar.",
     "transcriptionFailedTitle": "Falha na transcrição"
   },
   "appLanguage": {
@@ -650,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "Transcrevendo...",
-    "processing": "Processando..."
+    "processing": "Processando...",
+    "polishing": "Revisando..."
   },
   "whatsNew": {
     "title": "Novidades no Coco Voice v{{version}}"

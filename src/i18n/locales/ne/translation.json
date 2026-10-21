@@ -635,7 +635,7 @@
     "modelLoadFailed": "मोडेल लोड गर्न सकिएन: {{model}}",
     "modelLoadFailedUnknown": "अज्ञात मोडेल",
     "pasteFailedTitle": "टेक्स्ट पेस्ट गर्न सकिएन",
-    "pasteFailed": "सक्रिय एपमा टेक्स्ट पेस्ट गर्न सकिएन।",
+    "pasteFailed": "एपमा पेस्ट गर्न सकिएन। तपाईंको टेक्स्ट क्लिपबोर्डमा छ, पेस्ट गर्न तयार।",
     "transcriptionFailedTitle": "ट्रान्सक्रिप्सन गर्न सकिएन"
   },
   "appLanguage": {
@@ -653,7 +653,8 @@
   },
   "overlay": {
     "transcribing": "ट्रान्सक्राइब गरिँदैछ...",
-    "processing": "प्रशोधन गरिँदैछ..."
+    "processing": "प्रशोधन गरिँदैछ...",
+    "polishing": "सम्पादन..."
   },
   "cleanupStatus": {
     "chip": {

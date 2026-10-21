@@ -635,7 +635,7 @@
     "modelLoadFailed": "Model laden mislukt: {{model}}",
     "modelLoadFailedUnknown": "onbekend model",
     "pasteFailedTitle": "Tekst plakken mislukt",
-    "pasteFailed": "Tekst kon niet worden geplakt in de actieve applicatie.",
+    "pasteFailed": "Plakken in de app is mislukt. Je tekst staat op het klembord, klaar om te plakken.",
     "transcriptionFailedTitle": "Transcriptie mislukt"
   },
   "appLanguage": {
@@ -653,7 +653,8 @@
   },
   "overlay": {
     "transcribing": "Transcriberen...",
-    "processing": "Verwerken..."
+    "processing": "Verwerken...",
+    "polishing": "Redigeren..."
   },
   "cleanupStatus": {
     "chip": {

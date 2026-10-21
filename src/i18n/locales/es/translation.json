@@ -632,7 +632,7 @@
     "modelLoadFailed": "Error al cargar el modelo: {{model}}",
     "modelLoadFailedUnknown": "modelo desconocido",
     "pasteFailedTitle": "Error al pegar el texto",
-    "pasteFailed": "No se pudo pegar el texto en la aplicación activa.",
+    "pasteFailed": "No se pudo pegar en la aplicación. Tu texto está en el portapapeles, listo para pegar.",
     "transcriptionFailedTitle": "Error de transcripción"
   },
   "appLanguage": {
@@ -650,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "Transcribiendo...",
-    "processing": "Procesando..."
+    "processing": "Procesando...",
+    "polishing": "Editando..."
   },
   "whatsNew": {
     "title": "Nuevo en Coco Voice v{{version}}"

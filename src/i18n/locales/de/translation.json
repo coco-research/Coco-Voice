@@ -632,7 +632,7 @@
     "modelLoadFailed": "Modell konnte nicht geladen werden: {{model}}",
     "modelLoadFailedUnknown": "unbekanntes Modell",
     "pasteFailedTitle": "Text konnte nicht eingefügt werden",
-    "pasteFailed": "Der Text konnte nicht in die aktive Anwendung eingefügt werden.",
+    "pasteFailed": "Konnte nicht in die App eingefügt werden. Dein Text liegt in der Zwischenablage, bereit zum Einfügen.",
     "transcriptionFailedTitle": "Transkription fehlgeschlagen"
   },
   "appLanguage": {
@@ -650,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "Transkribiere...",
-    "processing": "Verarbeite..."
+    "processing": "Verarbeite...",
+    "polishing": "Überarbeite..."
   },
   "whatsNew": {
     "title": "Neu in Coco Voice v{{version}}"

@@ -632,7 +632,7 @@
     "modelLoadFailed": "載入模型失敗: {{model}}",
     "modelLoadFailedUnknown": "未知模型",
     "pasteFailedTitle": "貼上文字失敗",
-    "pasteFailed": "無法將文字貼上至目前作用中的應用程式。",
+    "pasteFailed": "無法貼上至應用程式。文字已在剪貼簿，可以貼上。",
     "transcriptionFailedTitle": "轉錄失敗"
   },
   "appLanguage": {
@@ -650,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "正在轉錄...",
-    "processing": "處理中..."
+    "processing": "處理中...",
+    "polishing": "潤色中..."
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} 新功能"

@@ -632,7 +632,7 @@
     "modelLoadFailed": "טעינת המודל נכשלה: {{model}}",
     "modelLoadFailedUnknown": "מודל לא ידוע",
     "pasteFailedTitle": "ההדבקה נכשלה",
-    "pasteFailed": "לא ניתן היה להדביק את הטקסט ביישום הפעיל.",
+    "pasteFailed": "לא ניתן היה להדביק ביישום. הטקסט בלוח, מוכן להדבקה.",
     "transcriptionFailedTitle": "התמלול נכשל"
   },
   "appLanguage": {
@@ -650,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "מתמלל...",
-    "processing": "מעבד..."
+    "processing": "מעבד...",
+    "polishing": "עורך..."
   },
   "whatsNew": {
     "title": "חדש ב-Coco Voice v{{version}}"

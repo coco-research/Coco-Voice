@@ -4,7 +4,7 @@
 //! (settings, models, recordings, database, logs) is stored in a `Data/`
 //! directory alongside the executable instead of `%APPDATA%`.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use tauri::Manager;
 
@@ -72,6 +72,31 @@ pub fn app_log_dir(app: &tauri::AppHandle) -> Result<PathBuf, tauri::Error> {
     } else {
         app.path().app_log_dir()
     }
+}
+
+/// On Unix, set a real directory to mode `0700` so other local users cannot
+/// read files inside it. A missing path is success. Symlinks are never
+/// followed or changed.
+#[cfg(unix)]
+pub(crate) fn make_private(dir: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    match std::fs::symlink_metadata(dir) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e),
+        Ok(meta) if meta.file_type().is_symlink() || !meta.is_dir() => Ok(()),
+        Ok(meta) => {
+            // ponytail: check-then-chmod loses a symlink swap; fchmodat(AT_SYMLINK_NOFOLLOW) if that matters.
+            let mut perms = meta.permissions();
+            perms.set_mode(0o700);
+            std::fs::set_permissions(dir, perms)
+        }
+    }
+}
+
+#[cfg(not(unix))]
+pub(crate) fn make_private(_dir: &Path) -> std::io::Result<()> {
+    Ok(())
 }
 
 /// Resolve a relative path against the app data directory (portable-aware).
@@ -162,5 +187,46 @@ mod tests {
         write!(f, "  Handy Portable Mode\n").unwrap();
         assert!(is_valid_portable_marker(&marker));
         std::fs::remove_dir_all(dir).unwrap();
+    }
+}
+
+#[cfg(all(test, unix))]
+mod make_private_tests {
+    use super::make_private;
+    use std::fs;
+    use std::os::unix::fs::{symlink, PermissionsExt};
+
+    fn mode(path: &std::path::Path) -> u32 {
+        fs::symlink_metadata(path).unwrap().permissions().mode() & 0o777
+    }
+
+    #[test]
+    fn dir_0755_becomes_0700() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut perms = fs::metadata(dir.path()).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(dir.path(), perms).unwrap();
+        make_private(dir.path()).unwrap();
+        assert_eq!(mode(dir.path()), 0o700);
+    }
+
+    #[test]
+    fn symlink_to_dir_is_left_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("target");
+        fs::create_dir(&target).unwrap();
+        let mut perms = fs::metadata(&target).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&target, perms).unwrap();
+        let link = dir.path().join("link");
+        symlink(&target, &link).unwrap();
+        make_private(&link).unwrap();
+        assert_eq!(mode(&target), 0o755);
+    }
+
+    #[test]
+    fn missing_path_is_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(make_private(&dir.path().join("missing")).is_ok());
     }
 }

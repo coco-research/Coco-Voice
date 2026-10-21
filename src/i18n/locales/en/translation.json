@@ -635,7 +635,7 @@
     "modelLoadFailed": "Failed to load model: {{model}}",
     "modelLoadFailedUnknown": "unknown model",
     "pasteFailedTitle": "Failed to Paste Text",
-    "pasteFailed": "Text could not be pasted into the active application.",
+    "pasteFailed": "Couldn't paste into the app. Your text is on the clipboard, ready to paste.",
     "transcriptionFailedTitle": "Transcription Failed"
   },
   "appLanguage": {
@@ -653,7 +653,8 @@
   },
   "overlay": {
     "transcribing": "Transcribing...",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "polishing": "Polishing..."
   },
   "cleanupStatus": {
     "chip": {
