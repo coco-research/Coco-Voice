@@ -15,7 +15,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, UNIX_EPOCH};
@@ -348,6 +348,14 @@ fn format_verified_marker(expected_hash: &str, blob_name: &str, stamp: &BlobStam
     out
 }
 
+fn verified_marker_body(expected_hash: &str, stamp: &BlobStamp) -> String {
+    let blob_name = Path::new(&stamp.canonical_path)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    format_verified_marker(expected_hash, &blob_name, stamp)
+}
+
 fn verified_marker_matches(marker: &str, expected_sha256: &str, current: &BlobStamp) -> bool {
     let mut lines = marker.lines().map(str::trim);
     let Some(hash) = lines.next() else {
@@ -395,6 +403,24 @@ fn verified_marker_matches(marker: &str, expected_sha256: &str, current: &BlobSt
     true
 }
 
+/// SHA-256 of the canonical file at `path` compared with `expected`.
+///
+/// `Ok(true)` is a match and `Ok(false)` is not. `Err` is an I/O failure, which
+/// is not a mismatch. Nothing is deleted: a mismatched file in the shared
+/// Hugging Face cache may belong to another tool, and the download replaces it.
+fn sha256_matches(path: &Path, expected: &str) -> Result<bool> {
+    Ok(sha256_check(path, expected)?.0)
+}
+
+/// Same read as [`sha256_matches`]: `(matches, stamp, digest)`.
+/// The stamp is taken from the file that was hashed, not a later stat.
+fn sha256_check(path: &Path, expected: &str) -> Result<(bool, BlobStamp, String)> {
+    let canonical = fs::canonicalize(path)?;
+    let (actual, stamp) = ModelManager::compute_sha256(&canonical)?;
+    let matches = actual.eq_ignore_ascii_case(expected.trim());
+    Ok((matches, stamp, actual))
+}
+
 /// Pure decision for "is this Hugging Face model downloaded". Without a catalog
 /// hash a cached file is enough. With one, the marker must name that hash and the
 /// snapshot must still resolve to the same canonical blob (path, length, mtime,
@@ -439,14 +465,62 @@ fn hf_repo_excluded_from_discovery(repo_id: &str) -> bool {
 /// Resolve a Hugging Face model file in the shared HF cache, if already present.
 /// Uses hf-hub's stock location (HF_HOME or ~/.cache/huggingface/hub) so
 /// downloads are shared with other tools.
+///
+/// hf-hub resolves through `refs/<revision>`. Catalog revisions are pinned
+/// 40-hex commits, and a shared cache can hold `snapshots/<commit>/<file>`
+/// (usually a symlink to `blobs/<sha>`) without that ref file. Then the
+/// snapshot path is the file.
 fn hf_cached_path(repo_id: &str, revision: &str, filename: &str) -> Option<PathBuf> {
-    Cache::from_env()
+    let cache = Cache::from_env();
+    let hit = cache
         .repo(Repo::with_revision(
             repo_id.to_string(),
             RepoType::Model,
             revision.to_string(),
         ))
-        .get(filename)
+        .get(filename);
+    if hit.is_some() {
+        return hit;
+    }
+    hf_commit_snapshot(cache.path(), repo_id, revision, filename)
+}
+
+/// A relative path of normal segments. Empty, absolute, or `..` is rejected so
+/// a cache join cannot leave `cache_root`.
+fn is_plain_relative(value: &str) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+    let path = Path::new(value);
+    !path.is_absolute()
+        && path
+            .components()
+            .all(|component| matches!(component, Component::Normal(_) | Component::CurDir))
+}
+
+/// `snapshots/<revision>/<filename>` under `cache_root` when `revision` is a
+/// 40-hex commit and that file is already there. A branch name such as `main`
+/// is not a commit, so it stays `None` (hf-hub resolves those through `refs/`).
+/// `repo_id` and `filename` must be plain relative paths.
+fn hf_commit_snapshot(
+    cache_root: &Path,
+    repo_id: &str,
+    revision: &str,
+    filename: &str,
+) -> Option<PathBuf> {
+    if !is_plain_relative(repo_id) || !is_plain_relative(filename) {
+        return None;
+    }
+    if revision.len() != 40 || !revision.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    let path = cache_root
+        .join(format!("models--{}", repo_id.replace('/', "--")))
+        .join("snapshots")
+        .join(revision)
+        .join(filename);
+    // `is_file` follows the snapshot symlink to the blob.
+    path.is_file().then_some(path)
 }
 
 /// Friendly name advertised by GGUF metadata, if present. Empty strings are not
@@ -1888,21 +1962,14 @@ impl ModelManager {
         let Some(expected) = expected_sha256 else {
             return Ok(None);
         };
-        // One resolution. Hash this path and record it. `remove_corrupt` still
-        // receives the original snapshot link so it can tell our repo from the target.
-        let hashed_path = fs::canonicalize(path).map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to verify download for model {}: {}. Please retry.",
-                model_id,
-                e
-            )
-        })?;
-        match Self::compute_sha256(&hashed_path) {
-            Ok((actual, stamp)) if actual.eq_ignore_ascii_case(expected.trim()) => {
+        // One resolution inside `sha256_check`. `remove_corrupt` still receives
+        // the original snapshot link so it can tell our repo from the target.
+        match sha256_check(path, expected) {
+            Ok((true, stamp, _)) => {
                 info!("SHA256 verified for model {}", model_id);
                 Ok(Some(stamp))
             }
-            Ok((actual, stamp)) => {
+            Ok((false, stamp, actual)) => {
                 warn!(
                     "SHA256 mismatch for model {}: expected {}, got {}",
                     model_id, expected, actual
@@ -2030,15 +2097,7 @@ impl ModelManager {
             let Some(stamp) = stamp else {
                 return Ok(());
             };
-            let blob_name = Path::new(&stamp.canonical_path)
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            fs::write(
-                &marker_path,
-                format_verified_marker(&expected, &blob_name, &stamp),
-            )
-            .map_err(|e| {
+            fs::write(&marker_path, verified_marker_body(&expected, &stamp)).map_err(|e| {
                 anyhow::anyhow!(
                     "Could not write verification marker for {}: {}",
                     model_id,
@@ -2063,7 +2122,8 @@ impl ModelManager {
     /// Download a Hugging Face-sourced model into the shared HF cache via
     /// hf-hub, reporting progress through the same `model-download-progress`
     /// event the URL path uses. Relies on hf-hub's stock token + cache (no
-    /// custom environment wiring).
+    /// custom environment wiring). A snapshot already in that cache whose
+    /// catalog hash matches is verified and kept, with no network call.
     async fn download_hf_model(
         &self,
         model_info: &ModelInfo,
@@ -2086,6 +2146,94 @@ impl ModelManager {
             self.update_download_status()?;
             let _ = self.app_handle.emit("model-download-complete", &model_id);
             return Ok(());
+        }
+
+        // On disk, but not marked verified. Hash it before any connection.
+        // `Ok(true)` writes the same marker a download does. `Ok(false)` is a
+        // byte mismatch: the shared-cache file stays (another tool may own it)
+        // and the download below replaces it. `Err` is I/O, not a mismatch.
+        // No catalog hash: the check above already decided.
+        if let Some(expected) = expected_sha256.clone() {
+            if let Some(path) = hf_cached_path(&repo_id, &revision, &filename) {
+                let path_for_hash = path;
+                let expected_for_hash = expected.clone();
+                let _ = self
+                    .app_handle
+                    .emit("model-verification-started", &model_id);
+                info!("Verifying SHA256 for model {}...", model_id);
+                let checked = tokio::task::spawn_blocking(move || {
+                    sha256_check(&path_for_hash, &expected_for_hash)
+                })
+                .await
+                .map_err(|e| anyhow::anyhow!("SHA256 task panicked: {}", e))?;
+                // Only `Ok(false)` means the bytes differ. `sha256_check` is the
+                // read behind `sha256_matches`, kept here so the stamp is from
+                // that same open.
+                match checked {
+                    Ok((true, stamp, _)) => {
+                        let marker_path = self.verified_marker_path(&model_id);
+                        if let Err(e) =
+                            fs::write(&marker_path, verified_marker_body(&expected, &stamp))
+                        {
+                            let _ = fs::remove_file(&marker_path);
+                            if let Some(model) =
+                                self.available_models.lock().unwrap().get_mut(&model_id)
+                            {
+                                model.is_downloaded = false;
+                            }
+                            let _ = self
+                                .app_handle
+                                .emit("model-verification-completed", &model_id);
+                            return Err(anyhow::anyhow!(
+                                "Could not write verification marker for {}: {}",
+                                model_id,
+                                e
+                            ));
+                        }
+                        let _ = self
+                            .app_handle
+                            .emit("model-verification-completed", &model_id);
+                        self.update_download_status()?;
+                        let _ = self.app_handle.emit("model-download-complete", &model_id);
+                        info!("HF model {} verified from shared cache", model_id);
+                        return Ok(());
+                    }
+                    Ok((false, _, actual)) => {
+                        warn!(
+                            "SHA256 mismatch for model {}: expected {}, got {}. Leaving the cached file in place.",
+                            model_id, expected, actual
+                        );
+                        let marker_path = self.verified_marker_path(&model_id);
+                        let _ = fs::remove_file(&marker_path);
+                        if let Some(model) =
+                            self.available_models.lock().unwrap().get_mut(&model_id)
+                        {
+                            model.is_downloaded = false;
+                        }
+                        // Verification ran. Clear it so the download can show progress.
+                        let _ = self
+                            .app_handle
+                            .emit("model-verification-completed", &model_id);
+                    }
+                    Err(e) => {
+                        let marker_path = self.verified_marker_path(&model_id);
+                        let _ = fs::remove_file(&marker_path);
+                        if let Some(model) =
+                            self.available_models.lock().unwrap().get_mut(&model_id)
+                        {
+                            model.is_downloaded = false;
+                        }
+                        let _ = self
+                            .app_handle
+                            .emit("model-verification-completed", &model_id);
+                        return Err(anyhow::anyhow!(
+                            "Failed to verify download for model {}: {}. Please retry.",
+                            model_id,
+                            e
+                        ));
+                    }
+                }
+            }
         }
 
         // Mark downloading; the guard resets the flag on any error path.
@@ -2855,6 +3003,86 @@ mod tests {
             Some("abc"),
             Some(&stamp)
         ));
+    }
+
+    const PINNED_REV: &str = "bc640142c66e1fdd12af0bd68f40445458f3869b";
+
+    fn qwen_snapshot(root: &Path, revision: &str, filename: &str) -> PathBuf {
+        let repo = root.join("models--Qwen--Qwen3-4B-GGUF");
+        let snap = repo.join("snapshots").join(revision);
+        fs::create_dir_all(&snap).unwrap();
+        let snapshot_file = snap.join(filename);
+        // The real cache stores this name as a symlink to blobs/<sha>.
+        #[cfg(unix)]
+        {
+            let blobs = repo.join("blobs");
+            fs::create_dir_all(&blobs).unwrap();
+            let blob = blobs.join("abc123");
+            fs::write(&blob, b"gguf").unwrap();
+            std::os::unix::fs::symlink(&blob, &snapshot_file).unwrap();
+        }
+        #[cfg(not(unix))]
+        {
+            fs::write(&snapshot_file, b"gguf").unwrap();
+        }
+        snapshot_file
+    }
+
+    #[test]
+    fn pinned_commit_snapshot_resolves_without_refs() {
+        let tmp = TempDir::new().unwrap();
+        let filename = "Qwen3-4B-Q4_K_M.gguf";
+        let snapshot_file = qwen_snapshot(tmp.path(), PINNED_REV, filename);
+        // No refs/ directory. hf-hub's lookup would miss this.
+        let got = hf_commit_snapshot(tmp.path(), "Qwen/Qwen3-4B-GGUF", PINNED_REV, filename)
+            .expect("snapshot file");
+        assert_eq!(got, snapshot_file);
+    }
+
+    #[test]
+    fn branch_revision_without_refs_is_none() {
+        let tmp = TempDir::new().unwrap();
+        let filename = "Qwen3-4B-Q4_K_M.gguf";
+        qwen_snapshot(tmp.path(), "main", filename);
+        assert!(hf_commit_snapshot(tmp.path(), "Qwen/Qwen3-4B-GGUF", "main", filename).is_none());
+    }
+
+    #[test]
+    fn pinned_commit_without_snapshot_file_is_none() {
+        let tmp = TempDir::new().unwrap();
+        assert!(hf_commit_snapshot(
+            tmp.path(),
+            "Qwen/Qwen3-4B-GGUF",
+            PINNED_REV,
+            "Qwen3-4B-Q4_K_M.gguf",
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn sha256_matches_catalog_hash_and_rejects_different_bytes() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("blob");
+        fs::write(&path, b"hello").unwrap();
+        let (digest, _) = ModelManager::compute_sha256(&fs::canonicalize(&path).unwrap()).unwrap();
+        assert_eq!(sha256_matches(&path, &digest).unwrap(), true);
+        fs::write(&path, b"hello!").unwrap();
+        assert_eq!(sha256_matches(&path, &digest).unwrap(), false);
+        assert!(path.is_file(), "a mismatch must not delete the file");
+    }
+
+    #[test]
+    fn commit_snapshot_rejects_parent_segment() {
+        let tmp = TempDir::new().unwrap();
+        // `snapshots/<rev>/../x` is `snapshots/x`, outside the commit directory.
+        let outside = tmp
+            .path()
+            .join("models--Qwen--Qwen3-4B-GGUF")
+            .join("snapshots")
+            .join("x");
+        fs::create_dir_all(outside.parent().unwrap()).unwrap();
+        fs::write(&outside, b"nope").unwrap();
+        assert!(hf_commit_snapshot(tmp.path(), "Qwen/Qwen3-4B-GGUF", PINNED_REV, "../x").is_none());
     }
 
     #[test]
