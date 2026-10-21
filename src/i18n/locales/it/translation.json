@@ -151,7 +151,8 @@
     },
     "cancel": "Annulla",
     "cancelDownload": "Annulla download",
-    "legacy": "Obsoleto"
+    "legacy": "Obsoleto",
+    "licence": "Licenza: {{licence}}"
   },
   "settings": {
     "modelSettings": {

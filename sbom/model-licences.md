@@ -4,7 +4,7 @@ Every model in `src-tauri/src/catalog/catalog.json`, with the licence string exa
 
 48 models. Regenerate this table whenever catalog.json changes.
 
-"other" appears on the two Fun-ASR models; `CLEARED_OTHER_IDS` in `src-tauri/src/catalog/mod.rs` records why they are offered. Held models (`LEGAL_HOLD_IDS` in the same file) are not in the catalog and are not listed here.
+"other" appears on the two Fun-ASR models, whose downloadable files state the FunASR Model License v1.1; `CLEARED_OTHER_IDS` in `src-tauri/src/catalog/mod.rs` records why they are offered. Held models (`LEGAL_HOLD_IDS` in the same file) are not in the catalog and are not listed here.
 
 | Model ID                                            | Licence (catalog) | Source                                                                                  |
 | --------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------- |

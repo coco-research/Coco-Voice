@@ -151,7 +151,8 @@
       "translate": "ترجمة",
       "streaming": "يعرض النسخ المباشر أثناء التحدث"
     },
-    "legacy": "قديم"
+    "legacy": "قديم",
+    "licence": "الترخيص: {{licence}}"
   },
   "settings": {
     "general": {

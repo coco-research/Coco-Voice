@@ -151,7 +151,8 @@
       "translate": "영어로 번역",
       "streaming": "말하는 동안 실시간으로 음성 인식 결과를 표시"
     },
-    "legacy": "레거시"
+    "legacy": "레거시",
+    "licence": "라이선스: {{licence}}"
   },
   "settings": {
     "modelSettings": {

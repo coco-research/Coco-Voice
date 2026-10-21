@@ -151,7 +151,8 @@
     },
     "cancel": "Anuluj",
     "cancelDownload": "Anuluj pobieranie",
-    "legacy": "Przestarzałe"
+    "legacy": "Przestarzałe",
+    "licence": "Licencja: {{licence}}"
   },
   "settings": {
     "modelSettings": {

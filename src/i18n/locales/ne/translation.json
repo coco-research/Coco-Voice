@@ -122,6 +122,7 @@
   "modelSelector": {
     "custom": "कस्टम",
     "legacy": "लिगेसी",
+    "licence": "लाइसेन्स: {{licence}}",
     "streaming": "स्ट्रिमिङ",
     "active": "सक्रिय",
     "switching": "बदलिँदैछ...",

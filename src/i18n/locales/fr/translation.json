@@ -151,7 +151,8 @@
     },
     "cancel": "Annuler",
     "cancelDownload": "Annuler le téléchargement",
-    "legacy": "Hérité"
+    "legacy": "Hérité",
+    "licence": "Licence : {{licence}}"
   },
   "settings": {
     "modelSettings": {

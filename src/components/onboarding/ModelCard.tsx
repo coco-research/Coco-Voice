@@ -1,5 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   AudioLines,
   Check,
@@ -11,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { ModelInfo } from "@/bindings";
+import modelLicences from "../../../src-tauri/src/catalog/model_licences.json";
 import { formatModelSize } from "../../lib/utils/format";
 import {
   getTranslatedModelDescription,
@@ -43,6 +45,26 @@ const getLanguageDisplayText = (
 // advertised download (catalog GGUFs supersede it).
 export const isLegacySource = (model: ModelInfo): boolean =>
   typeof model.source === "object" && "Url" in model.source;
+
+type LicenceEntry =
+  (typeof modelLicences.models)[keyof typeof modelLicences.models];
+
+// Catalog cards use "{repo}/{file}" as model.id; the licence file is keyed by
+// the catalog id (Hugging Face repo id) or the built-in legacy id.
+function licenceEntry(model: ModelInfo): LicenceEntry | undefined {
+  const models = modelLicences.models;
+  if (model.id in models) {
+    return models[model.id as keyof typeof models];
+  }
+  if (
+    typeof model.source === "object" &&
+    "HuggingFace" in model.source &&
+    model.source.HuggingFace.repo_id in models
+  ) {
+    return models[model.source.HuggingFace.repo_id as keyof typeof models];
+  }
+  return undefined;
+}
 
 // Extract a GGUF quantization label from a filename, if present (e.g. "Q8_0").
 const getQuantLabel = (filename: string): string | null => {
@@ -91,6 +113,7 @@ const ModelCard: React.FC<ModelCardProps> = ({
   showRecommended = true,
 }) => {
   const { t } = useTranslation();
+  const licence = licenceEntry(model);
   const isFeatured = variant === "featured";
   const isClickable =
     status === "available" || status === "active" || status === "downloadable";
@@ -179,6 +202,24 @@ const ModelCard: React.FC<ModelCardProps> = ({
             )}
             {isLegacySource(model) && (
               <Badge variant="secondary">{t("modelSelector.legacy")}</Badge>
+            )}
+            {licence && (
+              <a
+                href={licence.url}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void openUrl(licence.url).catch((error: unknown) => {
+                    console.error("Failed to open licence link:", error);
+                  });
+                }}
+                onKeyDown={(e) => e.stopPropagation()}
+                className="inline-flex cursor-pointer"
+              >
+                <Badge variant="secondary">
+                  {t("modelSelector.licence", { licence: licence.licence })}
+                </Badge>
+              </a>
             )}
             {status === "switching" && (
               <Badge variant="secondary">

@@ -151,7 +151,8 @@
     },
     "cancel": "Zrušit",
     "cancelDownload": "Zrušit stahování",
-    "legacy": "Zastaralé"
+    "legacy": "Zastaralé",
+    "licence": "Licence: {{licence}}"
   },
   "settings": {
     "modelSettings": {

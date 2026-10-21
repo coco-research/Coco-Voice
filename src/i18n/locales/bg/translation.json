@@ -151,7 +151,8 @@
       "translate": "Превод на английски",
       "streaming": "Показва транскрипция на живо, докато говорите"
     },
-    "legacy": "Наследен"
+    "legacy": "Наследен",
+    "licence": "Лиценз: {{licence}}"
   },
   "settings": {
     "modelSettings": {
