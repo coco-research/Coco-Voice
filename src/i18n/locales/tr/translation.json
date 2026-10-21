@@ -631,7 +631,7 @@
     "modelLoadFailed": "Model yüklenemedi: {{model}}",
     "modelLoadFailedUnknown": "bilinmeyen model",
     "pasteFailedTitle": "Metin yapıştırılamadı",
-    "pasteFailed": "Metin etkin uygulamaya yapıştırılamadı.",
+    "pasteFailed": "Uygulamaya yapıştırılamadı. Metniniz panoda, yapıştırmaya hazır.",
     "transcriptionFailedTitle": "Transkripsiyon başarısız oldu"
   },
   "appLanguage": {

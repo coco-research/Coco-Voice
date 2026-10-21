@@ -631,7 +631,7 @@
     "modelLoadFailed": "Не вдалося завантажити модель: {{model}}",
     "modelLoadFailedUnknown": "невідома модель",
     "pasteFailedTitle": "Не вдалося вставити текст",
-    "pasteFailed": "Не вдалося вставити текст до активної програми.",
+    "pasteFailed": "Не вдалося вставити текст у програму. Він у буфері обміну і готовий до вставки.",
     "transcriptionFailedTitle": "Помилка транскрипції"
   },
   "appLanguage": {
