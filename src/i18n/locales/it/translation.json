@@ -631,7 +631,7 @@
     "modelLoadFailed": "Impossibile caricare il modello: {{model}}",
     "modelLoadFailedUnknown": "modello sconosciuto",
     "pasteFailedTitle": "Impossibile incollare il testo",
-    "pasteFailed": "Non è stato possibile incollare il testo nell'applicazione attiva.",
+    "pasteFailed": "Impossibile incollare nell'applicazione. Il testo è negli appunti, pronto da incollare.",
     "transcriptionFailedTitle": "Trascrizione non riuscita"
   },
   "appLanguage": {

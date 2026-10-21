@@ -49,7 +49,8 @@ fn plan_clipboard_paste<E>(read: Result<String, E>) -> ClipboardPlan {
 }
 
 /// Pastes text using the clipboard: writes `text`, sends the paste keystroke, then restores
-/// `clipboard_content`, the text the caller saved beforehand. The clipboard is restored whether or not the keystroke succeeds.
+/// `clipboard_content`, the text the caller saved beforehand, only when the keystroke
+/// succeeds. On failure `text` stays on the clipboard.
 ///
 /// Sleeps run on the caller. Enigo key events hop to the main thread inside
 /// `send_paste_*` and do not hold the Enigo mutex across a sleep.
@@ -106,17 +107,20 @@ fn paste_via_clipboard(
         Ok(())
     })();
 
-    // Restore original clipboard content
-    // On Wayland, prefer wl-copy for better compatibility
-    #[cfg(target_os = "linux")]
-    if is_wayland() && is_wl_copy_available() {
-        let _ = write_clipboard_via_wl_copy(clipboard_content);
-    } else {
+    // Restore the previous clipboard only after a successful paste. On failure
+    // the transcript stays, so a missed keystroke does not wipe the only copy.
+    if key_result.is_ok() {
+        // On Wayland, prefer wl-copy for better compatibility
+        #[cfg(target_os = "linux")]
+        if is_wayland() && is_wl_copy_available() {
+            let _ = write_clipboard_via_wl_copy(clipboard_content);
+        } else {
+            let _ = clipboard.write_text(clipboard_content);
+        }
+
+        #[cfg(not(target_os = "linux"))]
         let _ = clipboard.write_text(clipboard_content);
     }
-
-    #[cfg(not(target_os = "linux"))]
-    let _ = clipboard.write_text(clipboard_content);
 
     key_result
 }
@@ -791,6 +795,25 @@ fn send_backspaces(enigo: &mut Enigo, count: usize) -> Result<(), String> {
     Ok(())
 }
 
+/// Success does not write the clipboard. On failure `text` is written once and
+/// the original error is returned; a failed write is logged and does not replace it.
+fn keep_text_on_failure(
+    text: &str,
+    result: Result<(), String>,
+    write_clipboard: impl FnOnce(&str) -> Result<(), String>,
+) -> Result<(), String> {
+    let Err(error) = result else {
+        return Ok(());
+    };
+    if let Err(write_error) = write_clipboard(text) {
+        log::warn!(
+            "Failed to keep transcript on clipboard after paste error: {}",
+            write_error
+        );
+    }
+    Err(error)
+}
+
 /// Replace the previous output at the cursor with `new_text`.
 ///
 /// When `prev_char_count` indicates a replace (see [`backspaces_for_replace`]),
@@ -803,7 +826,10 @@ fn send_backspaces(enigo: &mut Enigo, count: usize) -> Result<(), String> {
 ///
 /// NOTE: the Backspace deletion is real OS keystroke simulation via Enigo and can
 /// only be verified on-device. The unit tests cover the pure
-/// `backspaces_for_replace` decision, not the keystrokes themselves.
+/// `backspaces_for_replace` and `keep_text_on_failure` decisions, not the keystrokes.
+///
+/// On any error, `new_text` is copied to the clipboard (best effort) and the
+/// original error is returned.
 ///
 /// Holds [`PASTE_LOCK`] for the backspaces and the paste. The paste goes through
 /// [`paste_locked`], which does not take the lock again.
@@ -817,16 +843,31 @@ pub fn replace_previous(
     // A poisoned lock has no data to protect; keep serializing.
     let _guard = PASTE_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
 
-    let mut left = backspaces_for_replace(prev_char_count);
-    // Hops of at most MAIN_THREAD_HOP backspaces. No sleep between hops:
-    // same burst as one closure, but the UI loop can run between them.
-    while left > 0 {
-        let hop = left.min(MAIN_THREAD_HOP);
-        left -= hop;
-        input::with_enigo_on_main(&app_handle, move |enigo| send_backspaces(enigo, hop))?;
-    }
+    let kept = new_text.clone();
+    let result = (|| -> Result<(), String> {
+        let mut left = backspaces_for_replace(prev_char_count);
+        // Hops of at most MAIN_THREAD_HOP backspaces. No sleep between hops:
+        // same burst as one closure, but the UI loop can run between them.
+        while left > 0 {
+            let hop = left.min(MAIN_THREAD_HOP);
+            left -= hop;
+            input::with_enigo_on_main(&app_handle, move |enigo| send_backspaces(enigo, hop))?;
+        }
 
-    paste_locked(new_text, app_handle)
+        paste_locked(new_text, app_handle.clone())
+    })();
+
+    keep_text_on_failure(&kept, result, |text| {
+        #[cfg(target_os = "linux")]
+        if is_wayland() && is_wl_copy_available() {
+            return write_clipboard_via_wl_copy(text);
+        }
+
+        app_handle
+            .clipboard()
+            .write_text(text)
+            .map_err(|e| format!("Failed to write to clipboard: {}", e))
+    })
 }
 
 #[cfg(test)]
@@ -957,5 +998,32 @@ mod tests {
             MAX_REPLACE_BACKSPACES
         );
         assert_eq!(backspaces_for_replace(MAX_REPLACE_BACKSPACES + 1), 0);
+    }
+
+    #[test]
+    fn keep_text_on_success_leaves_the_clipboard_writer_uncalled() {
+        let result = keep_text_on_failure("transcript", Ok(()), |_| {
+            panic!("clipboard writer must not run on success");
+        });
+        assert_eq!(result, Ok(()));
+    }
+
+    #[test]
+    fn keep_text_on_failure_writes_the_full_text_once() {
+        let mut writes = Vec::new();
+        let result = keep_text_on_failure("full transcript", Err("paste failed".into()), |text| {
+            writes.push(text.to_string());
+            Ok(())
+        });
+        assert_eq!(writes, vec!["full transcript".to_string()]);
+        assert_eq!(result, Err("paste failed".to_string()));
+    }
+
+    #[test]
+    fn keep_text_on_failure_keeps_the_original_error_when_the_write_fails() {
+        let result = keep_text_on_failure("transcript", Err("paste failed".into()), |_| {
+            Err("clipboard denied".into())
+        });
+        assert_eq!(result, Err("paste failed".to_string()));
     }
 }
