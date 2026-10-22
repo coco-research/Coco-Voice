@@ -55,6 +55,9 @@ jobs:
       - name: Check translation consistency
         run: bun run check:translations
 
+      - name: Run static tests
+        run: bun run test:static
+
       - name: Run ESLint
         run: bun run lint
 
