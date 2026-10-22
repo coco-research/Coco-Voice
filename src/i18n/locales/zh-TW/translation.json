@@ -330,7 +330,8 @@
         "options": {
           "dontModify": "不修改剪貼簿",
           "copyToClipboard": "複製到剪貼簿"
-        }
+        },
+        "privacyHint": "剪貼簿上的文字，其他應用程式和剪貼簿工具都看得到。"
       },
       "autoSubmit": {
         "title": "自動送出",
@@ -631,9 +632,13 @@
     "recordingFailed": "錄音啟動失敗: {{error}}",
     "modelLoadFailed": "載入模型失敗: {{model}}",
     "modelLoadFailedUnknown": "未知模型",
-    "pasteFailedTitle": "貼上文字失敗",
-    "pasteFailed": "無法貼上至應用程式。文字已在剪貼簿，可以貼上。",
-    "transcriptionFailedTitle": "轉錄失敗"
+    "transcriptionFailedTitle": "轉錄失敗",
+    "pasteNotice": {
+      "clipboardAndHistory": "貼上可能沒有成功。你的文字在剪貼簿上，也在歷史紀錄裡。",
+      "clipboardOnly": "貼上可能沒有成功。你的文字在剪貼簿上。",
+      "historyOnly": "貼上可能沒有成功。你的文字在歷史紀錄裡。",
+      "neither": "貼上可能沒有成功。"
+    }
   },
   "appLanguage": {
     "title": "應用程式語言",
@@ -690,5 +695,8 @@
       "chooseProvider": "選擇供應商",
       "useLocal": "使用裝置端模型"
     }
+  },
+  "notices": {
+    "clipboardDefault": "貼上之後，聽寫的文字會留在剪貼簿上，方便再貼一次。它會取代你先前複製的內容。可以在設定 > 進階 > 剪貼簿處理裡關掉。"
   }
 }

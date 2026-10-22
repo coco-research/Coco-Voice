@@ -330,7 +330,8 @@
         "options": {
           "dontModify": "Zwischenablage nicht ändern",
           "copyToClipboard": "In Zwischenablage kopieren"
-        }
+        },
+        "privacyHint": "Text in der Zwischenablage können andere Apps und Zwischenablage-Werkzeuge sehen."
       },
       "autoSubmit": {
         "title": "Automatisch absenden",
@@ -631,9 +632,13 @@
     "recordingFailed": "Aufnahme konnte nicht gestartet werden: {{error}}",
     "modelLoadFailed": "Modell konnte nicht geladen werden: {{model}}",
     "modelLoadFailedUnknown": "unbekanntes Modell",
-    "pasteFailedTitle": "Text konnte nicht eingefügt werden",
-    "pasteFailed": "Konnte nicht in die App eingefügt werden. Dein Text liegt in der Zwischenablage, bereit zum Einfügen.",
-    "transcriptionFailedTitle": "Transkription fehlgeschlagen"
+    "transcriptionFailedTitle": "Transkription fehlgeschlagen",
+    "pasteNotice": {
+      "clipboardAndHistory": "Das Einfügen hat vielleicht nicht geklappt. Deine Wörter sind in der Zwischenablage und im Verlauf.",
+      "clipboardOnly": "Das Einfügen hat vielleicht nicht geklappt. Deine Wörter sind in der Zwischenablage.",
+      "historyOnly": "Das Einfügen hat vielleicht nicht geklappt. Deine Wörter sind im Verlauf.",
+      "neither": "Das Einfügen hat vielleicht nicht geklappt."
+    }
   },
   "appLanguage": {
     "title": "Anwendungssprache",
@@ -690,5 +695,8 @@
       "chooseProvider": "Anbieter auswählen",
       "useLocal": "Lokales Modell verwenden"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Nach dem Einfügen bleibt der diktierte Text in der Zwischenablage, damit du ihn noch einmal einfügen kannst. Er ersetzt, was du vorher kopiert hattest. Du kannst das unter Einstellungen > Erweitert > Zwischenablage-Verhalten ausschalten."
   }
 }
