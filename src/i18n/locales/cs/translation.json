@@ -572,11 +572,6 @@
         "description": "Zobrazit zdrojový kód a přispět",
         "button": "Zobrazit na GitHubu"
       },
-      "supportDevelopment": {
-        "title": "Podpořte vývoj",
-        "description": "Pomozte nám pokračovat ve vývoji Coco Voice",
-        "button": "Přispět"
-      },
       "acknowledgments": {
         "title": "Poděkování",
         "ggml": {

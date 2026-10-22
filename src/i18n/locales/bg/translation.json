@@ -572,11 +572,6 @@
         "description": "Преглед на изходния код и принос",
         "button": "Вижте в GitHub"
       },
-      "supportDevelopment": {
-        "title": "Подкрепете разработката",
-        "description": "Помогнете ни да продължим да развиваме Coco Voice",
-        "button": "Дарение"
-      },
       "acknowledgments": {
         "title": "Благодарности",
         "ggml": {
