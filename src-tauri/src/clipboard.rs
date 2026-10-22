@@ -1,9 +1,12 @@
 use crate::input;
 #[cfg(target_os = "linux")]
 use crate::settings::TypingTool;
-use crate::settings::{get_settings, AutoSubmitKey, ClipboardHandling, PasteMethod};
+use crate::settings::{
+    get_settings, AutoSubmitKey, ClipboardHandling, PasteMethod, RecordingRetentionPeriod,
+};
 use enigo::{Direction, Enigo, Key, Keyboard};
 use log::info;
+use serde::Serialize;
 use std::process::Command;
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
@@ -48,9 +51,51 @@ fn plan_clipboard_paste<E>(read: Result<String, E>) -> ClipboardPlan {
     }
 }
 
+/// CopyToClipboard leaves the transcript on the clipboard, so the saved
+/// clipboard is not written back after the paste delay.
+pub fn restores_previous_clipboard(handling: ClipboardHandling) -> bool {
+    handling != ClipboardHandling::CopyToClipboard
+}
+
+/// Where this take's words still are. `paste_failed` keeps the transcript on
+/// the clipboard (`keep_text_on_failure`). A just-saved row with
+/// `history_limit == 0` and PreserveLimit is deleted immediately, so it is
+/// not in History.
+pub fn paste_word_locations(
+    handling: ClipboardHandling,
+    paste_failed: bool,
+    history_saved: bool,
+    history_limit: usize,
+    retention: RecordingRetentionPeriod,
+) -> (bool, bool) {
+    let on_clipboard = paste_failed || handling == ClipboardHandling::CopyToClipboard;
+    let history_disabled =
+        history_limit == 0 && retention == RecordingRetentionPeriod::PreserveLimit;
+    (on_clipboard, history_saved && !history_disabled)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PasteNotice {
+    ClipboardAndHistory,
+    ClipboardOnly,
+    HistoryOnly,
+    Neither,
+}
+
+pub fn paste_notice(on_clipboard: bool, in_history: bool) -> PasteNotice {
+    match (on_clipboard, in_history) {
+        (true, true) => PasteNotice::ClipboardAndHistory,
+        (true, false) => PasteNotice::ClipboardOnly,
+        (false, true) => PasteNotice::HistoryOnly,
+        (false, false) => PasteNotice::Neither,
+    }
+}
+
 /// Pastes text using the clipboard: writes `text`, sends the paste keystroke, then restores
 /// `clipboard_content`, the text the caller saved beforehand, only when the keystroke
-/// succeeds. On failure `text` stays on the clipboard.
+/// succeeds and `restore_previous` is set. On failure `text` stays on the clipboard.
+/// Returns whether the previous clipboard text was restored.
 ///
 /// Sleeps run on the caller. Enigo key events hop to the main thread inside
 /// `send_paste_*` and do not hold the Enigo mutex across a sleep.
@@ -61,7 +106,8 @@ fn paste_via_clipboard(
     paste_delay_ms: u64,
     paste_delay_after_ms: u64,
     clipboard_content: &str,
-) -> Result<(), String> {
+    restore_previous: bool,
+) -> Result<bool, String> {
     let clipboard = app_handle.clipboard();
 
     // Write text to clipboard first
@@ -107,22 +153,30 @@ fn paste_via_clipboard(
         Ok(())
     })();
 
-    // Restore the previous clipboard only after a successful paste. On failure
-    // the transcript stays, so a missed keystroke does not wipe the only copy.
-    if key_result.is_ok() {
+    // Restore the previous clipboard only after a successful paste, and only
+    // when this handling gives the clipboard back. On failure the transcript
+    // stays, so a missed keystroke does not wipe the only copy.
+    // Report "restored" only if the old text really went back: a failed write
+    // leaves the transcript on the clipboard, and the paste notice says so.
+    let mut restored = false;
+    if key_result.is_ok() && restore_previous {
         // On Wayland, prefer wl-copy for better compatibility
         #[cfg(target_os = "linux")]
-        if is_wayland() && is_wl_copy_available() {
-            let _ = write_clipboard_via_wl_copy(clipboard_content);
-        } else {
-            let _ = clipboard.write_text(clipboard_content);
+        {
+            restored = if is_wayland() && is_wl_copy_available() {
+                write_clipboard_via_wl_copy(clipboard_content).is_ok()
+            } else {
+                clipboard.write_text(clipboard_content).is_ok()
+            };
         }
 
         #[cfg(not(target_os = "linux"))]
-        let _ = clipboard.write_text(clipboard_content);
+        {
+            restored = clipboard.write_text(clipboard_content).is_ok();
+        }
     }
 
-    key_result
+    key_result.map(|_| restored)
 }
 
 /// Attempts to send a key combination using Linux-native tools.
@@ -676,7 +730,7 @@ fn should_send_auto_submit(auto_submit: bool, paste_method: PasteMethod) -> bool
 ///
 /// [`replace_previous`] holds the lock
 /// across its backspaces and this call. Do not lock [`PASTE_LOCK`] here.
-fn paste_locked(text: String, app_handle: AppHandle) -> Result<(), String> {
+fn paste_locked(text: String, app_handle: AppHandle) -> Result<bool, String> {
     let settings = get_settings(&app_handle);
     let paste_method = settings.paste_method;
     let paste_delay_ms = settings.paste_delay_ms;
@@ -695,6 +749,7 @@ fn paste_locked(text: String, app_handle: AppHandle) -> Result<(), String> {
     );
 
     // Perform the paste operation. Enigo is locked only inside each key send.
+    let mut restored = false;
     match paste_method {
         PasteMethod::None => {
             info!("PasteMethod::None selected - skipping paste action");
@@ -709,14 +764,17 @@ fn paste_locked(text: String, app_handle: AppHandle) -> Result<(), String> {
         }
         PasteMethod::CtrlV | PasteMethod::CtrlShiftV | PasteMethod::ShiftInsert => {
             match plan_clipboard_paste(app_handle.clipboard().read_text()) {
-                ClipboardPlan::SwapAndRestore(clipboard_content) => paste_via_clipboard(
-                    &text,
-                    &app_handle,
-                    &paste_method,
-                    paste_delay_ms,
-                    paste_delay_after_ms,
-                    &clipboard_content,
-                )?,
+                ClipboardPlan::SwapAndRestore(clipboard_content) => {
+                    restored = paste_via_clipboard(
+                        &text,
+                        &app_handle,
+                        &paste_method,
+                        paste_delay_ms,
+                        paste_delay_after_ms,
+                        &clipboard_content,
+                        restores_previous_clipboard(settings.clipboard_handling),
+                    )?;
+                }
                 ClipboardPlan::TypeDirectly => {
                     info!("Clipboard holds non-text content; typing directly to preserve it");
                     paste_direct(
@@ -752,7 +810,7 @@ fn paste_locked(text: String, app_handle: AppHandle) -> Result<(), String> {
             .map_err(|e| format!("Failed to copy to clipboard: {}", e))?;
     }
 
-    Ok(())
+    Ok(restored)
 }
 
 /// Maximum number of Backspace presses a single replace will emit. A prior output
@@ -867,6 +925,7 @@ fn paste_allowed(secure: &dyn SecureInput) -> Result<(), String> {
 /// `backspaces_for_replace`, `paste_allowed`, and `keep_text_on_failure`
 /// decisions, not the keystrokes.
 ///
+/// Returns whether the previous clipboard text was written back after the paste.
 /// On any error, `new_text` is copied to the clipboard (best effort) and the
 /// original error is returned.
 ///
@@ -881,14 +940,14 @@ pub fn replace_previous(
     prev_char_count: usize,
     new_text: String,
     app_handle: AppHandle,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     // Held through the backspaces and `paste_locked`. Calling `paste` here
     // would lock again and deadlock.
     // A poisoned lock has no data to protect; keep serializing.
     let _guard = PASTE_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
 
     let kept = new_text.clone();
-    let result = (|| -> Result<(), String> {
+    let result = (|| -> Result<bool, String> {
         paste_allowed(&OsSecureInput)?;
 
         let mut left = backspaces_for_replace(prev_char_count);
@@ -903,7 +962,8 @@ pub fn replace_previous(
         paste_locked(new_text, app_handle.clone())
     })();
 
-    keep_text_on_failure(&kept, result, |text| {
+    let restored = result.as_ref().copied().unwrap_or(false);
+    keep_text_on_failure(&kept, result.map(|_| ()), |text| {
         #[cfg(target_os = "linux")]
         if is_wayland() && is_wl_copy_available() {
             return write_clipboard_via_wl_copy(text);
@@ -913,7 +973,8 @@ pub fn replace_previous(
             .clipboard()
             .write_text(text)
             .map_err(|e| format!("Failed to write to clipboard: {}", e))
-    })
+    })?;
+    Ok(restored)
 }
 
 #[cfg(test)]
@@ -1103,5 +1164,65 @@ mod tests {
             Err("clipboard denied".into())
         });
         assert_eq!(result, Err("paste failed".to_string()));
+    }
+
+    #[test]
+    fn copy_to_clipboard_does_not_restore_the_previous_clipboard() {
+        assert!(!restores_previous_clipboard(
+            ClipboardHandling::CopyToClipboard
+        ));
+        assert!(restores_previous_clipboard(ClipboardHandling::DontModify));
+    }
+
+    #[test]
+    fn paste_notice_names_clipboard_and_history() {
+        assert_eq!(paste_notice(true, true), PasteNotice::ClipboardAndHistory);
+    }
+
+    #[test]
+    fn paste_notice_names_clipboard_only() {
+        assert_eq!(paste_notice(true, false), PasteNotice::ClipboardOnly);
+    }
+
+    #[test]
+    fn paste_notice_names_history_only() {
+        assert_eq!(paste_notice(false, true), PasteNotice::HistoryOnly);
+    }
+
+    #[test]
+    fn paste_notice_names_neither() {
+        assert_eq!(paste_notice(false, false), PasteNotice::Neither);
+    }
+
+    #[test]
+    fn paste_word_locations_follow_handling_failure_and_a_saved_row() {
+        let kept = RecordingRetentionPeriod::PreserveLimit;
+        assert_eq!(
+            paste_word_locations(ClipboardHandling::CopyToClipboard, false, true, 5, kept),
+            (true, true)
+        );
+        assert_eq!(
+            paste_word_locations(ClipboardHandling::DontModify, true, false, 5, kept),
+            (true, false)
+        );
+        assert_eq!(
+            paste_word_locations(ClipboardHandling::DontModify, false, true, 5, kept),
+            (false, true)
+        );
+        // limit 0 + PreserveLimit deletes the row that was just inserted.
+        assert_eq!(
+            paste_word_locations(ClipboardHandling::DontModify, false, true, 0, kept),
+            (false, false)
+        );
+        assert_eq!(
+            paste_word_locations(
+                ClipboardHandling::DontModify,
+                false,
+                true,
+                0,
+                RecordingRetentionPeriod::Never
+            ),
+            (false, true)
+        );
     }
 }

@@ -330,7 +330,8 @@
         "options": {
           "dontModify": "Don't Modify Clipboard",
           "copyToClipboard": "Copy to Clipboard"
-        }
+        },
+        "privacyHint": "Text on the clipboard can be seen by other apps and clipboard tools."
       },
       "autoSubmit": {
         "title": "Auto Submit",
@@ -629,9 +630,13 @@
     "recordingFailed": "Failed to start recording: {{error}}",
     "modelLoadFailed": "Failed to load model: {{model}}",
     "modelLoadFailedUnknown": "unknown model",
-    "pasteFailedTitle": "Failed to Paste Text",
-    "pasteFailed": "Couldn't paste into the app. Your text is on the clipboard, ready to paste.",
-    "transcriptionFailedTitle": "Transcription Failed"
+    "transcriptionFailedTitle": "Transcription Failed",
+    "pasteNotice": {
+      "clipboardAndHistory": "Paste may not have worked. Your words are on the clipboard and in History.",
+      "clipboardOnly": "Paste may not have worked. Your words are on the clipboard.",
+      "historyOnly": "Paste may not have worked. Your words are in History.",
+      "neither": "Paste may not have worked."
+    }
   },
   "appLanguage": {
     "title": "Application Language",
@@ -685,5 +690,8 @@
       "chooseProvider": "Choose provider",
       "useLocal": "Use on-device model"
     }
+  },
+  "notices": {
+    "clipboardDefault": "After a paste, your dictated text now stays on the clipboard so you can paste it again. It replaces whatever you'd copied before. You can turn this off in Settings > Advanced > Clipboard Handling."
   }
 }

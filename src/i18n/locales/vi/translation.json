@@ -330,7 +330,8 @@
         "options": {
           "dontModify": "Không sửa đổi Clipboard",
           "copyToClipboard": "Sao chép vào Clipboard"
-        }
+        },
+        "privacyHint": "Ứng dụng khác và công cụ clipboard có thể thấy chữ trên clipboard."
       },
       "autoSubmit": {
         "title": "Gửi tự động",
@@ -626,9 +627,13 @@
     "recordingFailed": "Không thể bắt đầu ghi âm: {{error}}",
     "modelLoadFailed": "Không thể tải mô hình: {{model}}",
     "modelLoadFailedUnknown": "mô hình không xác định",
-    "pasteFailedTitle": "Không thể dán văn bản",
-    "pasteFailed": "Không thể dán vào ứng dụng. Văn bản đang ở bộ nhớ tạm, sẵn sàng để dán.",
-    "transcriptionFailedTitle": "Phiên âm thất bại"
+    "transcriptionFailedTitle": "Phiên âm thất bại",
+    "pasteNotice": {
+      "clipboardAndHistory": "Có thể chưa dán được. Lời của bạn nằm trên clipboard và trong Lịch sử.",
+      "clipboardOnly": "Có thể chưa dán được. Lời của bạn nằm trên clipboard.",
+      "historyOnly": "Có thể chưa dán được. Lời của bạn nằm trong Lịch sử.",
+      "neither": "Có thể chưa dán được."
+    }
   },
   "appLanguage": {
     "title": "Ngôn ngữ ứng dụng",
@@ -685,5 +690,8 @@
       "chooseProvider": "Chọn nhà cung cấp",
       "useLocal": "Dùng mô hình trên thiết bị"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Sau khi dán, chữ bạn vừa đọc vẫn nằm trên clipboard để dán lại. Nó thay phần bạn đã sao chép trước đó. Bạn có thể tắt trong Cài đặt > Nâng cao > Xử lý Clipboard."
   }
 }

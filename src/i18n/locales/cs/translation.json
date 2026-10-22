@@ -330,7 +330,8 @@
         "options": {
           "dontModify": "Neměnit schránku",
           "copyToClipboard": "Kopírovat do schránky"
-        }
+        },
+        "privacyHint": "Text ve schránce vidí jiné aplikace a nástroje pro schránku."
       },
       "autoSubmit": {
         "title": "Automatické odeslání",
@@ -626,9 +627,13 @@
     "recordingFailed": "Nepodařilo se spustit nahrávání: {{error}}",
     "modelLoadFailed": "Nepodařilo se načíst model: {{model}}",
     "modelLoadFailedUnknown": "neznámý model",
-    "pasteFailedTitle": "Vložení textu se nezdařilo",
-    "pasteFailed": "Text se nepodařilo vložit do aplikace. Je ve schránce, připravený ke vložení.",
-    "transcriptionFailedTitle": "Přepis selhal"
+    "transcriptionFailedTitle": "Přepis selhal",
+    "pasteNotice": {
+      "clipboardAndHistory": "Vložení se možná nepovedlo. Vaše slova jsou ve schránce a v Historie.",
+      "clipboardOnly": "Vložení se možná nepovedlo. Vaše slova jsou ve schránce.",
+      "historyOnly": "Vložení se možná nepovedlo. Vaše slova jsou v Historie.",
+      "neither": "Vložení se možná nepovedlo."
+    }
   },
   "appLanguage": {
     "title": "Jazyk aplikace",
@@ -685,5 +690,8 @@
       "chooseProvider": "Vybrat poskytovatele",
       "useLocal": "Použít místní model"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Po vložení zůstane nadiktovaný text ve schránce, abyste ho mohli vložit znovu. Nahradí to, co jste předtím zkopírovali. Vypnout to můžete v Nastavení > Pokročilé > Práce se schránkou."
   }
 }

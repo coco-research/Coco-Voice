@@ -330,7 +330,8 @@
         "options": {
           "dontModify": "אל תשנה את הלוח",
           "copyToClipboard": "העתק ללוח"
-        }
+        },
+        "privacyHint": "טקסט בלוח גלוי ליישומים אחרים ולכלי לוח."
       },
       "autoSubmit": {
         "title": "שליחה אוטומטית",
@@ -626,9 +627,13 @@
     "recordingFailed": "הפעלת ההקלטה נכשלה: {{error}}",
     "modelLoadFailed": "טעינת המודל נכשלה: {{model}}",
     "modelLoadFailedUnknown": "מודל לא ידוע",
-    "pasteFailedTitle": "ההדבקה נכשלה",
-    "pasteFailed": "לא ניתן היה להדביק ביישום. הטקסט בלוח, מוכן להדבקה.",
-    "transcriptionFailedTitle": "התמלול נכשל"
+    "transcriptionFailedTitle": "התמלול נכשל",
+    "pasteNotice": {
+      "clipboardAndHistory": "ייתכן שההדבקה לא הצליחה. המילים שלך בלוח ובהיסטוריה.",
+      "clipboardOnly": "ייתכן שההדבקה לא הצליחה. המילים שלך בלוח.",
+      "historyOnly": "ייתכן שההדבקה לא הצליחה. המילים שלך בהיסטוריה.",
+      "neither": "ייתכן שההדבקה לא הצליחה."
+    }
   },
   "appLanguage": {
     "title": "שפת האפליקציה",
@@ -685,5 +690,8 @@
       "chooseProvider": "בחר ספק",
       "useLocal": "השתמש במודל המקומי"
     }
+  },
+  "notices": {
+    "clipboardDefault": "אחרי הדבקה, הטקסט שהכתבת נשאר בלוח כדי שתוכל להדביק אותו שוב. הוא מחליף את מה שהעתקת קודם. אפשר לכבות את זה בהגדרות > מתקדם > התנהגות הלוח."
   }
 }

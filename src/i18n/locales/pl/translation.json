@@ -330,7 +330,8 @@
         "options": {
           "dontModify": "Nie modyfikuj schowka",
           "copyToClipboard": "Kopiuj do schowka"
-        }
+        },
+        "privacyHint": "Tekst w schowku widzą inne aplikacje i narzędzia schowka."
       },
       "autoSubmit": {
         "title": "Automatyczne wysyłanie",
@@ -626,9 +627,13 @@
     "recordingFailed": "Nie udało się rozpocząć nagrywania: {{error}}",
     "modelLoadFailed": "Nie udało się załadować modelu: {{model}}",
     "modelLoadFailedUnknown": "nieznany model",
-    "pasteFailedTitle": "Nie udało się wkleić tekstu",
-    "pasteFailed": "Nie udało się wkleić do aplikacji. Twój tekst jest w schowku, gotowy do wklejenia.",
-    "transcriptionFailedTitle": "Transkrypcja nie powiodła się"
+    "transcriptionFailedTitle": "Transkrypcja nie powiodła się",
+    "pasteNotice": {
+      "clipboardAndHistory": "Wklejenie mogło się nie udać. Twoje słowa są w schowku i w Historia.",
+      "clipboardOnly": "Wklejenie mogło się nie udać. Twoje słowa są w schowku.",
+      "historyOnly": "Wklejenie mogło się nie udać. Twoje słowa są w Historia.",
+      "neither": "Wklejenie mogło się nie udać."
+    }
   },
   "appLanguage": {
     "title": "Język aplikacji",
@@ -685,5 +690,8 @@
       "chooseProvider": "Wybierz dostawcę",
       "useLocal": "Użyj modelu na urządzeniu"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Po wklejeniu podyktowany tekst zostaje w schowku, więc możesz wkleić go ponownie. Zastępuje to, co wcześniej skopiowano. Możesz to wyłączyć w Ustawienia > Zaawansowane > Obsługa schowka."
   }
 }

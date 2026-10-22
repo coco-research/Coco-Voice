@@ -330,7 +330,8 @@
         "options": {
           "dontModify": "Panoyu Değiştirme",
           "copyToClipboard": "Panoya Kopyala"
-        }
+        },
+        "privacyHint": "Panodaki metni başka uygulamalar ve pano araçları görebilir."
       },
       "autoSubmit": {
         "title": "Otomatik Gönder",
@@ -626,9 +627,13 @@
     "recordingFailed": "Kayıt başlatılamadı: {{error}}",
     "modelLoadFailed": "Model yüklenemedi: {{model}}",
     "modelLoadFailedUnknown": "bilinmeyen model",
-    "pasteFailedTitle": "Metin yapıştırılamadı",
-    "pasteFailed": "Uygulamaya yapıştırılamadı. Metniniz panoda, yapıştırmaya hazır.",
-    "transcriptionFailedTitle": "Transkripsiyon başarısız oldu"
+    "transcriptionFailedTitle": "Transkripsiyon başarısız oldu",
+    "pasteNotice": {
+      "clipboardAndHistory": "Yapıştırma gerçekleşmemiş olabilir. Sözleriniz panoda ve Geçmiş'te.",
+      "clipboardOnly": "Yapıştırma gerçekleşmemiş olabilir. Sözleriniz panoda.",
+      "historyOnly": "Yapıştırma gerçekleşmemiş olabilir. Sözleriniz Geçmiş'te.",
+      "neither": "Yapıştırma gerçekleşmemiş olabilir."
+    }
   },
   "appLanguage": {
     "title": "Uygulama Dili",
@@ -685,5 +690,8 @@
       "chooseProvider": "Sağlayıcı Seç",
       "useLocal": "Cihaz İçi Modeli Kullan"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Yapıştırdıktan sonra dikte ettiğiniz metin panoda kalır, böylece yeniden yapıştırabilirsiniz. Daha önce kopyaladığınız şeyin yerini alır. Bunu Ayarlar > Gelişmiş > Pano Yönetimi bölümünden kapatabilirsiniz."
   }
 }
