@@ -814,6 +814,44 @@ fn keep_text_on_failure(
     Err(error)
 }
 
+/// Whether macOS Secure Event Input is on. Tests supply their own.
+trait SecureInput {
+    fn is_on(&self) -> bool;
+}
+
+struct OsSecureInput;
+
+#[cfg(target_os = "macos")]
+#[link(name = "Carbon", kind = "framework")]
+extern "C" {
+    fn IsSecureEventInputEnabled() -> u8;
+}
+
+#[cfg(target_os = "macos")]
+impl SecureInput for OsSecureInput {
+    fn is_on(&self) -> bool {
+        // Carbon Boolean is u8; nonzero means Secure Event Input is on.
+        unsafe { IsSecureEventInputEnabled() != 0 }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+impl SecureInput for OsSecureInput {
+    fn is_on(&self) -> bool {
+        false
+    }
+}
+
+/// `Err` when Secure Event Input would swallow the paste. Callers send keys only after `Ok`.
+fn paste_allowed(secure: &dyn SecureInput) -> Result<(), String> {
+    // ponytail: catches macOS Secure Event Input only; paste-blocking web pages, apps that ignore synthetic keys, and VMs/RDP still report success. Upgrade path is the default clipboard mode (separate product decision).
+    if secure.is_on() {
+        Err("Secure input is on; paste skipped".into())
+    } else {
+        Ok(())
+    }
+}
+
 /// Replace the previous output at the cursor with `new_text`.
 ///
 /// When `prev_char_count` indicates a replace (see [`backspaces_for_replace`]),
@@ -826,13 +864,19 @@ fn keep_text_on_failure(
 ///
 /// NOTE: the Backspace deletion is real OS keystroke simulation via Enigo and can
 /// only be verified on-device. The unit tests cover the pure
-/// `backspaces_for_replace` and `keep_text_on_failure` decisions, not the keystrokes.
+/// `backspaces_for_replace`, `paste_allowed`, and `keep_text_on_failure`
+/// decisions, not the keystrokes.
 ///
 /// On any error, `new_text` is copied to the clipboard (best effort) and the
 /// original error is returned.
 ///
 /// Holds [`PASTE_LOCK`] for the backspaces and the paste. The paste goes through
 /// [`paste_locked`], which does not take the lock again.
+///
+/// Secure Event Input (macOS password fields, Terminal secure keyboard entry)
+/// swallows the synthetic paste and still reports success. [`paste_allowed`]
+/// refuses first, so no keystrokes are sent and [`keep_text_on_failure`] keeps
+/// the transcript on the clipboard.
 pub fn replace_previous(
     prev_char_count: usize,
     new_text: String,
@@ -845,6 +889,8 @@ pub fn replace_previous(
 
     let kept = new_text.clone();
     let result = (|| -> Result<(), String> {
+        paste_allowed(&OsSecureInput)?;
+
         let mut left = backspaces_for_replace(prev_char_count);
         // Hops of at most MAIN_THREAD_HOP backspaces. No sleep between hops:
         // same burst as one closure, but the UI loop can run between them.
@@ -998,6 +1044,38 @@ mod tests {
             MAX_REPLACE_BACKSPACES
         );
         assert_eq!(backspaces_for_replace(MAX_REPLACE_BACKSPACES + 1), 0);
+    }
+
+    struct FakeSecureInput(bool);
+
+    impl SecureInput for FakeSecureInput {
+        fn is_on(&self) -> bool {
+            self.0
+        }
+    }
+
+    #[test]
+    fn paste_allowed_errs_and_sends_no_keys_when_secure_input_is_on() {
+        let mut sent = false;
+        let result = (|| -> Result<(), String> {
+            paste_allowed(&FakeSecureInput(true))?;
+            sent = true;
+            Ok(())
+        })();
+        assert_eq!(result, Err("Secure input is on; paste skipped".to_string()));
+        assert!(!sent);
+    }
+
+    #[test]
+    fn paste_allowed_proceeds_when_secure_input_is_off() {
+        let mut sent = false;
+        let result = (|| -> Result<(), String> {
+            paste_allowed(&FakeSecureInput(false))?;
+            sent = true;
+            Ok(())
+        })();
+        assert_eq!(result, Ok(()));
+        assert!(sent);
     }
 
     #[test]
