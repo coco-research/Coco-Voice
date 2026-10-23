@@ -1,3 +1,11 @@
+<p align="center">
+  <img
+    src="docs/assets/coco-voice-hero.png"
+    width="100%"
+    alt="Coco Voice. Hold a key, speak, and your words land in the app you already have open. The speech model runs on your own computer."
+  />
+</p>
+
 <h1 align="center">Coco Voice</h1>
 
 <p align="center">
@@ -83,6 +91,12 @@ CMAKE_POLICY_VERSION_MINIMUM=3.5 bun run tauri dev
 - The settings window is translated into 22 languages.
 
 ## How it works
+
+<img
+  src="docs/readme/how-it-works.svg"
+  width="100%"
+  alt="How Coco Voice transcribes speech on your computer: hotkey, microphone, voice activity detection, local speech model, optional cleanup, then paste into the focused app."
+/>
 
 The shortcut opens the microphone through cpal. Silero voice activity detection drops silence. A local model turns the speech into text: transcribe-cpp for the GGUF catalog, transcribe-rs for an older ONNX model. Cleanup is separate, and it runs only when that step is enabled and the chosen provider is actually available. The text is pasted into whichever app is focused.
 
