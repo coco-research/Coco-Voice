@@ -635,9 +635,12 @@
       "neither": "Có thể chưa dán được."
     },
     "shortcutRegistrationFailedTitle": "Không thiết lập được một phím tắt",
-    "shortcutRegistrationFailed": "{{binding}} chưa được đăng ký: {{reason}}. Hãy chọn phím khác trong Cài đặt, hoặc kiểm tra Coco Voice được phép trong Trợ năng.",
+    "shortcutRegistrationFailedTaken": "Ứng dụng khác đang dùng {{binding}}. Hãy chọn phím khác trong Cài đặt, hoặc thoát ứng dụng đó rồi thử lại.",
+    "shortcutRegistrationFailedRejected": "{{binding}} không dùng được làm phím tắt. Hãy chọn phím khác trong Cài đặt.",
+    "shortcutRegistrationFailedOther": "Không thiết lập được {{binding}}. Hãy thử lại, hoặc chọn phím khác trong Cài đặt.",
     "shortcutRegistrationFailedMore": " (+{{count}} mục nữa)",
-    "shortcutRegistrationOpenSettings": "Mở Cài đặt"
+    "shortcutRegistrationOpenSettings": "Mở Cài đặt",
+    "shortcutRegistrationTryAgain": "Thử lại"
   },
   "appLanguage": {
     "title": "Ngôn ngữ ứng dụng",

@@ -638,9 +638,12 @@
       "neither": "पेस्ट नभएको हुन सक्छ।"
     },
     "shortcutRegistrationFailedTitle": "एउटा सर्टकट सेट गर्न सकिएन",
-    "shortcutRegistrationFailed": "{{binding}} दर्ता भएन: {{reason}}. सेटिङहरूमा अर्को कुञ्जी छान्नुहोस्, वा पहुँचमा Coco Voice लाई अनुमति छ कि छैन जाँच गर्नुहोस्।",
+    "shortcutRegistrationFailedTaken": "अर्को एपले {{binding}} पहिले नै प्रयोग गरिरहेको छ। सेटिङहरूमा अर्को कुञ्जी छान्नुहोस्, वा त्यो एप बन्द गरेर फेरि प्रयास गर्नुहोस्।",
+    "shortcutRegistrationFailedRejected": "{{binding}} लाई सर्टकटको रूपमा प्रयोग गर्न सकिँदैन। सेटिङहरूमा अर्को कुञ्जी छान्नुहोस्।",
+    "shortcutRegistrationFailedOther": "{{binding}} सेट गर्न सकिएन। फेरि प्रयास गर्नुहोस्, वा सेटिङहरूमा अर्को कुञ्जी छान्नुहोस्।",
     "shortcutRegistrationFailedMore": " (+थप {{count}})",
-    "shortcutRegistrationOpenSettings": "सेटिङहरू खोल्नुहोस्"
+    "shortcutRegistrationOpenSettings": "सेटिङहरू खोल्नुहोस्",
+    "shortcutRegistrationTryAgain": "फेरि प्रयास गर्नुहोस्"
   },
   "appLanguage": {
     "title": "एपको भाषा",

@@ -635,9 +635,12 @@
       "neither": "Вставка могла не спрацювати."
     },
     "shortcutRegistrationFailedTitle": "Не вдалося налаштувати комбінацію клавіш",
-    "shortcutRegistrationFailed": "{{binding}} не зареєстровано: {{reason}}. Оберіть іншу клавішу в Налаштуваннях або перевірте, що Coco Voice дозволено в розділі «Спеціальні можливості».",
+    "shortcutRegistrationFailedTaken": "Інша програма вже використовує {{binding}}. Оберіть іншу клавішу в Налаштуваннях або закрийте ту програму і спробуйте ще раз.",
+    "shortcutRegistrationFailedRejected": "{{binding}} не можна використати як комбінацію клавіш. Оберіть іншу клавішу в Налаштуваннях.",
+    "shortcutRegistrationFailedOther": "{{binding}} не вдалося налаштувати. Спробуйте ще раз або оберіть іншу клавішу в Налаштуваннях.",
     "shortcutRegistrationFailedMore": " (+ще {{count}})",
-    "shortcutRegistrationOpenSettings": "Відкрити налаштування"
+    "shortcutRegistrationOpenSettings": "Відкрити налаштування",
+    "shortcutRegistrationTryAgain": "Спробувати ще раз"
   },
   "appLanguage": {
     "title": "Мова інтерфейсу",

@@ -635,9 +635,12 @@
       "neither": "Puede que el pegado no haya funcionado."
     },
     "shortcutRegistrationFailedTitle": "No se pudo configurar un atajo",
-    "shortcutRegistrationFailed": "{{binding}} no se registró: {{reason}}. Elige otra tecla en Configuración, o comprueba que Coco Voice tenga permiso en Accesibilidad.",
+    "shortcutRegistrationFailedTaken": "Otra aplicación ya usa {{binding}}. Elige otra tecla en Configuración, o cierra esa aplicación e inténtalo de nuevo.",
+    "shortcutRegistrationFailedRejected": "{{binding}} no se puede usar como atajo. Elige otra tecla en Configuración.",
+    "shortcutRegistrationFailedOther": "{{binding}} no se pudo configurar. Inténtalo de nuevo, o elige otra tecla en Configuración.",
     "shortcutRegistrationFailedMore": " (+{{count}} más)",
-    "shortcutRegistrationOpenSettings": "Abrir Configuración"
+    "shortcutRegistrationOpenSettings": "Abrir Configuración",
+    "shortcutRegistrationTryAgain": "Reintentar"
   },
   "appLanguage": {
     "title": "Idioma de la aplicación",

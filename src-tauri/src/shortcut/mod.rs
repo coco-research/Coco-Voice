@@ -134,12 +134,57 @@ pub fn unregister_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<
     result
 }
 
+/// Why a binding failed, so the notice can say something a person can act on.
+///
+/// Serialized lowercase (`taken`, `rejected`, `other`) for the frontend.
+/// `error` stays the backend text for the log.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ShortcutFailureCause {
+    /// Another registration already holds this binding.
+    Taken,
+    /// The binding is not a shortcut this backend can register.
+    Rejected,
+    /// A transient or unrecognized failure.
+    Other,
+}
+
 /// One binding the init loop tried to register and could not.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ShortcutFailure {
     pub id: String,
     pub binding: String,
     pub error: String,
+    pub cause: ShortcutFailureCause,
+}
+
+/// Map a backend error's Display text onto a [`ShortcutFailureCause`].
+///
+/// Markers are the fixed wording of the `global-hotkey` 0.7.0 and `handy-keys`
+/// 0.3.4 error enums. Collision text (`already registered`, or `exists`) is
+/// Taken. Parse and unsupported-key text is Rejected. Anything else is Other.
+fn classify_shortcut_error(message: &str) -> ShortcutFailureCause {
+    let message = message.to_ascii_lowercase();
+    if message.contains("already registered") || message.contains("exists") {
+        return ShortcutFailureCause::Taken;
+    }
+    // Fixed phrases from those enums' `#[error]` attributes, lowercased.
+    const REJECTED: &[&str] = &[
+        "as a valid hotkey code",
+        "unexpected empty token while parsing hotkey",
+        "unexpected hotkey string format",
+        "as a valid key for hotkey",
+        "found empty token while parsing hotkey",
+        "invalid hotkey format",
+        "hotkey cannot be empty",
+        "unknown key",
+        "unknown modifier",
+    ];
+    if REJECTED.iter().any(|marker| message.contains(marker)) {
+        ShortcutFailureCause::Rejected
+    } else {
+        ShortcutFailureCause::Other
+    }
 }
 
 /// Result of an init pass. `initialized` is true only when nothing failed.
@@ -245,10 +290,12 @@ fn collect_shortcut_failures(
             continue;
         }
         if let Err(error) = registrar.register(&candidate.id, &candidate.binding) {
+            let cause = classify_shortcut_error(&error);
             failures.push(ShortcutFailure {
                 id: candidate.id.clone(),
                 binding: candidate.binding.clone(),
                 error,
+                cause,
             });
         }
     }
@@ -1652,7 +1699,10 @@ mod tests {
 
 #[cfg(test)]
 mod collect_failure_tests {
-    use super::{collect_shortcut_failures, ShortcutCandidate, ShortcutFailure, ShortcutRegistrar};
+    use super::{
+        collect_shortcut_failures, ShortcutCandidate, ShortcutFailure, ShortcutFailureCause,
+        ShortcutRegistrar,
+    };
     use std::collections::HashSet;
 
     /// A register function the init decision can be driven with.
@@ -1722,6 +1772,7 @@ mod collect_failure_tests {
                 id: "paste".to_string(),
                 binding: "ctrl+shift+v".to_string(),
                 error: "could not register paste".to_string(),
+                cause: ShortcutFailureCause::Other,
             }]
         );
         assert!(registrar.registered.contains("transcribe"));
@@ -1765,5 +1816,144 @@ mod collect_failure_tests {
         assert!(second.initialized);
         assert!(registrar.registered.contains("transcribe"));
         assert!(registrar.registered.contains("paste"));
+    }
+}
+
+#[cfg(test)]
+mod classify_shortcut_error_tests {
+    use super::{classify_shortcut_error, ShortcutFailureCause};
+
+    /// Display texts copied from the error enums. `{…}` is a sample of the
+    /// interpolated value; the fixed wording is the crate's `#[error]` string.
+    #[test]
+    fn known_display_strings_classify() {
+        let cases = [
+            (
+                // global-hotkey 0.7.0 src/error.rs — AlreadyRegistered
+                // #[error("HotKey already registered: {0:?}")]
+                "HotKey already registered: HotKey { mods: ALT, key: Space, id: 1 }",
+                ShortcutFailureCause::Taken,
+            ),
+            (
+                // handy-keys 0.3.4 src/error.rs — HotkeyAlreadyRegistered
+                // #[error("Hotkey already registered: {0}")]
+                // manager.rs fills {0} as "{hotkey} (id: {:?})"
+                "Hotkey already registered: Opt+Space (id: HotkeyId(1))",
+                ShortcutFailureCause::Taken,
+            ),
+            (
+                // global-hotkey 0.7.0 src/error.rs — UnrecognizedHotKeyCode
+                "Couldn't recognize \"Fn\" as a valid HotKey Code, if you feel like it should be, please report this to https://github.com/tauri-apps/global-hotkey",
+                ShortcutFailureCause::Rejected,
+            ),
+            (
+                // global-hotkey 0.7.0 src/error.rs — EmptyHotKeyToken
+                "Unexpected empty token while parsing hotkey: \"ctrl++a\"",
+                ShortcutFailureCause::Rejected,
+            ),
+            (
+                // global-hotkey 0.7.0 src/error.rs — UnexpectedHotKeyFormat
+                "Unexpected hotkey string format: \"a+ctrl\", a hotkey should have the modifiers first and only contain one main key",
+                ShortcutFailureCause::Rejected,
+            ),
+            (
+                // global-hotkey 0.7.0 src/hotkey.rs — HotKeyParseError::UnsupportedKey
+                "Couldn't recognize \"Fn\" as a valid key for hotkey, if you feel like it should be, please report this to https://github.com/tauri-apps/muda",
+                ShortcutFailureCause::Rejected,
+            ),
+            (
+                // global-hotkey 0.7.0 src/hotkey.rs — HotKeyParseError::EmptyToken
+                "Found empty token while parsing hotkey: ctrl++a",
+                ShortcutFailureCause::Rejected,
+            ),
+            (
+                // global-hotkey 0.7.0 src/hotkey.rs — HotKeyParseError::InvalidFormat
+                "Invalid hotkey format: \"a+ctrl\", an hotkey should have the modifiers first and only one main key, for example: \"Shift + Alt + K\"",
+                ShortcutFailureCause::Rejected,
+            ),
+            (
+                // handy-keys 0.3.4 src/error.rs — EmptyHotkey
+                "Hotkey cannot be empty (must have at least a key or modifiers)",
+                ShortcutFailureCause::Rejected,
+            ),
+            (
+                // handy-keys 0.3.4 src/error.rs — InvalidHotkeyFormat
+                // hotkey.rs fills {0} with "Multiple keys specified: already have a key, found '{}'"
+                // "already have a key" must stay Rejected, not Taken.
+                "Invalid hotkey format: Multiple keys specified: already have a key, found 'B'",
+                ShortcutFailureCause::Rejected,
+            ),
+            (
+                // handy-keys 0.3.4 src/error.rs — UnknownKey
+                "Unknown key: Fn",
+                ShortcutFailureCause::Rejected,
+            ),
+            (
+                // handy-keys 0.3.4 src/error.rs — UnknownModifier
+                "Unknown modifier: Foo",
+                ShortcutFailureCause::Rejected,
+            ),
+        ];
+        for (message, expected) in cases {
+            assert_eq!(classify_shortcut_error(message), expected, "{message}");
+        }
+    }
+
+    #[test]
+    fn exists_wording_is_taken() {
+        // Neither enum prints "exists" today. The notice still treats that
+        // collision wording as Taken.
+        assert_eq!(
+            classify_shortcut_error("hotkey already exists"),
+            ShortcutFailureCause::Taken
+        );
+    }
+
+    #[test]
+    fn unknown_message_is_other() {
+        assert_eq!(
+            classify_shortcut_error("the shortcut engine stopped"),
+            ShortcutFailureCause::Other
+        );
+        // handy-keys 0.3.4 src/error.rs — AccessibilityNotGranted. Not a cause
+        // of its own: the engine falls back to Tauri before this matters.
+        assert_eq!(
+            classify_shortcut_error(
+                "Accessibility permission not granted. Please enable it in System Settings > Privacy & Security > Accessibility"
+            ),
+            ShortcutFailureCause::Other
+        );
+        // global-hotkey 0.7.0 src/error.rs — FailedToRegister, FailedToWatchMediaKeyEvent
+        assert_eq!(
+            classify_shortcut_error(
+                "Unable to register hotkey: RegisterEventHotKey failed for Space"
+            ),
+            ShortcutFailureCause::Other
+        );
+        assert_eq!(
+            classify_shortcut_error("Failed to watch media key event"),
+            ShortcutFailureCause::Other
+        );
+        // handy-keys 0.3.4 src/error.rs — MutexPoisoned
+        assert_eq!(
+            classify_shortcut_error("Internal error: Mutex poisoned"),
+            ShortcutFailureCause::Other
+        );
+    }
+
+    #[test]
+    fn cause_serializes_lowercase() {
+        assert_eq!(
+            serde_json::to_string(&ShortcutFailureCause::Taken).unwrap(),
+            "\"taken\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ShortcutFailureCause::Rejected).unwrap(),
+            "\"rejected\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ShortcutFailureCause::Other).unwrap(),
+            "\"other\""
+        );
     }
 }

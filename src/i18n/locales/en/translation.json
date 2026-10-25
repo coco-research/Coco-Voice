@@ -638,9 +638,12 @@
       "neither": "Paste may not have worked."
     },
     "shortcutRegistrationFailedTitle": "A shortcut couldn't be set up",
-    "shortcutRegistrationFailed": "{{binding}} didn't register: {{reason}}. Pick another key in Settings, or check that Coco Voice is allowed under Accessibility.",
+    "shortcutRegistrationFailedTaken": "Another app already uses {{binding}}. Pick another key in Settings, or quit that app and try again.",
+    "shortcutRegistrationFailedRejected": "{{binding}} can't be used as a shortcut. Pick another key in Settings.",
+    "shortcutRegistrationFailedOther": "{{binding}} couldn't be set up. Try again, or pick another key in Settings.",
     "shortcutRegistrationFailedMore": " (+{{count}} more)",
-    "shortcutRegistrationOpenSettings": "Open Settings"
+    "shortcutRegistrationOpenSettings": "Open Settings",
+    "shortcutRegistrationTryAgain": "Try again"
   },
   "appLanguage": {
     "title": "Application Language",

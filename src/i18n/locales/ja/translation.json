@@ -635,9 +635,12 @@
       "neither": "貼り付けができていない可能性があります。"
     },
     "shortcutRegistrationFailedTitle": "ショートカットを設定できませんでした",
-    "shortcutRegistrationFailed": "{{binding}} は登録されませんでした: {{reason}}。設定で別のキーを選ぶか、アクセシビリティで Coco Voice が許可されているか確認してください。",
+    "shortcutRegistrationFailedTaken": "別のアプリがすでに {{binding}} を使っています。設定で別のキーを選ぶか、そのアプリを終了してからもう一度試してください。",
+    "shortcutRegistrationFailedRejected": "{{binding}} はショートカットに使えません。設定で別のキーを選んでください。",
+    "shortcutRegistrationFailedOther": "{{binding}} を設定できませんでした。もう一度試すか、設定で別のキーを選んでください。",
     "shortcutRegistrationFailedMore": "（ほか{{count}}件）",
-    "shortcutRegistrationOpenSettings": "設定を開く"
+    "shortcutRegistrationOpenSettings": "設定を開く",
+    "shortcutRegistrationTryAgain": "もう一度試す"
   },
   "appLanguage": {
     "title": "アプリの言語",

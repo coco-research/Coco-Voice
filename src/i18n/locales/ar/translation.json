@@ -635,9 +635,12 @@
       "neither": "قد لا يكون اللصق قد نجح."
     },
     "shortcutRegistrationFailedTitle": "تعذر إعداد اختصار",
-    "shortcutRegistrationFailed": "لم يُسجَّل {{binding}}: {{reason}}. اختر مفتاحًا آخر في الإعدادات، أو تحقق من أن Coco Voice مسموح به ضمن إمكانية الوصول.",
+    "shortcutRegistrationFailedTaken": "تطبيق آخر يستخدم {{binding}} بالفعل. اختر مفتاحًا آخر في الإعدادات، أو أوقف ذلك التطبيق ثم أعد المحاولة.",
+    "shortcutRegistrationFailedRejected": "لا يمكن استخدام {{binding}} كاختصار. اختر مفتاحًا آخر في الإعدادات.",
+    "shortcutRegistrationFailedOther": "تعذر إعداد {{binding}}. أعد المحاولة، أو اختر مفتاحًا آخر في الإعدادات.",
     "shortcutRegistrationFailedMore": " (+{{count}} أخرى)",
-    "shortcutRegistrationOpenSettings": "فتح الإعدادات"
+    "shortcutRegistrationOpenSettings": "فتح الإعدادات",
+    "shortcutRegistrationTryAgain": "إعادة المحاولة"
   },
   "appLanguage": {
     "title": "لغة التطبيق",

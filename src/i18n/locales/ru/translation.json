@@ -635,9 +635,12 @@
       "neither": "Вставка могла не сработать."
     },
     "shortcutRegistrationFailedTitle": "Не удалось настроить сочетание клавиш",
-    "shortcutRegistrationFailed": "{{binding}} не зарегистрировано: {{reason}}. Выберите другую клавишу в Настройках или проверьте, что Coco Voice разрешён в разделе «Универсальный доступ».",
+    "shortcutRegistrationFailedTaken": "Другое приложение уже использует {{binding}}. Выберите другую клавишу в Настройках или закройте то приложение и попробуйте снова.",
+    "shortcutRegistrationFailedRejected": "{{binding}} нельзя использовать как сочетание клавиш. Выберите другую клавишу в Настройках.",
+    "shortcutRegistrationFailedOther": "{{binding}} не удалось настроить. Попробуйте снова или выберите другую клавишу в Настройках.",
     "shortcutRegistrationFailedMore": " (+ещё {{count}})",
-    "shortcutRegistrationOpenSettings": "Открыть настройки"
+    "shortcutRegistrationOpenSettings": "Открыть настройки",
+    "shortcutRegistrationTryAgain": "Попробовать снова"
   },
   "appLanguage": {
     "title": "Язык приложения",

@@ -635,9 +635,12 @@
       "neither": "Inklistringen kanske inte fungerade."
     },
     "shortcutRegistrationFailedTitle": "Ett kortkommando kunde inte ställas in",
-    "shortcutRegistrationFailed": "{{binding}} registrerades inte: {{reason}}. Välj en annan tangent i Inställningar, eller kontrollera att Coco Voice är tillåtet under Hjälpmedel.",
+    "shortcutRegistrationFailedTaken": "En annan app använder redan {{binding}}. Välj en annan tangent i Inställningar, eller avsluta den appen och försök igen.",
+    "shortcutRegistrationFailedRejected": "{{binding}} kan inte användas som kortkommando. Välj en annan tangent i Inställningar.",
+    "shortcutRegistrationFailedOther": "{{binding}} kunde inte ställas in. Försök igen, eller välj en annan tangent i Inställningar.",
     "shortcutRegistrationFailedMore": " (+{{count}} till)",
-    "shortcutRegistrationOpenSettings": "Öppna Inställningar"
+    "shortcutRegistrationOpenSettings": "Öppna Inställningar",
+    "shortcutRegistrationTryAgain": "Försök igen"
   },
   "appLanguage": {
     "title": "Applikationsspråk",

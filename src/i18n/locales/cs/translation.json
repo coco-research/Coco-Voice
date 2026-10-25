@@ -635,9 +635,12 @@
       "neither": "Vložení se možná nepovedlo."
     },
     "shortcutRegistrationFailedTitle": "Zkratku se nepodařilo nastavit",
-    "shortcutRegistrationFailed": "{{binding}} se nezaregistrovala: {{reason}}. Zvolte jinou klávesu v Nastavení, nebo zkontrolujte, že je Coco Voice povolený ve Zpřístupnění.",
+    "shortcutRegistrationFailedTaken": "Jiná aplikace už používá {{binding}}. Zvolte jinou klávesu v Nastavení, nebo tu aplikaci ukončete a zkuste to znovu.",
+    "shortcutRegistrationFailedRejected": "{{binding}} nelze použít jako zkratku. Zvolte jinou klávesu v Nastavení.",
+    "shortcutRegistrationFailedOther": "{{binding}} se nepodařilo nastavit. Zkuste to znovu, nebo zvolte jinou klávesu v Nastavení.",
     "shortcutRegistrationFailedMore": " (+{{count}} dalších)",
-    "shortcutRegistrationOpenSettings": "Otevřít Nastavení"
+    "shortcutRegistrationOpenSettings": "Otevřít Nastavení",
+    "shortcutRegistrationTryAgain": "Zkusit znovu"
   },
   "appLanguage": {
     "title": "Jazyk aplikace",

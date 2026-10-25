@@ -635,9 +635,12 @@
       "neither": "ייתכן שההדבקה לא הצליחה."
     },
     "shortcutRegistrationFailedTitle": "לא ניתן היה להגדיר קיצור",
-    "shortcutRegistrationFailed": "{{binding}} לא נרשם: {{reason}}. בחרו מקש אחר בהגדרות, או בדקו ש-Coco Voice מורשה תחת נגישות.",
+    "shortcutRegistrationFailedTaken": "יישום אחר כבר משתמש ב-{{binding}}. בחרו מקש אחר בהגדרות, או צאו מהיישום הזה ונסו שוב.",
+    "shortcutRegistrationFailedRejected": "לא ניתן להשתמש ב-{{binding}} כקיצור. בחרו מקש אחר בהגדרות.",
+    "shortcutRegistrationFailedOther": "לא ניתן היה להגדיר את {{binding}}. נסו שוב, או בחרו מקש אחר בהגדרות.",
     "shortcutRegistrationFailedMore": " (+{{count}} נוספים)",
-    "shortcutRegistrationOpenSettings": "פתיחת הגדרות"
+    "shortcutRegistrationOpenSettings": "פתיחת הגדרות",
+    "shortcutRegistrationTryAgain": "נסו שוב"
   },
   "appLanguage": {
     "title": "שפת האפליקציה",

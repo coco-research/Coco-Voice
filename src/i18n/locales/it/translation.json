@@ -635,9 +635,12 @@
       "neither": "L'incolla potrebbe non essere riuscito."
     },
     "shortcutRegistrationFailedTitle": "Non è stato possibile impostare una scorciatoia",
-    "shortcutRegistrationFailed": "{{binding}} non è stata registrata: {{reason}}. Scegli un altro tasto in Impostazioni, oppure controlla che Coco Voice sia consentito in Accessibilità.",
+    "shortcutRegistrationFailedTaken": "Un'altra app usa già {{binding}}. Scegli un altro tasto in Impostazioni, oppure chiudi quell'app e riprova.",
+    "shortcutRegistrationFailedRejected": "{{binding}} non può essere usata come scorciatoia. Scegli un altro tasto in Impostazioni.",
+    "shortcutRegistrationFailedOther": "{{binding}} non è stata impostata. Riprova, oppure scegli un altro tasto in Impostazioni.",
     "shortcutRegistrationFailedMore": " (+{{count}} altri)",
-    "shortcutRegistrationOpenSettings": "Apri Impostazioni"
+    "shortcutRegistrationOpenSettings": "Apri Impostazioni",
+    "shortcutRegistrationTryAgain": "Riprova"
   },
   "appLanguage": {
     "title": "Lingua Applicazione",

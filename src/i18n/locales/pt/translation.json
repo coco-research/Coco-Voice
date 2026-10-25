@@ -635,9 +635,12 @@
       "neither": "A colagem pode não ter funcionado."
     },
     "shortcutRegistrationFailedTitle": "Não foi possível configurar um atalho",
-    "shortcutRegistrationFailed": "{{binding}} não foi registrado: {{reason}}. Escolha outra tecla em Configurações, ou verifique se o Coco Voice está permitido em Acessibilidade.",
+    "shortcutRegistrationFailedTaken": "Outro aplicativo já usa {{binding}}. Escolha outra tecla em Configurações, ou feche esse aplicativo e tente de novo.",
+    "shortcutRegistrationFailedRejected": "{{binding}} não pode ser usado como atalho. Escolha outra tecla em Configurações.",
+    "shortcutRegistrationFailedOther": "{{binding}} não pôde ser configurado. Tente de novo, ou escolha outra tecla em Configurações.",
     "shortcutRegistrationFailedMore": " (+{{count}} mais)",
-    "shortcutRegistrationOpenSettings": "Abrir Configurações"
+    "shortcutRegistrationOpenSettings": "Abrir Configurações",
+    "shortcutRegistrationTryAgain": "Tentar de novo"
   },
   "appLanguage": {
     "title": "Idioma da Aplicação",

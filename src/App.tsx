@@ -31,10 +31,18 @@ const renderSettingsContent = (section: SidebarSection) => {
   return <ActiveComponent />;
 };
 
-function firstSentence(error: string): string {
-  const trimmed = error.trim();
-  const end = trimmed.search(/[.!?](\s|$)/);
-  return end === -1 ? trimmed : trimmed.slice(0, end + 1);
+function shortcutFailureBodyKey(
+  cause: ShortcutRegistrationFailure["cause"],
+): string {
+  switch (cause) {
+    case "taken":
+      return "errors.shortcutRegistrationFailedTaken";
+    case "rejected":
+      return "errors.shortcutRegistrationFailedRejected";
+    case "other":
+    default:
+      return "errors.shortcutRegistrationFailedOther";
+  }
 }
 
 function App() {
@@ -76,7 +84,6 @@ function App() {
         const failures = event.payload;
         const first = failures[0];
         if (!first) return;
-        const reason = firstSentence(first.error);
         const more =
           failures.length > 1
             ? t("errors.shortcutRegistrationFailedMore", {
@@ -88,14 +95,19 @@ function App() {
         void commands.showMainWindowCommand();
         toast(t("errors.shortcutRegistrationFailedTitle"), {
           description:
-            t("errors.shortcutRegistrationFailed", {
+            t(shortcutFailureBodyKey(first.cause), {
               binding: first.binding,
-              reason,
             }) + more,
           duration: Infinity,
           action: {
             label: t("errors.shortcutRegistrationOpenSettings"),
             onClick: () => setCurrentSection("general"),
+          },
+          cancel: {
+            label: t("errors.shortcutRegistrationTryAgain"),
+            onClick: () => {
+              void commands.initializeShortcuts();
+            },
           },
         });
       },

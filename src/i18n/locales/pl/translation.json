@@ -635,9 +635,12 @@
       "neither": "Wklejenie mogło się nie udać."
     },
     "shortcutRegistrationFailedTitle": "Nie udało się ustawić skrótu",
-    "shortcutRegistrationFailed": "{{binding}} nie został zarejestrowany: {{reason}}. Wybierz inny klawisz w Ustawieniach albo sprawdź, czy Coco Voice ma dostęp w Dostępności.",
+    "shortcutRegistrationFailedTaken": "Inna aplikacja używa już {{binding}}. Wybierz inny klawisz w Ustawieniach albo zamknij tę aplikację i spróbuj ponownie.",
+    "shortcutRegistrationFailedRejected": "{{binding}} nie może być skrótem. Wybierz inny klawisz w Ustawieniach.",
+    "shortcutRegistrationFailedOther": "{{binding}} nie udało się ustawić. Spróbuj ponownie albo wybierz inny klawisz w Ustawieniach.",
     "shortcutRegistrationFailedMore": " (+{{count}} więcej)",
-    "shortcutRegistrationOpenSettings": "Otwórz Ustawienia"
+    "shortcutRegistrationOpenSettings": "Otwórz Ustawienia",
+    "shortcutRegistrationTryAgain": "Spróbuj ponownie"
   },
   "appLanguage": {
     "title": "Język aplikacji",

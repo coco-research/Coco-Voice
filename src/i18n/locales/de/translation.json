@@ -635,9 +635,12 @@
       "neither": "Das Einfügen hat vielleicht nicht geklappt."
     },
     "shortcutRegistrationFailedTitle": "Eine Tastenkombination konnte nicht eingerichtet werden",
-    "shortcutRegistrationFailed": "{{binding}} wurde nicht registriert: {{reason}}. Wähle in den Einstellungen eine andere Taste, oder prüfe, ob Coco Voice unter Bedienungshilfen erlaubt ist.",
+    "shortcutRegistrationFailedTaken": "Eine andere App verwendet {{binding}} bereits. Wähle in den Einstellungen eine andere Taste, oder beende diese App und versuche es erneut.",
+    "shortcutRegistrationFailedRejected": "{{binding}} lässt sich nicht als Tastenkombination verwenden. Wähle in den Einstellungen eine andere Taste.",
+    "shortcutRegistrationFailedOther": "{{binding}} konnte nicht eingerichtet werden. Versuche es erneut, oder wähle in den Einstellungen eine andere Taste.",
     "shortcutRegistrationFailedMore": " (+{{count}} weitere)",
-    "shortcutRegistrationOpenSettings": "Einstellungen öffnen"
+    "shortcutRegistrationOpenSettings": "Einstellungen öffnen",
+    "shortcutRegistrationTryAgain": "Erneut versuchen"
   },
   "appLanguage": {
     "title": "Anwendungssprache",
