@@ -24,7 +24,7 @@ concurrency:
 jobs:
   ci-ok:
     name: ci-ok
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 75
     permissions:
       checks: read
