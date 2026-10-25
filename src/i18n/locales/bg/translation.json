@@ -633,7 +633,11 @@
       "clipboardOnly": "Поставянето може да не е успяло. Думите ви са в клипборда.",
       "historyOnly": "Поставянето може да не е успяло. Думите ви са в История.",
       "neither": "Поставянето може да не е успяло."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Пряк път не можа да бъде настроен",
+    "shortcutRegistrationFailed": "{{binding}} не се регистрира: {{reason}}. Изберете друг клавиш в Настройки или проверете дали Coco Voice е разрешен в Достъпност.",
+    "shortcutRegistrationFailedMore": " (+още {{count}})",
+    "shortcutRegistrationOpenSettings": "Отвори Настройки"
   },
   "appLanguage": {
     "title": "Език на приложението",

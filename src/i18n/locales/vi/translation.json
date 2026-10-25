@@ -633,7 +633,11 @@
       "clipboardOnly": "Có thể chưa dán được. Lời của bạn nằm trên clipboard.",
       "historyOnly": "Có thể chưa dán được. Lời của bạn nằm trong Lịch sử.",
       "neither": "Có thể chưa dán được."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Không thiết lập được một phím tắt",
+    "shortcutRegistrationFailed": "{{binding}} chưa được đăng ký: {{reason}}. Hãy chọn phím khác trong Cài đặt, hoặc kiểm tra Coco Voice được phép trong Trợ năng.",
+    "shortcutRegistrationFailedMore": " (+{{count}} mục nữa)",
+    "shortcutRegistrationOpenSettings": "Mở Cài đặt"
   },
   "appLanguage": {
     "title": "Ngôn ngữ ứng dụng",

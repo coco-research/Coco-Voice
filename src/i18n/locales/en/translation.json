@@ -636,7 +636,11 @@
       "clipboardOnly": "Paste may not have worked. Your words are on the clipboard.",
       "historyOnly": "Paste may not have worked. Your words are in History.",
       "neither": "Paste may not have worked."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "A shortcut couldn't be set up",
+    "shortcutRegistrationFailed": "{{binding}} didn't register: {{reason}}. Pick another key in Settings, or check that Coco Voice is allowed under Accessibility.",
+    "shortcutRegistrationFailedMore": " (+{{count}} more)",
+    "shortcutRegistrationOpenSettings": "Open Settings"
   },
   "appLanguage": {
     "title": "Application Language",

@@ -633,7 +633,11 @@
       "clipboardOnly": "ייתכן שההדבקה לא הצליחה. המילים שלך בלוח.",
       "historyOnly": "ייתכן שההדבקה לא הצליחה. המילים שלך בהיסטוריה.",
       "neither": "ייתכן שההדבקה לא הצליחה."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "לא ניתן היה להגדיר קיצור",
+    "shortcutRegistrationFailed": "{{binding}} לא נרשם: {{reason}}. בחרו מקש אחר בהגדרות, או בדקו ש-Coco Voice מורשה תחת נגישות.",
+    "shortcutRegistrationFailedMore": " (+{{count}} נוספים)",
+    "shortcutRegistrationOpenSettings": "פתיחת הגדרות"
   },
   "appLanguage": {
     "title": "שפת האפליקציה",

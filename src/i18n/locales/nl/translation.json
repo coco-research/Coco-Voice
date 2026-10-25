@@ -636,7 +636,11 @@
       "clipboardOnly": "Plakken is misschien niet gelukt. Je woorden staan op het klembord.",
       "historyOnly": "Plakken is misschien niet gelukt. Je woorden staan in Geschiedenis.",
       "neither": "Plakken is misschien niet gelukt."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Een sneltoets kon niet worden ingesteld",
+    "shortcutRegistrationFailed": "{{binding}} is niet geregistreerd: {{reason}}. Kies een andere toets in Instellingen, of controleer of Coco Voice is toegestaan onder Toegankelijkheid.",
+    "shortcutRegistrationFailedMore": " (+{{count}} meer)",
+    "shortcutRegistrationOpenSettings": "Instellingen openen"
   },
   "appLanguage": {
     "title": "Interfacetaal",

@@ -633,7 +633,11 @@
       "clipboardOnly": "Vložení se možná nepovedlo. Vaše slova jsou ve schránce.",
       "historyOnly": "Vložení se možná nepovedlo. Vaše slova jsou v Historie.",
       "neither": "Vložení se možná nepovedlo."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Zkratku se nepodařilo nastavit",
+    "shortcutRegistrationFailed": "{{binding}} se nezaregistrovala: {{reason}}. Zvolte jinou klávesu v Nastavení, nebo zkontrolujte, že je Coco Voice povolený ve Zpřístupnění.",
+    "shortcutRegistrationFailedMore": " (+{{count}} dalších)",
+    "shortcutRegistrationOpenSettings": "Otevřít Nastavení"
   },
   "appLanguage": {
     "title": "Jazyk aplikace",

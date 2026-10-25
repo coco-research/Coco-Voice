@@ -633,7 +633,11 @@
       "clipboardOnly": "Le collage n'a peut-être pas fonctionné. Vos mots sont dans le presse-papiers.",
       "historyOnly": "Le collage n'a peut-être pas fonctionné. Vos mots sont dans l'Historique.",
       "neither": "Le collage n'a peut-être pas fonctionné."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Un raccourci n'a pas pu être configuré",
+    "shortcutRegistrationFailed": "{{binding}} ne s'est pas enregistré : {{reason}}. Choisissez une autre touche dans Paramètres, ou vérifiez que Coco Voice est autorisé dans Accessibilité.",
+    "shortcutRegistrationFailedMore": " (+{{count}} de plus)",
+    "shortcutRegistrationOpenSettings": "Ouvrir les paramètres"
   },
   "appLanguage": {
     "title": "Langue de l'application",

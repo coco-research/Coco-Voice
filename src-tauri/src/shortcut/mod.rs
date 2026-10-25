@@ -13,6 +13,9 @@ pub mod coco_keys;
 mod handler;
 mod tauri_impl;
 
+use std::collections::{HashMap, HashSet};
+use std::sync::{Mutex, OnceLock, PoisonError};
+
 use log::{error, info, warn};
 use serde::Serialize;
 use specta::Type;
@@ -56,17 +59,18 @@ fn run_ordered(job: impl FnOnce() + Send + 'static) {
     }
 }
 
-/// Initialize shortcuts using the configured implementation
-pub fn init_shortcuts(app: &AppHandle) {
+/// Initialize shortcuts using the configured implementation.
+///
+/// `initialized` is false when any binding failed to register. Callers leave
+/// the shortcut set uninitialized in that case so a later call can try again.
+pub fn init_shortcuts(app: &AppHandle) -> ShortcutInit {
     let user_settings = settings::load_or_create_app_settings(app);
 
-    // Check which implementation to use
-    match user_settings.keyboard_implementation {
-        KeyboardImplementation::Tauri => {
-            tauri_impl::init_shortcuts(app);
-        }
-        KeyboardImplementation::CocoVoiceKeys => {
-            if let Err(e) = coco_keys::init_shortcuts(app) {
+    let failures = match user_settings.keyboard_implementation {
+        KeyboardImplementation::Tauri => tauri_impl::init_shortcuts(app),
+        KeyboardImplementation::CocoVoiceKeys => match coco_keys::init_shortcuts(app) {
+            Ok(failures) => failures,
+            Err(e) => {
                 error!("Failed to initialize handy-keys shortcuts: {}", e);
                 // Fall back to Tauri implementation and persist this fallback
                 warn!("Falling back to Tauri global shortcut implementation and saving fallback to settings");
@@ -76,10 +80,12 @@ pub fn init_shortcuts(app: &AppHandle) {
                     s.keyboard_implementation = KeyboardImplementation::Tauri;
                 });
 
-                tauri_impl::init_shortcuts(app);
+                tauri_impl::init_shortcuts(app)
             }
-        }
-    }
+        },
+    };
+
+    ShortcutInit::from_failures(failures)
 }
 
 /// Register the cancel shortcut (called when recording starts)
@@ -102,20 +108,213 @@ pub fn unregister_cancel_shortcut(app: &AppHandle) {
 
 /// Register a shortcut using the appropriate implementation
 pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<(), String> {
+    let id = binding.id.clone();
     let settings = get_settings(app);
-    match settings.keyboard_implementation {
+    let result = match settings.keyboard_implementation {
         KeyboardImplementation::Tauri => tauri_impl::register_shortcut(app, binding),
         KeyboardImplementation::CocoVoiceKeys => coco_keys::register_shortcut(app, binding),
+    };
+    if result.is_ok() {
+        note_shortcut_registered(&id);
     }
+    result
 }
 
 /// Unregister a shortcut using the appropriate implementation
 pub fn unregister_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<(), String> {
+    let id = binding.id.clone();
     let settings = get_settings(app);
-    match settings.keyboard_implementation {
+    let result = match settings.keyboard_implementation {
         KeyboardImplementation::Tauri => tauri_impl::unregister_shortcut(app, binding),
         KeyboardImplementation::CocoVoiceKeys => coco_keys::unregister_shortcut(app, binding),
+    };
+    if result.is_ok() {
+        forget_shortcut_registered(&id);
     }
+    result
+}
+
+/// One binding the init loop tried to register and could not.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ShortcutFailure {
+    pub id: String,
+    pub binding: String,
+    pub error: String,
+}
+
+/// Result of an init pass. `initialized` is true only when nothing failed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShortcutInit {
+    pub failures: Vec<ShortcutFailure>,
+    pub initialized: bool,
+}
+
+impl ShortcutInit {
+    fn from_failures(failures: Vec<ShortcutFailure>) -> Self {
+        let initialized = failures.is_empty();
+        Self {
+            failures,
+            initialized,
+        }
+    }
+}
+
+/// A binding the init loop might register. Skips are decided by
+/// [`collect_shortcut_failures`], not by the registrar.
+struct ShortcutCandidate {
+    id: String,
+    binding: String,
+}
+
+/// Asks whether a binding id is already held, and registers one that is not.
+///
+/// Tests supply a fake. Production uses [`SettingsRegistrar`], which calls the
+/// existing register helper and remembers ids that returned `Ok`.
+trait ShortcutRegistrar {
+    fn is_registered(&self, id: &str) -> bool;
+    fn register(&mut self, id: &str, binding: &str) -> Result<(), String>;
+}
+
+/// Ids the register helper accepted in this process. A retry skips them so
+/// "already in use" is not reported as a new failure.
+fn registered_shortcut_ids() -> &'static Mutex<HashSet<String>> {
+    static IDS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+    IDS.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+fn shortcut_already_registered(id: &str) -> bool {
+    registered_shortcut_ids()
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .contains(id)
+}
+
+fn note_shortcut_registered(id: &str) {
+    registered_shortcut_ids()
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert(id.to_string());
+}
+
+fn forget_shortcut_registered(id: &str) {
+    registered_shortcut_ids()
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .remove(id);
+}
+
+fn clear_registered_shortcuts() {
+    registered_shortcut_ids()
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .clear();
+}
+
+fn shortcut_intentionally_skipped(
+    id: &str,
+    binding: &str,
+    iterative_correction_enabled: bool,
+) -> bool {
+    if binding.trim().is_empty() {
+        return true;
+    }
+    // The correction shortcut stays unregistered until the feature is on.
+    id == "correction" && !iterative_correction_enabled
+}
+
+/// Register the candidates that should be active and collect the ones that failed.
+///
+/// An empty binding, and the correction shortcut while iterative correction is
+/// off, are skipped. They are not failures. A binding this registrar already
+/// holds is left in place so a retry does not report it as failed.
+fn collect_shortcut_failures(
+    candidates: &[ShortcutCandidate],
+    iterative_correction_enabled: bool,
+    registrar: &mut dyn ShortcutRegistrar,
+) -> ShortcutInit {
+    let mut failures = Vec::new();
+    for candidate in candidates {
+        if shortcut_intentionally_skipped(
+            &candidate.id,
+            &candidate.binding,
+            iterative_correction_enabled,
+        ) {
+            continue;
+        }
+        if registrar.is_registered(&candidate.id) {
+            continue;
+        }
+        if let Err(error) = registrar.register(&candidate.id, &candidate.binding) {
+            failures.push(ShortcutFailure {
+                id: candidate.id.clone(),
+                binding: candidate.binding.clone(),
+                error,
+            });
+        }
+    }
+    ShortcutInit::from_failures(failures)
+}
+
+struct SettingsRegistrar<'a> {
+    app: &'a AppHandle,
+    bindings: HashMap<String, ShortcutBinding>,
+}
+
+impl ShortcutRegistrar for SettingsRegistrar<'_> {
+    fn is_registered(&self, id: &str) -> bool {
+        shortcut_already_registered(id)
+    }
+
+    fn register(&mut self, id: &str, binding: &str) -> Result<(), String> {
+        let Some(mut stored) = self.bindings.get(id).cloned() else {
+            return Err(format!("No shortcut binding for '{id}'"));
+        };
+        stored.current_binding = binding.to_string();
+        register_shortcut(self.app, stored)
+    }
+}
+
+/// Bindings the active settings say should be registered right now.
+fn register_active_shortcuts(app: &AppHandle) -> Vec<ShortcutFailure> {
+    let settings = settings::load_or_create_app_settings(app);
+    let defaults = settings::get_default_settings().bindings;
+    let mut candidates = Vec::new();
+    let mut bindings = HashMap::new();
+
+    for (id, default_binding) in defaults {
+        // Cancel is registered only while a recording is in progress.
+        if id == "cancel" {
+            continue;
+        }
+        if id == "transcribe_with_post_process" && !settings.post_process_enabled {
+            continue;
+        }
+        let binding = settings
+            .bindings
+            .get(&id)
+            .cloned()
+            .unwrap_or(default_binding);
+        candidates.push(ShortcutCandidate {
+            id: id.clone(),
+            binding: binding.current_binding.clone(),
+        });
+        bindings.insert(id, binding);
+    }
+
+    let mut registrar = SettingsRegistrar { app, bindings };
+    collect_shortcut_failures(
+        &candidates,
+        settings.iterative_correction_enabled,
+        &mut registrar,
+    )
+    .failures
+}
+
+pub fn emit_shortcut_registration_failures(app: &AppHandle, failures: &[ShortcutFailure]) {
+    if failures.is_empty() {
+        return;
+    }
+    let _ = app.emit("shortcut-registration-failed", failures);
 }
 
 // ============================================================================
@@ -437,6 +636,9 @@ fn parse_keyboard_implementation(s: &str) -> KeyboardImplementation {
 
 /// Unregister all shortcuts for the current implementation
 fn unregister_all_shortcuts(app: &AppHandle, implementation: KeyboardImplementation) {
+    // The new backend registers from a clean slate. Ids left in the set would
+    // be skipped and never grabbed by the implementation we just switched to.
+    clear_registered_shortcuts();
     let bindings = settings::get_bindings(app);
 
     for (id, binding) in bindings {
@@ -466,6 +668,7 @@ fn register_all_shortcuts_for_implementation(
 ) -> Vec<String> {
     let mut reset_bindings = Vec::new();
     let mut reset_values: Vec<(String, ShortcutBinding)> = Vec::new();
+    let mut pending: Vec<(String, ShortcutBinding)> = Vec::new();
     let default_bindings = settings::get_default_settings().bindings;
     let current_settings = settings::get_settings(app);
 
@@ -514,18 +717,7 @@ fn register_all_shortcuts_for_implementation(
             reset_bindings.push(id.clone());
         }
 
-        // Register with the appropriate implementation
-        let result = match implementation {
-            KeyboardImplementation::Tauri => tauri_impl::register_shortcut(app, binding),
-            KeyboardImplementation::CocoVoiceKeys => coco_keys::register_shortcut(app, binding),
-        };
-
-        if let Err(e) = result {
-            error!(
-                "Failed to register shortcut '{}' for {:?}: {}",
-                id, implementation, e
-            );
-        }
+        pending.push((id.clone(), binding));
     }
 
     // Save settings if any bindings were reset. Re-read and write only the
@@ -538,6 +730,25 @@ fn register_all_shortcuts_for_implementation(
         });
     }
 
+    let correction_enabled = current_settings.iterative_correction_enabled;
+    let candidates: Vec<ShortcutCandidate> = pending
+        .iter()
+        .map(|(id, binding)| ShortcutCandidate {
+            id: id.clone(),
+            binding: binding.current_binding.clone(),
+        })
+        .collect();
+    let bindings: HashMap<String, ShortcutBinding> = pending.into_iter().collect();
+    let mut registrar = SettingsRegistrar { app, bindings };
+    let outcome = collect_shortcut_failures(&candidates, correction_enabled, &mut registrar);
+    for failure in &outcome.failures {
+        error!(
+            "Failed to register shortcut '{}' for {:?}: {}",
+            failure.id, implementation, failure.error
+        );
+    }
+    emit_shortcut_registration_failures(app, &outcome.failures);
+
     reset_bindings
 }
 
@@ -547,21 +758,26 @@ fn initialize_handy_keys_with_rollback(app: &AppHandle) -> Result<bool, String> 
         return Ok(false); // Already initialized, caller should continue
     }
 
-    if let Err(e) = coco_keys::init_shortcuts(app) {
-        error!("Failed to initialize CocoVoiceKeys: {}", e);
-        // Rollback to Tauri. init_shortcuts runs after the lock is released.
-        settings::update_settings(app, |s| {
-            s.keyboard_implementation = KeyboardImplementation::Tauri;
-        });
-        tauri_impl::init_shortcuts(app);
-        return Err(format!(
-            "Failed to initialize CocoVoiceKeys: {}. Reverted to Tauri.",
-            e
-        ));
+    match coco_keys::init_shortcuts(app) {
+        Ok(failures) => {
+            // init_shortcuts already registered what it could.
+            emit_shortcut_registration_failures(app, &failures);
+            Ok(true)
+        }
+        Err(e) => {
+            error!("Failed to initialize CocoVoiceKeys: {}", e);
+            // Rollback to Tauri. init_shortcuts runs after the lock is released.
+            settings::update_settings(app, |s| {
+                s.keyboard_implementation = KeyboardImplementation::Tauri;
+            });
+            let failures = tauri_impl::init_shortcuts(app);
+            emit_shortcut_registration_failures(app, &failures);
+            Err(format!(
+                "Failed to initialize CocoVoiceKeys: {}. Reverted to Tauri.",
+                e
+            ))
+        }
     }
-
-    // init_shortcuts already registered shortcuts
-    Ok(true)
 }
 
 // ============================================================================
@@ -1431,5 +1647,123 @@ mod tests {
         );
         assert!(result.is_ok());
         assert_eq!(*calls.borrow(), ["new"]);
+    }
+}
+
+#[cfg(test)]
+mod collect_failure_tests {
+    use super::{collect_shortcut_failures, ShortcutCandidate, ShortcutFailure, ShortcutRegistrar};
+    use std::collections::HashSet;
+
+    /// A register function the init decision can be driven with.
+    /// Calling register for an id already held fails the way the real backends do,
+    /// so a retry that forgets to skip shows up as a failure.
+    struct FakeRegistrar {
+        registered: HashSet<String>,
+        fail: HashSet<String>,
+    }
+
+    impl ShortcutRegistrar for FakeRegistrar {
+        fn is_registered(&self, id: &str) -> bool {
+            self.registered.contains(id)
+        }
+
+        fn register(&mut self, id: &str, _binding: &str) -> Result<(), String> {
+            if self.registered.contains(id) {
+                return Err(format!("{id} is already in use"));
+            }
+            if self.fail.contains(id) {
+                return Err(format!("could not register {id}"));
+            }
+            self.registered.insert(id.to_string());
+            Ok(())
+        }
+    }
+
+    fn candidate(id: &str, binding: &str) -> ShortcutCandidate {
+        ShortcutCandidate {
+            id: id.to_string(),
+            binding: binding.to_string(),
+        }
+    }
+
+    #[test]
+    fn all_succeed_reports_no_failures_and_initialized() {
+        let mut registrar = FakeRegistrar {
+            registered: HashSet::new(),
+            fail: HashSet::new(),
+        };
+        let candidates = vec![
+            candidate("transcribe", "ctrl+space"),
+            candidate("paste", "ctrl+shift+v"),
+        ];
+        let outcome = collect_shortcut_failures(&candidates, true, &mut registrar);
+        assert!(outcome.failures.is_empty());
+        assert!(outcome.initialized);
+        assert!(registrar.registered.contains("transcribe"));
+        assert!(registrar.registered.contains("paste"));
+    }
+
+    #[test]
+    fn one_failure_records_id_binding_and_error_and_is_not_initialized() {
+        let mut registrar = FakeRegistrar {
+            registered: HashSet::new(),
+            fail: HashSet::from(["paste".to_string()]),
+        };
+        let candidates = vec![
+            candidate("transcribe", "ctrl+space"),
+            candidate("paste", "ctrl+shift+v"),
+        ];
+        let outcome = collect_shortcut_failures(&candidates, true, &mut registrar);
+        assert!(!outcome.initialized);
+        assert_eq!(
+            outcome.failures,
+            vec![ShortcutFailure {
+                id: "paste".to_string(),
+                binding: "ctrl+shift+v".to_string(),
+                error: "could not register paste".to_string(),
+            }]
+        );
+        assert!(registrar.registered.contains("transcribe"));
+        assert!(!registrar.registered.contains("paste"));
+    }
+
+    #[test]
+    fn empty_and_disabled_correction_are_not_failures() {
+        let mut registrar = FakeRegistrar {
+            registered: HashSet::new(),
+            fail: HashSet::new(),
+        };
+        let candidates = vec![
+            candidate("transcribe", "  "),
+            candidate("correction", "ctrl+shift+c"),
+            candidate("paste", "ctrl+shift+v"),
+        ];
+        let outcome = collect_shortcut_failures(&candidates, false, &mut registrar);
+        assert!(outcome.failures.is_empty());
+        assert!(outcome.initialized);
+        assert_eq!(registrar.registered, HashSet::from(["paste".to_string()]));
+    }
+
+    #[test]
+    fn retry_after_a_failure_does_not_report_already_registered_bindings() {
+        let mut registrar = FakeRegistrar {
+            registered: HashSet::new(),
+            fail: HashSet::from(["paste".to_string()]),
+        };
+        let candidates = vec![
+            candidate("transcribe", "ctrl+space"),
+            candidate("paste", "ctrl+shift+v"),
+        ];
+        let first = collect_shortcut_failures(&candidates, true, &mut registrar);
+        assert_eq!(first.failures.len(), 1);
+        assert!(!first.initialized);
+
+        registrar.fail.clear();
+        let second = collect_shortcut_failures(&candidates, true, &mut registrar);
+        assert!(second.failures.is_empty(), "{:?}", second.failures);
+        assert!(second.initialized);
+        assert!(registrar.registered.contains("transcribe"));
+        assert!(registrar.registered.contains("paste"));
     }
 }

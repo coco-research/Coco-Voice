@@ -633,7 +633,11 @@
       "clipboardOnly": "Inklistringen kanske inte fungerade. Dina ord finns i urklipp.",
       "historyOnly": "Inklistringen kanske inte fungerade. Dina ord finns i Historik.",
       "neither": "Inklistringen kanske inte fungerade."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Ett kortkommando kunde inte ställas in",
+    "shortcutRegistrationFailed": "{{binding}} registrerades inte: {{reason}}. Välj en annan tangent i Inställningar, eller kontrollera att Coco Voice är tillåtet under Hjälpmedel.",
+    "shortcutRegistrationFailedMore": " (+{{count}} till)",
+    "shortcutRegistrationOpenSettings": "Öppna Inställningar"
   },
   "appLanguage": {
     "title": "Applikationsspråk",

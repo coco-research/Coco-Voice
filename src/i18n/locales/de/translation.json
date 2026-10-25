@@ -633,7 +633,11 @@
       "clipboardOnly": "Das Einfügen hat vielleicht nicht geklappt. Deine Wörter sind in der Zwischenablage.",
       "historyOnly": "Das Einfügen hat vielleicht nicht geklappt. Deine Wörter sind im Verlauf.",
       "neither": "Das Einfügen hat vielleicht nicht geklappt."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Eine Tastenkombination konnte nicht eingerichtet werden",
+    "shortcutRegistrationFailed": "{{binding}} wurde nicht registriert: {{reason}}. Wähle in den Einstellungen eine andere Taste, oder prüfe, ob Coco Voice unter Bedienungshilfen erlaubt ist.",
+    "shortcutRegistrationFailedMore": " (+{{count}} weitere)",
+    "shortcutRegistrationOpenSettings": "Einstellungen öffnen"
   },
   "appLanguage": {
     "title": "Anwendungssprache",

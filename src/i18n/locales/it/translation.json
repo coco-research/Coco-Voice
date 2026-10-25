@@ -633,7 +633,11 @@
       "clipboardOnly": "L'incolla potrebbe non essere riuscito. Le tue parole sono negli appunti.",
       "historyOnly": "L'incolla potrebbe non essere riuscito. Le tue parole sono in Cronologia.",
       "neither": "L'incolla potrebbe non essere riuscito."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Non è stato possibile impostare una scorciatoia",
+    "shortcutRegistrationFailed": "{{binding}} non è stata registrata: {{reason}}. Scegli un altro tasto in Impostazioni, oppure controlla che Coco Voice sia consentito in Accessibilità.",
+    "shortcutRegistrationFailedMore": " (+{{count}} altri)",
+    "shortcutRegistrationOpenSettings": "Apri Impostazioni"
   },
   "appLanguage": {
     "title": "Lingua Applicazione",

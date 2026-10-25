@@ -633,7 +633,11 @@
       "clipboardOnly": "Wklejenie mogło się nie udać. Twoje słowa są w schowku.",
       "historyOnly": "Wklejenie mogło się nie udać. Twoje słowa są w Historia.",
       "neither": "Wklejenie mogło się nie udać."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Nie udało się ustawić skrótu",
+    "shortcutRegistrationFailed": "{{binding}} nie został zarejestrowany: {{reason}}. Wybierz inny klawisz w Ustawieniach albo sprawdź, czy Coco Voice ma dostęp w Dostępności.",
+    "shortcutRegistrationFailedMore": " (+{{count}} więcej)",
+    "shortcutRegistrationOpenSettings": "Otwórz Ustawienia"
   },
   "appLanguage": {
     "title": "Język aplikacji",

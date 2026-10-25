@@ -636,7 +636,11 @@
       "clipboardOnly": "पेस्ट नभएको हुन सक्छ। तपाईंका शब्दहरू क्लिपबोर्डमा छन्।",
       "historyOnly": "पेस्ट नभएको हुन सक्छ। तपाईंका शब्दहरू हिस्ट्रीमा छन्।",
       "neither": "पेस्ट नभएको हुन सक्छ।"
-    }
+    },
+    "shortcutRegistrationFailedTitle": "एउटा सर्टकट सेट गर्न सकिएन",
+    "shortcutRegistrationFailed": "{{binding}} दर्ता भएन: {{reason}}. सेटिङहरूमा अर्को कुञ्जी छान्नुहोस्, वा पहुँचमा Coco Voice लाई अनुमति छ कि छैन जाँच गर्नुहोस्।",
+    "shortcutRegistrationFailedMore": " (+थप {{count}})",
+    "shortcutRegistrationOpenSettings": "सेटिङहरू खोल्नुहोस्"
   },
   "appLanguage": {
     "title": "एपको भाषा",

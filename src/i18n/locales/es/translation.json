@@ -633,7 +633,11 @@
       "clipboardOnly": "Puede que el pegado no haya funcionado. Tus palabras están en el portapapeles.",
       "historyOnly": "Puede que el pegado no haya funcionado. Tus palabras están en el Historial.",
       "neither": "Puede que el pegado no haya funcionado."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "No se pudo configurar un atajo",
+    "shortcutRegistrationFailed": "{{binding}} no se registró: {{reason}}. Elige otra tecla en Configuración, o comprueba que Coco Voice tenga permiso en Accesibilidad.",
+    "shortcutRegistrationFailedMore": " (+{{count}} más)",
+    "shortcutRegistrationOpenSettings": "Abrir Configuración"
   },
   "appLanguage": {
     "title": "Idioma de la aplicación",

@@ -633,7 +633,11 @@
       "clipboardOnly": "Yapıştırma gerçekleşmemiş olabilir. Sözleriniz panoda.",
       "historyOnly": "Yapıştırma gerçekleşmemiş olabilir. Sözleriniz Geçmiş'te.",
       "neither": "Yapıştırma gerçekleşmemiş olabilir."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Bir kısayol ayarlanamadı",
+    "shortcutRegistrationFailed": "{{binding}} kaydedilemedi: {{reason}}. Ayarlar'da başka bir tuş seçin veya Coco Voice'un Erişilebilirlik altında izinli olduğunu kontrol edin.",
+    "shortcutRegistrationFailedMore": " (+{{count}} tane daha)",
+    "shortcutRegistrationOpenSettings": "Ayarları aç"
   },
   "appLanguage": {
     "title": "Uygulama Dili",

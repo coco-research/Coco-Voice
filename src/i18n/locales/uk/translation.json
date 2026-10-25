@@ -633,7 +633,11 @@
       "clipboardOnly": "Вставка могла не спрацювати. Ваші слова в буфері обміну.",
       "historyOnly": "Вставка могла не спрацювати. Ваші слова в Історія.",
       "neither": "Вставка могла не спрацювати."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Не вдалося налаштувати комбінацію клавіш",
+    "shortcutRegistrationFailed": "{{binding}} не зареєстровано: {{reason}}. Оберіть іншу клавішу в Налаштуваннях або перевірте, що Coco Voice дозволено в розділі «Спеціальні можливості».",
+    "shortcutRegistrationFailedMore": " (+ще {{count}})",
+    "shortcutRegistrationOpenSettings": "Відкрити налаштування"
   },
   "appLanguage": {
     "title": "Мова інтерфейсу",

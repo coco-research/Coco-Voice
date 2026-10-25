@@ -633,7 +633,11 @@
       "clipboardOnly": "粘贴可能没有成功。你的文字在剪贴板上。",
       "historyOnly": "粘贴可能没有成功。你的文字在历史记录里。",
       "neither": "粘贴可能没有成功。"
-    }
+    },
+    "shortcutRegistrationFailedTitle": "有一个快捷键未能设置",
+    "shortcutRegistrationFailed": "{{binding}} 没有注册成功：{{reason}}。请在设置中另选一个按键，或检查「辅助功能」里是否允许了 Coco Voice。",
+    "shortcutRegistrationFailedMore": "（另有 {{count}} 个）",
+    "shortcutRegistrationOpenSettings": "打开设置"
   },
   "appLanguage": {
     "title": "应用语言",

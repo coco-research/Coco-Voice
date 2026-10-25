@@ -633,7 +633,11 @@
       "clipboardOnly": "قد لا يكون اللصق قد نجح. كلماتك في الحافظة.",
       "historyOnly": "قد لا يكون اللصق قد نجح. كلماتك في السجل.",
       "neither": "قد لا يكون اللصق قد نجح."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "تعذر إعداد اختصار",
+    "shortcutRegistrationFailed": "لم يُسجَّل {{binding}}: {{reason}}. اختر مفتاحًا آخر في الإعدادات، أو تحقق من أن Coco Voice مسموح به ضمن إمكانية الوصول.",
+    "shortcutRegistrationFailedMore": " (+{{count}} أخرى)",
+    "shortcutRegistrationOpenSettings": "فتح الإعدادات"
   },
   "appLanguage": {
     "title": "لغة التطبيق",

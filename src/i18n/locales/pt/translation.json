@@ -633,7 +633,11 @@
       "clipboardOnly": "A colagem pode não ter funcionado. Suas palavras estão na área de transferência.",
       "historyOnly": "A colagem pode não ter funcionado. Suas palavras estão no Histórico.",
       "neither": "A colagem pode não ter funcionado."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Não foi possível configurar um atalho",
+    "shortcutRegistrationFailed": "{{binding}} não foi registrado: {{reason}}. Escolha outra tecla em Configurações, ou verifique se o Coco Voice está permitido em Acessibilidade.",
+    "shortcutRegistrationFailedMore": " (+{{count}} mais)",
+    "shortcutRegistrationOpenSettings": "Abrir Configurações"
   },
   "appLanguage": {
     "title": "Idioma da Aplicação",

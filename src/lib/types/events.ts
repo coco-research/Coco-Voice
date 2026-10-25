@@ -9,3 +9,9 @@ export interface RecordingErrorEvent {
   error_type: string;
   detail?: string;
 }
+
+export interface ShortcutRegistrationFailure {
+  id: string;
+  binding: string;
+  error: string;
+}
