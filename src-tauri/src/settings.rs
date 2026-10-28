@@ -2578,4 +2578,50 @@ mod tests {
         }
         std::fs::remove_dir_all(dir).unwrap();
     }
+
+    /// Quit and reopen: the settings document written to the store file loads
+    /// back as the same settings. `write_settings` / `get_settings` need a Tauri
+    /// app, so this uses the JSON document those functions put under the
+    /// `settings` key and the same migration steps the load path runs.
+    #[test]
+    fn settings_survive_reload_from_the_same_store_file() {
+        let mut settings = get_default_settings();
+        settings.push_to_talk = false;
+        settings.debug_mode = true;
+        settings.history_limit = 42;
+        settings.selected_language = "fr".to_string();
+        settings.custom_words = vec!["Coco".to_string()];
+
+        let dir = std::env::temp_dir().join(format!(
+            "coco-voice-settings-restart-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(SETTINGS_STORE_PATH);
+        let document = serde_json::json!({ "settings": &settings });
+        std::fs::write(&path, serde_json::to_vec_pretty(&document).unwrap()).unwrap();
+        drop(settings);
+
+        let bytes = std::fs::read(&path).unwrap();
+        let document: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_slice(&bytes).unwrap();
+        let stored = document.get("settings").expect("settings key").clone();
+        let mut loaded: AppSettings =
+            serde_json::from_value(stored.clone()).expect("stored settings parse");
+        assert!(!apply_settings_migrations(&mut loaded, &stored));
+        assert!(!ensure_post_process_defaults(&mut loaded));
+
+        assert_eq!(serde_json::to_value(&loaded).unwrap(), stored);
+        assert!(!loaded.push_to_talk);
+        assert!(loaded.debug_mode);
+        assert_eq!(loaded.history_limit, 42);
+        assert_eq!(loaded.selected_language, "fr");
+        assert_eq!(loaded.custom_words, vec!["Coco".to_string()]);
+
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }
