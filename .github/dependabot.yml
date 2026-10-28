@@ -18,6 +18,19 @@ updates:
       - dependency-name: "cpal"
         update-types:
           ["version-update:semver-minor", "version-update:semver-major"]
+      # tauri build rejects a crate/npm minor mismatch (a lone tauri-plugin-updater bump broke main, #146);
+      # bump these by hand together with their @tauri-apps/* package, as the bun rule below says
+      - dependency-name: "tauri"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "tauri-plugin-*"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
+      # ponytail: sha2 0.11 changes the digest output type, so the `{:x}` formatting in managers/model.rs
+      # stops compiling (#152). Stay on 0.10 until a hand PR moves those call sites.
+      - dependency-name: "sha2"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
   - package-ecosystem: bun
     directory: /
     schedule:
