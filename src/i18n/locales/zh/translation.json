@@ -330,7 +330,8 @@
         "options": {
           "dontModify": "不修改剪贴板",
           "copyToClipboard": "复制到剪贴板"
-        }
+        },
+        "privacyHint": "剪贴板上的文字，其他应用和剪贴板工具都能看到，通用剪贴板还可以将其拷贝到您的其他 Apple 设备。"
       },
       "autoSubmit": {
         "title": "自动提交",
@@ -572,11 +573,6 @@
         "description": "查看源代码并贡献",
         "button": "在 GitHub 上查看"
       },
-      "supportDevelopment": {
-        "title": "支持开发",
-        "description": "帮助我们继续开发 Coco Voice",
-        "button": "捐赠"
-      },
       "acknowledgments": {
         "title": "致谢",
         "ggml": {
@@ -631,9 +627,13 @@
     "recordingFailed": "录音启动失败: {{error}}",
     "modelLoadFailed": "加载模型失败: {{model}}",
     "modelLoadFailedUnknown": "未知模型",
-    "pasteFailedTitle": "粘贴文本失败",
-    "pasteFailed": "无法粘贴到应用中。文本已在剪贴板，可以粘贴。",
-    "transcriptionFailedTitle": "转录失败"
+    "transcriptionFailedTitle": "转录失败",
+    "pasteNotice": {
+      "clipboardAndHistory": "粘贴可能没有成功。你的文字在剪贴板上，也在历史记录里。",
+      "clipboardOnly": "粘贴可能没有成功。你的文字在剪贴板上。",
+      "historyOnly": "粘贴可能没有成功。你的文字在历史记录里。",
+      "neither": "粘贴可能没有成功。"
+    }
   },
   "appLanguage": {
     "title": "应用语言",
@@ -690,5 +690,8 @@
       "chooseProvider": "选择提供商",
       "useLocal": "使用设备端模型"
     }
+  },
+  "notices": {
+    "clipboardDefault": "粘贴之后，听写的文字会留在剪贴板上，方便再粘贴一次。它会替换你之前复制的内容。可以在设置 > 高级 > 剪贴板处理里关掉。"
   }
 }

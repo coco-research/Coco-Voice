@@ -330,7 +330,8 @@
         "options": {
           "dontModify": "Ändra inte urklipp",
           "copyToClipboard": "Kopiera till urklipp"
-        }
+        },
+        "privacyHint": "Text i urklipp kan ses av andra appar och urklippsverktyg, och Universellt urklipp kan kopiera den till dina andra Apple-enheter."
       },
       "autoSubmit": {
         "title": "Skicka automatiskt",
@@ -572,11 +573,6 @@
         "description": "Visa källkod och bidra",
         "button": "Visa på GitHub"
       },
-      "supportDevelopment": {
-        "title": "Stöd utvecklingen",
-        "description": "Hjälp oss att fortsätta bygga Coco Voice",
-        "button": "Donera"
-      },
       "acknowledgments": {
         "title": "Tack till",
         "ggml": {
@@ -631,9 +627,13 @@
     "modelLoadFailedUnknown": "okänd modell",
     "noInputDeviceTitle": "Ingen mikrofon hittades",
     "noInputDevice": "Ingen ljudenhet hittades. Anslut en mikrofon eller ett headset och försök igen.",
-    "pasteFailedTitle": "Det gick inte att klistra in texten",
-    "pasteFailed": "Det gick inte att klistra in i appen. Din text ligger i urklipp, redo att klistras in.",
-    "transcriptionFailedTitle": "Transkriptionen misslyckades"
+    "transcriptionFailedTitle": "Transkriptionen misslyckades",
+    "pasteNotice": {
+      "clipboardAndHistory": "Inklistringen kanske inte fungerade. Dina ord finns i urklipp och i Historik.",
+      "clipboardOnly": "Inklistringen kanske inte fungerade. Dina ord finns i urklipp.",
+      "historyOnly": "Inklistringen kanske inte fungerade. Dina ord finns i Historik.",
+      "neither": "Inklistringen kanske inte fungerade."
+    }
   },
   "appLanguage": {
     "title": "Applikationsspråk",
@@ -690,5 +690,8 @@
       "chooseProvider": "Välj leverantör",
       "useLocal": "Använd lokal modell"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Efter en inklistring ligger den dikterade texten kvar i urklipp så att du kan klistra in den igen. Den ersätter det du hade kopierat innan. Du kan stänga av det under Inställningar > Avancerat > Hantering av urklipp."
   }
 }

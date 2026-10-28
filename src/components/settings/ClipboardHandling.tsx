@@ -35,6 +35,7 @@ export const ClipboardHandlingSetting: React.FC<ClipboardHandlingProps> =
         description={t("settings.advanced.clipboardHandling.description")}
         descriptionMode={descriptionMode}
         grouped={grouped}
+        layout="stacked"
       >
         <Dropdown
           options={clipboardHandlingOptions}
@@ -44,6 +45,9 @@ export const ClipboardHandlingSetting: React.FC<ClipboardHandlingProps> =
           }
           disabled={isUpdating("clipboard_handling")}
         />
+        <p className="mt-2 text-xs text-mid-gray">
+          {t("settings.advanced.clipboardHandling.privacyHint")}
+        </p>
       </SettingContainer>
     );
   });

@@ -39,7 +39,7 @@ concurrency:
 
 jobs:
   code-quality:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -55,6 +55,9 @@ jobs:
       - name: Check translation consistency
         run: bun run check:translations
 
+      - name: Run static tests
+        run: bun run test:static
+
       - name: Run ESLint
         run: bun run lint
 
@@ -62,7 +65,7 @@ jobs:
         run: bun run format:check
 
   versions:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:

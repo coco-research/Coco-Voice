@@ -330,7 +330,8 @@
         "options": {
           "dontModify": "Ne pas modifier le presse-papiers",
           "copyToClipboard": "Copier dans le presse-papiers"
-        }
+        },
+        "privacyHint": "Le texte dans le presse-papiers est visible par d'autres applications et outils de presse-papiers, et le presse-papiers universel peut le copier sur vos autres appareils Apple."
       },
       "autoSubmit": {
         "title": "Envoi automatique",
@@ -572,11 +573,6 @@
         "description": "Voir le code source et contribuer",
         "button": "Voir sur GitHub"
       },
-      "supportDevelopment": {
-        "title": "Soutenir le développement",
-        "description": "Aidez-nous à continuer à construire Coco Voice",
-        "button": "Faire un don"
-      },
       "acknowledgments": {
         "title": "Remerciements",
         "ggml": {
@@ -631,9 +627,13 @@
     "recordingFailed": "Échec du démarrage de l'enregistrement : {{error}}",
     "modelLoadFailed": "Échec du chargement du modèle : {{model}}",
     "modelLoadFailedUnknown": "modèle inconnu",
-    "pasteFailedTitle": "Échec du collage du texte",
-    "pasteFailed": "Impossible de coller dans l'application. Votre texte est dans le presse-papiers, prêt à coller.",
-    "transcriptionFailedTitle": "Échec de la transcription"
+    "transcriptionFailedTitle": "Échec de la transcription",
+    "pasteNotice": {
+      "clipboardAndHistory": "Le collage n'a peut-être pas fonctionné. Vos mots sont dans le presse-papiers et dans l'Historique.",
+      "clipboardOnly": "Le collage n'a peut-être pas fonctionné. Vos mots sont dans le presse-papiers.",
+      "historyOnly": "Le collage n'a peut-être pas fonctionné. Vos mots sont dans l'Historique.",
+      "neither": "Le collage n'a peut-être pas fonctionné."
+    }
   },
   "appLanguage": {
     "title": "Langue de l'application",
@@ -690,5 +690,8 @@
       "chooseProvider": "Sélectionner un fournisseur",
       "useLocal": "Utiliser le modèle sur l'appareil"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Après un collage, le texte dicté reste dans le presse-papiers pour que vous puissiez le coller à nouveau. Il remplace ce que vous aviez copié. Vous pouvez désactiver cela dans Paramètres > Avancé > Gestion du presse-papiers."
   }
 }

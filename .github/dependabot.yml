@@ -18,11 +18,37 @@ updates:
       - dependency-name: "cpal"
         update-types:
           ["version-update:semver-minor", "version-update:semver-major"]
+      # tauri build rejects a crate/npm minor mismatch (a lone tauri-plugin-updater bump broke main, #146);
+      # bump these by hand together with their @tauri-apps/* package, as the bun rule below says
+      - dependency-name: "tauri"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "tauri-plugin-*"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
+      # ponytail: sha2 0.11 changes the digest output type, so the `{:x}` formatting in managers/model.rs
+      # stops compiling (#152). Stay on 0.10 until a hand PR moves those call sites.
+      - dependency-name: "sha2"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
+      # ponytail: transcribe-cpp is 0.x, so a minor bump can break its API (0.1 -> 0.4, #161), and it appears in five
+      # Cargo.toml tables. Move it by hand with the code that calls it and a build on every backend; patches still come through.
+      - dependency-name: "transcribe-cpp"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
+      # tauri-build has to resolve against the tauri-utils that the patched tauri fork pins ([patch.crates-io] in
+      # src-tauri/Cargo.toml); newer releases fail to resolve (#162). All updates, patches too, since a patch can also
+      # need a newer tauri-utils. Bump it when the fork moves.
+      - dependency-name: "tauri-build"
   - package-ecosystem: bun
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    # typescript-eslint ships its packages in lockstep; a split bump fails peer checks
+    groups:
+      typescript-eslint:
+        patterns: ["typescript-eslint", "@typescript-eslint/*"]
     # tauri build rejects npm/crate major-minor mismatches; bump these with their Rust crate by hand
     ignore:
       - dependency-name: "@tauri-apps/*"

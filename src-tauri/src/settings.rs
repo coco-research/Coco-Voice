@@ -433,6 +433,12 @@ pub struct AppSettings {
     pub paste_method: PasteMethod,
     #[serde(default)]
     pub clipboard_handling: ClipboardHandling,
+    /// Set when the user picks a clipboard handling. Migration must not overwrite it.
+    #[serde(default)]
+    pub clipboard_handling_user_set: bool,
+    /// One-time notice after the macOS default moves to copy-to-clipboard.
+    #[serde(default)]
+    pub clipboard_default_notice_pending: bool,
     #[serde(default = "default_auto_submit")]
     pub auto_submit: bool,
     #[serde(default)]
@@ -516,7 +522,10 @@ fn default_model() -> String {
 ///    old default, not a choice. Trace and every other level stay. A user who
 ///    deliberately picked Debug before this version is reset once too. A later
 ///    Debug (schema already 4) is kept.
-const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 4;
+/// 5: on macOS, DontModify the user never chose becomes CopyToClipboard and a
+///    one-time notice is pending. A stored choice stays. Other platforms are
+///    unchanged.
+const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 5;
 
 fn default_settings_schema_version() -> u32 {
     CURRENT_SETTINGS_SCHEMA_VERSION
@@ -1100,7 +1109,13 @@ pub fn get_default_settings() -> AppSettings {
         history_limit: default_history_limit(),
         recording_retention_period: default_recording_retention_period(),
         paste_method: PasteMethod::default(),
-        clipboard_handling: ClipboardHandling::default(),
+        clipboard_handling: if cfg!(target_os = "macos") {
+            ClipboardHandling::CopyToClipboard
+        } else {
+            ClipboardHandling::DontModify
+        },
+        clipboard_handling_user_set: false,
+        clipboard_default_notice_pending: false,
         auto_submit: default_auto_submit(),
         auto_submit_key: AutoSubmitKey::default(),
         post_process_enabled: default_post_process_enabled(),
@@ -1262,6 +1277,20 @@ fn salvage_settings(stored: &serde_json::Value) -> AppSettings {
     })
 }
 
+/// macOS upgrades an untouched DontModify to CopyToClipboard and asks for a
+/// one-time notice. A stored choice, and every other platform, stays.
+fn migrate_clipboard_default(
+    is_macos: bool,
+    handling: ClipboardHandling,
+    user_set: bool,
+) -> (ClipboardHandling, bool) {
+    if is_macos && handling == ClipboardHandling::DontModify && !user_set {
+        (ClipboardHandling::CopyToClipboard, true)
+    } else {
+        (handling, false)
+    }
+}
+
 fn apply_settings_migrations(
     settings: &mut AppSettings,
     settings_value: &serde_json::Value,
@@ -1334,6 +1363,22 @@ fn apply_settings_migrations(
     if stored_schema_version < 4 {
         if settings.log_level == LogLevel::Debug {
             settings.log_level = LogLevel::Info;
+        }
+        settings.settings_schema_version = CURRENT_SETTINGS_SCHEMA_VERSION;
+        updated = true;
+    }
+
+    // v5: macOS default moves to CopyToClipboard unless the user already chose.
+    // The notice flag is only raised, never cleared, by this step.
+    if stored_schema_version < 5 {
+        let (handling, notice) = migrate_clipboard_default(
+            cfg!(target_os = "macos"),
+            settings.clipboard_handling,
+            settings.clipboard_handling_user_set,
+        );
+        settings.clipboard_handling = handling;
+        if notice {
+            settings.clipboard_default_notice_pending = true;
         }
         settings.settings_schema_version = CURRENT_SETTINGS_SCHEMA_VERSION;
         updated = true;
@@ -1671,8 +1716,19 @@ mod tests {
         // has no paste_delay_after_ms, so the delay stays the serde default, and
         // its prompt is not a stock one, so the v3 prompt upgrade leaves it.
         // Its log_level is the old numeric Debug default, so v4 moves it to Info.
+        // v5 moves an untouched DontModify to CopyToClipboard on macOS only.
         assert!(apply_settings_migrations(&mut settings, &stored));
         assert_eq!(settings.log_level, LogLevel::Info);
+        if cfg!(target_os = "macos") {
+            assert_eq!(
+                settings.clipboard_handling,
+                ClipboardHandling::CopyToClipboard
+            );
+            assert!(settings.clipboard_default_notice_pending);
+        } else {
+            assert_eq!(settings.clipboard_handling, ClipboardHandling::DontModify);
+            assert!(!settings.clipboard_default_notice_pending);
+        }
         assert_eq!(settings.paste_delay_after_ms, DEFAULT_PASTE_DELAY_AFTER_MS);
         assert_eq!(
             settings.post_process_prompts[0].prompt,
@@ -2352,8 +2408,129 @@ mod tests {
         let mut raw = store_at_schema(4);
         raw["log_level"] = serde_json::json!("debug");
 
-        assert!(!apply_settings_migrations(&mut settings, &raw));
+        // v5 still runs (schema 4 is behind current). The v4 log rule does not.
+        assert!(apply_settings_migrations(&mut settings, &raw));
         assert_eq!(settings.log_level, LogLevel::Debug);
+        assert_eq!(
+            settings.settings_schema_version,
+            CURRENT_SETTINGS_SCHEMA_VERSION
+        );
+        let migrated = serde_json::to_value(&settings).unwrap();
+        assert!(!apply_settings_migrations(&mut settings, &migrated));
+        assert_eq!(settings.log_level, LogLevel::Debug);
+    }
+
+    #[test]
+    fn migrate_clipboard_default_upgrades_untouched_macos_dont_modify() {
+        let (handling, notice) =
+            migrate_clipboard_default(true, ClipboardHandling::DontModify, false);
+        assert_eq!(handling, ClipboardHandling::CopyToClipboard);
+        assert!(notice);
+    }
+
+    #[test]
+    fn migrate_clipboard_default_keeps_a_macos_choice() {
+        let (handling, notice) =
+            migrate_clipboard_default(true, ClipboardHandling::DontModify, true);
+        assert_eq!(handling, ClipboardHandling::DontModify);
+        assert!(!notice);
+    }
+
+    #[test]
+    fn migrate_clipboard_default_leaves_copy_to_clipboard() {
+        let (handling, notice) =
+            migrate_clipboard_default(true, ClipboardHandling::CopyToClipboard, false);
+        assert_eq!(handling, ClipboardHandling::CopyToClipboard);
+        assert!(!notice);
+    }
+
+    #[test]
+    fn migrate_clipboard_default_leaves_other_platforms() {
+        let (handling, notice) =
+            migrate_clipboard_default(false, ClipboardHandling::DontModify, false);
+        assert_eq!(handling, ClipboardHandling::DontModify);
+        assert!(!notice);
+    }
+
+    #[test]
+    fn fresh_clipboard_default_is_copy_on_macos_only() {
+        let settings = get_default_settings();
+        if cfg!(target_os = "macos") {
+            assert_eq!(
+                settings.clipboard_handling,
+                ClipboardHandling::CopyToClipboard
+            );
+        } else {
+            assert_eq!(settings.clipboard_handling, ClipboardHandling::DontModify);
+        }
+        assert!(!settings.clipboard_handling_user_set);
+        assert!(!settings.clipboard_default_notice_pending);
+        assert_eq!(ClipboardHandling::default(), ClipboardHandling::DontModify);
+    }
+
+    #[test]
+    fn schema_v5_clipboard_default_migrates_once_and_keeps_a_later_choice() {
+        let raw = serde_json::json!({
+            "settings_schema_version": 4,
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": "1.0.0",
+            "overlay_style": "live",
+            "clipboard_handling": "dont_modify",
+        });
+        let mut settings: AppSettings = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(settings.clipboard_handling, ClipboardHandling::DontModify);
+        assert!(!settings.clipboard_handling_user_set);
+
+        assert!(apply_settings_migrations(&mut settings, &raw));
+        assert_eq!(settings.settings_schema_version, 5);
+        if cfg!(target_os = "macos") {
+            assert_eq!(
+                settings.clipboard_handling,
+                ClipboardHandling::CopyToClipboard
+            );
+            assert!(settings.clipboard_default_notice_pending);
+        } else {
+            assert_eq!(settings.clipboard_handling, ClipboardHandling::DontModify);
+            assert!(!settings.clipboard_default_notice_pending);
+        }
+        assert!(!settings.clipboard_handling_user_set);
+
+        let migrated = serde_json::to_value(&settings).unwrap();
+        let handling = settings.clipboard_handling;
+        let notice = settings.clipboard_default_notice_pending;
+        assert!(!apply_settings_migrations(&mut settings, &migrated));
+        assert_eq!(settings.clipboard_handling, handling);
+        assert_eq!(settings.clipboard_default_notice_pending, notice);
+        assert_eq!(settings.settings_schema_version, 5);
+
+        // Same update change_clipboard_handling_setting writes: choice + marker.
+        settings.clipboard_handling = ClipboardHandling::DontModify;
+        settings.clipboard_handling_user_set = true;
+        settings.clipboard_default_notice_pending = false;
+        let mut again = store_at_schema(4);
+        again["clipboard_handling"] = serde_json::json!("dont_modify");
+        again["clipboard_handling_user_set"] = serde_json::json!(true);
+        assert!(apply_settings_migrations(&mut settings, &again));
+        assert_eq!(settings.clipboard_handling, ClipboardHandling::DontModify);
+        assert!(settings.clipboard_handling_user_set);
+        assert!(!settings.clipboard_default_notice_pending);
+
+        let chosen = serde_json::json!({
+            "settings_schema_version": 5,
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": "1.0.0",
+            "overlay_style": "live",
+            "clipboard_handling": "dont_modify",
+            "clipboard_handling_user_set": true,
+        });
+        let mut chosen_settings: AppSettings = serde_json::from_value(chosen.clone()).unwrap();
+        assert!(!apply_settings_migrations(&mut chosen_settings, &chosen));
+        assert_eq!(
+            chosen_settings.clipboard_handling,
+            ClipboardHandling::DontModify
+        );
+        assert!(chosen_settings.clipboard_handling_user_set);
+        assert!(!chosen_settings.clipboard_default_notice_pending);
     }
 
     #[test]
