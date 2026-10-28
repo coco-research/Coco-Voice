@@ -74,7 +74,7 @@ unicode-segmentation = "1.12.0"
 # transcribe-rs is now ONNX-only (Parakeet, Moonshine, SenseVoice, GigaAM,
 # Canary, Cohere). Per-platform backend features are added in the target tables.
 transcribe-rs = { version = "0.3.8", features = ["onnx"] }
-transcribe-cpp = { version = "0.1.2", default-features = false }
+transcribe-cpp = { version = "0.4.1", default-features = false }
 handy-keys = "0.3.0"
 ferrous-opencc = "0.4.0"
 clap = { version = "4", features = ["derive"] }
@@ -133,7 +133,7 @@ transcribe-cpp = { version = "0.1.2", default-features = false, features = [
 ] }
 
 [target.'cfg(all(windows, target_arch = "aarch64"))'.dependencies]
-transcribe-cpp = { version = "0.1.2", default-features = false }
+transcribe-cpp = { version = "0.4.1", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
