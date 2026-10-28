@@ -331,7 +331,7 @@
           "dontModify": "Ändra inte urklipp",
           "copyToClipboard": "Kopiera till urklipp"
         },
-        "privacyHint": "Text i urklipp kan ses av andra appar och urklippsverktyg."
+        "privacyHint": "Text i urklipp kan ses av andra appar och urklippsverktyg, och Universellt urklipp kan kopiera den till dina andra Apple-enheter."
       },
       "autoSubmit": {
         "title": "Skicka automatiskt",

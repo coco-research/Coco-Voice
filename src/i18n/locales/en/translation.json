@@ -331,7 +331,7 @@
           "dontModify": "Don't Modify Clipboard",
           "copyToClipboard": "Copy to Clipboard"
         },
-        "privacyHint": "Text on the clipboard can be seen by other apps and clipboard tools."
+        "privacyHint": "Text on the clipboard can be seen by other apps and clipboard tools, and Universal Clipboard can copy it to your other Apple devices."
       },
       "autoSubmit": {
         "title": "Auto Submit",

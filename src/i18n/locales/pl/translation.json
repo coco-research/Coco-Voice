@@ -331,7 +331,7 @@
           "dontModify": "Nie modyfikuj schowka",
           "copyToClipboard": "Kopiuj do schowka"
         },
-        "privacyHint": "Tekst w schowku widzą inne aplikacje i narzędzia schowka."
+        "privacyHint": "Tekst w schowku widzą inne aplikacje i narzędzia schowka, a Uniwersalny schowek może skopiować go na inne Twoje urządzenia Apple."
       },
       "autoSubmit": {
         "title": "Automatyczne wysyłanie",
