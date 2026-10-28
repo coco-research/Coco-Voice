@@ -31,6 +31,15 @@ updates:
       - dependency-name: "sha2"
         update-types:
           ["version-update:semver-minor", "version-update:semver-major"]
+      # ponytail: transcribe-cpp is 0.x, so a minor bump can break its API (0.1 -> 0.4, #161), and it appears in five
+      # Cargo.toml tables. Move it by hand with the code that calls it and a build on every backend; patches still come through.
+      - dependency-name: "transcribe-cpp"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
+      # tauri-build has to resolve against the tauri-utils that the patched tauri fork pins ([patch.crates-io] in
+      # src-tauri/Cargo.toml); newer releases fail to resolve (#162). All updates, patches too, since a patch can also
+      # need a newer tauri-utils. Bump it when the fork moves.
+      - dependency-name: "tauri-build"
   - package-ecosystem: bun
     directory: /
     schedule:
