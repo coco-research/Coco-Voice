@@ -1,0 +1,40 @@
+Open src/settings.rs and rename load_config to read_settings, then run the tests.
+Check out the branch fix/login-timeout and cherry pick commit abc123 onto main.
+In scripts/wer.ts add a comment above the normalize function explaining why apostrophes are dropped.
+Review pull request 482 and leave a note if the error handling in parse_json still swallows failures.
+Create a new file at src/audio/resample.rs that converts input to 16 kHz mono before transcription.
+Update the Cargo.toml in src-tauri so the release build enables the metal feature by default.
+Look at handle_shortcut in src/hotkey.rs and make sure it ignores repeats while the key is held.
+On branch feat/wer-eval write a test that fails when word error rate goes above ten percent.
+Rebase feature/dictation onto main and resolve the conflict in App.tsx around the record button.
+Open docs/eval/wer-dev-40.txt and confirm every line has between eight and twenty five words.
+In the function score_clip return early when the reference word list is empty after normalization.
+Please merge pull request 91 after CI is green and delete the branch lab/cleanup-eval.
+Add a unit test for normalize in scripts/wer.test.ts covering commas, apostrophes and extra spaces.
+Switch to branch fix/wav-header and patch write_wav so the sample rate field is always 16000.
+Search src-tauri/src/lib.rs for TODO comments and turn each one into a GitHub issue.
+Hi team, the build is green and I can review the pull request this afternoon.
+Thanks for the update. I will push the fix before the standup tomorrow morning.
+Can you take a look at the failing test on main and tell me what broke?
+Sounds good. I will send the notes after the call and follow up on Monday.
+Sorry for the delay. The release is ready and I am cutting the tag now.
+Please hold the deploy until we confirm the model file is on every machine.
+Quick reply: I agree with the plan and I can start on it after lunch.
+Looping you in so you can see the transcript samples before we score them.
+Got it. I will update the doc and ping you once the numbers are in.
+Thanks, that works for me. Let us ship the small fix and leave the rest.
+The meeting is on March 4 at 2 30 in the afternoon and should last 45 minutes.
+We spent 1200 dollars on the eval set and another 75 dollars on cloud storage in April.
+Please book the room from 9 15 to 10 45 on Tuesday the 12th of May.
+The invoice is number 4481 for 250 dollars and it is due on June 30.
+Version 1 point 4 shipped on January 9 and the next cut is set for February 2.
+We ran 40 clips at 16 kilohertz and the clean set finished in about 3 minutes.
+Add 2 hours to the Friday slot so the review can start at 4 00 pm.
+The budget for this quarter is 15000 dollars with 3200 dollars already spent in October.
+Call starts at 11 05 on the 3rd and we need the slides by 10 30.
+Order 12 licenses at 9 dollars each and send the receipt dated July 18.
+I will grab a coffee and be back at my desk in about ten minutes.
+The train was late this morning so I missed the first part of the meeting.
+Please close the window because the street noise is making it hard to think.
+I left my notebook on the kitchen table and I need it before I leave.
+It is a clear day and I am going to walk home after work today.
