@@ -405,6 +405,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "bit-set"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08807e080ed7f9d5433fa9b275196cfc35414f66a0c79d864dc51a0d825231a3"
+dependencies = [
+ "bit-vec",
+]
+
+[[package]]
+name = "bit-vec"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e764a1d40d510daf35e07be9eb06e75770908c27d411ee6c92109c9840eaaf7"
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -705,6 +720,17 @@ dependencies = [
  "byteorder",
  "fnv",
  "uuid",
+]
+
+[[package]]
+name = "cfb"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a347dcabdae9c31b0825fd6a8bed285ec9c2acb89c47827126d52fa4f59cece3"
+dependencies = [
+ "fnv",
+ "uuid",
+ "web-time",
 ]
 
 [[package]]
@@ -1172,7 +1198,7 @@ version = "0.29.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f93d03419cb5950ccfd3daf3ff1c7a36ace64609a1a8746d493df1ca0afde0fa"
 dependencies = [
- "cssparser-macros",
+ "cssparser-macros 0.6.1",
  "dtoa-short",
  "itoa",
  "matches",
@@ -1181,6 +1207,19 @@ dependencies = [
  "quote",
  "smallvec",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "cssparser"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c9cdaae01d5ed7882b04d795e7f752f46ff52d2fa3b50a20d28c464510bba98"
+dependencies = [
+ "cssparser-macros 0.7.1",
+ "dtoa-short",
+ "itoa",
+ "phf 0.13.1",
+ "smallvec",
 ]
 
 [[package]]
@@ -1194,6 +1233,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cssparser-macros"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d045de693cb712d0b22c6a64be5b953f67b3ce00ab5ad3dd5d8b441886ab8e1a"
+dependencies = [
+ "quote",
+ "syn 3.0.9",
+]
+
+[[package]]
 name = "ctor"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1202,6 +1251,12 @@ dependencies = [
  "quote",
  "syn 2.0.117",
 ]
+
+[[package]]
+name = "ctor"
+version = "1.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "914a755b7c2d4af2bdcff7ce1739e2db9a1b81a9b07123d8015786ae03c0980d"
 
 [[package]]
 name = "darling"
@@ -1355,6 +1410,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_more"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d751e9e49156b02b44f9c1815bcb94b984cdcc4396ecc32521c739452808b134"
+dependencies = [
+ "derive_more-impl",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "799a97264921d8623a957f6c3b9011f3b5492f557bbb7a5a19b7fa6d06ba8dcb"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "rustc_version",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1464,6 +1540,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4b8a88685455ed29a21542a33abd9cb6510b6b129abadabdcef0f4c55bc8f61"
 dependencies = [
  "litrs",
+]
+
+[[package]]
+name = "dom_query"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fac5fca71e65e94cc718a6e2af65d6e0f9c6027751c2aa562fbb5087fda639bc"
+dependencies = [
+ "bit-set",
+ "cssparser 0.37.0",
+ "foldhash 0.2.0",
+ "html5ever 0.39.0",
+ "precomputed-hash",
+ "selectors 0.38.0",
+ "tendril 0.5.1",
 ]
 
 [[package]]
@@ -1891,6 +1982,12 @@ name = "foldhash"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
+
+[[package]]
+name = "foldhash"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "foreign-types"
@@ -2500,7 +2597,7 @@ version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
 dependencies = [
- "foldhash",
+ "foldhash 0.1.5",
 ]
 
 [[package]]
@@ -2592,8 +2689,18 @@ checksum = "3b7410cae13cbc75623c98ac4cbfd1f0bedddf3227afc24f370cf0f50a44a11c"
 dependencies = [
  "log",
  "mac",
- "markup5ever",
+ "markup5ever 0.14.1",
  "match_token",
+]
+
+[[package]]
+name = "html5ever"
+version = "0.39.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46a1761807faccc9a19e86944bbf40610014066306f96edcdedc2fb714bcb7b8"
+dependencies = [
+ "log",
+ "markup5ever 0.39.0",
 ]
 
 [[package]]
@@ -2936,7 +3043,16 @@ version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a588916bfdfd92e71cacef98a63d9b1f0d74d6599980d11894290e7ddefffcf7"
 dependencies = [
- "cfb",
+ "cfb 0.7.3",
+]
+
+[[package]]
+name = "infer"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4200d433cbd5178df7797c9c2e75b348b728e39631cf14520d1e2fc424201f4"
+dependencies = [
+ "cfb 0.14.0",
 ]
 
 [[package]]
@@ -3097,10 +3213,22 @@ version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "863726d7afb6bc2590eeff7135d923545e5e964f004c2ccf8716c25e70a86f08"
 dependencies = [
- "jsonptr",
+ "jsonptr 0.6.3",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "json-patch"
+version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7421438de105a0827e44fadd05377727847d717c80ce29a229f85fd04c427b72"
+dependencies = [
+ "jsonptr 0.7.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -3108,6 +3236,16 @@ name = "jsonptr"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5dea2b27dd239b2556ed7a25ba842fe47fd602e7fc7433c2a8d6106d4d9edd70"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "jsonptr"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5a3cc660ba5d72bce0b3bb295bf20847ccbb40fd423f3f05b61273672e561fe"
 dependencies = [
  "serde",
  "serde_json",
@@ -3130,10 +3268,10 @@ version = "0.8.8-speedreader"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02cb977175687f33fa4afa0c95c112b987ea1443e5a51c8f8ff27dc618270cc2"
 dependencies = [
- "cssparser",
- "html5ever",
+ "cssparser 0.29.6",
+ "html5ever 0.29.1",
  "indexmap 2.13.0",
- "selectors",
+ "selectors 0.24.0",
 ]
 
 [[package]]
@@ -3333,9 +3471,20 @@ dependencies = [
  "log",
  "phf 0.11.3",
  "phf_codegen 0.11.3",
- "string_cache",
- "string_cache_codegen",
- "tendril",
+ "string_cache 0.8.9",
+ "string_cache_codegen 0.5.4",
+ "tendril 0.4.3",
+]
+
+[[package]]
+name = "markup5ever"
+version = "0.39.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7122d987ec5f704ee56f6e5b41a7d93722e9aae27ae07cafa4036c4d3f9757de"
+dependencies = [
+ "log",
+ "tendril 0.5.1",
+ "web_atoms",
 ]
 
 [[package]]
@@ -5548,14 +5697,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c37578180969d00692904465fb7f6b3d50b9a2b952b87c23d0e2e5cb5013416"
 dependencies = [
  "bitflags 1.3.2",
- "cssparser",
- "derive_more",
+ "cssparser 0.29.6",
+ "derive_more 0.99.20",
  "fxhash",
  "log",
  "phf 0.8.0",
  "phf_codegen 0.8.0",
  "precomputed-hash",
- "servo_arc",
+ "servo_arc 0.2.0",
+ "smallvec",
+]
+
+[[package]]
+name = "selectors"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8adfa1c298912827b8a28b223b3b874357397ae706e6190acd9bf28cee99114d"
+dependencies = [
+ "bitflags 2.11.0",
+ "cssparser 0.37.0",
+ "derive_more 2.1.1",
+ "log",
+ "new_debug_unreachable",
+ "phf 0.13.1",
+ "phf_codegen 0.13.1",
+ "precomputed-hash",
+ "rustc-hash",
+ "servo_arc 0.4.3",
  "smallvec",
 ]
 
@@ -5736,6 +5904,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d52aa42f8fdf0fed91e5ce7f23d8138441002fa31dca008acf47e6fd4721f741"
 dependencies = [
  "nodrop",
+ "stable_deref_trait",
+]
+
+[[package]]
+name = "servo_arc"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "170fb83ab34de17dc69aa7c67482b22218ddb85da56546f9bd6b929e32a05930"
+dependencies = [
  "stable_deref_trait",
 ]
 
@@ -5951,6 +6128,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "string_cache"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a18596f8c785a729f2819c0f6a7eae6ebeebdfffbfe4214ae6b087f690e31901"
+dependencies = [
+ "new_debug_unreachable",
+ "parking_lot",
+ "phf_shared 0.13.1",
+ "precomputed-hash",
+]
+
+[[package]]
 name = "string_cache_codegen"
 version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5958,6 +6147,18 @@ checksum = "c711928715f1fe0fe509c53b43e993a9a557babc2d0a3567d0a3006f1ac931a0"
 dependencies = [
  "phf_generator 0.11.3",
  "phf_shared 0.11.3",
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
+name = "string_cache_codegen"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "585635e46db231059f76c5849798146164652513eb9e8ab2685939dd90f29b69"
+dependencies = [
+ "phf_generator 0.13.1",
+ "phf_shared 0.13.1",
  "proc-macro2",
  "quote",
 ]
@@ -5995,9 +6196,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "swift-rs"
-version = "1.0.7"
+version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4057c98e2e852d51fdcfca832aac7b571f6b351ad159f9eda5db1655f8d0c4d7"
+checksum = "cefd87076fd385308ee4aff597256c902f1fbb4d031de1558efc12f8ffefadd9"
 dependencies = [
  "base64 0.21.7",
  "serde",
@@ -6383,7 +6584,7 @@ dependencies = [
  "tauri-macros",
  "tauri-runtime",
  "tauri-runtime-wry",
- "tauri-utils",
+ "tauri-utils 2.8.2",
  "thiserror 2.0.18",
  "tokio",
  "tray-icon",
@@ -6396,23 +6597,22 @@ dependencies = [
 
 [[package]]
 name = "tauri-build"
-version = "2.5.5"
+version = "2.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca7bd893329425df750813e95bd2b643d5369d929438da96d5bbb7cc2c918f74"
+checksum = "bc9ce40b16101cb6ea63d3e221567affd1c3a9205f95d7bc574941a10636b632"
 dependencies = [
  "anyhow",
  "cargo_toml",
  "dirs 6.0.0",
  "glob",
  "heck 0.5.0",
- "json-patch",
+ "json-patch 3.0.1",
  "schemars 0.8.22",
  "semver",
  "serde",
  "serde_json",
- "tauri-utils",
+ "tauri-utils 2.10.2",
  "tauri-winres",
- "toml 0.9.12+spec-1.1.0",
  "walkdir",
 ]
 
@@ -6425,7 +6625,7 @@ dependencies = [
  "base64 0.22.1",
  "brotli",
  "ico",
- "json-patch",
+ "json-patch 3.0.1",
  "plist",
  "png 0.17.16",
  "proc-macro2",
@@ -6435,7 +6635,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "syn 2.0.117",
- "tauri-utils",
+ "tauri-utils 2.8.2",
  "thiserror 2.0.18",
  "time",
  "url",
@@ -6454,7 +6654,7 @@ dependencies = [
  "quote",
  "syn 2.0.117",
  "tauri-codegen",
- "tauri-utils",
+ "tauri-utils 2.8.2",
 ]
 
 [[package]]
@@ -6481,7 +6681,7 @@ dependencies = [
  "schemars 0.8.22",
  "serde",
  "serde_json",
- "tauri-utils",
+ "tauri-utils 2.10.2",
  "toml 0.9.12+spec-1.1.0",
  "walkdir",
 ]
@@ -6549,7 +6749,7 @@ dependencies = [
  "serde_repr",
  "tauri",
  "tauri-plugin",
- "tauri-utils",
+ "tauri-utils 2.10.2",
  "thiserror 2.0.18",
  "toml 0.9.12+spec-1.1.0",
  "url",
@@ -6700,7 +6900,7 @@ dependencies = [
  "flate2",
  "futures-util",
  "http",
- "infer",
+ "infer 0.19.0",
  "log",
  "minisign-verify",
  "osakit",
@@ -6738,7 +6938,7 @@ dependencies = [
  "raw-window-handle",
  "serde",
  "serde_json",
- "tauri-utils",
+ "tauri-utils 2.8.2",
  "thiserror 2.0.18",
  "url",
  "webkit2gtk",
@@ -6764,7 +6964,7 @@ dependencies = [
  "softbuffer",
  "tao",
  "tauri-runtime",
- "tauri-utils",
+ "tauri-utils 2.8.2",
  "url",
  "webkit2gtk",
  "webview2-com",
@@ -6808,13 +7008,13 @@ dependencies = [
  "anyhow",
  "brotli",
  "cargo_metadata",
- "ctor",
+ "ctor 0.2.9",
  "dunce",
  "glob",
- "html5ever",
+ "html5ever 0.29.1",
  "http",
- "infer",
- "json-patch",
+ "infer 0.19.0",
+ "json-patch 3.0.1",
  "kuchikiki",
  "log",
  "memchr",
@@ -6832,7 +7032,46 @@ dependencies = [
  "thiserror 2.0.18",
  "toml 0.9.12+spec-1.1.0",
  "url",
- "urlpattern",
+ "urlpattern 0.3.0",
+ "uuid",
+ "walkdir",
+]
+
+[[package]]
+name = "tauri-utils"
+version = "2.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "362ab21cd4cc713f2a02b1a9b5688198b1541cfb6907c4281e9190e0f0ef4aa3"
+dependencies = [
+ "anyhow",
+ "cargo_metadata",
+ "ctor 1.0.13",
+ "dom_query",
+ "dunce",
+ "glob",
+ "html5ever 0.29.1",
+ "http",
+ "infer 0.22.0",
+ "json-patch 4.2.0",
+ "kuchikiki",
+ "log",
+ "memchr",
+ "phf 0.13.1",
+ "plist",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "schemars 0.8.22",
+ "semver",
+ "serde",
+ "serde-untagged",
+ "serde_json",
+ "serde_with",
+ "swift-rs",
+ "thiserror 2.0.18",
+ "toml 0.9.12+spec-1.1.0",
+ "url",
+ "urlpattern 0.6.0",
  "uuid",
  "walkdir",
 ]
@@ -6870,6 +7109,15 @@ dependencies = [
  "futf",
  "mac",
  "utf-8",
+]
+
+[[package]]
+name = "tendril"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fed54709c5b3a53d09bb1c113ea4f5ceafd1e772ddcb0030a82e1d56c087b08"
+dependencies = [
+ "new_debug_unreachable",
 ]
 
 [[package]]
@@ -7478,6 +7726,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "urlpattern"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df16f50ef4cc145211879a3867ba757076b25dfee812040dcb0658bd9ae7904b"
+dependencies = [
+ "icu_properties",
+ "regex",
+ "serde",
+ "url",
+]
+
+[[package]]
 name = "utf-8"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7830,6 +8090,18 @@ checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "web_atoms"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba8b815c1b593dc0baf78dd0f4fc8fdb2de53198fb1163738093e9a311c33fb3"
+dependencies = [
+ "phf 0.13.1",
+ "phf_codegen 0.13.1",
+ "string_cache 0.9.0",
+ "string_cache_codegen 0.6.1",
 ]
 
 [[package]]
@@ -8707,7 +8979,7 @@ dependencies = [
  "dunce",
  "gdkx11",
  "gtk",
- "html5ever",
+ "html5ever 0.29.1",
  "http",
  "javascriptcore-rs",
  "jni",
