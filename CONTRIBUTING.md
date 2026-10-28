@@ -311,7 +311,6 @@ Look for issues labeled `good first issue` or `help wanted` if you're new to the
 
 - **Discord**: Join our [Discord community](https://discord.com/invite/WVBeWsNXK4)
 - **Discussions**: Ask questions in [GitHub Discussions](https://github.com/coco-research/Coco-Voice/discussions)
-- **Email**: Reach out at [contact@cocovoice.ai](mailto:contact@cocovoice.ai)
 
 ## 📜 License
 

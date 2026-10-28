@@ -1484,17 +1484,23 @@ impl ShortcutAction for TranscribeAction {
                             }
 
                             // Save to history if WAV was saved
+                            let mut history_saved = false;
                             if wav_saved {
-                                if let Err(err) = hm.save_entry(
+                                match hm.save_entry(
                                     file_name,
                                     transcription,
                                     post_process,
                                     processed.post_processed_text.clone(),
                                     processed.post_process_prompt.clone(),
                                 ) {
-                                    error!("Failed to save history entry: {}", err);
+                                    Ok(_) => history_saved = true,
+                                    Err(err) => error!("Failed to save history entry: {}", err),
                                 }
                             }
+                            let notice_settings = get_settings(&ah);
+                            let clipboard_handling = notice_settings.clipboard_handling;
+                            let history_limit = notice_settings.history_limit;
+                            let retention = notice_settings.recording_retention_period;
 
                             // A status row stays up for a moment after the paste so it can
                             // be read.
@@ -1527,25 +1533,55 @@ impl ShortcutAction for TranscribeAction {
                                 })
                                 .await;
 
-                                let cancelled_before_paste = matches!(pasted, Ok(None));
+                                let mut cancelled_before_paste = false;
+                                let mut show_notice = false;
+                                let mut paste_failed = false;
+                                let mut paste_lost = false;
                                 match pasted {
-                                    Ok(Some(Ok(()))) => debug!(
-                                        "Text pasted successfully in {:?}",
-                                        paste_time.elapsed()
-                                    ),
+                                    Ok(Some(Ok(restored))) => {
+                                        debug!(
+                                            "Text pasted successfully in {:?}",
+                                            paste_time.elapsed()
+                                        );
+                                        // Restored means DontModify put the old clipboard
+                                        // back, so we cannot tell whether the paste landed.
+                                        show_notice = restored;
+                                    }
                                     Ok(Some(Err(e))) => {
                                         error!("Failed to paste transcription: {}", e);
-                                        let _ = ah.emit("paste-error", ());
+                                        show_notice = true;
+                                        paste_failed = true;
                                     }
                                     Ok(None) => {
                                         debug!("Transcription operation cancelled before paste");
+                                        cancelled_before_paste = true;
                                     }
                                     Err(e) => {
                                         // JoinError: the blocking paste task panicked or was
                                         // cancelled, not a main-thread dispatch failure.
                                         error!("Paste task panicked or was cancelled: {e:?}");
-                                        let _ = ah.emit("paste-error", ());
+                                        // The keep-on-clipboard step never ran, so don't
+                                        // claim the clipboard holds the words.
+                                        show_notice = true;
+                                        paste_lost = true;
                                     }
+                                }
+                                if show_notice {
+                                    let (on_clipboard, in_history) =
+                                        crate::clipboard::paste_word_locations(
+                                            clipboard_handling,
+                                            paste_failed,
+                                            history_saved,
+                                            history_limit,
+                                            retention,
+                                        );
+                                    let _ = ah.emit(
+                                        "paste-notice",
+                                        crate::clipboard::paste_notice(
+                                            on_clipboard && !paste_lost,
+                                            in_history,
+                                        ),
+                                    );
                                 }
                                 if cancelled_before_paste {
                                     utils::hide_recording_overlay(&ah);

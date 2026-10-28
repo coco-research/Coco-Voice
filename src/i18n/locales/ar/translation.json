@@ -309,7 +309,8 @@
         "options": {
           "dontModify": "عدم تعديل الحافظة",
           "copyToClipboard": "نسخ إلى الحافظة"
-        }
+        },
+        "privacyHint": "يمكن للتطبيقات الأخرى وأدوات الحافظة رؤية النص الموجود في الحافظة، ويمكن للحافظة العامة نسخه إلى أجهزة Apple الأخرى لديك."
       },
       "autoSubmit": {
         "title": "إرسال تلقائي",
@@ -551,11 +552,6 @@
         "description": "عرض كود المصدر والمساهمة",
         "button": "عرض على GitHub"
       },
-      "supportDevelopment": {
-        "title": "دعم التطوير",
-        "description": "ساعدنا في مواصلة بناء Coco Voice",
-        "button": "تبرع"
-      },
       "acknowledgments": {
         "title": "شكر وتقدير",
         "ggml": {
@@ -631,9 +627,13 @@
     "recordingFailed": "فشل في بدء التسجيل: {{error}}",
     "modelLoadFailed": "فشل في تحميل النموذج: {{model}}",
     "modelLoadFailedUnknown": "نموذج غير معروف",
-    "pasteFailedTitle": "فشل لصق النص",
-    "pasteFailed": "تعذر اللصق في التطبيق. نصك في الحافظة، جاهز للصق.",
-    "transcriptionFailedTitle": "فشل التفريغ النصي"
+    "transcriptionFailedTitle": "فشل التفريغ النصي",
+    "pasteNotice": {
+      "clipboardAndHistory": "قد لا يكون اللصق قد نجح. كلماتك في الحافظة وفي السجل.",
+      "clipboardOnly": "قد لا يكون اللصق قد نجح. كلماتك في الحافظة.",
+      "historyOnly": "قد لا يكون اللصق قد نجح. كلماتك في السجل.",
+      "neither": "قد لا يكون اللصق قد نجح."
+    }
   },
   "appLanguage": {
     "title": "لغة التطبيق",
@@ -690,5 +690,8 @@
       "chooseProvider": "اختيار مزود",
       "useLocal": "استخدام النموذج المحلي"
     }
+  },
+  "notices": {
+    "clipboardDefault": "بعد اللصق، يبقى النص الذي أملَيته في الحافظة لتتمكن من لصقه مرة أخرى. يحل محل ما نسخته من قبل. يمكنك إيقاف ذلك من ...الإعدادات > متقدم > التعامل مع الحافظة."
   }
 }

@@ -330,7 +330,8 @@
         "options": {
           "dontModify": "クリップボードを変更しない",
           "copyToClipboard": "クリップボードにコピー"
-        }
+        },
+        "privacyHint": "クリップボード上のテキストは、他のアプリやクリップボードツールから見えます。また、ユニバーサルクリップボードによって、ほかのAppleデバイスにコピーされることがあります。"
       },
       "autoSubmit": {
         "title": "自動送信",
@@ -572,11 +573,6 @@
         "description": "ソースコードを見て貢献する",
         "button": "GitHub で見る"
       },
-      "supportDevelopment": {
-        "title": "開発を支援",
-        "description": "Coco Voice の開発を支援してください",
-        "button": "寄付する"
-      },
       "acknowledgments": {
         "title": "謝辞",
         "ggml": {
@@ -631,9 +627,13 @@
     "recordingFailed": "録音の開始に失敗しました: {{error}}",
     "modelLoadFailed": "モデルの読み込みに失敗しました: {{model}}",
     "modelLoadFailedUnknown": "不明なモデル",
-    "pasteFailedTitle": "テキストの貼り付けに失敗しました",
-    "pasteFailed": "アプリに貼り付けられませんでした。テキストはクリップボードにあり、すぐに貼り付けできます。",
-    "transcriptionFailedTitle": "文字起こしに失敗しました"
+    "transcriptionFailedTitle": "文字起こしに失敗しました",
+    "pasteNotice": {
+      "clipboardAndHistory": "貼り付けができていない可能性があります。言葉はクリップボードと履歴にあります。",
+      "clipboardOnly": "貼り付けができていない可能性があります。言葉はクリップボードにあります。",
+      "historyOnly": "貼り付けができていない可能性があります。言葉は履歴にあります。",
+      "neither": "貼り付けができていない可能性があります。"
+    }
   },
   "appLanguage": {
     "title": "アプリの言語",
@@ -690,5 +690,8 @@
       "chooseProvider": "プロバイダーを選択",
       "useLocal": "デバイス上のモデルを使用"
     }
+  },
+  "notices": {
+    "clipboardDefault": "貼り付けのあと、音声入力したテキストはクリップボードに残るので、もう一度貼り付けできます。前にコピーしていた内容は置き換わります。設定 > 詳細設定 > クリップボードの処理 でオフにできます。"
   }
 }
