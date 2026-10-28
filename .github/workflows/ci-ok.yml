@@ -13,12 +13,14 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
+  # Started on a bot commit by dependabot-bun-nix.yml (a GITHUB_TOKEN push starts no runs).
+  workflow_dispatch:
 
 permissions: {}
 
 # A newer push to the same PR cancels the older poll.
 concurrency:
-  group: ci-ok-${{ github.event.pull_request.number || github.event.merge_group.head_sha }}
+  group: ci-ok-${{ github.event.pull_request.number || github.event.merge_group.head_sha || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -35,7 +37,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
         run: |
           set -euo pipefail
 
