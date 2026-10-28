@@ -184,17 +184,23 @@ pub const LEGAL_HOLD_IDS: &[&str] = &[
 /// cleared. None today.
 pub const CLEARED_OTHER_IDS: &[&str] = &[];
 
-/// Checks if a given repo id is on the legal hold list (case-insensitive).
-pub(crate) fn repo_on_legal_hold(repo_id: &str) -> bool {
-    LEGAL_HOLD_IDS
+/// True when `id` matches an entry in `hold_ids` (ASCII case-insensitive).
+/// The match is the model id itself, so the same list covers every host.
+pub(crate) fn id_on_hold(id: &str, hold_ids: &[&str]) -> bool {
+    hold_ids
         .iter()
-        .any(|held_id| held_id.eq_ignore_ascii_case(repo_id))
+        .any(|held_id| held_id.eq_ignore_ascii_case(id))
+}
+
+/// Production hold check: [`id_on_hold`] against [`LEGAL_HOLD_IDS`].
+pub(crate) fn model_on_legal_hold(id: &str) -> bool {
+    id_on_hold(id, LEGAL_HOLD_IDS)
 }
 
 /// A catalog entry is offered only if its id is NOT on legal hold, AND its license
 /// is allowlisted (or its id is explicitly cleared).
 fn is_allowed_catalog_entry(id: &str, license: Option<&str>) -> bool {
-    if repo_on_legal_hold(id) {
+    if model_on_legal_hold(id) {
         return false;
     }
 
@@ -231,7 +237,7 @@ static WITHHELD_REPOS: Lazy<std::collections::HashSet<String>> = Lazy::new(|| {
 });
 
 pub(crate) fn repo_withheld(repo_id: &str) -> bool {
-    if repo_on_legal_hold(repo_id) {
+    if model_on_legal_hold(repo_id) {
         return true;
     }
     WITHHELD_REPOS.contains(&repo_id.to_lowercase())
@@ -656,7 +662,7 @@ mod tests {
     #[test]
     fn legal_hold_ids_match_the_generator_held_list() {
         // Two independent lists: a typo in either fails here, so a held copy in the
-        // HF cache can't slip past repo_on_legal_hold.
+        // HF cache can't slip past model_on_legal_hold.
         let gen = include_str!("../../../scripts/gen_catalog.py");
         let block = gen
             .split("HELD = {")
@@ -675,10 +681,13 @@ mod tests {
     }
 
     #[test]
-    fn repo_on_legal_hold_is_case_insensitive() {
-        assert!(repo_on_legal_hold("handy-computer/SenseVoiceSmall-gguf"));
-        assert!(repo_on_legal_hold("HANDY-COMPUTER/SENSEVOICESMALL-GGUF"));
-        assert!(!repo_on_legal_hold("handy-computer/whisper-small-gguf"));
+    fn model_on_legal_hold_is_case_insensitive() {
+        assert!(model_on_legal_hold("handy-computer/SenseVoiceSmall-gguf"));
+        assert!(model_on_legal_hold("HANDY-COMPUTER/SENSEVOICESMALL-GGUF"));
+        assert!(!model_on_legal_hold("handy-computer/whisper-small-gguf"));
+        // A caller can pass another list without editing LEGAL_HOLD_IDS.
+        assert!(id_on_hold("small", &["SMALL"]));
+        assert!(!id_on_hold("small", LEGAL_HOLD_IDS));
     }
 
     #[test]
