@@ -331,7 +331,7 @@
           "dontModify": "클립보드 수정 안 함",
           "copyToClipboard": "클립보드에 복사"
         },
-        "privacyHint": "클립보드의 텍스트는 다른 앱과 클립보드 도구에서 볼 수 있습니다."
+        "privacyHint": "클립보드의 텍스트는 다른 앱과 클립보드 도구에서 볼 수 있으며, 공통 클립보드를 통해 다른 Apple 기기로 복사될 수 있습니다."
       },
       "autoSubmit": {
         "title": "자동 제출",

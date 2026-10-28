@@ -331,7 +331,7 @@
           "dontModify": "不修改剪貼簿",
           "copyToClipboard": "複製到剪貼簿"
         },
-        "privacyHint": "剪貼簿上的文字，其他應用程式和剪貼簿工具都看得到。"
+        "privacyHint": "剪貼簿上的文字，其他應用程式和剪貼簿工具都看得到，通用剪貼板也可以將其拷貝到您的其他 Apple 裝置。"
       },
       "autoSubmit": {
         "title": "自動送出",

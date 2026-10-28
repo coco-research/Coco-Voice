@@ -331,7 +331,7 @@
           "dontModify": "Klembord niet aanpassen",
           "copyToClipboard": "Kopiëren naar klembord"
         },
-        "privacyHint": "Tekst op het klembord is zichtbaar voor andere apps en klembordhulpmiddelen."
+        "privacyHint": "Tekst op het klembord is zichtbaar voor andere apps en klembordhulpmiddelen, en het universele klembord kan de tekst naar je andere Apple-apparaten kopiëren."
       },
       "autoSubmit": {
         "title": "Automatisch verzenden",
