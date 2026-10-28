@@ -331,7 +331,7 @@
           "dontModify": "Không sửa đổi Clipboard",
           "copyToClipboard": "Sao chép vào Clipboard"
         },
-        "privacyHint": "Ứng dụng khác và công cụ clipboard có thể thấy chữ trên clipboard."
+        "privacyHint": "Ứng dụng khác và công cụ clipboard có thể thấy chữ trên clipboard, và Bảng nhớ tạm chung có thể sao chép chữ đó sang các thiết bị Apple khác của bạn."
       },
       "autoSubmit": {
         "title": "Gửi tự động",

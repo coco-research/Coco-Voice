@@ -331,7 +331,7 @@
           "dontModify": "Neměnit schránku",
           "copyToClipboard": "Kopírovat do schránky"
         },
-        "privacyHint": "Text ve schránce vidí jiné aplikace a nástroje pro schránku."
+        "privacyHint": "Text ve schránce vidí jiné aplikace a nástroje pro schránku a univerzální schránka ho může zkopírovat do vašich dalších zařízení Apple."
       },
       "autoSubmit": {
         "title": "Automatické odeslání",

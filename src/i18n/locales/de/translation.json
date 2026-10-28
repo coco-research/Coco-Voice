@@ -331,7 +331,7 @@
           "dontModify": "Zwischenablage nicht ändern",
           "copyToClipboard": "In Zwischenablage kopieren"
         },
-        "privacyHint": "Text in der Zwischenablage können andere Apps und Zwischenablage-Werkzeuge sehen."
+        "privacyHint": "Text in der Zwischenablage können andere Apps und Zwischenablage-Werkzeuge sehen, und die universelle Zwischenablage kann ihn auf deine anderen Apple-Geräte kopieren."
       },
       "autoSubmit": {
         "title": "Automatisch absenden",

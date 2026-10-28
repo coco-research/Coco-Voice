@@ -331,7 +331,7 @@
           "dontModify": "Panoyu Değiştirme",
           "copyToClipboard": "Panoya Kopyala"
         },
-        "privacyHint": "Panodaki metni başka uygulamalar ve pano araçları görebilir."
+        "privacyHint": "Panodaki metni başka uygulamalar ve pano araçları görebilir; Evrensel Pano da metni diğer Apple aygıtlarınıza kopyalayabilir."
       },
       "autoSubmit": {
         "title": "Otomatik Gönder",

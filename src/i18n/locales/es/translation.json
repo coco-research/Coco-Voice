@@ -331,7 +331,7 @@
           "dontModify": "No Modificar Portapapeles",
           "copyToClipboard": "Copiar al Portapapeles"
         },
-        "privacyHint": "Otras aplicaciones y herramientas del portapapeles pueden ver el texto del portapapeles."
+        "privacyHint": "Otras aplicaciones y herramientas del portapapeles pueden ver el texto del portapapeles, y el Portapapeles universal puede copiarlo en tus otros dispositivos Apple."
       },
       "autoSubmit": {
         "title": "Envío automático",
