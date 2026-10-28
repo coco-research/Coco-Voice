@@ -151,7 +151,8 @@
     },
     "cancel": "Cancelar",
     "cancelDownload": "Cancelar descarga",
-    "legacy": "Heredado"
+    "legacy": "Heredado",
+    "licence": "Licencia: {{licence}}"
   },
   "settings": {
     "modelSettings": {
@@ -329,7 +330,8 @@
         "options": {
           "dontModify": "No Modificar Portapapeles",
           "copyToClipboard": "Copiar al Portapapeles"
-        }
+        },
+        "privacyHint": "Otras aplicaciones y herramientas del portapapeles pueden ver el texto del portapapeles, y el Portapapeles universal puede copiarlo en tus otros dispositivos Apple."
       },
       "autoSubmit": {
         "title": "Envío automático",
@@ -571,11 +573,6 @@
         "description": "Ver código fuente y contribuir",
         "button": "Ver en GitHub"
       },
-      "supportDevelopment": {
-        "title": "Apoyar el Desarrollo",
-        "description": "Ayúdanos a continuar construyendo Coco Voice",
-        "button": "Donar"
-      },
       "acknowledgments": {
         "title": "Reconocimientos",
         "ggml": {
@@ -630,9 +627,13 @@
     "recordingFailed": "Error al iniciar la grabación: {{error}}",
     "modelLoadFailed": "Error al cargar el modelo: {{model}}",
     "modelLoadFailedUnknown": "modelo desconocido",
-    "pasteFailedTitle": "Error al pegar el texto",
-    "pasteFailed": "No se pudo pegar el texto en la aplicación activa.",
-    "transcriptionFailedTitle": "Error de transcripción"
+    "transcriptionFailedTitle": "Error de transcripción",
+    "pasteNotice": {
+      "clipboardAndHistory": "Puede que el pegado no haya funcionado. Tus palabras están en el portapapeles y en el Historial.",
+      "clipboardOnly": "Puede que el pegado no haya funcionado. Tus palabras están en el portapapeles.",
+      "historyOnly": "Puede que el pegado no haya funcionado. Tus palabras están en el Historial.",
+      "neither": "Puede que el pegado no haya funcionado."
+    }
   },
   "appLanguage": {
     "title": "Idioma de la aplicación",
@@ -649,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "Transcribiendo...",
-    "processing": "Procesando..."
+    "processing": "Procesando...",
+    "polishing": "Editando..."
   },
   "whatsNew": {
     "title": "Nuevo en Coco Voice v{{version}}"
@@ -688,5 +690,8 @@
       "chooseProvider": "Seleccionar proveedor",
       "useLocal": "Usar modelo en el dispositivo"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Después de pegar, el texto dictado permanece en el portapapeles para que puedas pegarlo otra vez. Sustituye lo que habías copiado antes. Puedes desactivarlo en Configuración > Avanzado > Manejo del Portapapeles."
   }
 }

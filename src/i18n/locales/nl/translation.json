@@ -122,6 +122,7 @@
   "modelSelector": {
     "custom": "Aangepast",
     "legacy": "Klassiek",
+    "licence": "Licentie: {{licence}}",
     "streaming": "Streaming",
     "active": "Actief",
     "switching": "Wisselen...",
@@ -329,7 +330,8 @@
         "options": {
           "dontModify": "Klembord niet aanpassen",
           "copyToClipboard": "Kopiëren naar klembord"
-        }
+        },
+        "privacyHint": "Tekst op het klembord is zichtbaar voor andere apps en klembordhulpmiddelen, en het universele klembord kan de tekst naar je andere Apple-apparaten kopiëren."
       },
       "autoSubmit": {
         "title": "Automatisch verzenden",
@@ -575,11 +577,6 @@
         "description": "Bekijk de broncode en draag bij",
         "button": "Bekijk op GitHub"
       },
-      "supportDevelopment": {
-        "title": "Ontwikkeling ondersteunen",
-        "description": "Help ons om te blijven bouwen aan Coco Voice",
-        "button": "Doneren"
-      },
       "acknowledgments": {
         "title": "Dankbetuigingen",
         "ggml": {
@@ -633,9 +630,13 @@
     "recordingFailed": "Opname starten mislukt: {{error}}",
     "modelLoadFailed": "Model laden mislukt: {{model}}",
     "modelLoadFailedUnknown": "onbekend model",
-    "pasteFailedTitle": "Tekst plakken mislukt",
-    "pasteFailed": "Tekst kon niet worden geplakt in de actieve applicatie.",
-    "transcriptionFailedTitle": "Transcriptie mislukt"
+    "transcriptionFailedTitle": "Transcriptie mislukt",
+    "pasteNotice": {
+      "clipboardAndHistory": "Plakken is misschien niet gelukt. Je woorden staan op het klembord en in Geschiedenis.",
+      "clipboardOnly": "Plakken is misschien niet gelukt. Je woorden staan op het klembord.",
+      "historyOnly": "Plakken is misschien niet gelukt. Je woorden staan in Geschiedenis.",
+      "neither": "Plakken is misschien niet gelukt."
+    }
   },
   "appLanguage": {
     "title": "Interfacetaal",
@@ -652,7 +653,8 @@
   },
   "overlay": {
     "transcribing": "Transcriberen...",
-    "processing": "Verwerken..."
+    "processing": "Verwerken...",
+    "polishing": "Redigeren..."
   },
   "cleanupStatus": {
     "chip": {
@@ -688,5 +690,8 @@
       "chooseProvider": "Provider selecteren",
       "useLocal": "Lokaal model gebruiken"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Na het plakken blijft je gedicteerde tekst op het klembord staan, zodat je hem opnieuw kunt plakken. Hij vervangt wat je eerder had gekopieerd. Je kunt dit uitzetten via Instellingen > Geavanceerd > Klembordbeheer."
   }
 }

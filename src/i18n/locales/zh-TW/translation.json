@@ -151,7 +151,8 @@
       "translate": "翻譯為英語",
       "streaming": "在您說話時即時顯示轉錄"
     },
-    "legacy": "舊版"
+    "legacy": "舊版",
+    "licence": "授權：{{licence}}"
   },
   "settings": {
     "modelSettings": {
@@ -329,7 +330,8 @@
         "options": {
           "dontModify": "不修改剪貼簿",
           "copyToClipboard": "複製到剪貼簿"
-        }
+        },
+        "privacyHint": "剪貼簿上的文字，其他應用程式和剪貼簿工具都看得到，通用剪貼板也可以將其拷貝到您的其他 Apple 裝置。"
       },
       "autoSubmit": {
         "title": "自動送出",
@@ -571,11 +573,6 @@
         "description": "檢視原始碼並參與貢獻",
         "button": "在 GitHub 上檢視"
       },
-      "supportDevelopment": {
-        "title": "支持開發",
-        "description": "幫助我們繼續開發 Coco Voice",
-        "button": "捐贈"
-      },
       "acknowledgments": {
         "title": "致謝",
         "ggml": {
@@ -630,9 +627,13 @@
     "recordingFailed": "錄音啟動失敗: {{error}}",
     "modelLoadFailed": "載入模型失敗: {{model}}",
     "modelLoadFailedUnknown": "未知模型",
-    "pasteFailedTitle": "貼上文字失敗",
-    "pasteFailed": "無法將文字貼上至目前作用中的應用程式。",
-    "transcriptionFailedTitle": "轉錄失敗"
+    "transcriptionFailedTitle": "轉錄失敗",
+    "pasteNotice": {
+      "clipboardAndHistory": "貼上可能沒有成功。你的文字在剪貼簿上，也在歷史紀錄裡。",
+      "clipboardOnly": "貼上可能沒有成功。你的文字在剪貼簿上。",
+      "historyOnly": "貼上可能沒有成功。你的文字在歷史紀錄裡。",
+      "neither": "貼上可能沒有成功。"
+    }
   },
   "appLanguage": {
     "title": "應用程式語言",
@@ -649,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "正在轉錄...",
-    "processing": "處理中..."
+    "processing": "處理中...",
+    "polishing": "潤色中..."
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} 新功能"
@@ -688,5 +690,8 @@
       "chooseProvider": "選擇供應商",
       "useLocal": "使用裝置端模型"
     }
+  },
+  "notices": {
+    "clipboardDefault": "貼上之後，聽寫的文字會留在剪貼簿上，方便再貼一次。它會取代你先前複製的內容。可以在設定 > 進階 > 剪貼簿處理裡關掉。"
   }
 }

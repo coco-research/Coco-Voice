@@ -161,6 +161,9 @@ pub const LEGAL_HOLD_IDS: &[&str] = &[
     "handy-computer/nemotron-speech-streaming-en-0.6b-gguf",
     "handy-computer/medasr-gguf",
     "handy-computer/SenseVoiceSmall-gguf",
+    // The downloadable re-hosts carry the FunASR Model License v1.1, like SenseVoiceSmall.
+    "handy-computer/Fun-ASR-MLT-Nano-2512-gguf",
+    "handy-computer/Fun-ASR-Nano-2512-gguf",
     // non-commercial
     "handy-computer/canary-1b-gguf",
     "handy-computer/moonshine-tiny-vi-gguf",
@@ -177,12 +180,9 @@ pub const LEGAL_HOLD_IDS: &[&str] = &[
     "handy-computer/moonshine-base-zh-gguf",
 ];
 
-/// catalog says "other", upstream FunAudioLLM releases these under Apache-2.0
-/// (verified 2026-09-27 in the model-source audit).
-pub const CLEARED_OTHER_IDS: &[&str] = &[
-    "handy-computer/Fun-ASR-MLT-Nano-2512-gguf",
-    "handy-computer/Fun-ASR-Nano-2512-gguf",
-];
+/// Repos whose catalog licence is "other" but whose licence has been reviewed and
+/// cleared. None today.
+pub const CLEARED_OTHER_IDS: &[&str] = &[];
 
 /// Checks if a given repo id is on the legal hold list (case-insensitive).
 pub(crate) fn repo_on_legal_hold(repo_id: &str) -> bool {
@@ -645,11 +645,12 @@ mod tests {
         assert!(is_allowed_catalog_entry("any/model", Some(" MIT ")));
         assert!(is_allowed_catalog_entry("any/model", Some("Apache-2.0")));
 
-        // Test CLEARED_OTHER_IDS
-        let cleared_id = CLEARED_OTHER_IDS[0];
-        assert!(is_allowed_catalog_entry(cleared_id, Some("other")));
-        assert!(!is_allowed_catalog_entry(cleared_id, Some("cc-by-nc-4.0")));
-        assert!(!is_allowed_catalog_entry(cleared_id, None));
+        // Nothing is cleared, so "other" is never offered.
+        assert!(CLEARED_OTHER_IDS.is_empty());
+        assert!(!is_allowed_catalog_entry(
+            "handy-computer/Fun-ASR-Nano-2512-gguf",
+            Some("other")
+        ));
     }
 
     #[test]
@@ -687,7 +688,7 @@ mod tests {
         assert!(repo_withheld("HANDY-COMPUTER/SENSEVOICESMALL-GGUF"));
 
         // Withheld exactly when the allowlist rejects the catalog entry.
-        assert!(!LEGAL_HOLD_IDS.is_empty() && !CLEARED_OTHER_IDS.is_empty());
+        assert!(!LEGAL_HOLD_IDS.is_empty());
         let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
         for m in &root.models {
             assert_eq!(
@@ -703,5 +704,92 @@ mod tests {
 
         // False for an unknown repo
         assert!(!repo_withheld("some/unknown-repo"));
+    }
+
+    #[derive(Deserialize)]
+    struct LicenceFile {
+        models: HashMap<String, LicenceEntry>,
+    }
+
+    #[derive(Deserialize)]
+    struct LicenceEntry {
+        licence: String,
+        revision: String,
+        url: String,
+    }
+
+    /// Built-in ids `ModelManager::new` inserts before the catalog seed.
+    /// ponytail: scans those string-literal inserts instead of booting Tauri.
+    /// If a builtin stops being `"id".to_string()` on the next line, parse that
+    /// shape here.
+    fn builtin_legacy_model_ids() -> Vec<&'static str> {
+        let src = include_str!("../managers/model.rs");
+        let start = src
+            .find("let mut available_models = HashMap::new();")
+            .expect("builtin model registry");
+        let end = src
+            .find("Self::seed_catalog_models")
+            .expect("catalog seed follows builtin models");
+        let lines: Vec<&str> = src[start..end].lines().collect();
+        let mut ids = Vec::new();
+        for (i, line) in lines.iter().enumerate() {
+            if line.trim() == "available_models.insert(" {
+                let key = lines[i + 1].trim();
+                let id = key
+                    .strip_prefix('"')
+                    .and_then(|s| s.strip_suffix("\".to_string(),"))
+                    .unwrap_or_else(|| panic!("builtin insert key is not a string literal: {key}"));
+                ids.push(id);
+            }
+        }
+        ids
+    }
+
+    #[test]
+    fn every_downloadable_model_has_a_licence_entry() {
+        let file: LicenceFile =
+            serde_json::from_str(include_str!("model_licences.json")).expect("model_licences.json");
+        const ALLOWED: &[&str] = &["MIT", "Apache-2.0", "CC-BY-4.0"];
+        for (id, entry) in &file.models {
+            assert!(
+                ALLOWED.contains(&entry.licence.as_str()),
+                "{id} licence {:?} is not MIT, Apache-2.0, or CC-BY-4.0",
+                entry.licence
+            );
+            assert!(
+                entry.revision.len() == 40 && entry.revision.bytes().all(|b| b.is_ascii_hexdigit()),
+                "{id} revision {:?} is not 40 hex",
+                entry.revision
+            );
+            assert!(
+                entry.url.contains(&entry.revision),
+                "{id} url does not contain its revision"
+            );
+        }
+
+        for id in LEGAL_HOLD_IDS {
+            assert!(
+                !file.models.contains_key(*id),
+                "held model {id} must not have a licence entry"
+            );
+        }
+
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        let mut required: Vec<String> = root
+            .models
+            .iter()
+            .filter(|m| is_allowed_catalog_entry(&m.id, m.license.as_deref()))
+            .map(|m| m.id.clone())
+            .collect();
+        assert!(!required.is_empty(), "catalog offered no models");
+        let builtins = builtin_legacy_model_ids();
+        assert!(builtins.len() >= 15, "builtin id scan found {builtins:?}");
+        required.extend(builtins.iter().map(|id| (*id).to_string()));
+        for id in &required {
+            assert!(
+                file.models.contains_key(id),
+                "downloadable model {id} has no licence entry"
+            );
+        }
     }
 }

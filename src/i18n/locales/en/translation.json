@@ -122,6 +122,7 @@
   "modelSelector": {
     "custom": "Custom",
     "legacy": "Legacy",
+    "licence": "Licence: {{licence}}",
     "streaming": "Streaming",
     "active": "Active",
     "switching": "Switching...",
@@ -329,7 +330,8 @@
         "options": {
           "dontModify": "Don't Modify Clipboard",
           "copyToClipboard": "Copy to Clipboard"
-        }
+        },
+        "privacyHint": "Text on the clipboard can be seen by other apps and clipboard tools, and Universal Clipboard can copy it to your other Apple devices."
       },
       "autoSubmit": {
         "title": "Auto Submit",
@@ -575,11 +577,6 @@
         "description": "View source code and contribute",
         "button": "View on GitHub"
       },
-      "supportDevelopment": {
-        "title": "Support Development",
-        "description": "Help us continue building Coco Voice",
-        "button": "Donate"
-      },
       "acknowledgments": {
         "title": "Acknowledgments",
         "ggml": {
@@ -633,9 +630,13 @@
     "recordingFailed": "Failed to start recording: {{error}}",
     "modelLoadFailed": "Failed to load model: {{model}}",
     "modelLoadFailedUnknown": "unknown model",
-    "pasteFailedTitle": "Failed to Paste Text",
-    "pasteFailed": "Text could not be pasted into the active application.",
-    "transcriptionFailedTitle": "Transcription Failed"
+    "transcriptionFailedTitle": "Transcription Failed",
+    "pasteNotice": {
+      "clipboardAndHistory": "Paste may not have worked. Your words are on the clipboard and in History.",
+      "clipboardOnly": "Paste may not have worked. Your words are on the clipboard.",
+      "historyOnly": "Paste may not have worked. Your words are in History.",
+      "neither": "Paste may not have worked."
+    }
   },
   "appLanguage": {
     "title": "Application Language",
@@ -652,7 +653,8 @@
   },
   "overlay": {
     "transcribing": "Transcribing...",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "polishing": "Polishing..."
   },
   "cleanupStatus": {
     "chip": {
@@ -688,5 +690,8 @@
       "chooseProvider": "Choose provider",
       "useLocal": "Use on-device model"
     }
+  },
+  "notices": {
+    "clipboardDefault": "After a paste, your dictated text now stays on the clipboard so you can paste it again. It replaces whatever you'd copied before. You can turn this off in Settings > Advanced > Clipboard Handling."
   }
 }

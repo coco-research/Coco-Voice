@@ -151,7 +151,8 @@
     },
     "cancel": "Hủy",
     "cancelDownload": "Hủy tải xuống",
-    "legacy": "Cũ"
+    "legacy": "Cũ",
+    "licence": "Giấy phép: {{licence}}"
   },
   "settings": {
     "modelSettings": {
@@ -329,7 +330,8 @@
         "options": {
           "dontModify": "Không sửa đổi Clipboard",
           "copyToClipboard": "Sao chép vào Clipboard"
-        }
+        },
+        "privacyHint": "Ứng dụng khác và công cụ clipboard có thể thấy chữ trên clipboard, và Bảng nhớ tạm chung có thể sao chép chữ đó sang các thiết bị Apple khác của bạn."
       },
       "autoSubmit": {
         "title": "Gửi tự động",
@@ -571,11 +573,6 @@
         "description": "Xem mã nguồn và đóng góp",
         "button": "Xem trên GitHub"
       },
-      "supportDevelopment": {
-        "title": "Hỗ trợ phát triển",
-        "description": "Giúp chúng tôi tiếp tục xây dựng Coco Voice",
-        "button": "Quyên góp"
-      },
       "acknowledgments": {
         "title": "Lời cảm ơn",
         "ggml": {
@@ -630,9 +627,13 @@
     "recordingFailed": "Không thể bắt đầu ghi âm: {{error}}",
     "modelLoadFailed": "Không thể tải mô hình: {{model}}",
     "modelLoadFailedUnknown": "mô hình không xác định",
-    "pasteFailedTitle": "Không thể dán văn bản",
-    "pasteFailed": "Không thể dán văn bản vào ứng dụng đang hoạt động.",
-    "transcriptionFailedTitle": "Phiên âm thất bại"
+    "transcriptionFailedTitle": "Phiên âm thất bại",
+    "pasteNotice": {
+      "clipboardAndHistory": "Có thể chưa dán được. Lời của bạn nằm trên clipboard và trong Lịch sử.",
+      "clipboardOnly": "Có thể chưa dán được. Lời của bạn nằm trên clipboard.",
+      "historyOnly": "Có thể chưa dán được. Lời của bạn nằm trong Lịch sử.",
+      "neither": "Có thể chưa dán được."
+    }
   },
   "appLanguage": {
     "title": "Ngôn ngữ ứng dụng",
@@ -649,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "Đang chuyển đổi...",
-    "processing": "Đang xử lý..."
+    "processing": "Đang xử lý...",
+    "polishing": "Đang sửa..."
   },
   "whatsNew": {
     "title": "Điểm mới trong Coco Voice v{{version}}"
@@ -688,5 +690,8 @@
       "chooseProvider": "Chọn nhà cung cấp",
       "useLocal": "Dùng mô hình trên thiết bị"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Sau khi dán, chữ bạn vừa đọc vẫn nằm trên clipboard để dán lại. Nó thay phần bạn đã sao chép trước đó. Bạn có thể tắt trong Cài đặt > Nâng cao > Xử lý Clipboard."
   }
 }

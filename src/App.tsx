@@ -46,6 +46,7 @@ function App() {
     (state) => state.refreshOutputDevices,
   );
   const hasCompletedPostOnboardingInit = useRef(false);
+  const clipboardNoticeShown = useRef(false);
 
   useEffect(() => {
     checkOnboardingStatus();
@@ -123,20 +124,63 @@ function App() {
     };
   }, [t]);
 
-  // Listen for paste failures and show a toast.
-  // The technical error detail is logged to coco-voice.log on the Rust side
-  // (see actions.rs `error!("Failed to paste transcription: ...")`),
-  // so we show a localized, user-friendly message here instead of the raw error.
+  // Rust picks the variant from where the words actually are. The technical
+  // error, when there is one, stays in coco-voice.log.
   useEffect(() => {
-    const unlisten = listen("paste-error", () => {
-      toast.error(t("errors.pasteFailedTitle"), {
-        description: t("errors.pasteFailed"),
-      });
+    const pasteNoticeKeys: Record<string, string> = {
+      clipboard_and_history: "errors.pasteNotice.clipboardAndHistory",
+      clipboard_only: "errors.pasteNotice.clipboardOnly",
+      history_only: "errors.pasteNotice.historyOnly",
+      neither: "errors.pasteNotice.neither",
+    };
+    const unlisten = listen<string>("paste-notice", (event) => {
+      const key = pasteNoticeKeys[event.payload];
+      if (key) toast(t(key));
     });
     return () => {
       unlisten.then((fn) => fn());
     };
   }, [t]);
+
+  useEffect(() => {
+    if (onboardingStep === null) return;
+    if (
+      !settings?.clipboard_default_notice_pending ||
+      clipboardNoticeShown.current
+    ) {
+      return;
+    }
+    clipboardNoticeShown.current = true;
+    // Clear the flag only when the user closes the notice. The app can start
+    // hidden in the tray, so showing it is not the same as the user seeing it.
+    const dismiss = () => {
+      commands
+        .dismissClipboardDefaultNotice()
+        .then((result) => {
+          if (result.status === "ok") {
+            useSettingsStore.setState((state) => ({
+              settings: state.settings
+                ? { ...state.settings, clipboard_default_notice_pending: false }
+                : state.settings,
+            }));
+          }
+        })
+        .catch((error) => {
+          console.warn("Failed to dismiss clipboard notice:", error);
+        });
+    };
+    toast(t("notices.clipboardDefault"), {
+      duration: Infinity,
+      closeButton: true,
+      onDismiss: dismiss,
+      classNames: {
+        toast:
+          "relative max-w-sm items-start bg-background border border-mid-gray/20 rounded-lg shadow-lg px-4 py-3 pe-8 flex gap-3 text-sm text-left",
+        closeButton:
+          "absolute top-2 end-2 flex h-5 w-5 items-center justify-center rounded-full border border-mid-gray/30 bg-background text-text cursor-pointer",
+      },
+    });
+  }, [onboardingStep, settings?.clipboard_default_notice_pending, t]);
 
   // Listen for transcription failures and show a toast.
   // The payload is the backend error message (also logged to coco-voice.log).

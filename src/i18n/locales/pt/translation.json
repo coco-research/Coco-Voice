@@ -151,7 +151,8 @@
     },
     "cancel": "Cancelar",
     "cancelDownload": "Cancelar download",
-    "legacy": "Legado"
+    "legacy": "Legado",
+    "licence": "Licença: {{licence}}"
   },
   "settings": {
     "modelSettings": {
@@ -329,7 +330,8 @@
         "options": {
           "dontModify": "Não Modificar Área de Transferência",
           "copyToClipboard": "Copiar para Área de Transferência"
-        }
+        },
+        "privacyHint": "O texto na área de transferência pode ser visto por outros aplicativos e ferramentas de área de transferência, e a Área de Transferência Universal pode copiá-lo para seus outros dispositivos Apple."
       },
       "autoSubmit": {
         "title": "Envio automático",
@@ -571,11 +573,6 @@
         "description": "Visualizar código fonte e contribuir",
         "button": "Ver no GitHub"
       },
-      "supportDevelopment": {
-        "title": "Apoiar o Desenvolvimento",
-        "description": "Ajude-nos a continuar construindo o Coco Voice",
-        "button": "Doar"
-      },
       "acknowledgments": {
         "title": "Agradecimentos",
         "ggml": {
@@ -630,9 +627,13 @@
     "recordingFailed": "Falha ao iniciar a gravação: {{error}}",
     "modelLoadFailed": "Falha ao carregar o modelo: {{model}}",
     "modelLoadFailedUnknown": "modelo desconhecido",
-    "pasteFailedTitle": "Falha ao colar o texto",
-    "pasteFailed": "Não foi possível colar o texto no aplicativo ativo.",
-    "transcriptionFailedTitle": "Falha na transcrição"
+    "transcriptionFailedTitle": "Falha na transcrição",
+    "pasteNotice": {
+      "clipboardAndHistory": "A colagem pode não ter funcionado. Suas palavras estão na área de transferência e no Histórico.",
+      "clipboardOnly": "A colagem pode não ter funcionado. Suas palavras estão na área de transferência.",
+      "historyOnly": "A colagem pode não ter funcionado. Suas palavras estão no Histórico.",
+      "neither": "A colagem pode não ter funcionado."
+    }
   },
   "appLanguage": {
     "title": "Idioma da Aplicação",
@@ -649,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "Transcrevendo...",
-    "processing": "Processando..."
+    "processing": "Processando...",
+    "polishing": "Revisando..."
   },
   "whatsNew": {
     "title": "Novidades no Coco Voice v{{version}}"
@@ -688,5 +690,8 @@
       "chooseProvider": "Selecionar provedor",
       "useLocal": "Usar modelo no dispositivo"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Depois de colar, o texto ditado permanece na área de transferência para você colar de novo. Ele substitui o que você tinha copiado antes. Você pode desligar isso em Configurações > Avançado > Manipulação da Área de Transferência."
   }
 }

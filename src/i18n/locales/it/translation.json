@@ -151,7 +151,8 @@
     },
     "cancel": "Annulla",
     "cancelDownload": "Annulla download",
-    "legacy": "Obsoleto"
+    "legacy": "Obsoleto",
+    "licence": "Licenza: {{licence}}"
   },
   "settings": {
     "modelSettings": {
@@ -329,7 +330,8 @@
         "options": {
           "dontModify": "Non Modificare gli Appunti",
           "copyToClipboard": "Copia negli Appunti"
-        }
+        },
+        "privacyHint": "Il testo negli appunti è visibile ad altre app e agli strumenti per gli appunti, e la funzione Appunti universali può copiarlo sugli altri tuoi dispositivi Apple."
       },
       "autoSubmit": {
         "title": "Invio automatico",
@@ -571,11 +573,6 @@
         "description": "Vedi e contribuisci al codice sorgente",
         "button": "Vedi su GitHub"
       },
-      "supportDevelopment": {
-        "title": "Supporta lo Sviluppo",
-        "description": "Aiutaci a sviluppare Coco Voice",
-        "button": "Dona"
-      },
       "acknowledgments": {
         "title": "Ringraziamenti",
         "ggml": {
@@ -630,9 +627,13 @@
     "recordingFailed": "Impossibile avviare la registrazione: {{error}}",
     "modelLoadFailed": "Impossibile caricare il modello: {{model}}",
     "modelLoadFailedUnknown": "modello sconosciuto",
-    "pasteFailedTitle": "Impossibile incollare il testo",
-    "pasteFailed": "Non è stato possibile incollare il testo nell'applicazione attiva.",
-    "transcriptionFailedTitle": "Trascrizione non riuscita"
+    "transcriptionFailedTitle": "Trascrizione non riuscita",
+    "pasteNotice": {
+      "clipboardAndHistory": "L'incolla potrebbe non essere riuscito. Le tue parole sono negli appunti e in Cronologia.",
+      "clipboardOnly": "L'incolla potrebbe non essere riuscito. Le tue parole sono negli appunti.",
+      "historyOnly": "L'incolla potrebbe non essere riuscito. Le tue parole sono in Cronologia.",
+      "neither": "L'incolla potrebbe non essere riuscito."
+    }
   },
   "appLanguage": {
     "title": "Lingua Applicazione",
@@ -649,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "Trascrizione...",
-    "processing": "Elaborazione..."
+    "processing": "Elaborazione...",
+    "polishing": "Revisione..."
   },
   "whatsNew": {
     "title": "Novità in Coco Voice v{{version}}"
@@ -688,5 +690,8 @@
       "chooseProvider": "Scegli un provider",
       "useLocal": "Usa il modello sul dispositivo"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Dopo un incolla, il testo dettato resta negli appunti così puoi incollarlo di nuovo. Sostituisce ciò che avevi copiato prima. Puoi disattivarlo in Impostazioni > Avanzate > Gestione Appunti."
   }
 }

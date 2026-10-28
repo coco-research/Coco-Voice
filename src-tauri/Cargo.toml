@@ -1,6 +1,6 @@
 [package]
 name = "coco-voice"
-version = "0.9.6"
+version = "0.10.0"
 description = "Coco Voice"
 authors = ["cjpais", "Coco Research"]
 edition = "2021"
@@ -53,7 +53,7 @@ anyhow = "1.0.95"
 rubato = "0.16.2"
 hound = "3.5.1"
 log = "0.4.25"
-env_filter = "0.1.0"
+env_filter = "2.0.0"
 tokio = "1.43.0"
 vad-rs = { git = "https://github.com/cjpais/vad-rs", default-features = false }
 enigo = "0.6.1"
@@ -87,7 +87,7 @@ hf-hub = { git = "https://github.com/cjpais/hf-hub", branch = "cancellable-downl
 ] }
 
 [target.'cfg(unix)'.dependencies]
-signal-hook = "0.3"
+signal-hook = "0.4"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-autostart = "2.5.1"

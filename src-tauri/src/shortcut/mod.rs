@@ -943,7 +943,19 @@ pub fn change_clipboard_handling_setting(app: AppHandle, handling: String) -> Re
             ClipboardHandling::DontModify
         }
     };
-    settings::update_settings(&app, |s| s.clipboard_handling = parsed);
+    settings::update_settings(&app, |s| {
+        s.clipboard_handling = parsed;
+        s.clipboard_handling_user_set = true;
+        // An explicit choice makes the "now stays on the clipboard" notice moot.
+        s.clipboard_default_notice_pending = false;
+    });
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn dismiss_clipboard_default_notice(app: AppHandle) -> Result<(), String> {
+    settings::update_settings(&app, |s| s.clipboard_default_notice_pending = false);
     Ok(())
 }
 

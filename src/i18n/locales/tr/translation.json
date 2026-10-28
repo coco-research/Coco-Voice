@@ -151,7 +151,8 @@
     },
     "cancel": "İptal",
     "cancelDownload": "İndirmeyi iptal et",
-    "legacy": "Eski"
+    "legacy": "Eski",
+    "licence": "Lisans: {{licence}}"
   },
   "settings": {
     "modelSettings": {
@@ -329,7 +330,8 @@
         "options": {
           "dontModify": "Panoyu Değiştirme",
           "copyToClipboard": "Panoya Kopyala"
-        }
+        },
+        "privacyHint": "Panodaki metni başka uygulamalar ve pano araçları görebilir; Evrensel Pano da metni diğer Apple aygıtlarınıza kopyalayabilir."
       },
       "autoSubmit": {
         "title": "Otomatik Gönder",
@@ -571,11 +573,6 @@
         "description": "Kaynak kodunu görüntüle ve katkıda bulun",
         "button": "GitHub'da Görüntüle"
       },
-      "supportDevelopment": {
-        "title": "Geliştirmeyi Destekle",
-        "description": "Coco Voice'yi geliştirmeye devam etmemize yardımcı olun",
-        "button": "Bağış Yap"
-      },
       "acknowledgments": {
         "title": "Teşekkürler",
         "ggml": {
@@ -630,9 +627,13 @@
     "recordingFailed": "Kayıt başlatılamadı: {{error}}",
     "modelLoadFailed": "Model yüklenemedi: {{model}}",
     "modelLoadFailedUnknown": "bilinmeyen model",
-    "pasteFailedTitle": "Metin yapıştırılamadı",
-    "pasteFailed": "Metin etkin uygulamaya yapıştırılamadı.",
-    "transcriptionFailedTitle": "Transkripsiyon başarısız oldu"
+    "transcriptionFailedTitle": "Transkripsiyon başarısız oldu",
+    "pasteNotice": {
+      "clipboardAndHistory": "Yapıştırma gerçekleşmemiş olabilir. Sözleriniz panoda ve Geçmiş'te.",
+      "clipboardOnly": "Yapıştırma gerçekleşmemiş olabilir. Sözleriniz panoda.",
+      "historyOnly": "Yapıştırma gerçekleşmemiş olabilir. Sözleriniz Geçmiş'te.",
+      "neither": "Yapıştırma gerçekleşmemiş olabilir."
+    }
   },
   "appLanguage": {
     "title": "Uygulama Dili",
@@ -649,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "Transkribe ediliyor...",
-    "processing": "İşleniyor..."
+    "processing": "İşleniyor...",
+    "polishing": "Düzenleniyor..."
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} yenilikleri"
@@ -688,5 +690,8 @@
       "chooseProvider": "Sağlayıcı Seç",
       "useLocal": "Cihaz İçi Modeli Kullan"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Yapıştırdıktan sonra dikte ettiğiniz metin panoda kalır, böylece yeniden yapıştırabilirsiniz. Daha önce kopyaladığınız şeyin yerini alır. Bunu Ayarlar > Gelişmiş > Pano Yönetimi bölümünden kapatabilirsiniz."
   }
 }

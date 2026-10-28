@@ -1,0 +1,167 @@
+# Always-on aggregator check. test.yml, nix-check.yml, code-quality.yml, and
+# playwright.yml filter pull_request by path, so those checks do not run on
+# every PR. A required check that never runs blocks the PR forever.
+#
+# Branch protection should require `ci-ok` (and `title`), not the path-filtered
+# checks.
+#
+# ponytail: polling costs runner minutes (free on public repos); upgrade path: a reusable-workflow `needs:` aggregator if minutes ever matter.
+
+name: ci-ok
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  merge_group:
+
+permissions: {}
+
+# A newer push to the same PR cancels the older poll.
+concurrency:
+  group: ci-ok-${{ github.event.pull_request.number || github.event.merge_group.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  ci-ok:
+    name: ci-ok
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      checks: read
+      actions: read
+      contents: read
+    steps:
+      - name: Aggregate check runs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z ${HEAD_SHA:-} ]]; then
+            echo "ci-ok: this event has no head SHA."
+            exit 1
+          fi
+
+          repo="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
+          # Leave two minutes for this message before the 75 minute job timeout.
+          limit=$((73 * 60))
+
+          fail_timeout() {
+            echo "ci-ok: timed out after ${limit}s waiting for other check runs on ${HEAD_SHA} to complete."
+            exit 1
+          }
+
+          echo "ci-ok: head ${repo}@${HEAD_SHA}"
+          sleep 60
+
+          streak=0
+          while true; do
+            if (( SECONDS >= limit )); then
+              fail_timeout
+            fi
+
+            if ! raw=$(gh api "repos/${repo}/commits/${HEAD_SHA}/check-runs?per_page=100&filter=latest"); then
+              echo "ci-ok: failed to list check runs for ${HEAD_SHA}."
+              exit 1
+            fi
+
+            # Workflow runs exist as soon as the event is dispatched, before their
+            # check runs do, so a slow-to-start workflow can't be missed.
+            if ! wruns=$(gh api "repos/${repo}/actions/runs?head_sha=${HEAD_SHA}&event=${GITHUB_EVENT_NAME}&per_page=100"); then
+              echo "ci-ok: failed to list workflow runs for ${HEAD_SHA}."
+              exit 1
+            fi
+
+            wruns_file="${RUNNER_TEMP:-/tmp}/ci-ok-wruns.json"
+            printf '%s\n' "$wruns" > "$wruns_file"
+
+            if ! parsed=$(printf '%s\n' "$raw" | WRUNS_FILE="$wruns_file" python3 -c '
+          import json, os, sys
+          data = json.load(sys.stdin)
+          wdata = json.load(open(os.environ["WRUNS_FILE"]))
+          runs = [r for r in data.get("check_runs", []) if r.get("name") != "ci-ok"]
+          # Latest run per workflow (reruns replace older attempts), ci-ok itself excluded.
+          latest = {}
+          for w in wdata.get("workflow_runs", []):
+              if w.get("name") == "ci-ok":
+                  continue
+              key = (w.get("workflow_id"), w.get("event"))
+              if key not in latest or w.get("id", 0) > latest[key].get("id", 0):
+                  latest[key] = w
+          runs += [{"name": "workflow: " + (w.get("name") or "-"), "status": w.get("status"), "conclusion": w.get("conclusion")} for w in latest.values()]
+          # The page check below covers both lists.
+          total = max(int(data.get("total_count") or 0), int(wdata.get("total_count") or 0))
+          pending = sum(1 for r in runs if r.get("status") != "completed")
+          ok = {"success", "skipped", "neutral"}
+          bad = sum(1 for r in runs if r.get("status") == "completed" and r.get("conclusion") not in ok)
+          print(total, len(runs), pending, bad)
+          for r in sorted(runs, key=lambda r: (r.get("name") or "")):
+              name = (r.get("name") or "-").replace("\t", " ").replace("\n", " ")
+              status = (r.get("status") or "-").replace("\t", " ").replace("\n", " ")
+              conclusion = r.get("conclusion") or "-"
+              if not isinstance(conclusion, str):
+                  conclusion = "-"
+              conclusion = conclusion.replace("\t", " ").replace("\n", " ")
+              sys.stdout.write("%s\t%s\t%s\n" % (name, status, conclusion))
+          '); then
+              echo "ci-ok: could not parse check runs for ${HEAD_SHA}."
+              exit 1
+            fi
+
+            counts="${parsed%%$'\n'*}"
+            if [[ "$parsed" == *$'\n'* ]]; then
+              rest="${parsed#*$'\n'}"
+            else
+              rest=""
+            fi
+
+            read -r total others pending bad <<<"$counts"
+            if [[ ! "$total" =~ ^[0-9]+$ || ! "$others" =~ ^[0-9]+$ || ! "$pending" =~ ^[0-9]+$ || ! "$bad" =~ ^[0-9]+$ ]]; then
+              echo "ci-ok: unexpected check-runs payload for ${HEAD_SHA}."
+              exit 1
+            fi
+
+            printf '%-40s %-14s %s\n' "name" "status" "conclusion"
+            if [[ -n "$rest" ]]; then
+              while IFS=$'\t' read -r check_name check_status check_conclusion; do
+                [[ -z "$check_name" ]] && continue
+                printf '%-40s %-14s %s\n' "$check_name" "$check_status" "$check_conclusion"
+              done <<<"$rest"
+            fi
+
+            # ponytail: one page of 100 latest runs; upgrade path: follow Link headers if a PR ever exceeds 100 checks.
+            if (( total > 100 )); then
+              echo "ci-ok: ${total} check or workflow runs exceed one page of 100. Refusing to decide on a partial list."
+              exit 1
+            fi
+
+            if (( pending > 0 )); then
+              streak=0
+              echo "ci-ok: ${pending} check(s) not completed. Polling again in 30s."
+              if (( SECONDS + 30 >= limit )); then
+                fail_timeout
+              fi
+              sleep 30
+              continue
+            fi
+
+            streak=$((streak + 1))
+            if (( streak < 2 )); then
+              echo "ci-ok: all ${others} other check(s) completed (confirmation ${streak}/2). Rechecking in 30s."
+              if (( SECONDS + 30 >= limit )); then
+                fail_timeout
+              fi
+              sleep 30
+              continue
+            fi
+
+            if (( bad > 0 )); then
+              echo "ci-ok: failing. ${bad} check(s) ended with failure, cancelled, timed_out, action_required, startup_failure, or another conclusion besides success, skipped, or neutral."
+              exit 1
+            fi
+
+            echo "ci-ok: all ${others} other check(s) are success, skipped, or neutral."
+            exit 0
+          done

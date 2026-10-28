@@ -1,0 +1,371 @@
+{
+  "_about": "Licence shown for every model Coco Voice can download, as stated on the publisher's model page at the pinned revision. Generated from an earlier model-source audit. Update when a model is added or its publisher page changes.",
+  "models": {
+    "Qwen/Qwen3-4B-GGUF": {
+      "licence": "Apache-2.0",
+      "publisher": "Qwen/Qwen3-4B-GGUF",
+      "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+      "url": "https://huggingface.co/Qwen/Qwen3-4B-GGUF/tree/bc640142c66e1fdd12af0bd68f40445458f3869b"
+    },
+    "breeze-asr": {
+      "licence": "Apache-2.0",
+      "publisher": "MediaTek-Research/Breeze-ASR-25",
+      "revision": "cffe7ccb404d025296a00758d0a33468bec3a9d0",
+      "url": "https://huggingface.co/MediaTek-Research/Breeze-ASR-25/tree/cffe7ccb404d025296a00758d0a33468bec3a9d0"
+    },
+    "canary-180m-flash": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/canary-180m-flash",
+      "revision": "b12ab418510d093e83890178fd0e8b0d0f7918a6",
+      "url": "https://huggingface.co/nvidia/canary-180m-flash/tree/b12ab418510d093e83890178fd0e8b0d0f7918a6"
+    },
+    "canary-1b-v2": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/canary-1b-v2",
+      "revision": "d455706339a6b32e1aa40f82c713a482a0c938e2",
+      "url": "https://huggingface.co/nvidia/canary-1b-v2/tree/d455706339a6b32e1aa40f82c713a482a0c938e2"
+    },
+    "cohere-int8": {
+      "licence": "Apache-2.0",
+      "publisher": "CohereLabs/cohere-transcribe-03-2026",
+      "revision": "b1eacc2686a3d08ceaae5f24a88b1d519620bc09",
+      "url": "https://huggingface.co/CohereLabs/cohere-transcribe-03-2026/tree/b1eacc2686a3d08ceaae5f24a88b1d519620bc09"
+    },
+    "gigaam-v3-e2e-ctc": {
+      "licence": "MIT",
+      "publisher": "ai-sage/GigaAM-v3",
+      "revision": "ec1dc1f01d0d627ab2c0d3acc1e235702300d95e",
+      "url": "https://huggingface.co/ai-sage/GigaAM-v3/tree/ec1dc1f01d0d627ab2c0d3acc1e235702300d95e"
+    },
+    "handy-computer/Breeze-ASR-25-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "MediaTek-Research/Breeze-ASR-25",
+      "revision": "cffe7ccb404d025296a00758d0a33468bec3a9d0",
+      "url": "https://huggingface.co/MediaTek-Research/Breeze-ASR-25/tree/cffe7ccb404d025296a00758d0a33468bec3a9d0"
+    },
+    "handy-computer/Qwen3-ASR-0.6B-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "Qwen/Qwen3-ASR-0.6B",
+      "revision": "5eb144179a02acc5e5ba31e748d22b0cf3e303b0",
+      "url": "https://huggingface.co/Qwen/Qwen3-ASR-0.6B/tree/5eb144179a02acc5e5ba31e748d22b0cf3e303b0"
+    },
+    "handy-computer/Qwen3-ASR-1.7B-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "Qwen/Qwen3-ASR-1.7B",
+      "revision": "7278e1e70fe206f11671096ffdd38061171dd6e5",
+      "url": "https://huggingface.co/Qwen/Qwen3-ASR-1.7B/tree/7278e1e70fe206f11671096ffdd38061171dd6e5"
+    },
+    "handy-computer/Voxtral-Mini-3B-2507-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "mistralai/Voxtral-Mini-3B-2507",
+      "revision": "3060fe34b35ba5d44202ce9ff3c097642914f8f3",
+      "url": "https://huggingface.co/mistralai/Voxtral-Mini-3B-2507/tree/3060fe34b35ba5d44202ce9ff3c097642914f8f3"
+    },
+    "handy-computer/Voxtral-Mini-4B-Realtime-2602-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "mistralai/Voxtral-Mini-4B-Realtime-2602",
+      "revision": "2769294da9567371363522aac9bbcfdd19447add",
+      "url": "https://huggingface.co/mistralai/Voxtral-Mini-4B-Realtime-2602/tree/2769294da9567371363522aac9bbcfdd19447add"
+    },
+    "handy-computer/Voxtral-Small-24B-2507-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "mistralai/Voxtral-Small-24B-2507",
+      "revision": "da5b42409f279fdd92febee0511a6c32828569c1",
+      "url": "https://huggingface.co/mistralai/Voxtral-Small-24B-2507/tree/da5b42409f279fdd92febee0511a6c32828569c1"
+    },
+    "handy-computer/canary-180m-flash-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/canary-180m-flash",
+      "revision": "b12ab418510d093e83890178fd0e8b0d0f7918a6",
+      "url": "https://huggingface.co/nvidia/canary-180m-flash/tree/b12ab418510d093e83890178fd0e8b0d0f7918a6"
+    },
+    "handy-computer/canary-1b-flash-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/canary-1b-flash",
+      "revision": "2b6e4d2dacb11cc1b1724de31bb48fe68c26c12e",
+      "url": "https://huggingface.co/nvidia/canary-1b-flash/tree/2b6e4d2dacb11cc1b1724de31bb48fe68c26c12e"
+    },
+    "handy-computer/canary-1b-v2-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/canary-1b-v2",
+      "revision": "d455706339a6b32e1aa40f82c713a482a0c938e2",
+      "url": "https://huggingface.co/nvidia/canary-1b-v2/tree/d455706339a6b32e1aa40f82c713a482a0c938e2"
+    },
+    "handy-computer/canary-qwen-2.5b-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/canary-qwen-2.5b",
+      "revision": "b1469e1bba1cfe140205529c79c434ca47180960",
+      "url": "https://huggingface.co/nvidia/canary-qwen-2.5b/tree/b1469e1bba1cfe140205529c79c434ca47180960"
+    },
+    "handy-computer/cohere-transcribe-03-2026-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "CohereLabs/cohere-transcribe-03-2026",
+      "revision": "b1eacc2686a3d08ceaae5f24a88b1d519620bc09",
+      "url": "https://huggingface.co/CohereLabs/cohere-transcribe-03-2026/tree/b1eacc2686a3d08ceaae5f24a88b1d519620bc09"
+    },
+    "handy-computer/gigaam-v3-ctc-gguf": {
+      "licence": "MIT",
+      "publisher": "ai-sage/GigaAM-v3",
+      "revision": "ec1dc1f01d0d627ab2c0d3acc1e235702300d95e",
+      "url": "https://huggingface.co/ai-sage/GigaAM-v3/tree/ec1dc1f01d0d627ab2c0d3acc1e235702300d95e"
+    },
+    "handy-computer/gigaam-v3-e2e-ctc-gguf": {
+      "licence": "MIT",
+      "publisher": "ai-sage/GigaAM-v3",
+      "revision": "ec1dc1f01d0d627ab2c0d3acc1e235702300d95e",
+      "url": "https://huggingface.co/ai-sage/GigaAM-v3/tree/ec1dc1f01d0d627ab2c0d3acc1e235702300d95e"
+    },
+    "handy-computer/gigaam-v3-e2e-rnnt-gguf": {
+      "licence": "MIT",
+      "publisher": "ai-sage/GigaAM-v3",
+      "revision": "ec1dc1f01d0d627ab2c0d3acc1e235702300d95e",
+      "url": "https://huggingface.co/ai-sage/GigaAM-v3/tree/ec1dc1f01d0d627ab2c0d3acc1e235702300d95e"
+    },
+    "handy-computer/gigaam-v3-rnnt-gguf": {
+      "licence": "MIT",
+      "publisher": "ai-sage/GigaAM-v3",
+      "revision": "ec1dc1f01d0d627ab2c0d3acc1e235702300d95e",
+      "url": "https://huggingface.co/ai-sage/GigaAM-v3/tree/ec1dc1f01d0d627ab2c0d3acc1e235702300d95e"
+    },
+    "handy-computer/granite-4.0-1b-speech-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "ibm-granite/granite-4.0-1b-speech",
+      "revision": "bd87ab862416353633ea431fe49b1614003623c5",
+      "url": "https://huggingface.co/ibm-granite/granite-4.0-1b-speech/tree/bd87ab862416353633ea431fe49b1614003623c5"
+    },
+    "handy-computer/granite-speech-4.1-2b-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "ibm-granite/granite-speech-4.1-2b",
+      "revision": "de575db64086f84fdc79da4932d1076e965bc546",
+      "url": "https://huggingface.co/ibm-granite/granite-speech-4.1-2b/tree/de575db64086f84fdc79da4932d1076e965bc546"
+    },
+    "handy-computer/granite-speech-4.1-2b-nar-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "ibm-granite/granite-speech-4.1-2b-nar",
+      "revision": "a1e3416e25ce29ab3852778e54fa8b3bd59c4bf2",
+      "url": "https://huggingface.co/ibm-granite/granite-speech-4.1-2b-nar/tree/a1e3416e25ce29ab3852778e54fa8b3bd59c4bf2"
+    },
+    "handy-computer/granite-speech-4.1-2b-plus-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "ibm-granite/granite-speech-4.1-2b-plus",
+      "revision": "1454e6e1e33845ca9280ff65f52cf1141ba6e6e2",
+      "url": "https://huggingface.co/ibm-granite/granite-speech-4.1-2b-plus/tree/1454e6e1e33845ca9280ff65f52cf1141ba6e6e2"
+    },
+    "handy-computer/moonshine-base-gguf": {
+      "licence": "MIT",
+      "publisher": "UsefulSensors/moonshine-base",
+      "revision": "7a73d8d55ac0ba2ef3ae761593f6784b51f96dcf",
+      "url": "https://huggingface.co/UsefulSensors/moonshine-base/tree/7a73d8d55ac0ba2ef3ae761593f6784b51f96dcf"
+    },
+    "handy-computer/moonshine-streaming-medium-gguf": {
+      "licence": "MIT",
+      "publisher": "UsefulSensors/moonshine-streaming-medium",
+      "revision": "57b843633a8c183cadf6699ffa761377a933a866",
+      "url": "https://huggingface.co/UsefulSensors/moonshine-streaming-medium/tree/57b843633a8c183cadf6699ffa761377a933a866"
+    },
+    "handy-computer/moonshine-streaming-small-gguf": {
+      "licence": "MIT",
+      "publisher": "UsefulSensors/moonshine-streaming-small",
+      "revision": "2c036506f23a09c18df5a50057599ba6d9280999",
+      "url": "https://huggingface.co/UsefulSensors/moonshine-streaming-small/tree/2c036506f23a09c18df5a50057599ba6d9280999"
+    },
+    "handy-computer/moonshine-streaming-tiny-gguf": {
+      "licence": "MIT",
+      "publisher": "UsefulSensors/moonshine-streaming-tiny",
+      "revision": "f8e9dfd8c562c257c151a907b7b7f2fe8ff8511a",
+      "url": "https://huggingface.co/UsefulSensors/moonshine-streaming-tiny/tree/f8e9dfd8c562c257c151a907b7b7f2fe8ff8511a"
+    },
+    "handy-computer/moonshine-tiny-gguf": {
+      "licence": "MIT",
+      "publisher": "UsefulSensors/moonshine-tiny",
+      "revision": "390624ed33d594443aa4aa221f5b9f283b545b5a",
+      "url": "https://huggingface.co/UsefulSensors/moonshine-tiny/tree/390624ed33d594443aa4aa221f5b9f283b545b5a"
+    },
+    "handy-computer/parakeet-ctc-0.6b-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/parakeet-ctc-0.6b",
+      "revision": "ad09ba1cc62743fbc9814de5d2016fca9096485a",
+      "url": "https://huggingface.co/nvidia/parakeet-ctc-0.6b/tree/ad09ba1cc62743fbc9814de5d2016fca9096485a"
+    },
+    "handy-computer/parakeet-ctc-1.1b-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/parakeet-ctc-1.1b",
+      "revision": "20e63a0fed6aedba145b74b826dbd41df0941730",
+      "url": "https://huggingface.co/nvidia/parakeet-ctc-1.1b/tree/20e63a0fed6aedba145b74b826dbd41df0941730"
+    },
+    "handy-computer/parakeet-rnnt-0.6b-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/parakeet-rnnt-0.6b",
+      "revision": "1b6b548f70b93d2410c3d13cc0654cab300f06ef",
+      "url": "https://huggingface.co/nvidia/parakeet-rnnt-0.6b/tree/1b6b548f70b93d2410c3d13cc0654cab300f06ef"
+    },
+    "handy-computer/parakeet-rnnt-1.1b-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/parakeet-rnnt-1.1b",
+      "revision": "2acc4c61eede2f52ddefe74935de1930a9064d4a",
+      "url": "https://huggingface.co/nvidia/parakeet-rnnt-1.1b/tree/2acc4c61eede2f52ddefe74935de1930a9064d4a"
+    },
+    "handy-computer/parakeet-tdt-0.6b-v2-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/parakeet-tdt-0.6b-v2",
+      "revision": "ae9ad07059c7c739ffaf932226a8fe64ae2620b0",
+      "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2/tree/ae9ad07059c7c739ffaf932226a8fe64ae2620b0"
+    },
+    "handy-computer/parakeet-tdt-0.6b-v3-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/parakeet-tdt-0.6b-v3",
+      "revision": "541d1f99c6b0c3cd0b11a95167540bb8edefd82b",
+      "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3/tree/541d1f99c6b0c3cd0b11a95167540bb8edefd82b"
+    },
+    "handy-computer/parakeet-tdt-1.1b-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/parakeet-tdt-1.1b",
+      "revision": "53276c6469d1f17a1352e30c4d11be3d0d7e9575",
+      "url": "https://huggingface.co/nvidia/parakeet-tdt-1.1b/tree/53276c6469d1f17a1352e30c4d11be3d0d7e9575"
+    },
+    "handy-computer/parakeet-tdt_ctc-1.1b-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/parakeet-tdt_ctc-1.1b",
+      "revision": "675e78684c83ae21e2a8fb042726b66d91b9ba3d",
+      "url": "https://huggingface.co/nvidia/parakeet-tdt_ctc-1.1b/tree/675e78684c83ae21e2a8fb042726b66d91b9ba3d"
+    },
+    "handy-computer/parakeet-tdt_ctc-110m-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/parakeet-tdt_ctc-110m",
+      "revision": "431a349f3051ab85c22b9b7a2741b5fe77065665",
+      "url": "https://huggingface.co/nvidia/parakeet-tdt_ctc-110m/tree/431a349f3051ab85c22b9b7a2741b5fe77065665"
+    },
+    "handy-computer/whisper-base-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-base",
+      "revision": "e37978b90ca9030d5170a5c07aadb050351a65bb",
+      "url": "https://huggingface.co/openai/whisper-base/tree/e37978b90ca9030d5170a5c07aadb050351a65bb"
+    },
+    "handy-computer/whisper-base.en-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-base.en",
+      "revision": "911407f4214e0e1d82085af863093ec0b66f9cd6",
+      "url": "https://huggingface.co/openai/whisper-base.en/tree/911407f4214e0e1d82085af863093ec0b66f9cd6"
+    },
+    "handy-computer/whisper-large-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-large",
+      "revision": "4ef9b41f0d4fe232daafdb5f76bb1dd8b23e01d7",
+      "url": "https://huggingface.co/openai/whisper-large/tree/4ef9b41f0d4fe232daafdb5f76bb1dd8b23e01d7"
+    },
+    "handy-computer/whisper-large-v2-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-large-v2",
+      "revision": "ae4642769ce2ad8fc292556ccea8e901f1530655",
+      "url": "https://huggingface.co/openai/whisper-large-v2/tree/ae4642769ce2ad8fc292556ccea8e901f1530655"
+    },
+    "handy-computer/whisper-large-v3-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-large-v3",
+      "revision": "06f233fe06e710322aca913c1bc4249a0d71fce1",
+      "url": "https://huggingface.co/openai/whisper-large-v3/tree/06f233fe06e710322aca913c1bc4249a0d71fce1"
+    },
+    "handy-computer/whisper-large-v3-turbo-gguf": {
+      "licence": "MIT",
+      "publisher": "openai/whisper-large-v3-turbo",
+      "revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9",
+      "url": "https://huggingface.co/openai/whisper-large-v3-turbo/tree/41f01f3fe87f28c78e2fbf8b568835947dd65ed9"
+    },
+    "handy-computer/whisper-medium-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-medium",
+      "revision": "abdf7c39ab9d0397620ccaea8974cc764cd0953e",
+      "url": "https://huggingface.co/openai/whisper-medium/tree/abdf7c39ab9d0397620ccaea8974cc764cd0953e"
+    },
+    "handy-computer/whisper-medium.en-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-medium.en",
+      "revision": "2e98eb6279edf5095af0c8dedb36bdec0acd172b",
+      "url": "https://huggingface.co/openai/whisper-medium.en/tree/2e98eb6279edf5095af0c8dedb36bdec0acd172b"
+    },
+    "handy-computer/whisper-small-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-small",
+      "revision": "973afd24965f72e36ca33b3055d56a652f456b4d",
+      "url": "https://huggingface.co/openai/whisper-small/tree/973afd24965f72e36ca33b3055d56a652f456b4d"
+    },
+    "handy-computer/whisper-small.en-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-small.en",
+      "revision": "e8727524f962ee844a7319d92be39ac1bd25655a",
+      "url": "https://huggingface.co/openai/whisper-small.en/tree/e8727524f962ee844a7319d92be39ac1bd25655a"
+    },
+    "handy-computer/whisper-tiny-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-tiny",
+      "revision": "169d4a4341b33bc18d8881c4b69c2e104e1cc0af",
+      "url": "https://huggingface.co/openai/whisper-tiny/tree/169d4a4341b33bc18d8881c4b69c2e104e1cc0af"
+    },
+    "handy-computer/whisper-tiny.en-gguf": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-tiny.en",
+      "revision": "87c7102498dcde7456f24cfd30239ca606ed9063",
+      "url": "https://huggingface.co/openai/whisper-tiny.en/tree/87c7102498dcde7456f24cfd30239ca606ed9063"
+    },
+    "large": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-large-v3",
+      "revision": "06f233fe06e710322aca913c1bc4249a0d71fce1",
+      "url": "https://huggingface.co/openai/whisper-large-v3/tree/06f233fe06e710322aca913c1bc4249a0d71fce1"
+    },
+    "medium": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-medium",
+      "revision": "abdf7c39ab9d0397620ccaea8974cc764cd0953e",
+      "url": "https://huggingface.co/openai/whisper-medium/tree/abdf7c39ab9d0397620ccaea8974cc764cd0953e"
+    },
+    "moonshine-base": {
+      "licence": "MIT",
+      "publisher": "moonshine-ai/moonshine",
+      "revision": "48b4e427b587bcf67797a5be706d6ddc4a298149",
+      "url": "https://huggingface.co/moonshine-ai/moonshine/tree/48b4e427b587bcf67797a5be706d6ddc4a298149"
+    },
+    "moonshine-medium-streaming-en": {
+      "licence": "MIT",
+      "publisher": "moonshine-ai/moonshine-streaming-medium",
+      "revision": "57b843633a8c183cadf6699ffa761377a933a866",
+      "url": "https://huggingface.co/moonshine-ai/moonshine-streaming-medium/tree/57b843633a8c183cadf6699ffa761377a933a866"
+    },
+    "moonshine-small-streaming-en": {
+      "licence": "MIT",
+      "publisher": "moonshine-ai/moonshine-streaming-small",
+      "revision": "2c036506f23a09c18df5a50057599ba6d9280999",
+      "url": "https://huggingface.co/moonshine-ai/moonshine-streaming-small/tree/2c036506f23a09c18df5a50057599ba6d9280999"
+    },
+    "moonshine-tiny-streaming-en": {
+      "licence": "MIT",
+      "publisher": "moonshine-ai/moonshine-streaming-tiny",
+      "revision": "f8e9dfd8c562c257c151a907b7b7f2fe8ff8511a",
+      "url": "https://huggingface.co/moonshine-ai/moonshine-streaming-tiny/tree/f8e9dfd8c562c257c151a907b7b7f2fe8ff8511a"
+    },
+    "parakeet-tdt-0.6b-v2": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/parakeet-tdt-0.6b-v2",
+      "revision": "ae9ad07059c7c739ffaf932226a8fe64ae2620b0",
+      "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2/tree/ae9ad07059c7c739ffaf932226a8fe64ae2620b0"
+    },
+    "parakeet-tdt-0.6b-v3": {
+      "licence": "CC-BY-4.0",
+      "publisher": "nvidia/parakeet-tdt-0.6b-v3",
+      "revision": "541d1f99c6b0c3cd0b11a95167540bb8edefd82b",
+      "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3/tree/541d1f99c6b0c3cd0b11a95167540bb8edefd82b"
+    },
+    "small": {
+      "licence": "Apache-2.0",
+      "publisher": "openai/whisper-small",
+      "revision": "973afd24965f72e36ca33b3055d56a652f456b4d",
+      "url": "https://huggingface.co/openai/whisper-small/tree/973afd24965f72e36ca33b3055d56a652f456b4d"
+    },
+    "turbo": {
+      "licence": "MIT",
+      "publisher": "openai/whisper-large-v3-turbo",
+      "revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9",
+      "url": "https://huggingface.co/openai/whisper-large-v3-turbo/tree/41f01f3fe87f28c78e2fbf8b568835947dd65ed9"
+    }
+  }
+}

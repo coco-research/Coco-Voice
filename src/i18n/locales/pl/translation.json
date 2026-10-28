@@ -151,7 +151,8 @@
     },
     "cancel": "Anuluj",
     "cancelDownload": "Anuluj pobieranie",
-    "legacy": "Przestarzałe"
+    "legacy": "Przestarzałe",
+    "licence": "Licencja: {{licence}}"
   },
   "settings": {
     "modelSettings": {
@@ -329,7 +330,8 @@
         "options": {
           "dontModify": "Nie modyfikuj schowka",
           "copyToClipboard": "Kopiuj do schowka"
-        }
+        },
+        "privacyHint": "Tekst w schowku widzą inne aplikacje i narzędzia schowka, a Uniwersalny schowek może skopiować go na inne Twoje urządzenia Apple."
       },
       "autoSubmit": {
         "title": "Automatyczne wysyłanie",
@@ -571,11 +573,6 @@
         "description": "Zobacz kod źródłowy i współtwórz",
         "button": "Zobacz na GitHub"
       },
-      "supportDevelopment": {
-        "title": "Wspieraj rozwój",
-        "description": "Pomóż nam dalej rozwijać Coco Voice",
-        "button": "Wesprzyj"
-      },
       "acknowledgments": {
         "title": "Podziękowania",
         "ggml": {
@@ -630,9 +627,13 @@
     "recordingFailed": "Nie udało się rozpocząć nagrywania: {{error}}",
     "modelLoadFailed": "Nie udało się załadować modelu: {{model}}",
     "modelLoadFailedUnknown": "nieznany model",
-    "pasteFailedTitle": "Nie udało się wkleić tekstu",
-    "pasteFailed": "Nie można było wkleić tekstu do aktywnej aplikacji.",
-    "transcriptionFailedTitle": "Transkrypcja nie powiodła się"
+    "transcriptionFailedTitle": "Transkrypcja nie powiodła się",
+    "pasteNotice": {
+      "clipboardAndHistory": "Wklejenie mogło się nie udać. Twoje słowa są w schowku i w Historia.",
+      "clipboardOnly": "Wklejenie mogło się nie udać. Twoje słowa są w schowku.",
+      "historyOnly": "Wklejenie mogło się nie udać. Twoje słowa są w Historia.",
+      "neither": "Wklejenie mogło się nie udać."
+    }
   },
   "appLanguage": {
     "title": "Język aplikacji",
@@ -649,7 +650,8 @@
   },
   "overlay": {
     "transcribing": "Transkrypcja...",
-    "processing": "Przetwarzanie..."
+    "processing": "Przetwarzanie...",
+    "polishing": "Redaguję..."
   },
   "whatsNew": {
     "title": "Nowości w Coco Voice v{{version}}"
@@ -688,5 +690,8 @@
       "chooseProvider": "Wybierz dostawcę",
       "useLocal": "Użyj modelu na urządzeniu"
     }
+  },
+  "notices": {
+    "clipboardDefault": "Po wklejeniu podyktowany tekst zostaje w schowku, więc możesz wkleić go ponownie. Zastępuje to, co wcześniej skopiowano. Możesz to wyłączyć w Ustawienia > Zaawansowane > Obsługa schowka."
   }
 }
