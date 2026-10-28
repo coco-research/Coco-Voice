@@ -331,7 +331,7 @@
           "dontModify": "Ne pas modifier le presse-papiers",
           "copyToClipboard": "Copier dans le presse-papiers"
         },
-        "privacyHint": "Le texte dans le presse-papiers est visible par d'autres applications et outils de presse-papiers."
+        "privacyHint": "Le texte dans le presse-papiers est visible par d'autres applications et outils de presse-papiers, et le presse-papiers universel peut le copier sur vos autres appareils Apple."
       },
       "autoSubmit": {
         "title": "Envoi automatique",

@@ -331,7 +331,7 @@
           "dontModify": "Não Modificar Área de Transferência",
           "copyToClipboard": "Copiar para Área de Transferência"
         },
-        "privacyHint": "O texto na área de transferência pode ser visto por outros aplicativos e ferramentas de área de transferência."
+        "privacyHint": "O texto na área de transferência pode ser visto por outros aplicativos e ferramentas de área de transferência, e a Área de Transferência Universal pode copiá-lo para seus outros dispositivos Apple."
       },
       "autoSubmit": {
         "title": "Envio automático",

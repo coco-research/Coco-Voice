@@ -331,7 +331,7 @@
           "dontModify": "Non Modificare gli Appunti",
           "copyToClipboard": "Copia negli Appunti"
         },
-        "privacyHint": "Il testo negli appunti è visibile ad altre app e agli strumenti per gli appunti."
+        "privacyHint": "Il testo negli appunti è visibile ad altre app e agli strumenti per gli appunti, e la funzione Appunti universali può copiarlo sugli altri tuoi dispositivi Apple."
       },
       "autoSubmit": {
         "title": "Invio automatico",
