@@ -16,8 +16,9 @@
     "format:backend": "cd src-tauri && cargo fmt",
     "test:playwright": "playwright test",
     "test:playwright:ui": "playwright test --ui",
-    "test:static": "bun test scripts/no-donate.test.ts",
+    "test:static": "bun test scripts/no-donate.test.ts scripts/check-tauri-versions.test.ts",
     "check:translations": "bun scripts/check-translations.ts",
+    "check:tauri-versions": "bun scripts/check-tauri-versions.ts",
     "postinstall": "bun scripts/check-nix-deps.ts"
   },
   "dependencies": {
@@ -34,7 +35,7 @@
     "@tauri-apps/plugin-sql": "~2.3.1",
     "@tauri-apps/plugin-store": "~2.4.5",
     "@tauri-apps/plugin-updater": "~2.10.0",
-    "i18next": "^25.7.2",
+    "i18next": "^26.4.6",
     "immer": "^11.2.9",
     "lucide-react": "^0.542.0",
     "react": "^18.3.1",

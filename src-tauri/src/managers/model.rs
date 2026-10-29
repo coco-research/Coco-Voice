@@ -16,7 +16,7 @@ use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use tar::Archive;
@@ -462,6 +462,19 @@ fn hf_repo_excluded_from_discovery(repo_id: &str) -> bool {
     )
 }
 
+/// Hold matches the model id, so a blob.handy.computer file and a Hugging Face
+/// file with the same id are both covered. Registry ids are `{repo}/{file}`,
+/// so a Hugging Face source is also matched on its repo id.
+fn held_model(model_id: &str, source: &ModelSource, hold_ids: &[&str]) -> bool {
+    if crate::catalog::id_on_hold(model_id, hold_ids) {
+        return true;
+    }
+    matches!(
+        source,
+        ModelSource::HuggingFace { repo_id, .. } if crate::catalog::id_on_hold(repo_id, hold_ids)
+    )
+}
+
 /// Resolve a Hugging Face model file in the shared HF cache, if already present.
 /// Uses hf-hub's stock location (HF_HOME or ~/.cache/huggingface/hub) so
 /// downloads are shared with other tools.
@@ -656,13 +669,70 @@ impl Drop for RescanGuard {
     }
 }
 
+/// One in-flight download. `generation` is unique per start, so a finished task
+/// can tell its own slot from a newer download of the same model id.
+struct DownloadCancel {
+    generation: u64,
+    token: CancellationToken,
+}
+
+/// Removes `model_id` only when the stored generation is still `generation`.
+/// A stale cleanup must leave the newer token in place. Returns whether this
+/// generation owned the slot; only then should the caller clear `is_downloading`.
+fn release_download_cancel(
+    slots: &mut HashMap<String, DownloadCancel>,
+    model_id: &str,
+    generation: u64,
+) -> bool {
+    match slots.get(model_id) {
+        Some(slot) if slot.generation == generation => {
+            slots.remove(model_id);
+            true
+        }
+        _ => false,
+    }
+}
+
+/// Disk refresh may clear `is_downloading` only when this model has no live
+/// cancel token. Another model's in-flight download stays busy.
+fn refreshed_is_downloading(current: bool, has_live_cancel: bool) -> bool {
+    if has_live_cancel {
+        current
+    } else {
+        false
+    }
+}
+
+/// Drop the cancel slot for `generation` and, only when it still owns the slot,
+/// clear `is_downloading`. A newer download of the same model is left alone.
+fn release_owned_download(
+    models: &Mutex<HashMap<String, ModelInfo>>,
+    slots: &Mutex<HashMap<String, DownloadCancel>>,
+    model_id: &str,
+    generation: u64,
+) -> bool {
+    let owned = {
+        let mut slots = slots.lock().unwrap();
+        release_download_cancel(&mut slots, model_id, generation)
+    };
+    if owned {
+        if let Some(model) = models.lock().unwrap().get_mut(model_id) {
+            model.is_downloading = false;
+        }
+    }
+    owned
+}
+
 /// RAII guard that cleans up download state (`is_downloading` flag and cancel flag)
 /// when dropped, unless explicitly disarmed. This ensures consistent cleanup on
 /// every error path without requiring manual cleanup at each `?` or `return Err`.
+/// The guard remembers the generation it registered and removes the map entry
+/// only when that generation is still stored.
 struct DownloadCleanup<'a> {
     available_models: &'a Mutex<HashMap<String, ModelInfo>>,
-    cancel_flags: &'a Arc<Mutex<HashMap<String, CancellationToken>>>,
+    cancel_flags: &'a Arc<Mutex<HashMap<String, DownloadCancel>>>,
     model_id: String,
+    generation: u64,
     disarmed: bool,
 }
 
@@ -671,13 +741,12 @@ impl<'a> Drop for DownloadCleanup<'a> {
         if self.disarmed {
             return;
         }
-        {
-            let mut models = self.available_models.lock().unwrap();
-            if let Some(model) = models.get_mut(self.model_id.as_str()) {
-                model.is_downloading = false;
-            }
-        }
-        self.cancel_flags.lock().unwrap().remove(&self.model_id);
+        release_owned_download(
+            self.available_models,
+            self.cancel_flags,
+            &self.model_id,
+            self.generation,
+        );
     }
 }
 
@@ -685,7 +754,9 @@ pub struct ModelManager {
     app_handle: AppHandle,
     models_dir: PathBuf,
     available_models: Mutex<HashMap<String, ModelInfo>>,
-    cancel_flags: Arc<Mutex<HashMap<String, CancellationToken>>>,
+    cancel_flags: Arc<Mutex<HashMap<String, DownloadCancel>>>,
+    /// Monotonic id handed to each download so cleanup removes only that slot.
+    next_download_generation: AtomicU64,
     extracting_models: Arc<Mutex<HashSet<String>>>,
     /// Single-flight guard for [`Self::rescan_local_models`] so concurrent
     /// refresh requests coalesce instead of scanning the disk in parallel.
@@ -1265,6 +1336,7 @@ impl ModelManager {
             models_dir,
             available_models: Mutex::new(available_models),
             cancel_flags: Arc::new(Mutex::new(HashMap::new())),
+            next_download_generation: AtomicU64::new(1),
             extracting_models: Arc::new(Mutex::new(HashSet::new())),
             is_rescanning: Arc::new(AtomicBool::new(false)),
         };
@@ -1306,10 +1378,21 @@ impl ModelManager {
 
     /// The registry entries offered as speech models (every list, picker and
     /// auto-selection). Local cleanup models are left out; look them up by id.
+    /// Passes [`crate::catalog::LEGAL_HOLD_IDS`] to [`Self::offered_speech_models`].
     fn speech_models(models: &HashMap<String, ModelInfo>) -> Vec<ModelInfo> {
+        Self::offered_speech_models(models, crate::catalog::LEGAL_HOLD_IDS)
+    }
+
+    /// Speech models whose id is not on `hold_ids`, whatever the source host.
+    fn offered_speech_models(
+        models: &HashMap<String, ModelInfo>,
+        hold_ids: &[&str],
+    ) -> Vec<ModelInfo> {
         models
             .values()
-            .filter(|model| model.engine_type.is_speech())
+            .filter(|model| {
+                model.engine_type.is_speech() && !held_model(&model.id, &model.source, hold_ids)
+            })
             .cloned()
             .collect()
     }
@@ -1351,9 +1434,8 @@ impl ModelManager {
     /// The merge is additive: only new ids are inserted, so existing entries keep
     /// their values — including runtime-probed capabilities from
     /// [`Self::set_runtime_capabilities`]. It then runs [`Self::update_download_status`],
-    /// which recomputes disk-derived flags for *every* entry; a rescan racing an
-    /// in-flight download can briefly clear its `is_downloading`, but the download
-    /// continues and the event-driven UI self-corrects.
+    /// which recomputes disk-derived flags for *every* entry. A model that still
+    /// has a live cancel token keeps its `is_downloading` flag.
     ///
     /// The disk walk and 64 KiB header probes run against a cloned snapshot
     /// *off-lock* so readers never block on I/O; only the brief merge takes the
@@ -1538,6 +1620,14 @@ impl ModelManager {
     }
 
     fn update_download_status(&self) -> Result<()> {
+        // Lock order: cancel_flags, then available_models. Hold the cancel map
+        // until the model flags are written. Dropping it first lets a download
+        // register its token and set is_downloading in the gap, and this
+        // refresh would clear that download from a stale snapshot.
+        // release_owned_download, cancel_download, and both download starts
+        // take cancel_flags and drop it before available_models. Nothing takes
+        // available_models and then cancel_flags while still holding it.
+        let cancels = self.cancel_flags.lock().unwrap();
         let mut models = self.available_models.lock().unwrap();
 
         for model in models.values_mut() {
@@ -1554,7 +1644,8 @@ impl ModelManager {
                     &model.filename,
                     sha256.as_deref(),
                 );
-                model.is_downloading = false;
+                model.is_downloading =
+                    refreshed_is_downloading(model.is_downloading, cancels.contains_key(&model.id));
                 model.partial_size = 0;
                 continue;
             }
@@ -1578,7 +1669,8 @@ impl ModelManager {
                 }
 
                 model.is_downloaded = model_path.exists() && model_path.is_dir();
-                model.is_downloading = false;
+                model.is_downloading =
+                    refreshed_is_downloading(model.is_downloading, cancels.contains_key(&model.id));
 
                 // Get partial file size if it exists (for the .tar.gz being downloaded)
                 if partial_path.exists() {
@@ -1592,7 +1684,8 @@ impl ModelManager {
                 let partial_path = self.models_dir.join(format!("{}.partial", &model.filename));
 
                 model.is_downloaded = model_path.exists();
-                model.is_downloading = false;
+                model.is_downloading =
+                    refreshed_is_downloading(model.is_downloading, cancels.contains_key(&model.id));
 
                 // Get partial file size if it exists
                 if partial_path.exists() {
@@ -2236,28 +2329,23 @@ impl ModelManager {
             }
         }
 
-        // Mark downloading; the guard resets the flag on any error path.
+        // Register before marking so a status refresh in between sees the live
+        // token and does not clear is_downloading. The guard removes this
+        // generation only, on every exit path.
+        let (generation, cancel_token) = self.register_download_cancel(&model_id);
+        let mut cleanup = DownloadCleanup {
+            available_models: &self.available_models,
+            cancel_flags: &self.cancel_flags,
+            model_id: model_id.clone(),
+            generation,
+            disarmed: false,
+        };
         {
             let mut models = self.available_models.lock().unwrap();
             if let Some(model) = models.get_mut(&model_id) {
                 model.is_downloading = true;
             }
         }
-
-        // Register a cancellation token so `cancel_download` can abort this
-        // transfer promptly. The guard removes it on every exit path.
-        let cancel_token = CancellationToken::new();
-        {
-            let mut flags = self.cancel_flags.lock().unwrap();
-            flags.insert(model_id.clone(), cancel_token.clone());
-        }
-
-        let mut cleanup = DownloadCleanup {
-            available_models: &self.available_models,
-            cancel_flags: &self.cancel_flags,
-            model_id: model_id.clone(),
-            disarmed: false,
-        };
 
         info!(
             "Downloading HF model {} from {}@{} ({})",
@@ -2277,7 +2365,7 @@ impl ModelManager {
         let repo = api.repo(Repo::with_revision(repo_id, RepoType::Model, revision));
         let progress = HfDownloadProgress::new(self.app_handle.clone(), model_id.clone());
         match repo
-            .download_with_progress_cancellable(&filename, progress, cancel_token)
+            .download_with_progress_cancellable(&filename, progress, cancel_token.clone())
             .await
         {
             Ok(path) => {
@@ -2291,9 +2379,9 @@ impl ModelManager {
             Err(hf_hub::api::tokio::ApiError::Cancelled) => {
                 // User cancelled. hf-hub leaves the partially downloaded
                 // `.sync.part` in the shared cache, so a later attempt resumes
-                // instead of restarting. The guard resets is_downloading and
-                // drops the token; `cancel_download` already emitted
-                // `model-download-cancelled`.
+                // instead of restarting. This generation's guard clears
+                // is_downloading only while its token is still the stored one.
+                // `cancel_download` already emitted `model-download-cancelled`.
                 info!("HF download cancelled for: {}", model_id);
                 return Ok(());
             }
@@ -2303,10 +2391,28 @@ impl ModelManager {
         }
 
         cleanup.disarmed = true;
+        // hf-hub already renamed the temp file into the cache, and
+        // verify_hf_download (when a hash is pinned) has passed. Keep those
+        // bytes: deleting a verified file would force a full re-download.
+        // cancel_download already emitted model-download-cancelled, so a
+        // cancel after the rename emits nothing here. The file stays, and
+        // update_download_status reports it downloaded.
+        let cancelled = cancel_token.is_cancelled();
+        let owned = release_owned_download(
+            &self.available_models,
+            &self.cancel_flags,
+            &model_id,
+            generation,
+        );
         self.update_download_status()?;
-        self.cancel_flags.lock().unwrap().remove(&model_id);
-        let _ = self.app_handle.emit("model-download-complete", &model_id);
-        info!("HF model {} downloaded", model_id);
+        if owned && !cancelled {
+            let _ = self.app_handle.emit("model-download-complete", &model_id);
+        }
+        if cancelled {
+            info!("HF download cancelled after verify for: {}", model_id);
+        } else {
+            info!("HF model {} downloaded", model_id);
+        }
         Ok(())
     }
 
@@ -2319,8 +2425,16 @@ impl ModelManager {
         let model_info =
             model_info.ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;
 
-        // Catalog ids are `{repo_id}/{filename}`: check the id's repo and the source repo.
-        // Only a three-part id names a repo; legacy ids rely on the source check.
+        // Before any Hugging Face or direct-URL request.
+        if held_model(model_id, &model_info.source, crate::catalog::LEGAL_HOLD_IDS) {
+            return Err(anyhow::anyhow!(
+                "Model {} is on legal hold and cannot be downloaded",
+                model_id
+            ));
+        }
+
+        // Licence withhold. A three-part id names a catalog repo; a Hugging Face
+        // source is checked on its repo. The hold list itself is `held_model`.
         let id_withheld = match model_id.splitn(3, '/').collect::<Vec<_>>().as_slice() {
             [org, name, _file] => crate::catalog::repo_withheld(&format!("{org}/{name}")),
             _ => false,
@@ -2379,29 +2493,22 @@ impl ModelManager {
             0
         };
 
-        // Mark as downloading
+        // Register before marking so a status refresh in between sees the live
+        // token. The guard removes this generation only.
+        let (generation, cancel_token) = self.register_download_cancel(model_id);
+        let mut cleanup = DownloadCleanup {
+            available_models: &self.available_models,
+            cancel_flags: &self.cancel_flags,
+            model_id: model_id.to_string(),
+            generation,
+            disarmed: false,
+        };
         {
             let mut models = self.available_models.lock().unwrap();
             if let Some(model) = models.get_mut(model_id) {
                 model.is_downloading = true;
             }
         }
-
-        // Create cancellation token for this download
-        let cancel_token = CancellationToken::new();
-        {
-            let mut flags = self.cancel_flags.lock().unwrap();
-            flags.insert(model_id.to_string(), cancel_token.clone());
-        }
-
-        // Guard ensures is_downloading and cancel_flags are cleaned up on every
-        // error path. Disarmed only on success (which sets is_downloaded = true).
-        let mut cleanup = DownloadCleanup {
-            available_models: &self.available_models,
-            cancel_flags: &self.cancel_flags,
-            model_id: model_id.to_string(),
-            disarmed: false,
-        };
 
         // Create HTTP client with range request for resuming
         let client = reqwest::Client::new();
@@ -2659,26 +2766,37 @@ impl ModelManager {
             fs::rename(&partial_path, &model_path)?;
         }
 
-        // Disarm the guard — success path does its own cleanup because it
-        // additionally sets is_downloaded = true.
+        // Size check and verify_sha256 already returned Ok, and the partial
+        // was renamed into place above (file, or extracted directory). Keep
+        // that file: it is the finished model. cancel_download already emitted
+        // model-download-cancelled, so a cancel after the rename emits nothing
+        // here. The file stays, and a later status refresh reports it downloaded.
         cleanup.disarmed = true;
-        {
-            let mut models = self.available_models.lock().unwrap();
-            if let Some(model) = models.get_mut(model_id) {
-                model.is_downloading = false;
+        let cancelled = cancel_token.is_cancelled();
+        let owned = release_owned_download(
+            &self.available_models,
+            &self.cancel_flags,
+            model_id,
+            generation,
+        );
+        if owned {
+            if let Some(model) = self.available_models.lock().unwrap().get_mut(model_id) {
                 model.is_downloaded = true;
                 model.partial_size = 0;
             }
+            if !cancelled {
+                let _ = self.app_handle.emit("model-download-complete", model_id);
+            }
         }
-        self.cancel_flags.lock().unwrap().remove(model_id);
 
-        // Emit completion event
-        let _ = self.app_handle.emit("model-download-complete", model_id);
-
-        info!(
-            "Successfully downloaded model {} to {:?}",
-            model_id, model_path
-        );
+        if cancelled {
+            info!("Download cancelled after verify for: {}", model_id);
+        } else if owned {
+            info!(
+                "Successfully downloaded model {} to {:?}",
+                model_id, model_path
+            );
+        }
 
         Ok(())
     }
@@ -2855,16 +2973,35 @@ impl ModelManager {
         }
     }
 
+    /// Assigns a fresh generation and stores its cancel token under `model_id`,
+    /// replacing any previous download of that model.
+    fn register_download_cancel(&self, model_id: &str) -> (u64, CancellationToken) {
+        let generation = self
+            .next_download_generation
+            .fetch_add(1, Ordering::Relaxed);
+        let token = CancellationToken::new();
+        self.cancel_flags.lock().unwrap().insert(
+            model_id.to_string(),
+            DownloadCancel {
+                generation,
+                token: token.clone(),
+            },
+        );
+        (generation, token)
+    }
+
     pub fn cancel_download(&self, model_id: &str) -> Result<()> {
         debug!("ModelManager: cancel_download called for: {}", model_id);
 
         // Trigger the cancellation token to stop the download. The HF path
         // aborts its in-flight chunk tasks and unwinds promptly; the URL path
-        // observes it on the next chunk of its stream loop.
+        // observes it on the next chunk of its stream loop. The token stays in
+        // the map until that generation's cleanup runs, so a newer download is
+        // not removed by the one we just cancelled.
         {
             let flags = self.cancel_flags.lock().unwrap();
-            if let Some(token) = flags.get(model_id) {
-                token.cancel();
+            if let Some(slot) = flags.get(model_id) {
+                slot.token.cancel();
                 info!("Cancellation token triggered for: {}", model_id);
             } else {
                 warn!("No active download found for: {}", model_id);
@@ -3347,6 +3484,137 @@ mod tests {
         assert_eq!(models.len(), count_before);
     }
 
+    /// Fails if `id` stops being a builtin download from blob.handy.computer,
+    /// so the hold test cannot drift onto an id the app does not ship.
+    fn assert_builtin_blob_model(id: &str, url: &str) {
+        assert!(url.starts_with("https://blob.handy.computer/"), "{url}");
+        let src = include_str!("model.rs");
+        assert!(
+            src.contains(&format!("id: \"{id}\".to_string(),")),
+            "{id} is not a builtin model id"
+        );
+        assert!(
+            src.contains(&format!("url: \"{url}\".to_string(),")),
+            "{url} is not a builtin download url"
+        );
+    }
+
+    fn blob_model(id: &str, url: &str) -> ModelInfo {
+        ModelInfo {
+            id: id.to_string(),
+            name: id.to_string(),
+            description: String::new(),
+            filename: format!("{id}.bin"),
+            source: ModelSource::Url {
+                url: url.to_string(),
+                sha256: None,
+            },
+            size_mb: 1,
+            is_downloaded: false,
+            is_downloading: false,
+            partial_size: 0,
+            is_directory: false,
+            engine_type: EngineType::TranscribeCpp,
+            accuracy_score: 0.5,
+            speed_score: 0.5,
+            supports_translation: false,
+            is_recommended: false,
+            supported_languages: vec!["en".to_string()],
+            supports_language_selection: false,
+            is_custom: false,
+            supports_streaming: false,
+            supports_language_detection: false,
+        }
+    }
+
+    #[test]
+    fn held_blob_handy_entry_is_not_offered_and_download_is_refused() {
+        const HELD: &str = "small";
+        const HELD_URL: &str = "https://blob.handy.computer/ggml-small.bin";
+        const ALLOWED: &str = "medium";
+        const ALLOWED_URL: &str = "https://blob.handy.computer/whisper-medium-q4_1.bin";
+        assert_builtin_blob_model(HELD, HELD_URL);
+        assert_builtin_blob_model(ALLOWED, ALLOWED_URL);
+
+        let held = blob_model(HELD, HELD_URL);
+        let allowed = blob_model(ALLOWED, ALLOWED_URL);
+        let mut models = HashMap::new();
+        models.insert(HELD.to_string(), held.clone());
+        models.insert(ALLOWED.to_string(), allowed.clone());
+
+        // No blob id is on LEGAL_HOLD_IDS today. Pass a list that names one.
+        let hold: &[&str] = &[HELD];
+        let offered = ModelManager::offered_speech_models(&models, hold);
+        assert!(
+            offered.iter().all(|m| m.id != HELD),
+            "held blob id must not be offered"
+        );
+        assert!(
+            offered.iter().any(|m| m.id == ALLOWED),
+            "an allowed blob entry must still be offered"
+        );
+        assert!(
+            held_model(HELD, &held.source, hold),
+            "held blob download must be refused before any network request"
+        );
+        assert!(held_model(HELD, &held.source, &["SMALL"]));
+        assert!(!held_model(ALLOWED, &allowed.source, hold));
+
+        let today = ModelManager::offered_speech_models(&models, crate::catalog::LEGAL_HOLD_IDS);
+        assert!(today.iter().any(|m| m.id == HELD));
+        assert!(today.iter().any(|m| m.id == ALLOWED));
+        assert!(!held_model(
+            HELD,
+            &held.source,
+            crate::catalog::LEGAL_HOLD_IDS
+        ));
+
+        // download_model consults the hold list before either network client.
+        let src = include_str!("model.rs");
+        let start = src
+            .find("pub async fn download_model")
+            .expect("download_model");
+        let rest = &src[start..];
+        let end = rest[1..]
+            .find("\n    pub ")
+            .map(|i| i + 1)
+            .unwrap_or(rest.len());
+        let body = &rest[..end];
+        let hold_at = body.find("held_model(").expect("hold check");
+        let hf_at = body.find("download_hf_model(").expect("hf download");
+        let http_at = body.find("reqwest::Client::new()").expect("url download");
+        assert!(
+            hold_at < hf_at && hold_at < http_at,
+            "hold check must run before any download request"
+        );
+    }
+
+    #[test]
+    fn held_hugging_face_id_is_still_refused() {
+        let repo = "handy-computer/SenseVoiceSmall-gguf";
+        assert!(crate::catalog::model_on_legal_hold(repo));
+        let source = ModelSource::HuggingFace {
+            repo_id: repo.to_string(),
+            revision: "main".to_string(),
+            sha256: None,
+        };
+        let model_id = format!("{repo}/model.gguf");
+        assert!(held_model(
+            &model_id,
+            &source,
+            crate::catalog::LEGAL_HOLD_IDS
+        ));
+        let mut info = blob_model(&model_id, "https://example.invalid/not-fetched");
+        info.source = source;
+        let mut models = HashMap::new();
+        models.insert(model_id, info);
+        let offered = ModelManager::offered_speech_models(&models, crate::catalog::LEGAL_HOLD_IDS);
+        assert!(
+            offered.is_empty(),
+            "held Hugging Face repo must not be offered"
+        );
+    }
+
     #[test]
     fn test_local_cleanup_models_are_registered_but_not_speech_models() {
         let mut models = HashMap::new();
@@ -3747,5 +4015,48 @@ mod tests {
             !models.contains_key("org/badpin/bad.gguf"),
             "a repo dropped for a bad pin must not be rediscovered"
         );
+    }
+
+    #[test]
+    fn stale_cleanup_does_not_remove_newer_cancel_token() {
+        let mut slots = HashMap::new();
+        let newer = CancellationToken::new();
+        slots.insert(
+            "small".to_string(),
+            DownloadCancel {
+                generation: 2,
+                token: newer.clone(),
+            },
+        );
+
+        assert!(!release_download_cancel(&mut slots, "small", 1));
+
+        let slot = slots.get("small").expect("newer token stays");
+        assert_eq!(slot.generation, 2);
+        assert!(!slot.token.is_cancelled());
+        assert!(!newer.is_cancelled());
+    }
+
+    #[test]
+    fn matching_cleanup_removes_its_cancel_token() {
+        let mut slots = HashMap::new();
+        slots.insert(
+            "small".to_string(),
+            DownloadCancel {
+                generation: 2,
+                token: CancellationToken::new(),
+            },
+        );
+
+        assert!(release_download_cancel(&mut slots, "small", 2));
+        assert!(!slots.contains_key("small"));
+    }
+
+    #[test]
+    fn refreshed_is_downloading_keeps_a_busy_flag_only_with_a_live_cancel() {
+        // Pure helper. ModelManager::update_download_status needs an AppHandle.
+        assert!(refreshed_is_downloading(true, true));
+        assert!(!refreshed_is_downloading(true, false));
+        assert!(!refreshed_is_downloading(false, false));
     }
 }

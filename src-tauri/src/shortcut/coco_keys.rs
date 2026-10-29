@@ -445,50 +445,25 @@ pub fn validate_shortcut(raw: &str) -> Result<(), String> {
         .map_err(|e| format!("Invalid shortcut for CocoVoiceKeys: {}", e))
 }
 
-/// Initialize coco-keys shortcuts
-pub fn init_shortcuts(app: &AppHandle) -> Result<(), String> {
-    let state = CocoVoiceKeysState::new(app.clone())?;
-
-    let default_bindings = settings::get_default_settings().bindings;
-    let user_settings = settings::load_or_create_app_settings(app);
-
-    // Register all bindings except cancel (which is dynamic)
-    for (id, default_binding) in default_bindings {
-        if id == "cancel" {
-            continue;
-        }
-        // Skip post-processing shortcut when the feature is disabled
-        if id == "transcribe_with_post_process" && !user_settings.post_process_enabled {
-            continue;
-        }
-        // Skip the correction shortcut when iterative correction is disabled
-        if id == "correction" && !user_settings.iterative_correction_enabled {
-            continue;
-        }
-
-        let binding = user_settings
-            .bindings
-            .get(&id)
-            .cloned()
-            .unwrap_or(default_binding);
-
-        // Skip bindings with no key assigned (e.g. the correction shortcut before
-        // the user picks a key) — there is nothing to register.
-        if binding.current_binding.trim().is_empty() {
-            continue;
-        }
-
-        if let Err(e) = state.register(&binding) {
-            error!(
-                "Failed to register coco-keys shortcut {} during init: {}",
-                id, e
-            );
-        }
+/// Initialize coco-keys shortcuts.
+///
+/// `Err` means the hotkey manager itself did not start. Binding failures are
+/// `Ok(failures)` so a later init can retry the ones that did not register.
+/// A second call reuses the manager already stored on the app.
+pub fn init_shortcuts(app: &AppHandle) -> Result<Vec<super::ShortcutFailure>, String> {
+    if app.try_state::<CocoVoiceKeysState>().is_none() {
+        app.manage(CocoVoiceKeysState::new(app.clone())?);
     }
 
-    app.manage(state);
+    let failures = super::register_active_shortcuts(app);
+    for failure in &failures {
+        error!(
+            "Failed to register coco-keys shortcut {} during init: {}",
+            failure.id, failure.error
+        );
+    }
     info!("coco-keys shortcuts initialized");
-    Ok(())
+    Ok(failures)
 }
 
 /// Register the cancel shortcut (called when recording starts)
