@@ -42,13 +42,19 @@ export function wordErrors(ref: string, hyp: string): WordErrorCounts {
   const right = normalize(hyp);
   const n = left.length;
   const m = right.length;
-  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  const dp: number[][] = Array.from({ length: n + 1 }, () =>
+    new Array<number>(m + 1).fill(0),
+  );
   for (let i = 0; i <= n; i++) dp[i][0] = i;
   for (let j = 0; j <= m; j++) dp[0][j] = j;
   for (let i = 1; i <= n; i++) {
     for (let j = 1; j <= m; j++) {
       const subCost = left[i - 1] === right[j - 1] ? 0 : 1;
-      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + subCost);
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + subCost,
+      );
     }
   }
 
@@ -129,7 +135,9 @@ function readRuns(path: string): Run[] {
       typeof row.hyp !== "string" ||
       typeof row.ok !== "boolean"
     ) {
-      throw new Error(`${where}: need clip, variant, model, ref, hyp, and boolean ok`);
+      throw new Error(
+        `${where}: need clip, variant, model, ref, hyp, and boolean ok`,
+      );
     }
     runs.push({
       clip: row.clip,
@@ -206,7 +214,9 @@ function report(runs: Run[], totalsOnly: boolean): void {
   for (const model of modelOrder) {
     const variants = ["clean", "noisy"];
     const extras = [...groups.values()]
-      .filter((group) => group.model === model && !variants.includes(group.variant))
+      .filter(
+        (group) => group.model === model && !variants.includes(group.variant),
+      )
       .map((group) => group.variant);
     for (const variant of [...variants, ...extras]) {
       const group = groups.get(`${model}\0${variant}`);
@@ -228,7 +238,9 @@ function report(runs: Run[], totalsOnly: boolean): void {
   );
   const formatRow = (cols: string[]): string =>
     cols
-      .map((col, index) => (index >= 2 ? col.padStart(widths[index]) : col.padEnd(widths[index])))
+      .map((col, index) =>
+        index >= 2 ? col.padStart(widths[index]) : col.padEnd(widths[index]),
+      )
       .join("  ");
 
   console.log(formatRow(header));
@@ -241,7 +253,9 @@ function report(runs: Run[], totalsOnly: boolean): void {
       .filter((clip) => clip.model === model)
       .sort(
         (a, b) =>
-          b.rate - a.rate || a.clip.localeCompare(b.clip) || a.variant.localeCompare(b.variant),
+          b.rate - a.rate ||
+          a.clip.localeCompare(b.clip) ||
+          a.variant.localeCompare(b.variant),
       )
       .slice(0, 5);
     console.log("");
