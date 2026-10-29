@@ -15,8 +15,8 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use tar::Archive;
@@ -348,6 +348,14 @@ fn format_verified_marker(expected_hash: &str, blob_name: &str, stamp: &BlobStam
     out
 }
 
+fn verified_marker_body(expected_hash: &str, stamp: &BlobStamp) -> String {
+    let blob_name = Path::new(&stamp.canonical_path)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    format_verified_marker(expected_hash, &blob_name, stamp)
+}
+
 fn verified_marker_matches(marker: &str, expected_sha256: &str, current: &BlobStamp) -> bool {
     let mut lines = marker.lines().map(str::trim);
     let Some(hash) = lines.next() else {
@@ -395,6 +403,24 @@ fn verified_marker_matches(marker: &str, expected_sha256: &str, current: &BlobSt
     true
 }
 
+/// SHA-256 of the canonical file at `path` compared with `expected`.
+///
+/// `Ok(true)` is a match and `Ok(false)` is not. `Err` is an I/O failure, which
+/// is not a mismatch. Nothing is deleted: a mismatched file in the shared
+/// Hugging Face cache may belong to another tool, and the download replaces it.
+fn sha256_matches(path: &Path, expected: &str) -> Result<bool> {
+    Ok(sha256_check(path, expected)?.0)
+}
+
+/// Same read as [`sha256_matches`]: `(matches, stamp, digest)`.
+/// The stamp is taken from the file that was hashed, not a later stat.
+fn sha256_check(path: &Path, expected: &str) -> Result<(bool, BlobStamp, String)> {
+    let canonical = fs::canonicalize(path)?;
+    let (actual, stamp) = ModelManager::compute_sha256(&canonical)?;
+    let matches = actual.eq_ignore_ascii_case(expected.trim());
+    Ok((matches, stamp, actual))
+}
+
 /// Pure decision for "is this Hugging Face model downloaded". Without a catalog
 /// hash a cached file is enough. With one, the marker must name that hash and the
 /// snapshot must still resolve to the same canonical blob (path, length, mtime,
@@ -436,17 +462,78 @@ fn hf_repo_excluded_from_discovery(repo_id: &str) -> bool {
     )
 }
 
+/// Hold matches the model id, so a blob.handy.computer file and a Hugging Face
+/// file with the same id are both covered. Registry ids are `{repo}/{file}`,
+/// so a Hugging Face source is also matched on its repo id.
+fn held_model(model_id: &str, source: &ModelSource, hold_ids: &[&str]) -> bool {
+    if crate::catalog::id_on_hold(model_id, hold_ids) {
+        return true;
+    }
+    matches!(
+        source,
+        ModelSource::HuggingFace { repo_id, .. } if crate::catalog::id_on_hold(repo_id, hold_ids)
+    )
+}
+
 /// Resolve a Hugging Face model file in the shared HF cache, if already present.
 /// Uses hf-hub's stock location (HF_HOME or ~/.cache/huggingface/hub) so
 /// downloads are shared with other tools.
+///
+/// hf-hub resolves through `refs/<revision>`. Catalog revisions are pinned
+/// 40-hex commits, and a shared cache can hold `snapshots/<commit>/<file>`
+/// (usually a symlink to `blobs/<sha>`) without that ref file. Then the
+/// snapshot path is the file.
 fn hf_cached_path(repo_id: &str, revision: &str, filename: &str) -> Option<PathBuf> {
-    Cache::from_env()
+    let cache = Cache::from_env();
+    let hit = cache
         .repo(Repo::with_revision(
             repo_id.to_string(),
             RepoType::Model,
             revision.to_string(),
         ))
-        .get(filename)
+        .get(filename);
+    if hit.is_some() {
+        return hit;
+    }
+    hf_commit_snapshot(cache.path(), repo_id, revision, filename)
+}
+
+/// A relative path of normal segments. Empty, absolute, or `..` is rejected so
+/// a cache join cannot leave `cache_root`.
+fn is_plain_relative(value: &str) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+    let path = Path::new(value);
+    !path.is_absolute()
+        && path
+            .components()
+            .all(|component| matches!(component, Component::Normal(_) | Component::CurDir))
+}
+
+/// `snapshots/<revision>/<filename>` under `cache_root` when `revision` is a
+/// 40-hex commit and that file is already there. A branch name such as `main`
+/// is not a commit, so it stays `None` (hf-hub resolves those through `refs/`).
+/// `repo_id` and `filename` must be plain relative paths.
+fn hf_commit_snapshot(
+    cache_root: &Path,
+    repo_id: &str,
+    revision: &str,
+    filename: &str,
+) -> Option<PathBuf> {
+    if !is_plain_relative(repo_id) || !is_plain_relative(filename) {
+        return None;
+    }
+    if revision.len() != 40 || !revision.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    let path = cache_root
+        .join(format!("models--{}", repo_id.replace('/', "--")))
+        .join("snapshots")
+        .join(revision)
+        .join(filename);
+    // `is_file` follows the snapshot symlink to the blob.
+    path.is_file().then_some(path)
 }
 
 /// Friendly name advertised by GGUF metadata, if present. Empty strings are not
@@ -582,13 +669,70 @@ impl Drop for RescanGuard {
     }
 }
 
+/// One in-flight download. `generation` is unique per start, so a finished task
+/// can tell its own slot from a newer download of the same model id.
+struct DownloadCancel {
+    generation: u64,
+    token: CancellationToken,
+}
+
+/// Removes `model_id` only when the stored generation is still `generation`.
+/// A stale cleanup must leave the newer token in place. Returns whether this
+/// generation owned the slot; only then should the caller clear `is_downloading`.
+fn release_download_cancel(
+    slots: &mut HashMap<String, DownloadCancel>,
+    model_id: &str,
+    generation: u64,
+) -> bool {
+    match slots.get(model_id) {
+        Some(slot) if slot.generation == generation => {
+            slots.remove(model_id);
+            true
+        }
+        _ => false,
+    }
+}
+
+/// Disk refresh may clear `is_downloading` only when this model has no live
+/// cancel token. Another model's in-flight download stays busy.
+fn refreshed_is_downloading(current: bool, has_live_cancel: bool) -> bool {
+    if has_live_cancel {
+        current
+    } else {
+        false
+    }
+}
+
+/// Drop the cancel slot for `generation` and, only when it still owns the slot,
+/// clear `is_downloading`. A newer download of the same model is left alone.
+fn release_owned_download(
+    models: &Mutex<HashMap<String, ModelInfo>>,
+    slots: &Mutex<HashMap<String, DownloadCancel>>,
+    model_id: &str,
+    generation: u64,
+) -> bool {
+    let owned = {
+        let mut slots = slots.lock().unwrap();
+        release_download_cancel(&mut slots, model_id, generation)
+    };
+    if owned {
+        if let Some(model) = models.lock().unwrap().get_mut(model_id) {
+            model.is_downloading = false;
+        }
+    }
+    owned
+}
+
 /// RAII guard that cleans up download state (`is_downloading` flag and cancel flag)
 /// when dropped, unless explicitly disarmed. This ensures consistent cleanup on
 /// every error path without requiring manual cleanup at each `?` or `return Err`.
+/// The guard remembers the generation it registered and removes the map entry
+/// only when that generation is still stored.
 struct DownloadCleanup<'a> {
     available_models: &'a Mutex<HashMap<String, ModelInfo>>,
-    cancel_flags: &'a Arc<Mutex<HashMap<String, CancellationToken>>>,
+    cancel_flags: &'a Arc<Mutex<HashMap<String, DownloadCancel>>>,
     model_id: String,
+    generation: u64,
     disarmed: bool,
 }
 
@@ -597,13 +741,12 @@ impl<'a> Drop for DownloadCleanup<'a> {
         if self.disarmed {
             return;
         }
-        {
-            let mut models = self.available_models.lock().unwrap();
-            if let Some(model) = models.get_mut(self.model_id.as_str()) {
-                model.is_downloading = false;
-            }
-        }
-        self.cancel_flags.lock().unwrap().remove(&self.model_id);
+        release_owned_download(
+            self.available_models,
+            self.cancel_flags,
+            &self.model_id,
+            self.generation,
+        );
     }
 }
 
@@ -611,7 +754,9 @@ pub struct ModelManager {
     app_handle: AppHandle,
     models_dir: PathBuf,
     available_models: Mutex<HashMap<String, ModelInfo>>,
-    cancel_flags: Arc<Mutex<HashMap<String, CancellationToken>>>,
+    cancel_flags: Arc<Mutex<HashMap<String, DownloadCancel>>>,
+    /// Monotonic id handed to each download so cleanup removes only that slot.
+    next_download_generation: AtomicU64,
     extracting_models: Arc<Mutex<HashSet<String>>>,
     /// Single-flight guard for [`Self::rescan_local_models`] so concurrent
     /// refresh requests coalesce instead of scanning the disk in parallel.
@@ -1191,6 +1336,7 @@ impl ModelManager {
             models_dir,
             available_models: Mutex::new(available_models),
             cancel_flags: Arc::new(Mutex::new(HashMap::new())),
+            next_download_generation: AtomicU64::new(1),
             extracting_models: Arc::new(Mutex::new(HashSet::new())),
             is_rescanning: Arc::new(AtomicBool::new(false)),
         };
@@ -1232,10 +1378,21 @@ impl ModelManager {
 
     /// The registry entries offered as speech models (every list, picker and
     /// auto-selection). Local cleanup models are left out; look them up by id.
+    /// Passes [`crate::catalog::LEGAL_HOLD_IDS`] to [`Self::offered_speech_models`].
     fn speech_models(models: &HashMap<String, ModelInfo>) -> Vec<ModelInfo> {
+        Self::offered_speech_models(models, crate::catalog::LEGAL_HOLD_IDS)
+    }
+
+    /// Speech models whose id is not on `hold_ids`, whatever the source host.
+    fn offered_speech_models(
+        models: &HashMap<String, ModelInfo>,
+        hold_ids: &[&str],
+    ) -> Vec<ModelInfo> {
         models
             .values()
-            .filter(|model| model.engine_type.is_speech())
+            .filter(|model| {
+                model.engine_type.is_speech() && !held_model(&model.id, &model.source, hold_ids)
+            })
             .cloned()
             .collect()
     }
@@ -1277,9 +1434,8 @@ impl ModelManager {
     /// The merge is additive: only new ids are inserted, so existing entries keep
     /// their values — including runtime-probed capabilities from
     /// [`Self::set_runtime_capabilities`]. It then runs [`Self::update_download_status`],
-    /// which recomputes disk-derived flags for *every* entry; a rescan racing an
-    /// in-flight download can briefly clear its `is_downloading`, but the download
-    /// continues and the event-driven UI self-corrects.
+    /// which recomputes disk-derived flags for *every* entry. A model that still
+    /// has a live cancel token keeps its `is_downloading` flag.
     ///
     /// The disk walk and 64 KiB header probes run against a cloned snapshot
     /// *off-lock* so readers never block on I/O; only the brief merge takes the
@@ -1464,6 +1620,14 @@ impl ModelManager {
     }
 
     fn update_download_status(&self) -> Result<()> {
+        // Lock order: cancel_flags, then available_models. Hold the cancel map
+        // until the model flags are written. Dropping it first lets a download
+        // register its token and set is_downloading in the gap, and this
+        // refresh would clear that download from a stale snapshot.
+        // release_owned_download, cancel_download, and both download starts
+        // take cancel_flags and drop it before available_models. Nothing takes
+        // available_models and then cancel_flags while still holding it.
+        let cancels = self.cancel_flags.lock().unwrap();
         let mut models = self.available_models.lock().unwrap();
 
         for model in models.values_mut() {
@@ -1480,7 +1644,8 @@ impl ModelManager {
                     &model.filename,
                     sha256.as_deref(),
                 );
-                model.is_downloading = false;
+                model.is_downloading =
+                    refreshed_is_downloading(model.is_downloading, cancels.contains_key(&model.id));
                 model.partial_size = 0;
                 continue;
             }
@@ -1504,7 +1669,8 @@ impl ModelManager {
                 }
 
                 model.is_downloaded = model_path.exists() && model_path.is_dir();
-                model.is_downloading = false;
+                model.is_downloading =
+                    refreshed_is_downloading(model.is_downloading, cancels.contains_key(&model.id));
 
                 // Get partial file size if it exists (for the .tar.gz being downloaded)
                 if partial_path.exists() {
@@ -1518,7 +1684,8 @@ impl ModelManager {
                 let partial_path = self.models_dir.join(format!("{}.partial", &model.filename));
 
                 model.is_downloaded = model_path.exists();
-                model.is_downloading = false;
+                model.is_downloading =
+                    refreshed_is_downloading(model.is_downloading, cancels.contains_key(&model.id));
 
                 // Get partial file size if it exists
                 if partial_path.exists() {
@@ -1888,21 +2055,14 @@ impl ModelManager {
         let Some(expected) = expected_sha256 else {
             return Ok(None);
         };
-        // One resolution. Hash this path and record it. `remove_corrupt` still
-        // receives the original snapshot link so it can tell our repo from the target.
-        let hashed_path = fs::canonicalize(path).map_err(|e| {
-            anyhow::anyhow!(
-                "Failed to verify download for model {}: {}. Please retry.",
-                model_id,
-                e
-            )
-        })?;
-        match Self::compute_sha256(&hashed_path) {
-            Ok((actual, stamp)) if actual.eq_ignore_ascii_case(expected.trim()) => {
+        // One resolution inside `sha256_check`. `remove_corrupt` still receives
+        // the original snapshot link so it can tell our repo from the target.
+        match sha256_check(path, expected) {
+            Ok((true, stamp, _)) => {
                 info!("SHA256 verified for model {}", model_id);
                 Ok(Some(stamp))
             }
-            Ok((actual, stamp)) => {
+            Ok((false, stamp, actual)) => {
                 warn!(
                     "SHA256 mismatch for model {}: expected {}, got {}",
                     model_id, expected, actual
@@ -2030,15 +2190,7 @@ impl ModelManager {
             let Some(stamp) = stamp else {
                 return Ok(());
             };
-            let blob_name = Path::new(&stamp.canonical_path)
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            fs::write(
-                &marker_path,
-                format_verified_marker(&expected, &blob_name, &stamp),
-            )
-            .map_err(|e| {
+            fs::write(&marker_path, verified_marker_body(&expected, &stamp)).map_err(|e| {
                 anyhow::anyhow!(
                     "Could not write verification marker for {}: {}",
                     model_id,
@@ -2063,7 +2215,8 @@ impl ModelManager {
     /// Download a Hugging Face-sourced model into the shared HF cache via
     /// hf-hub, reporting progress through the same `model-download-progress`
     /// event the URL path uses. Relies on hf-hub's stock token + cache (no
-    /// custom environment wiring).
+    /// custom environment wiring). A snapshot already in that cache whose
+    /// catalog hash matches is verified and kept, with no network call.
     async fn download_hf_model(
         &self,
         model_info: &ModelInfo,
@@ -2088,28 +2241,111 @@ impl ModelManager {
             return Ok(());
         }
 
-        // Mark downloading; the guard resets the flag on any error path.
+        // On disk, but not marked verified. Hash it before any connection.
+        // `Ok(true)` writes the same marker a download does. `Ok(false)` is a
+        // byte mismatch: the shared-cache file stays (another tool may own it)
+        // and the download below replaces it. `Err` is I/O, not a mismatch.
+        // No catalog hash: the check above already decided.
+        if let Some(expected) = expected_sha256.clone() {
+            if let Some(path) = hf_cached_path(&repo_id, &revision, &filename) {
+                let path_for_hash = path;
+                let expected_for_hash = expected.clone();
+                let _ = self
+                    .app_handle
+                    .emit("model-verification-started", &model_id);
+                info!("Verifying SHA256 for model {}...", model_id);
+                let checked = tokio::task::spawn_blocking(move || {
+                    sha256_check(&path_for_hash, &expected_for_hash)
+                })
+                .await
+                .map_err(|e| anyhow::anyhow!("SHA256 task panicked: {}", e))?;
+                // Only `Ok(false)` means the bytes differ. `sha256_check` is the
+                // read behind `sha256_matches`, kept here so the stamp is from
+                // that same open.
+                match checked {
+                    Ok((true, stamp, _)) => {
+                        let marker_path = self.verified_marker_path(&model_id);
+                        if let Err(e) =
+                            fs::write(&marker_path, verified_marker_body(&expected, &stamp))
+                        {
+                            let _ = fs::remove_file(&marker_path);
+                            if let Some(model) =
+                                self.available_models.lock().unwrap().get_mut(&model_id)
+                            {
+                                model.is_downloaded = false;
+                            }
+                            let _ = self
+                                .app_handle
+                                .emit("model-verification-completed", &model_id);
+                            return Err(anyhow::anyhow!(
+                                "Could not write verification marker for {}: {}",
+                                model_id,
+                                e
+                            ));
+                        }
+                        let _ = self
+                            .app_handle
+                            .emit("model-verification-completed", &model_id);
+                        self.update_download_status()?;
+                        let _ = self.app_handle.emit("model-download-complete", &model_id);
+                        info!("HF model {} verified from shared cache", model_id);
+                        return Ok(());
+                    }
+                    Ok((false, _, actual)) => {
+                        warn!(
+                            "SHA256 mismatch for model {}: expected {}, got {}. Leaving the cached file in place.",
+                            model_id, expected, actual
+                        );
+                        let marker_path = self.verified_marker_path(&model_id);
+                        let _ = fs::remove_file(&marker_path);
+                        if let Some(model) =
+                            self.available_models.lock().unwrap().get_mut(&model_id)
+                        {
+                            model.is_downloaded = false;
+                        }
+                        // Verification ran. Clear it so the download can show progress.
+                        let _ = self
+                            .app_handle
+                            .emit("model-verification-completed", &model_id);
+                    }
+                    Err(e) => {
+                        let marker_path = self.verified_marker_path(&model_id);
+                        let _ = fs::remove_file(&marker_path);
+                        if let Some(model) =
+                            self.available_models.lock().unwrap().get_mut(&model_id)
+                        {
+                            model.is_downloaded = false;
+                        }
+                        let _ = self
+                            .app_handle
+                            .emit("model-verification-completed", &model_id);
+                        return Err(anyhow::anyhow!(
+                            "Failed to verify download for model {}: {}. Please retry.",
+                            model_id,
+                            e
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Register before marking so a status refresh in between sees the live
+        // token and does not clear is_downloading. The guard removes this
+        // generation only, on every exit path.
+        let (generation, cancel_token) = self.register_download_cancel(&model_id);
+        let mut cleanup = DownloadCleanup {
+            available_models: &self.available_models,
+            cancel_flags: &self.cancel_flags,
+            model_id: model_id.clone(),
+            generation,
+            disarmed: false,
+        };
         {
             let mut models = self.available_models.lock().unwrap();
             if let Some(model) = models.get_mut(&model_id) {
                 model.is_downloading = true;
             }
         }
-
-        // Register a cancellation token so `cancel_download` can abort this
-        // transfer promptly. The guard removes it on every exit path.
-        let cancel_token = CancellationToken::new();
-        {
-            let mut flags = self.cancel_flags.lock().unwrap();
-            flags.insert(model_id.clone(), cancel_token.clone());
-        }
-
-        let mut cleanup = DownloadCleanup {
-            available_models: &self.available_models,
-            cancel_flags: &self.cancel_flags,
-            model_id: model_id.clone(),
-            disarmed: false,
-        };
 
         info!(
             "Downloading HF model {} from {}@{} ({})",
@@ -2129,7 +2365,7 @@ impl ModelManager {
         let repo = api.repo(Repo::with_revision(repo_id, RepoType::Model, revision));
         let progress = HfDownloadProgress::new(self.app_handle.clone(), model_id.clone());
         match repo
-            .download_with_progress_cancellable(&filename, progress, cancel_token)
+            .download_with_progress_cancellable(&filename, progress, cancel_token.clone())
             .await
         {
             Ok(path) => {
@@ -2143,9 +2379,9 @@ impl ModelManager {
             Err(hf_hub::api::tokio::ApiError::Cancelled) => {
                 // User cancelled. hf-hub leaves the partially downloaded
                 // `.sync.part` in the shared cache, so a later attempt resumes
-                // instead of restarting. The guard resets is_downloading and
-                // drops the token; `cancel_download` already emitted
-                // `model-download-cancelled`.
+                // instead of restarting. This generation's guard clears
+                // is_downloading only while its token is still the stored one.
+                // `cancel_download` already emitted `model-download-cancelled`.
                 info!("HF download cancelled for: {}", model_id);
                 return Ok(());
             }
@@ -2155,10 +2391,28 @@ impl ModelManager {
         }
 
         cleanup.disarmed = true;
+        // hf-hub already renamed the temp file into the cache, and
+        // verify_hf_download (when a hash is pinned) has passed. Keep those
+        // bytes: deleting a verified file would force a full re-download.
+        // cancel_download already emitted model-download-cancelled, so a
+        // cancel after the rename emits nothing here. The file stays, and
+        // update_download_status reports it downloaded.
+        let cancelled = cancel_token.is_cancelled();
+        let owned = release_owned_download(
+            &self.available_models,
+            &self.cancel_flags,
+            &model_id,
+            generation,
+        );
         self.update_download_status()?;
-        self.cancel_flags.lock().unwrap().remove(&model_id);
-        let _ = self.app_handle.emit("model-download-complete", &model_id);
-        info!("HF model {} downloaded", model_id);
+        if owned && !cancelled {
+            let _ = self.app_handle.emit("model-download-complete", &model_id);
+        }
+        if cancelled {
+            info!("HF download cancelled after verify for: {}", model_id);
+        } else {
+            info!("HF model {} downloaded", model_id);
+        }
         Ok(())
     }
 
@@ -2171,8 +2425,16 @@ impl ModelManager {
         let model_info =
             model_info.ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;
 
-        // Catalog ids are `{repo_id}/{filename}`: check the id's repo and the source repo.
-        // Only a three-part id names a repo; legacy ids rely on the source check.
+        // Before any Hugging Face or direct-URL request.
+        if held_model(model_id, &model_info.source, crate::catalog::LEGAL_HOLD_IDS) {
+            return Err(anyhow::anyhow!(
+                "Model {} is on legal hold and cannot be downloaded",
+                model_id
+            ));
+        }
+
+        // Licence withhold. A three-part id names a catalog repo; a Hugging Face
+        // source is checked on its repo. The hold list itself is `held_model`.
         let id_withheld = match model_id.splitn(3, '/').collect::<Vec<_>>().as_slice() {
             [org, name, _file] => crate::catalog::repo_withheld(&format!("{org}/{name}")),
             _ => false,
@@ -2231,29 +2493,22 @@ impl ModelManager {
             0
         };
 
-        // Mark as downloading
+        // Register before marking so a status refresh in between sees the live
+        // token. The guard removes this generation only.
+        let (generation, cancel_token) = self.register_download_cancel(model_id);
+        let mut cleanup = DownloadCleanup {
+            available_models: &self.available_models,
+            cancel_flags: &self.cancel_flags,
+            model_id: model_id.to_string(),
+            generation,
+            disarmed: false,
+        };
         {
             let mut models = self.available_models.lock().unwrap();
             if let Some(model) = models.get_mut(model_id) {
                 model.is_downloading = true;
             }
         }
-
-        // Create cancellation token for this download
-        let cancel_token = CancellationToken::new();
-        {
-            let mut flags = self.cancel_flags.lock().unwrap();
-            flags.insert(model_id.to_string(), cancel_token.clone());
-        }
-
-        // Guard ensures is_downloading and cancel_flags are cleaned up on every
-        // error path. Disarmed only on success (which sets is_downloaded = true).
-        let mut cleanup = DownloadCleanup {
-            available_models: &self.available_models,
-            cancel_flags: &self.cancel_flags,
-            model_id: model_id.to_string(),
-            disarmed: false,
-        };
 
         // Create HTTP client with range request for resuming
         let client = reqwest::Client::new();
@@ -2511,26 +2766,37 @@ impl ModelManager {
             fs::rename(&partial_path, &model_path)?;
         }
 
-        // Disarm the guard — success path does its own cleanup because it
-        // additionally sets is_downloaded = true.
+        // Size check and verify_sha256 already returned Ok, and the partial
+        // was renamed into place above (file, or extracted directory). Keep
+        // that file: it is the finished model. cancel_download already emitted
+        // model-download-cancelled, so a cancel after the rename emits nothing
+        // here. The file stays, and a later status refresh reports it downloaded.
         cleanup.disarmed = true;
-        {
-            let mut models = self.available_models.lock().unwrap();
-            if let Some(model) = models.get_mut(model_id) {
-                model.is_downloading = false;
+        let cancelled = cancel_token.is_cancelled();
+        let owned = release_owned_download(
+            &self.available_models,
+            &self.cancel_flags,
+            model_id,
+            generation,
+        );
+        if owned {
+            if let Some(model) = self.available_models.lock().unwrap().get_mut(model_id) {
                 model.is_downloaded = true;
                 model.partial_size = 0;
             }
+            if !cancelled {
+                let _ = self.app_handle.emit("model-download-complete", model_id);
+            }
         }
-        self.cancel_flags.lock().unwrap().remove(model_id);
 
-        // Emit completion event
-        let _ = self.app_handle.emit("model-download-complete", model_id);
-
-        info!(
-            "Successfully downloaded model {} to {:?}",
-            model_id, model_path
-        );
+        if cancelled {
+            info!("Download cancelled after verify for: {}", model_id);
+        } else if owned {
+            info!(
+                "Successfully downloaded model {} to {:?}",
+                model_id, model_path
+            );
+        }
 
         Ok(())
     }
@@ -2707,16 +2973,35 @@ impl ModelManager {
         }
     }
 
+    /// Assigns a fresh generation and stores its cancel token under `model_id`,
+    /// replacing any previous download of that model.
+    fn register_download_cancel(&self, model_id: &str) -> (u64, CancellationToken) {
+        let generation = self
+            .next_download_generation
+            .fetch_add(1, Ordering::Relaxed);
+        let token = CancellationToken::new();
+        self.cancel_flags.lock().unwrap().insert(
+            model_id.to_string(),
+            DownloadCancel {
+                generation,
+                token: token.clone(),
+            },
+        );
+        (generation, token)
+    }
+
     pub fn cancel_download(&self, model_id: &str) -> Result<()> {
         debug!("ModelManager: cancel_download called for: {}", model_id);
 
         // Trigger the cancellation token to stop the download. The HF path
         // aborts its in-flight chunk tasks and unwinds promptly; the URL path
-        // observes it on the next chunk of its stream loop.
+        // observes it on the next chunk of its stream loop. The token stays in
+        // the map until that generation's cleanup runs, so a newer download is
+        // not removed by the one we just cancelled.
         {
             let flags = self.cancel_flags.lock().unwrap();
-            if let Some(token) = flags.get(model_id) {
-                token.cancel();
+            if let Some(slot) = flags.get(model_id) {
+                slot.token.cancel();
                 info!("Cancellation token triggered for: {}", model_id);
             } else {
                 warn!("No active download found for: {}", model_id);
@@ -2855,6 +3140,86 @@ mod tests {
             Some("abc"),
             Some(&stamp)
         ));
+    }
+
+    const PINNED_REV: &str = "bc640142c66e1fdd12af0bd68f40445458f3869b";
+
+    fn qwen_snapshot(root: &Path, revision: &str, filename: &str) -> PathBuf {
+        let repo = root.join("models--Qwen--Qwen3-4B-GGUF");
+        let snap = repo.join("snapshots").join(revision);
+        fs::create_dir_all(&snap).unwrap();
+        let snapshot_file = snap.join(filename);
+        // The real cache stores this name as a symlink to blobs/<sha>.
+        #[cfg(unix)]
+        {
+            let blobs = repo.join("blobs");
+            fs::create_dir_all(&blobs).unwrap();
+            let blob = blobs.join("abc123");
+            fs::write(&blob, b"gguf").unwrap();
+            std::os::unix::fs::symlink(&blob, &snapshot_file).unwrap();
+        }
+        #[cfg(not(unix))]
+        {
+            fs::write(&snapshot_file, b"gguf").unwrap();
+        }
+        snapshot_file
+    }
+
+    #[test]
+    fn pinned_commit_snapshot_resolves_without_refs() {
+        let tmp = TempDir::new().unwrap();
+        let filename = "Qwen3-4B-Q4_K_M.gguf";
+        let snapshot_file = qwen_snapshot(tmp.path(), PINNED_REV, filename);
+        // No refs/ directory. hf-hub's lookup would miss this.
+        let got = hf_commit_snapshot(tmp.path(), "Qwen/Qwen3-4B-GGUF", PINNED_REV, filename)
+            .expect("snapshot file");
+        assert_eq!(got, snapshot_file);
+    }
+
+    #[test]
+    fn branch_revision_without_refs_is_none() {
+        let tmp = TempDir::new().unwrap();
+        let filename = "Qwen3-4B-Q4_K_M.gguf";
+        qwen_snapshot(tmp.path(), "main", filename);
+        assert!(hf_commit_snapshot(tmp.path(), "Qwen/Qwen3-4B-GGUF", "main", filename).is_none());
+    }
+
+    #[test]
+    fn pinned_commit_without_snapshot_file_is_none() {
+        let tmp = TempDir::new().unwrap();
+        assert!(hf_commit_snapshot(
+            tmp.path(),
+            "Qwen/Qwen3-4B-GGUF",
+            PINNED_REV,
+            "Qwen3-4B-Q4_K_M.gguf",
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn sha256_matches_catalog_hash_and_rejects_different_bytes() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("blob");
+        fs::write(&path, b"hello").unwrap();
+        let (digest, _) = ModelManager::compute_sha256(&fs::canonicalize(&path).unwrap()).unwrap();
+        assert_eq!(sha256_matches(&path, &digest).unwrap(), true);
+        fs::write(&path, b"hello!").unwrap();
+        assert_eq!(sha256_matches(&path, &digest).unwrap(), false);
+        assert!(path.is_file(), "a mismatch must not delete the file");
+    }
+
+    #[test]
+    fn commit_snapshot_rejects_parent_segment() {
+        let tmp = TempDir::new().unwrap();
+        // `snapshots/<rev>/../x` is `snapshots/x`, outside the commit directory.
+        let outside = tmp
+            .path()
+            .join("models--Qwen--Qwen3-4B-GGUF")
+            .join("snapshots")
+            .join("x");
+        fs::create_dir_all(outside.parent().unwrap()).unwrap();
+        fs::write(&outside, b"nope").unwrap();
+        assert!(hf_commit_snapshot(tmp.path(), "Qwen/Qwen3-4B-GGUF", PINNED_REV, "../x").is_none());
     }
 
     #[test]
@@ -3117,6 +3482,137 @@ mod tests {
         let result = ModelManager::discover_custom_transcribe_models(&models_dir, &mut models);
         assert!(result.is_ok());
         assert_eq!(models.len(), count_before);
+    }
+
+    /// Fails if `id` stops being a builtin download from blob.handy.computer,
+    /// so the hold test cannot drift onto an id the app does not ship.
+    fn assert_builtin_blob_model(id: &str, url: &str) {
+        assert!(url.starts_with("https://blob.handy.computer/"), "{url}");
+        let src = include_str!("model.rs");
+        assert!(
+            src.contains(&format!("id: \"{id}\".to_string(),")),
+            "{id} is not a builtin model id"
+        );
+        assert!(
+            src.contains(&format!("url: \"{url}\".to_string(),")),
+            "{url} is not a builtin download url"
+        );
+    }
+
+    fn blob_model(id: &str, url: &str) -> ModelInfo {
+        ModelInfo {
+            id: id.to_string(),
+            name: id.to_string(),
+            description: String::new(),
+            filename: format!("{id}.bin"),
+            source: ModelSource::Url {
+                url: url.to_string(),
+                sha256: None,
+            },
+            size_mb: 1,
+            is_downloaded: false,
+            is_downloading: false,
+            partial_size: 0,
+            is_directory: false,
+            engine_type: EngineType::TranscribeCpp,
+            accuracy_score: 0.5,
+            speed_score: 0.5,
+            supports_translation: false,
+            is_recommended: false,
+            supported_languages: vec!["en".to_string()],
+            supports_language_selection: false,
+            is_custom: false,
+            supports_streaming: false,
+            supports_language_detection: false,
+        }
+    }
+
+    #[test]
+    fn held_blob_handy_entry_is_not_offered_and_download_is_refused() {
+        const HELD: &str = "small";
+        const HELD_URL: &str = "https://blob.handy.computer/ggml-small.bin";
+        const ALLOWED: &str = "medium";
+        const ALLOWED_URL: &str = "https://blob.handy.computer/whisper-medium-q4_1.bin";
+        assert_builtin_blob_model(HELD, HELD_URL);
+        assert_builtin_blob_model(ALLOWED, ALLOWED_URL);
+
+        let held = blob_model(HELD, HELD_URL);
+        let allowed = blob_model(ALLOWED, ALLOWED_URL);
+        let mut models = HashMap::new();
+        models.insert(HELD.to_string(), held.clone());
+        models.insert(ALLOWED.to_string(), allowed.clone());
+
+        // No blob id is on LEGAL_HOLD_IDS today. Pass a list that names one.
+        let hold: &[&str] = &[HELD];
+        let offered = ModelManager::offered_speech_models(&models, hold);
+        assert!(
+            offered.iter().all(|m| m.id != HELD),
+            "held blob id must not be offered"
+        );
+        assert!(
+            offered.iter().any(|m| m.id == ALLOWED),
+            "an allowed blob entry must still be offered"
+        );
+        assert!(
+            held_model(HELD, &held.source, hold),
+            "held blob download must be refused before any network request"
+        );
+        assert!(held_model(HELD, &held.source, &["SMALL"]));
+        assert!(!held_model(ALLOWED, &allowed.source, hold));
+
+        let today = ModelManager::offered_speech_models(&models, crate::catalog::LEGAL_HOLD_IDS);
+        assert!(today.iter().any(|m| m.id == HELD));
+        assert!(today.iter().any(|m| m.id == ALLOWED));
+        assert!(!held_model(
+            HELD,
+            &held.source,
+            crate::catalog::LEGAL_HOLD_IDS
+        ));
+
+        // download_model consults the hold list before either network client.
+        let src = include_str!("model.rs");
+        let start = src
+            .find("pub async fn download_model")
+            .expect("download_model");
+        let rest = &src[start..];
+        let end = rest[1..]
+            .find("\n    pub ")
+            .map(|i| i + 1)
+            .unwrap_or(rest.len());
+        let body = &rest[..end];
+        let hold_at = body.find("held_model(").expect("hold check");
+        let hf_at = body.find("download_hf_model(").expect("hf download");
+        let http_at = body.find("reqwest::Client::new()").expect("url download");
+        assert!(
+            hold_at < hf_at && hold_at < http_at,
+            "hold check must run before any download request"
+        );
+    }
+
+    #[test]
+    fn held_hugging_face_id_is_still_refused() {
+        let repo = "handy-computer/SenseVoiceSmall-gguf";
+        assert!(crate::catalog::model_on_legal_hold(repo));
+        let source = ModelSource::HuggingFace {
+            repo_id: repo.to_string(),
+            revision: "main".to_string(),
+            sha256: None,
+        };
+        let model_id = format!("{repo}/model.gguf");
+        assert!(held_model(
+            &model_id,
+            &source,
+            crate::catalog::LEGAL_HOLD_IDS
+        ));
+        let mut info = blob_model(&model_id, "https://example.invalid/not-fetched");
+        info.source = source;
+        let mut models = HashMap::new();
+        models.insert(model_id, info);
+        let offered = ModelManager::offered_speech_models(&models, crate::catalog::LEGAL_HOLD_IDS);
+        assert!(
+            offered.is_empty(),
+            "held Hugging Face repo must not be offered"
+        );
     }
 
     #[test]
@@ -3519,5 +4015,48 @@ mod tests {
             !models.contains_key("org/badpin/bad.gguf"),
             "a repo dropped for a bad pin must not be rediscovered"
         );
+    }
+
+    #[test]
+    fn stale_cleanup_does_not_remove_newer_cancel_token() {
+        let mut slots = HashMap::new();
+        let newer = CancellationToken::new();
+        slots.insert(
+            "small".to_string(),
+            DownloadCancel {
+                generation: 2,
+                token: newer.clone(),
+            },
+        );
+
+        assert!(!release_download_cancel(&mut slots, "small", 1));
+
+        let slot = slots.get("small").expect("newer token stays");
+        assert_eq!(slot.generation, 2);
+        assert!(!slot.token.is_cancelled());
+        assert!(!newer.is_cancelled());
+    }
+
+    #[test]
+    fn matching_cleanup_removes_its_cancel_token() {
+        let mut slots = HashMap::new();
+        slots.insert(
+            "small".to_string(),
+            DownloadCancel {
+                generation: 2,
+                token: CancellationToken::new(),
+            },
+        );
+
+        assert!(release_download_cancel(&mut slots, "small", 2));
+        assert!(!slots.contains_key("small"));
+    }
+
+    #[test]
+    fn refreshed_is_downloading_keeps_a_busy_flag_only_with_a_live_cancel() {
+        // Pure helper. ModelManager::update_download_status needs an AppHandle.
+        assert!(refreshed_is_downloading(true, true));
+        assert!(!refreshed_is_downloading(true, false));
+        assert!(!refreshed_is_downloading(false, false));
     }
 }

@@ -636,7 +636,14 @@
       "clipboardOnly": "Plakken is misschien niet gelukt. Je woorden staan op het klembord.",
       "historyOnly": "Plakken is misschien niet gelukt. Je woorden staan in Geschiedenis.",
       "neither": "Plakken is misschien niet gelukt."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Een sneltoets kon niet worden ingesteld",
+    "shortcutRegistrationFailedTaken": "Een andere app gebruikt {{binding}} al. Kies een andere toets in Instellingen, of sluit die app en probeer het opnieuw.",
+    "shortcutRegistrationFailedRejected": "{{binding}} kan niet als sneltoets worden gebruikt. Kies een andere toets in Instellingen.",
+    "shortcutRegistrationFailedOther": "{{binding}} kon niet worden ingesteld. Probeer het opnieuw, of kies een andere toets in Instellingen.",
+    "shortcutRegistrationFailedMore": " (+{{count}} meer)",
+    "shortcutRegistrationOpenSettings": "Instellingen openen",
+    "shortcutRegistrationTryAgain": "Opnieuw proberen"
   },
   "appLanguage": {
     "title": "Interfacetaal",

@@ -633,7 +633,14 @@
       "clipboardOnly": "Le collage n'a peut-être pas fonctionné. Vos mots sont dans le presse-papiers.",
       "historyOnly": "Le collage n'a peut-être pas fonctionné. Vos mots sont dans l'Historique.",
       "neither": "Le collage n'a peut-être pas fonctionné."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Un raccourci n'a pas pu être configuré",
+    "shortcutRegistrationFailedTaken": "Une autre application utilise déjà {{binding}}. Choisissez une autre touche dans Paramètres, ou quittez cette application et réessayez.",
+    "shortcutRegistrationFailedRejected": "{{binding}} ne peut pas servir de raccourci. Choisissez une autre touche dans Paramètres.",
+    "shortcutRegistrationFailedOther": "{{binding}} n'a pas pu être configuré. Réessayez, ou choisissez une autre touche dans Paramètres.",
+    "shortcutRegistrationFailedMore": " (+{{count}} de plus)",
+    "shortcutRegistrationOpenSettings": "Ouvrir les paramètres",
+    "shortcutRegistrationTryAgain": "Réessayer"
   },
   "appLanguage": {
     "title": "Langue de l'application",
