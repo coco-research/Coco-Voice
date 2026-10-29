@@ -83,7 +83,11 @@ jobs:
           import json, os, sys
           data = json.load(sys.stdin)
           wdata = json.load(open(os.environ["WRUNS_FILE"]))
-          runs = [r for r in data.get("check_runs", []) if r.get("name") != "ci-ok"]
+          all_runs = [r for r in data.get("check_runs", []) if r.get("name") != "ci-ok"]
+          # Re-triggering a check (title after a PR edit) cancels its earlier run on the same head.
+          # Drop a cancelled run when another run of the same check did not cancel.
+          live = {r.get("name") for r in all_runs if r.get("conclusion") != "cancelled"}
+          runs = [r for r in all_runs if not (r.get("conclusion") == "cancelled" and r.get("name") in live)]
           # Latest run per workflow (reruns replace older attempts), ci-ok itself excluded.
           latest = {}
           for w in wdata.get("workflow_runs", []):
