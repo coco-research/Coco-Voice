@@ -436,6 +436,19 @@ fn hf_repo_excluded_from_discovery(repo_id: &str) -> bool {
     )
 }
 
+/// Hold matches the model id, so a blob.handy.computer file and a Hugging Face
+/// file with the same id are both covered. Registry ids are `{repo}/{file}`,
+/// so a Hugging Face source is also matched on its repo id.
+fn held_model(model_id: &str, source: &ModelSource, hold_ids: &[&str]) -> bool {
+    if crate::catalog::id_on_hold(model_id, hold_ids) {
+        return true;
+    }
+    matches!(
+        source,
+        ModelSource::HuggingFace { repo_id, .. } if crate::catalog::id_on_hold(repo_id, hold_ids)
+    )
+}
+
 /// Resolve a Hugging Face model file in the shared HF cache, if already present.
 /// Uses hf-hub's stock location (HF_HOME or ~/.cache/huggingface/hub) so
 /// downloads are shared with other tools.
@@ -1291,10 +1304,21 @@ impl ModelManager {
 
     /// The registry entries offered as speech models (every list, picker and
     /// auto-selection). Local cleanup models are left out; look them up by id.
+    /// Passes [`crate::catalog::LEGAL_HOLD_IDS`] to [`Self::offered_speech_models`].
     fn speech_models(models: &HashMap<String, ModelInfo>) -> Vec<ModelInfo> {
+        Self::offered_speech_models(models, crate::catalog::LEGAL_HOLD_IDS)
+    }
+
+    /// Speech models whose id is not on `hold_ids`, whatever the source host.
+    fn offered_speech_models(
+        models: &HashMap<String, ModelInfo>,
+        hold_ids: &[&str],
+    ) -> Vec<ModelInfo> {
         models
             .values()
-            .filter(|model| model.engine_type.is_speech())
+            .filter(|model| {
+                model.engine_type.is_speech() && !held_model(&model.id, &model.source, hold_ids)
+            })
             .cloned()
             .collect()
     }
@@ -2253,8 +2277,16 @@ impl ModelManager {
         let model_info =
             model_info.ok_or_else(|| anyhow::anyhow!("Model not found: {}", model_id))?;
 
-        // Catalog ids are `{repo_id}/{filename}`: check the id's repo and the source repo.
-        // Only a three-part id names a repo; legacy ids rely on the source check.
+        // Before any Hugging Face or direct-URL request.
+        if held_model(model_id, &model_info.source, crate::catalog::LEGAL_HOLD_IDS) {
+            return Err(anyhow::anyhow!(
+                "Model {} is on legal hold and cannot be downloaded",
+                model_id
+            ));
+        }
+
+        // Licence withhold. A three-part id names a catalog repo; a Hugging Face
+        // source is checked on its repo. The hold list itself is `held_model`.
         let id_withheld = match model_id.splitn(3, '/').collect::<Vec<_>>().as_slice() {
             [org, name, _file] => crate::catalog::repo_withheld(&format!("{org}/{name}")),
             _ => false,
@@ -3222,6 +3254,137 @@ mod tests {
         let result = ModelManager::discover_custom_transcribe_models(&models_dir, &mut models);
         assert!(result.is_ok());
         assert_eq!(models.len(), count_before);
+    }
+
+    /// Fails if `id` stops being a builtin download from blob.handy.computer,
+    /// so the hold test cannot drift onto an id the app does not ship.
+    fn assert_builtin_blob_model(id: &str, url: &str) {
+        assert!(url.starts_with("https://blob.handy.computer/"), "{url}");
+        let src = include_str!("model.rs");
+        assert!(
+            src.contains(&format!("id: \"{id}\".to_string(),")),
+            "{id} is not a builtin model id"
+        );
+        assert!(
+            src.contains(&format!("url: \"{url}\".to_string(),")),
+            "{url} is not a builtin download url"
+        );
+    }
+
+    fn blob_model(id: &str, url: &str) -> ModelInfo {
+        ModelInfo {
+            id: id.to_string(),
+            name: id.to_string(),
+            description: String::new(),
+            filename: format!("{id}.bin"),
+            source: ModelSource::Url {
+                url: url.to_string(),
+                sha256: None,
+            },
+            size_mb: 1,
+            is_downloaded: false,
+            is_downloading: false,
+            partial_size: 0,
+            is_directory: false,
+            engine_type: EngineType::TranscribeCpp,
+            accuracy_score: 0.5,
+            speed_score: 0.5,
+            supports_translation: false,
+            is_recommended: false,
+            supported_languages: vec!["en".to_string()],
+            supports_language_selection: false,
+            is_custom: false,
+            supports_streaming: false,
+            supports_language_detection: false,
+        }
+    }
+
+    #[test]
+    fn held_blob_handy_entry_is_not_offered_and_download_is_refused() {
+        const HELD: &str = "small";
+        const HELD_URL: &str = "https://blob.handy.computer/ggml-small.bin";
+        const ALLOWED: &str = "medium";
+        const ALLOWED_URL: &str = "https://blob.handy.computer/whisper-medium-q4_1.bin";
+        assert_builtin_blob_model(HELD, HELD_URL);
+        assert_builtin_blob_model(ALLOWED, ALLOWED_URL);
+
+        let held = blob_model(HELD, HELD_URL);
+        let allowed = blob_model(ALLOWED, ALLOWED_URL);
+        let mut models = HashMap::new();
+        models.insert(HELD.to_string(), held.clone());
+        models.insert(ALLOWED.to_string(), allowed.clone());
+
+        // No blob id is on LEGAL_HOLD_IDS today. Pass a list that names one.
+        let hold: &[&str] = &[HELD];
+        let offered = ModelManager::offered_speech_models(&models, hold);
+        assert!(
+            offered.iter().all(|m| m.id != HELD),
+            "held blob id must not be offered"
+        );
+        assert!(
+            offered.iter().any(|m| m.id == ALLOWED),
+            "an allowed blob entry must still be offered"
+        );
+        assert!(
+            held_model(HELD, &held.source, hold),
+            "held blob download must be refused before any network request"
+        );
+        assert!(held_model(HELD, &held.source, &["SMALL"]));
+        assert!(!held_model(ALLOWED, &allowed.source, hold));
+
+        let today = ModelManager::offered_speech_models(&models, crate::catalog::LEGAL_HOLD_IDS);
+        assert!(today.iter().any(|m| m.id == HELD));
+        assert!(today.iter().any(|m| m.id == ALLOWED));
+        assert!(!held_model(
+            HELD,
+            &held.source,
+            crate::catalog::LEGAL_HOLD_IDS
+        ));
+
+        // download_model consults the hold list before either network client.
+        let src = include_str!("model.rs");
+        let start = src
+            .find("pub async fn download_model")
+            .expect("download_model");
+        let rest = &src[start..];
+        let end = rest[1..]
+            .find("\n    pub ")
+            .map(|i| i + 1)
+            .unwrap_or(rest.len());
+        let body = &rest[..end];
+        let hold_at = body.find("held_model(").expect("hold check");
+        let hf_at = body.find("download_hf_model(").expect("hf download");
+        let http_at = body.find("reqwest::Client::new()").expect("url download");
+        assert!(
+            hold_at < hf_at && hold_at < http_at,
+            "hold check must run before any download request"
+        );
+    }
+
+    #[test]
+    fn held_hugging_face_id_is_still_refused() {
+        let repo = "handy-computer/SenseVoiceSmall-gguf";
+        assert!(crate::catalog::model_on_legal_hold(repo));
+        let source = ModelSource::HuggingFace {
+            repo_id: repo.to_string(),
+            revision: "main".to_string(),
+            sha256: None,
+        };
+        let model_id = format!("{repo}/model.gguf");
+        assert!(held_model(
+            &model_id,
+            &source,
+            crate::catalog::LEGAL_HOLD_IDS
+        ));
+        let mut info = blob_model(&model_id, "https://example.invalid/not-fetched");
+        info.source = source;
+        let mut models = HashMap::new();
+        models.insert(model_id, info);
+        let offered = ModelManager::offered_speech_models(&models, crate::catalog::LEGAL_HOLD_IDS);
+        assert!(
+            offered.is_empty(),
+            "held Hugging Face repo must not be offered"
+        );
     }
 
     #[test]
