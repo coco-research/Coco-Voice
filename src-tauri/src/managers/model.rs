@@ -3466,6 +3466,27 @@ mod tests {
     }
 
     #[test]
+    fn tampered_fixture_is_refused_and_not_marked_downloaded() {
+        // verify_sha256 is the check download_hf_model runs before anything is
+        // marked downloaded. A mismatch returns Err and removes the blob, and
+        // no verified marker is written, so the pure downloaded decision is false.
+        let (_dir, path) = write_temp_file(b"tampered fixture");
+        let expected = "0000000000000000000000000000000000000000000000000000000000000000";
+
+        let result = ModelManager::verify_sha256(&path, Some(expected), "tampered");
+
+        assert!(
+            result.is_err(),
+            "bytes that do not match the pin are refused"
+        );
+        assert!(!path.exists(), "the bad blob is removed");
+        assert!(
+            !is_hf_downloaded_pure(path.exists(), None, Some(expected), None),
+            "a refused file is not marked downloaded"
+        );
+    }
+
+    #[test]
     fn test_verify_sha256_fails_and_deletes_partial_when_file_missing() {
         // Simulate a partial file that was already removed (e.g. disk full mid-download).
         let dir = TempDir::new().unwrap();
