@@ -164,22 +164,28 @@ pub struct ShortcutsInitialized;
 
 /// Initialize keyboard shortcuts.
 /// On macOS, this should be called after accessibility permissions are granted.
-/// This is idempotent - calling it multiple times is safe.
+/// A pass where every binding registers is idempotent. If any binding fails,
+/// the set stays uninitialized so a later call tries again. Bindings that
+/// already registered are skipped on that retry.
 #[specta::specta]
 #[tauri::command]
 pub fn initialize_shortcuts(app: AppHandle) -> Result<(), String> {
-    // Check if already initialized
     if app.try_state::<ShortcutsInitialized>().is_some() {
         log::debug!("Shortcuts already initialized");
         return Ok(());
     }
 
-    // Initialize shortcuts
-    crate::shortcut::init_shortcuts(&app);
+    let outcome = crate::shortcut::init_shortcuts(&app);
+    if outcome.initialized {
+        app.manage(ShortcutsInitialized);
+        log::info!("Shortcuts initialized successfully");
+    } else {
+        log::warn!(
+            "Shortcut registration left {} binding(s) unset",
+            outcome.failures.len()
+        );
+        crate::shortcut::emit_shortcut_registration_failures(&app, &outcome.failures);
+    }
 
-    // Mark as initialized
-    app.manage(ShortcutsInitialized);
-
-    log::info!("Shortcuts initialized successfully");
     Ok(())
 }
