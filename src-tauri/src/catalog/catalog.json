@@ -12,6 +12,7 @@
       "description": "Tiny and instant, runs well on any hardware",
       "base_model": "nvidia/canary-180m-flash",
       "license": "cc-by-4.0",
+      "revision": "8b01fc77ac169a0a05c5c0332bbfe54acf65c26f",
       "language_count": 4,
       "languages": ["en", "de", "es", "fr"],
       "capabilities": {
@@ -68,6 +69,7 @@
       "description": "Highest accuracy, 14 languages, slower",
       "base_model": "CohereLabs/cohere-transcribe-03-2026",
       "license": "apache-2.0",
+      "revision": "7353b6040bdc1be9e5a3823d99d5fe12afe88264",
       "language_count": 14,
       "languages": ["en", "fr", "de", "es", "it", "pt", "nl", "pl", "el", "ar", "ja", "zh", "vi", "ko"],
       "capabilities": {
@@ -124,6 +126,7 @@
       "description": "Broadest language, but may run a bit slow",
       "base_model": "openai/whisper-medium",
       "license": "apache-2.0",
+      "revision": "60cfb00405a9a5bb85ee347ef93b68df7a311dc5",
       "language_count": 99,
       "languages": ["en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su"],
       "capabilities": {
@@ -180,6 +183,7 @@
       "description": "Live multilingual, excellent on powerful machines",
       "base_model": "mistralai/Voxtral-Mini-4B-Realtime-2602",
       "license": "apache-2.0",
+      "revision": "7fd3d424fc558edca2c53808578b0541ef52a81a",
       "language_count": 13,
       "languages": ["en", "fr", "es", "de", "ru", "zh", "ja", "it", "pt", "nl", "ar", "hi", "ko"],
       "capabilities": {
@@ -236,6 +240,7 @@
       "description": "Fast and accurate. Supports 25 European languages",
       "base_model": "nvidia/parakeet-tdt-0.6b-v3",
       "license": "cc-by-4.0",
+      "revision": "d8d8c32cb2017c57e5307767343e97870f8a7f53",
       "language_count": 25,
       "languages": ["bg", "hr", "cs", "da", "nl", "en", "et", "fi", "fr", "de", "el", "hu", "it", "lv", "lt", "mt", "pl", "pt", "ro", "ru", "sk", "sl", "es", "sv", "uk"],
       "capabilities": {
@@ -292,6 +297,7 @@
       "description": "English only. The best model for English speakers",
       "base_model": "nvidia/parakeet-tdt-0.6b-v2",
       "license": "cc-by-4.0",
+      "revision": "58239cf6d0ecb0af921e7936c1e5e0a8dba91dbb",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -348,6 +354,7 @@
       "description": "Excellent multilingual model",
       "base_model": "Qwen/Qwen3-ASR-0.6B",
       "license": "apache-2.0",
+      "revision": "7e7c69a577fa2725dfedbe34b5e999336e30a19b",
       "language_count": 30,
       "languages": ["zh", "en", "yue", "ar", "de", "fr", "es", "pt", "id", "it", "ko", "ru", "th", "vi", "ja", "tr", "hi", "ms", "nl", "sv", "da", "fi", "pl", "cs", "fil", "fa", "el", "ro", "hu", "mk"],
       "capabilities": {
@@ -404,6 +411,7 @@
       "description": "4-language speech-to-text with translation.",
       "base_model": "nvidia/canary-1b-flash",
       "license": "cc-by-4.0",
+      "revision": "c1a2a0729e7fe5c0ac99b5919fe274930b1b0793",
       "language_count": 4,
       "languages": ["en", "de", "es", "fr"],
       "capabilities": {
@@ -460,6 +468,7 @@
       "description": "25-language speech-to-text with translation.",
       "base_model": "nvidia/canary-1b-v2",
       "license": "cc-by-4.0",
+      "revision": "692af661b140183b60e44f55ad03c59e1e77d078",
       "language_count": 25,
       "languages": ["bg", "hr", "cs", "da", "nl", "en", "et", "fi", "fr", "de", "el", "hu", "it", "lv", "lt", "mt", "pl", "pt", "ro", "sk", "sl", "es", "sv", "ru", "uk"],
       "capabilities": {
@@ -516,6 +525,7 @@
       "description": "English speech-to-text.",
       "base_model": "nvidia/canary-qwen-2.5b",
       "license": "cc-by-4.0",
+      "revision": "a4480da236b7d99d7a12186868de021ef4ff5ced",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -572,6 +582,7 @@
       "description": "Russian speech-to-text with token-level timestamps.",
       "base_model": "ai-sage/GigaAM-v3",
       "license": "mit",
+      "revision": "53ac479633748119e11b049cf28bc801f0440f10",
       "language_count": 1,
       "languages": ["ru"],
       "capabilities": {
@@ -628,6 +639,7 @@
       "description": "Russian speech-to-text with token-level timestamps.",
       "base_model": "ai-sage/GigaAM-v3",
       "license": "mit",
+      "revision": "59717de63d50dd9dd93b3249da6ad3f2f1c4ad6b",
       "language_count": 1,
       "languages": ["ru"],
       "capabilities": {
@@ -684,6 +696,7 @@
       "description": "Russian speech-to-text with token-level timestamps.",
       "base_model": "ai-sage/GigaAM-v3",
       "license": "mit",
+      "revision": "93cba3cdf21d66ca7a746718c849419c2946d6bb",
       "language_count": 1,
       "languages": ["ru"],
       "capabilities": {
@@ -740,6 +753,7 @@
       "description": "Russian speech-to-text with token-level timestamps.",
       "base_model": "ai-sage/GigaAM-v3",
       "license": "mit",
+      "revision": "3efd5b39882ceadca5570a8fb9fa1a2c801d6d6d",
       "language_count": 1,
       "languages": ["ru"],
       "capabilities": {
@@ -796,6 +810,7 @@
       "description": "5-language speech-to-text.",
       "base_model": "ibm-granite/granite-speech-4.1-2b-nar",
       "license": "apache-2.0",
+      "revision": "36325d11d13bdd712ea9233adec0f89fbd7b9bd8",
       "language_count": 5,
       "languages": ["en", "fr", "de", "es", "pt"],
       "capabilities": {
@@ -852,6 +867,7 @@
       "description": "6-language speech-to-text with translation.",
       "base_model": "ibm-granite/granite-4.0-1b-speech",
       "license": "apache-2.0",
+      "revision": "b593e6610577b2013a2387b3959018667b9d1795",
       "language_count": 6,
       "languages": ["en", "fr", "de", "es", "pt", "ja"],
       "capabilities": {
@@ -908,6 +924,7 @@
       "description": "6-language speech-to-text with translation.",
       "base_model": "ibm-granite/granite-speech-4.1-2b",
       "license": "apache-2.0",
+      "revision": "6c6a92dfc36d2b9eda767ef2fb2320237672c4b6",
       "language_count": 6,
       "languages": ["en", "fr", "de", "es", "pt", "ja"],
       "capabilities": {
@@ -964,6 +981,7 @@
       "description": "5-language speech-to-text with word-level timestamps.",
       "base_model": "ibm-granite/granite-speech-4.1-2b-plus",
       "license": "apache-2.0",
+      "revision": "d511bd6c8ea27005eeb4865ab2545480a3e9541d",
       "language_count": 5,
       "languages": ["en", "fr", "de", "es", "pt"],
       "capabilities": {
@@ -1020,6 +1038,7 @@
       "description": "English speech-to-text.",
       "base_model": "UsefulSensors/moonshine-tiny",
       "license": "mit",
+      "revision": "c71a93b8f1cb2b7f7336f31bb54bc96960c16f41",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -1061,6 +1080,7 @@
       "description": "English speech-to-text with streaming.",
       "base_model": "UsefulSensors/moonshine-streaming-tiny",
       "license": "mit",
+      "revision": "4125c28c22a76494162094ab3566387cd92fb2f5",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -1102,6 +1122,7 @@
       "description": "English speech-to-text.",
       "base_model": "UsefulSensors/moonshine-base",
       "license": "mit",
+      "revision": "124f8cf8d3c1c56ad0f6ebc44aaafc0622e62d97",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -1143,6 +1164,7 @@
       "description": "English speech-to-text with streaming.",
       "base_model": "UsefulSensors/moonshine-streaming-small",
       "license": "mit",
+      "revision": "e53f28b0cb90308390c852068b950a1aadd238b0",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -1184,6 +1206,7 @@
       "description": "English speech-to-text with streaming.",
       "base_model": "UsefulSensors/moonshine-streaming-medium",
       "license": "mit",
+      "revision": "56302cde2ae162d1357a833d91775bcd06e91e1b",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -1225,6 +1248,7 @@
       "description": "English speech-to-text with token-level timestamps.",
       "base_model": "nvidia/parakeet-tdt_ctc-110m",
       "license": "cc-by-4.0",
+      "revision": "1c3f0d5378fdd358905cc410a93ed9e64f52d170",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -1281,6 +1305,7 @@
       "description": "English speech-to-text with token-level timestamps.",
       "base_model": "nvidia/parakeet-ctc-0.6b",
       "license": "cc-by-4.0",
+      "revision": "437fa3bded0ca9bb67cae801964396c913256c16",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -1337,6 +1362,7 @@
       "description": "English speech-to-text with token-level timestamps.",
       "base_model": "nvidia/parakeet-rnnt-0.6b",
       "license": "cc-by-4.0",
+      "revision": "3373d1aeee5a5257c94c2fa6c4b12302ce7be2aa",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -1393,6 +1419,7 @@
       "description": "English speech-to-text with token-level timestamps.",
       "base_model": "nvidia/parakeet-ctc-1.1b",
       "license": "cc-by-4.0",
+      "revision": "93c267c7c5c97dddc7ce98648b086422419e948b",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -1449,6 +1476,7 @@
       "description": "English speech-to-text with token-level timestamps.",
       "base_model": "nvidia/parakeet-tdt-1.1b",
       "license": "cc-by-4.0",
+      "revision": "bc3855fb729e7d925e1e19c99f7b4f0fe195fb44",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -1505,6 +1533,7 @@
       "description": "English speech-to-text with token-level timestamps.",
       "base_model": "nvidia/parakeet-rnnt-1.1b",
       "license": "cc-by-4.0",
+      "revision": "ed23dc01082573cc3d220a4bf12f31797f55eaf6",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -1561,6 +1590,7 @@
       "description": "English speech-to-text with token-level timestamps.",
       "base_model": "nvidia/parakeet-tdt_ctc-1.1b",
       "license": "cc-by-4.0",
+      "revision": "3c3c2d921217597c4b3027e4012b524bad9c8bdc",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -1617,6 +1647,7 @@
       "description": "30-language speech-to-text with auto language detection.",
       "base_model": "Qwen/Qwen3-ASR-1.7B",
       "license": "apache-2.0",
+      "revision": "0e0a596e3959c3f3f2ab7d443a5b6f0f4a4bba6f",
       "language_count": 30,
       "languages": ["zh", "en", "yue", "ar", "de", "fr", "es", "pt", "id", "it", "ko", "ru", "th", "vi", "ja", "tr", "hi", "ms", "nl", "sv", "da", "fi", "pl", "cs", "fil", "fa", "el", "ro", "hu", "mk"],
       "capabilities": {
@@ -1673,6 +1704,7 @@
       "description": "8-language speech-to-text with translation, auto language detection.",
       "base_model": "mistralai/Voxtral-Mini-3B-2507",
       "license": "apache-2.0",
+      "revision": "3d4e8e74a2ada47b400b2957575b2a9c058efe80",
       "language_count": 8,
       "languages": ["en", "fr", "de", "es", "it", "pt", "nl", "hi"],
       "capabilities": {
@@ -1729,6 +1761,7 @@
       "description": "8-language speech-to-text with translation, auto language detection.",
       "base_model": "mistralai/Voxtral-Small-24B-2507",
       "license": "apache-2.0",
+      "revision": "a90f97f24e3d4252647d79f6046ef19d04ad1c5d",
       "language_count": 8,
       "languages": ["en", "fr", "de", "es", "it", "pt", "nl", "hi"],
       "capabilities": {
@@ -1785,6 +1818,7 @@
       "description": "99-language speech-to-text with translation, auto language detection, segment-level timestamps.",
       "base_model": "openai/whisper-tiny",
       "license": "apache-2.0",
+      "revision": "1bd61cda36bbd22c88fc5a33842498a6e1d30f45",
       "language_count": 99,
       "languages": ["en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su"],
       "capabilities": {
@@ -1841,6 +1875,7 @@
       "description": "English speech-to-text with segment-level timestamps.",
       "base_model": "openai/whisper-tiny.en",
       "license": "apache-2.0",
+      "revision": "9dd46e00ef0577e354e658c07b3ac5580e9cd211",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -1897,6 +1932,7 @@
       "description": "99-language speech-to-text with translation, auto language detection, segment-level timestamps.",
       "base_model": "openai/whisper-base",
       "license": "apache-2.0",
+      "revision": "42fcd2077de47c36d779309e0e91b76ec620f56d",
       "language_count": 99,
       "languages": ["en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su"],
       "capabilities": {
@@ -1953,6 +1989,7 @@
       "description": "English speech-to-text with segment-level timestamps.",
       "base_model": "openai/whisper-base.en",
       "license": "apache-2.0",
+      "revision": "0dd374130837de419035c77d76440aad61ca135c",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -2009,6 +2046,7 @@
       "description": "English speech-to-text with segment-level timestamps.",
       "base_model": "openai/whisper-small.en",
       "license": "apache-2.0",
+      "revision": "ab86448a84fcc15a96a9a2216d93a8dac8427da3",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -2065,6 +2103,7 @@
       "description": "99-language speech-to-text with translation, auto language detection, segment-level timestamps.",
       "base_model": "openai/whisper-small",
       "license": "apache-2.0",
+      "revision": "4afdc7942ecf1997f359deae48a63506b062eac4",
       "language_count": 99,
       "languages": ["en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su"],
       "capabilities": {
@@ -2121,6 +2160,7 @@
       "description": "English speech-to-text with segment-level timestamps.",
       "base_model": "openai/whisper-medium.en",
       "license": "apache-2.0",
+      "revision": "e6370f41cfa6d73e2a89969f4f5055f8c7e4dbb6",
       "language_count": 1,
       "languages": ["en"],
       "capabilities": {
@@ -2177,6 +2217,7 @@
       "description": "100-language speech-to-text with translation, auto language detection, segment-level timestamps.",
       "base_model": "openai/whisper-large-v3-turbo",
       "license": "apache-2.0",
+      "revision": "18ada752005f5fddef499256f9a458d0b37a203a",
       "language_count": 100,
       "languages": ["en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su", "yue"],
       "capabilities": {
@@ -2228,6 +2269,7 @@
       "description": "100-language speech-to-text with translation, auto language detection, segment-level timestamps.",
       "base_model": "openai/whisper-large-v3",
       "license": "apache-2.0",
+      "revision": "274ad1d1cf680b7ee53cc70f78461394cd3a344b",
       "language_count": 100,
       "languages": ["en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su", "yue"],
       "capabilities": {
@@ -2279,6 +2321,7 @@
       "description": "99-language speech-to-text with translation, auto language detection, segment-level timestamps.",
       "base_model": "openai/whisper-large",
       "license": "apache-2.0",
+      "revision": "3fd31d8c72ee5fd06ecc6b4a74f85a951c106173",
       "language_count": 99,
       "languages": ["en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su"],
       "capabilities": {
@@ -2335,6 +2378,7 @@
       "description": "99-language speech-to-text with translation, auto language detection, segment-level timestamps.",
       "base_model": "openai/whisper-large-v2",
       "license": "apache-2.0",
+      "revision": "86dd8fbcd7324624f86d826e7fc241f4922ee987",
       "language_count": 99,
       "languages": ["en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su"],
       "capabilities": {
@@ -2391,6 +2435,7 @@
       "description": "Optimized for Taiwanese Mandarin. Code-switching support.",
       "base_model": "MediaTek-Research/Breeze-ASR-25",
       "license": "apache-2.0",
+      "revision": "c827f209c3fcb4956f49f9935ae04a0d88b7fae9",
       "language_count": 2,
       "languages": ["zh", "en"],
       "capabilities": {

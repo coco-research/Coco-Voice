@@ -1,10 +1,9 @@
 //! The bundled, offline model catalog.
 //!
-//! `catalog.json` is generated at build time by `scripts/gen_catalog.py` from the
-//! `handy-computer` Hugging Face org (card `transcribe_cpp` capabilities +
-//! benchmarks, a GGUF header probe for name/params, and local curation for the
-//! recommended set). It is compiled into the binary so Coco Voice ships a complete
-//! model list with zero network access.
+//! `catalog.json` is maintained by hand. `scripts/gen_catalog.py` lists the
+//! `coco-research` Hugging Face org and must not be rerun over it: a rerun would
+//! drop the handy-computer rows and Qwen3-4B. The file is compiled into the binary
+//! so Coco Voice ships a complete model list with zero network access.
 //!
 //! Each entry is normalised into a [`ModelDescriptor`] — the same source-agnostic
 //! shape every other producer (HF discovery, on-disk scans, the legacy table)
@@ -33,8 +32,11 @@ struct CatalogRoot {
 /// are declared; serde ignores the rest (slug, family, license, …).
 #[derive(Clone, Deserialize)]
 struct CatalogModel {
-    /// HF repo id, e.g. `handy-computer/whisper-small-gguf`.
+    /// Catalog id, e.g. `handy-computer/whisper-small-gguf`.
     id: String,
+    /// Hugging Face repo to download. Empty or absent uses `id`.
+    #[serde(default)]
+    source_repo: Option<String>,
     name: String,
     description: String,
     architecture: Option<String>,
@@ -100,12 +102,21 @@ impl TryFrom<CatalogModel> for ModelDescriptor {
     type Error = ();
 
     fn try_from(m: CatalogModel) -> Result<Self, Self::Error> {
-        // The default download file. Its name is folded into the id so a catalog
-        // entry collides (dedups) with the very same file later discovered in
-        // the HF cache — both compute `"{repo_id}/{filename}"`.
+        // The default download file. Its name is folded into the descriptor id so
+        // a catalog entry collides (dedups) with the same file later discovered in
+        // the HF cache — both compute `"{catalog id}/{filename}"`. `source_repo`
+        // can point the download at another repo; the id stays the catalog id.
         let default_filename = default_quant_file(&m.files, m.default_quant.as_deref())
             .map(|f| f.filename.clone())
             .unwrap_or_default();
+        // Owned copy so the fallback can read `m.id` after this borrow ends.
+        let source_repo = m
+            .source_repo
+            .as_deref()
+            .map(str::trim)
+            .filter(|repo| !repo.is_empty())
+            .map(str::to_string);
+        let repo_id = source_repo.unwrap_or_else(|| m.id.clone());
 
         let sha256 = pinned_sha256(m.sha256.as_deref()).map_err(|()| {
             error!(
@@ -117,7 +128,7 @@ impl TryFrom<CatalogModel> for ModelDescriptor {
         Ok(ModelDescriptor {
             id: format!("{}/{}", m.id, default_filename),
             source: ModelSource::HuggingFace {
-                repo_id: m.id,
+                repo_id,
                 revision: m
                     .revision
                     .map(|r| r.trim().to_string())
@@ -799,6 +810,146 @@ mod tests {
                 file.models.contains_key(id),
                 "downloadable model {id} has no licence entry"
             );
+        }
+    }
+
+    fn is_lowercase_40_hex(revision: &str) -> bool {
+        revision.len() == 40
+            && revision
+                .bytes()
+                .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    }
+
+    fn descriptor_for(catalog_id: &str) -> &ModelDescriptor {
+        CATALOG
+            .iter()
+            .find(|d| d.id.starts_with(&format!("{catalog_id}/")))
+            .unwrap_or_else(|| panic!("{catalog_id} is missing from CATALOG"))
+    }
+
+    #[test]
+    fn every_bundled_row_has_a_40_hex_lowercase_revision() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        assert!(!root.models.is_empty());
+        for model in &root.models {
+            let pinned = model
+                .revision
+                .as_deref()
+                .unwrap_or_else(|| panic!("{} has no revision", model.id));
+            assert!(
+                is_lowercase_40_hex(pinned),
+                "{} revision {pinned:?} is not 40 lowercase hex",
+                model.id
+            );
+            match &descriptor_for(&model.id).source {
+                ModelSource::HuggingFace { revision, .. } => {
+                    assert_eq!(revision, pinned, "{}", model.id);
+                    assert_ne!(revision, "main", "{}", model.id);
+                }
+                other => panic!("{} resolved to {other:?}", model.id),
+            }
+        }
+    }
+
+    #[test]
+    fn resolved_download_sources_equal_catalog_ids() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        for model in &root.models {
+            match &descriptor_for(&model.id).source {
+                ModelSource::HuggingFace { repo_id, .. } => {
+                    assert_eq!(repo_id, &model.id, "{}", model.id);
+                    assert!(
+                        !repo_id.contains("coco-research"),
+                        "{repo_id} names coco-research"
+                    );
+                }
+                other => panic!("{} resolved to {other:?}", model.id),
+            }
+        }
+    }
+
+    #[test]
+    fn stay_rows_resolve_to_handy_computer() {
+        for id in [
+            "handy-computer/canary-qwen-2.5b-gguf",
+            "handy-computer/cohere-transcribe-03-2026-gguf",
+        ] {
+            match &descriptor_for(id).source {
+                ModelSource::HuggingFace { repo_id, .. } => {
+                    assert_eq!(repo_id, id);
+                    assert!(
+                        repo_id.starts_with("handy-computer/"),
+                        "{id} resolved to {repo_id}"
+                    );
+                }
+                other => panic!("{id} resolved to {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn qwen_row_resolves_to_qwen_at_the_copy_pin() {
+        match &descriptor_for(QWEN3_REPO).source {
+            ModelSource::HuggingFace {
+                repo_id, revision, ..
+            } => {
+                assert_eq!(repo_id, QWEN3_REPO);
+                assert_eq!(revision, "bc640142c66e1fdd12af0bd68f40445458f3869b");
+            }
+            other => panic!("qwen resolved to {other:?}"),
+        }
+    }
+
+    #[test]
+    fn source_repo_sets_the_download_repo_and_keeps_the_catalog_id() {
+        let row = |source_repo: serde_json::Value| {
+            serde_json::from_value::<CatalogModel>(serde_json::json!({
+                "id": "handy-computer/example-gguf",
+                "source_repo": source_repo,
+                "name": "Example",
+                "description": "",
+                "architecture": null,
+                "languages": [],
+                "capabilities": {
+                    "streaming": false,
+                    "translate": false,
+                    "lang_detect": false
+                },
+                "speed_score": null,
+                "accuracy_score": null,
+                "files": [{
+                    "filename": "example.gguf",
+                    "quant": "Q8_0",
+                    "size_bytes": 1
+                }],
+                "default_quant": null,
+                "recommended_rank": null,
+                "license": "mit"
+            }))
+            .expect("inline catalog row")
+        };
+
+        let pinned =
+            ModelDescriptor::try_from(row(serde_json::json!("coco-research/example-gguf")))
+                .expect("descriptor");
+        assert!(pinned.id.starts_with("handy-computer/example-gguf/"));
+        match pinned.source {
+            ModelSource::HuggingFace { repo_id, .. } => {
+                assert_eq!(repo_id, "coco-research/example-gguf");
+            }
+            other => panic!("inline row resolved to {other:?}"),
+        }
+
+        // Empty and whitespace-only source_repo keep the catalog id.
+        for blank in ["", "  "] {
+            let d = ModelDescriptor::try_from(row(serde_json::json!(blank))).expect("descriptor");
+            assert!(d.id.starts_with("handy-computer/example-gguf/"));
+            match d.source {
+                ModelSource::HuggingFace { repo_id, .. } => {
+                    assert_eq!(repo_id, "handy-computer/example-gguf");
+                }
+                other => panic!("blank source_repo resolved to {other:?}"),
+            }
         }
     }
 }
