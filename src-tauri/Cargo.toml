@@ -139,7 +139,7 @@ transcribe-cpp = { version = "0.1.2", default-features = false }
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
 transcribe-cpp = { version = "0.1.2", default-features = false, features = ["metal"] }
 # On-device cleanup. Windows statically double-links ggml; Linux packaging breaks.
-llama-cpp-2 = { version = "=0.1.156", default-features = false, features = ["metal"] }
+llama-cpp-2 = { version = "=0.1.160", default-features = false, features = ["metal"] }
 # Direct dep so local_llm keeps one decoder across tokens (same version llama-cpp-2 pins).
 encoding_rs = "0.8.35"
 
