@@ -94,6 +94,9 @@ const RecordingOverlay: React.FC = () => {
   const [onDevicePolish, setOnDevicePolish] = useState(false);
   const [polish, setPolish] = useState<PolishSnapshot | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  // The meeting clock comes from the Rust side, one event a second, so a
+  // dictation that re-shows the pill never restarts it.
+  const meetingElapsedRef = useRef(0);
   // Bumped on each new streaming session so the Live card remounts fresh (replays
   // the pop-in, and never animates in from the previous panel's open size).
   const [session, setSession] = useState(0);
@@ -224,8 +227,8 @@ const RecordingOverlay: React.FC = () => {
           setElapsed(0);
           setSession((s) => s + 1); // remount the card fresh for this session
         }
-        // The meeting pill uses the same window and its own clock.
-        if (overlayState === "meeting") setElapsed(0);
+        // The meeting pill reads its clock from the Rust event below.
+        if (overlayState === "meeting") setElapsed(meetingElapsedRef.current);
         setIsVisible(true);
       });
 
@@ -255,6 +258,18 @@ const RecordingOverlay: React.FC = () => {
         setPhase(payload.phase);
         if (payload.kind) setWorkKind(payload.kind);
       });
+
+      // The meeting clock is authoritative: it survives the overlay being
+      // re-shown by a dictation take during a meeting.
+      const unlistenMeeting = await listen<{ elapsed_secs: number }>(
+        "meeting-state-changed",
+        (event) => {
+          meetingElapsedRef.current = event.payload.elapsed_secs;
+          if (stateRef.current === "meeting") {
+            setElapsed(event.payload.elapsed_secs);
+          }
+        },
+      );
 
       const unlistenCleanup = await events.cleanupStatus.listen((event) => {
         // A real status arrives while transcribing, processing, or in the
@@ -286,6 +301,7 @@ const RecordingOverlay: React.FC = () => {
         unlistenLevel();
         unlistenStream();
         unlistenPhase();
+        unlistenMeeting();
         unlistenCleanup();
         unlistenProgress();
       };
@@ -294,9 +310,10 @@ const RecordingOverlay: React.FC = () => {
     setupEventListeners();
   }, []);
 
-  // Elapsed timer while the Live overlay or the meeting pill is visible.
+  // Elapsed timer while the Live overlay is visible. The meeting pill reads its
+  // clock from meeting-state-changed instead.
   useEffect(() => {
-    if ((state !== "streaming" && state !== "meeting") || !isVisible) return;
+    if (state !== "streaming" || !isVisible) return;
     const id = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(id);
   }, [state, isVisible]);
