@@ -16,7 +16,7 @@
     "format:backend": "cd src-tauri && cargo fmt",
     "test:playwright": "playwright test",
     "test:playwright:ui": "playwright test --ui",
-    "test:static": "bun test scripts/no-donate.test.ts scripts/check-tauri-versions.test.ts scripts/mirror-models.test.ts scripts/mirror-templates.test.ts scripts/mirror-render.test.ts scripts/mirror-upload.test.ts",
+    "test:static": "bun test scripts/no-donate.test.ts scripts/check-tauri-versions.test.ts scripts/sbom-model-licences.test.ts scripts/mirror-models.test.ts scripts/mirror-templates.test.ts scripts/mirror-render.test.ts scripts/mirror-upload.test.ts",
     "check:translations": "bun scripts/check-translations.ts",
     "check:tauri-versions": "bun scripts/check-tauri-versions.ts",
     "mirror:models": "bun scripts/mirror-models.ts",
