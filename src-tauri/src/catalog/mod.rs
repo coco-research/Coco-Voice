@@ -452,8 +452,12 @@ mod tests {
         let root: serde_json::Value = serde_json::from_str(include_str!("catalog.json")).unwrap();
         let source_sha256 = |pinned: Option<&str>| {
             let mut entry = root["models"][0].clone();
-            if let Some(hash) = pinned {
-                entry["sha256"] = serde_json::json!(hash);
+            // Every bundled row carries a hash now, so drop it to test a row without one.
+            match pinned {
+                Some(hash) => entry["sha256"] = serde_json::json!(hash),
+                None => {
+                    entry.as_object_mut().unwrap().remove("sha256");
+                }
             }
             let model: CatalogModel = serde_json::from_value(entry).unwrap();
             ModelDescriptor::try_from(model).map(|d| match d.source {
@@ -625,6 +629,40 @@ mod tests {
                 let h = normalized.unwrap();
                 assert_eq!(h.len(), 64);
                 assert_eq!(&h, hash);
+            }
+        }
+    }
+
+    #[test]
+    fn every_bundled_row_sha256_is_on_its_descriptor() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json"))
+            .expect("bundled catalog.json is valid JSON matching the catalog schema");
+        assert_eq!(root.models.len(), CATALOG.len());
+        for model in &root.models {
+            let raw = model
+                .sha256
+                .as_deref()
+                .unwrap_or_else(|| panic!("{} has no sha256", model.id));
+            let normalized = normalize_sha256(Some(raw))
+                .unwrap_or_else(|| panic!("{} sha256 is not 64 lowercase hex: {raw}", model.id));
+            assert_eq!(normalized.len(), 64, "{}", model.id);
+            assert_eq!(
+                normalized, raw,
+                "{} sha256 must be stored lowercase",
+                model.id
+            );
+
+            let prefix = format!("{}/", model.id);
+            let matched: Vec<_> = CATALOG
+                .iter()
+                .filter(|d| d.id.starts_with(&prefix))
+                .collect();
+            assert_eq!(matched.len(), 1, "{}", model.id);
+            match &matched[0].source {
+                ModelSource::HuggingFace {
+                    sha256: Some(hash), ..
+                } => assert_eq!(hash, &normalized, "{}", model.id),
+                other => panic!("{} source does not carry the pin: {other:?}", model.id),
             }
         }
     }
