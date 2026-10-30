@@ -1,0 +1,199 @@
+[
+  {
+    "id": "V1",
+    "journey": "Hold the key, speak, release, and the words land in the front app.",
+    "check": "End to end dictation. No runnable check yet: needs a downloaded speech model. The WER harness covers it once the RSI baseline models are on this Mac.",
+    "tests": []
+  },
+  {
+    "id": "V2",
+    "journey": "Push-to-talk and toggle modes each start and stop recording exactly once.",
+    "check": "One start and one stop per gesture, including modifier keys and X11 autorepeat. No device or model.",
+    "tests": [
+      "genuine_release_after_grace_stops_recording_once",
+      "press_matching_pending_release_cancels_without_recording_state",
+      "push_to_talk_press_matching_pending_release_cancels_release",
+      "push_to_talk_release_while_recording_defers_release",
+      "toggle_mode_press_and_release_pass_through",
+      "x11_autorepeat_burst_does_not_toggle_recording"
+    ]
+  },
+  {
+    "id": "V3",
+    "journey": "Paste is safe: text is kept when paste fails, and secure input blocks keystrokes.",
+    "check": "Clipboard keeps the full text on a failed paste, and secure input sends no keys. No device or model.",
+    "tests": [
+      "keep_text_on_failure_writes_the_full_text_once",
+      "keep_text_on_failure_keeps_the_original_error_when_the_write_fails",
+      "paste_allowed_errs_and_sends_no_keys_when_secure_input_is_on",
+      "paste_allowed_proceeds_when_secure_input_is_off",
+      "paste_guard_rejects_thread_named_main"
+    ]
+  },
+  {
+    "id": "V4",
+    "journey": "Spoken corrections (\"scratch that\", \"no wait\") are removed from the transcript.",
+    "check": "Removal needs the on-device model. No runnable check yet: the cleanup eval covers it when the model is on this Mac, and the prompt tests alone do not prove the journey.",
+    "tests": []
+  },
+  {
+    "id": "V5",
+    "journey": "Custom words and corrections are applied to the transcript.",
+    "check": "Custom word and correction substitution, including multi-word and ampersand cases. No model.",
+    "tests": [
+      "test_apply_custom_words_exact_match",
+      "test_apply_custom_words_fuzzy_match",
+      "test_apply_custom_words_ngram_two_words",
+      "test_apply_custom_words_ngram_three_words",
+      "test_apply_custom_words_prefers_longer_ngram",
+      "test_apply_custom_words_ngram_preserves_case",
+      "test_apply_custom_words_ngram_with_spaces_in_custom",
+      "test_apply_custom_words_trailing_number_not_doubled",
+      "test_apply_custom_words_matches_ampersand_word",
+      "test_apply_custom_words_matches_spoken_ampersand_word",
+      "test_apply_custom_words_preserves_ampersand_word",
+      "test_apply_corrections_case_insensitive_whole_word",
+      "test_apply_corrections_respects_word_boundaries",
+      "test_apply_corrections_multi_word_from",
+      "test_apply_corrections_literal_replacement",
+      "test_apply_corrections_empty_and_noop"
+    ]
+  },
+  {
+    "id": "V6",
+    "journey": "Cleanup runs only where the user chose, and never moves to a cloud provider they did not pick.",
+    "check": "Provider selection and fallback rules. No model or device.",
+    "tests": [
+      "cleanup_never_moves_to_a_cloud_provider_the_user_did_not_select",
+      "no_selected_provider_skips_even_when_the_on_device_model_is_ready",
+      "a_usable_selected_provider_runs_without_asking_about_the_fallback",
+      "preconditions_keep_cleanup_off_whatever_the_provider"
+    ]
+  },
+  {
+    "id": "V7",
+    "journey": "Download a model: pinned commit, verified sha256, licence entry, held models refused.",
+    "check": "Catalog pins, hashes, licence rows, and held model refusal. No device or model.",
+    "tests": [
+      "every_bundled_row_has_a_40_hex_lowercase_revision",
+      "bundled_catalog_sha256_pins_are_valid",
+      "every_downloadable_model_has_a_licence_entry",
+      "sha256_matches_catalog_hash_and_rejects_different_bytes",
+      "held_hugging_face_id_is_still_refused",
+      "held_blob_handy_entry_is_not_offered_and_download_is_refused"
+    ]
+  },
+  {
+    "id": "V8",
+    "journey": "A model already on disk is reused instead of downloaded again.",
+    "check": "Pinned commit snapshot lookup and the reuse marker. No model.",
+    "tests": [
+      "pinned_commit_snapshot_resolves_without_refs",
+      "pinned_commit_without_snapshot_file_is_none",
+      "marker_rejects_len_or_mtime_change_and_old_two_line_marker"
+    ]
+  },
+  {
+    "id": "V9",
+    "journey": "History survives an app restart.",
+    "check": "History is read back after a fresh store. No model.",
+    "tests": ["transcription_history_survives_app_restart"]
+  },
+  {
+    "id": "V10",
+    "journey": "Changing a shortcut: a failed register restores the old binding.",
+    "check": "Shortcut swap and restore on failure. No device.",
+    "tests": [
+      "failed_register_restores_old_binding",
+      "successful_swap_does_not_reregister_old",
+      "failed_restore_is_reported"
+    ]
+  },
+  {
+    "id": "V11",
+    "journey": "Microphone problems are named, and the device only changes between takes.",
+    "check": "Permission and missing device errors are classified; mid-take device changes are refused. No model.",
+    "tests": [
+      "detects_permission_denied",
+      "detects_no_input_device",
+      "detects_access_is_denied",
+      "device_change_only_allowed_between_takes"
+    ]
+  },
+  {
+    "id": "V12",
+    "journey": "Remote control from the command line (--toggle-transcription and friends).",
+    "check": "No runnable check yet: the single instance path needs a running app. No model.",
+    "tests": []
+  },
+  {
+    "id": "V13",
+    "journey": "First run: onboarding, permissions, and the first model download.",
+    "check": "No runnable check yet: the flow needs a running app and a download. No model.",
+    "tests": []
+  },
+  {
+    "id": "V14",
+    "journey": "Portable mode reads its marker file and nothing else enables it.",
+    "check": "Magic string enables portable mode; wrong or missing file does not. No device or model.",
+    "tests": [
+      "test_valid_magic_string_enables_portable",
+      "test_wrong_content_does_not_enable_portable",
+      "test_missing_file_does_not_enable_portable"
+    ]
+  },
+  {
+    "id": "MJ1",
+    "journey": "Meetings: start and stop a meeting.",
+    "check": "Not built yet; no runnable check.",
+    "tests": []
+  },
+  {
+    "id": "MJ2",
+    "journey": "Meetings: live transcript while the meeting runs.",
+    "check": "Not built yet; no runnable check.",
+    "tests": []
+  },
+  {
+    "id": "MJ3",
+    "journey": "Meetings: notepad and AI notes.",
+    "check": "Not built yet; no runnable check.",
+    "tests": []
+  },
+  {
+    "id": "MJ4",
+    "journey": "Meetings: list all meetings.",
+    "check": "Not built yet; no runnable check.",
+    "tests": []
+  },
+  {
+    "id": "MJ5",
+    "journey": "Meetings: ask one meeting.",
+    "check": "Not built yet; no runnable check.",
+    "tests": []
+  },
+  {
+    "id": "MJ6",
+    "journey": "Meetings: coming up next.",
+    "check": "Not built yet; no runnable check.",
+    "tests": []
+  },
+  {
+    "id": "MJ7",
+    "journey": "Meetings: folders and templates.",
+    "check": "Not built yet; no runnable check.",
+    "tests": []
+  },
+  {
+    "id": "MJ8",
+    "journey": "Meetings: notes stored as files.",
+    "check": "Not built yet; no runnable check.",
+    "tests": []
+  },
+  {
+    "id": "MJ9",
+    "journey": "Meetings: ask across all meetings.",
+    "check": "Not built yet; no runnable check.",
+    "tests": []
+  }
+]
