@@ -1125,6 +1125,22 @@ pub fn get_default_settings() -> AppSettings {
         },
     );
 
+    // Meeting shortcut. Empty by default, same pattern as "correction": the app
+    // never grabs a key on its own. Pressing it only opens the consent dialog; it
+    // never starts a recording, so there is nothing to grab until the user assigns
+    // a key in settings.
+    #[cfg(feature = "meetings")]
+    bindings.insert(
+        "meeting".to_string(),
+        ShortcutBinding {
+            id: "meeting".to_string(),
+            name: "Start Notes".to_string(),
+            description: "Opens the meeting consent dialog. Assign a key to enable.".to_string(),
+            default_binding: String::new(),
+            current_binding: String::new(),
+        },
+    );
+
     AppSettings {
         settings_schema_version: default_settings_schema_version(),
         bindings,
