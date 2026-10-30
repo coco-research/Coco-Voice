@@ -62,13 +62,44 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async meetingStatus(): Promise<MeetingStatus> {
+    return await TAURI_INVOKE("meeting_status");
+  },
+  async meetingSegments(
+    meetingId: number,
+  ): Promise<Result<MeetingSegmentView[], string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("meeting_segments", { meetingId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
 };
 
 /** user-defined types **/
 
+export type MeetingChannel = "me" | "others";
 export type MeetingRefusal = "already_recording";
+export type MeetingSegmentView = {
+  meeting_id: number;
+  channel: MeetingChannel;
+  start_ms: number;
+  end_ms: number;
+  text: string;
+};
 export type MeetingState = "idle" | "consent_open" | "recording" | "stopping";
-export type MeetingStatus = { state: MeetingState; elapsed_secs: number };
+export type MeetingStatus = {
+  state: MeetingState;
+  elapsed_secs: number;
+  meeting_id: number | null;
+  mic_name: string | null;
+  warnings: MeetingWarning[];
+};
+export type MeetingWarning = "system_audio_silent" | "mic_fell_back_to_default";
 
 /** tauri-specta globals **/
 
