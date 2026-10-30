@@ -158,6 +158,8 @@ tauri-utils = { git = "https://github.com/cjpais/tauri.git", branch = "handy-2.1
 
 [dev-dependencies]
 tempfile = "3"
+# Mock runtime for the meetings unit tests; dev-only, so it never reaches a build.
+tauri = { version = "2.10.2", features = ["test"] }
 
 [profile.release]
 lto = true

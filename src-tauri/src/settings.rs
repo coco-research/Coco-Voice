@@ -1185,7 +1185,7 @@ pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
     settings
 }
 
-pub fn get_settings(app: &AppHandle) -> AppSettings {
+pub fn get_settings<R: tauri::Runtime>(app: &AppHandle<R>) -> AppSettings {
     let store = match app.store(crate::portable::store_path(SETTINGS_STORE_PATH)) {
         Ok(store) => store,
         Err(e) => {
@@ -1405,7 +1405,7 @@ fn apply_settings_migrations(
     updated
 }
 
-pub fn write_settings(app: &AppHandle, settings: AppSettings) {
+pub fn write_settings<R: tauri::Runtime>(app: &AppHandle<R>, settings: AppSettings) {
     if STORE_READ_FAILED.load(Ordering::SeqCst) {
         error!("Settings were read as defaults this session; not saving over the store");
         return;
@@ -1448,7 +1448,10 @@ fn locked_update<R>(
 /// Prefer this over `get_settings` + `write_settings` so a slow caller cannot
 /// clobber a change another caller saved in between. `f` must not call
 /// `update_settings` itself (the lock is not reentrant).
-pub fn update_settings<R>(app: &AppHandle, f: impl FnOnce(&mut AppSettings) -> R) -> R {
+pub fn update_settings<T, R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    f: impl FnOnce(&mut AppSettings) -> T,
+) -> T {
     locked_update(
         || get_settings(app),
         |settings| write_settings(app, settings),
