@@ -16,7 +16,7 @@
     "format:backend": "cd src-tauri && cargo fmt",
     "test:playwright": "playwright test",
     "test:playwright:ui": "playwright test --ui",
-    "test:static": "bun test scripts/no-donate.test.ts scripts/check-tauri-versions.test.ts",
+    "test:static": "bun test scripts/no-donate.test.ts scripts/check-tauri-versions.test.ts scripts/privacy-scan.test.ts",
     "check:translations": "bun scripts/check-translations.ts",
     "check:tauri-versions": "bun scripts/check-tauri-versions.ts",
     "postinstall": "bun scripts/check-nix-deps.ts"
