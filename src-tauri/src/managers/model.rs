@@ -177,6 +177,9 @@ pub struct ModelDescriptor {
     pub description: String,
     pub engine_type: EngineType,
     pub caps: CapabilityProbe,
+    /// Catalog `family` (`voxtral`, `parakeet`, …). `None` when the row omits it.
+    #[cfg_attr(not(feature = "meetings"), allow(dead_code))]
+    pub family: Option<String>,
     pub files: Vec<QuantFile>,
     pub default_quant: Option<String>,
     pub speed_score: f32,
@@ -750,8 +753,20 @@ impl<'a> Drop for DownloadCleanup<'a> {
     }
 }
 
+/// Production always stores the handle. Meeting tests build a manager that
+/// never reads it, so the slot can be empty there.
+struct AppSlot(Option<AppHandle>);
+
+impl std::ops::Deref for AppSlot {
+    type Target = AppHandle;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref().expect("model manager has no app handle")
+    }
+}
+
 pub struct ModelManager {
-    app_handle: AppHandle,
+    app_handle: AppSlot,
     models_dir: PathBuf,
     available_models: Mutex<HashMap<String, ModelInfo>>,
     cancel_flags: Arc<Mutex<HashMap<String, DownloadCancel>>>,
@@ -1332,7 +1347,7 @@ impl ModelManager {
         Self::discover_hf_cache_models(&mut available_models);
 
         let manager = Self {
-            app_handle: app_handle.clone(),
+            app_handle: AppSlot(Some(app_handle.clone())),
             models_dir,
             available_models: Mutex::new(available_models),
             cancel_flags: Arc::new(Mutex::new(HashMap::new())),
@@ -1354,6 +1369,21 @@ impl ModelManager {
         manager.auto_select_model_if_needed()?;
 
         Ok(manager)
+    }
+
+    /// Empty registry for tests. Does not scan disk or the network.
+    /// The app slot stays empty: meeting tests never call a method that emits.
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn for_test() -> Self {
+        Self {
+            app_handle: AppSlot(None),
+            models_dir: std::env::temp_dir(),
+            available_models: Mutex::new(HashMap::new()),
+            cancel_flags: Arc::new(Mutex::new(HashMap::new())),
+            next_download_generation: AtomicU64::new(1),
+            extracting_models: Arc::new(Mutex::new(HashSet::new())),
+            is_rescanning: Arc::new(AtomicBool::new(false)),
+        }
     }
 
     pub fn get_available_models(&self) -> Vec<ModelInfo> {
