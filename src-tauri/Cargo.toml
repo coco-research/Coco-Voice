@@ -142,6 +142,8 @@ transcribe-cpp = { version = "0.1.2", default-features = false, features = ["met
 llama-cpp-2 = { version = "=0.1.156", default-features = false, features = ["metal"] }
 # Direct dep so local_llm keeps one decoder across tokens (same version llama-cpp-2 pins).
 encoding_rs = "0.8.35"
+# Process tap (core_audio). default = ["full"] pulls every Apple framework.
+cidre = { version = "0.29.0", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk-layer-shell = { version = "0.8", features = ["v0_6"] }
@@ -164,3 +166,7 @@ lto = true
 codegen-units = 1
 strip = true
 panic = "unwind"
+
+[features]
+default = []
+meetings = ["dep:cidre"]

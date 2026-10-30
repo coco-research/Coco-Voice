@@ -6,3 +6,7 @@ Models are not bundled with the app. They are downloaded at runtime, and each ke
 The app offers only models under MIT, Apache-2.0 or CC-BY-4.0.
 
 Models under a non-commercial, custom or uncleared license are not offered. They are listed in LEGAL_HOLD_IDS in src-tauri/src/catalog/mod.rs, and any other catalog license is held by default.
+
+cidre (https://github.com/yury/cidre): Copyright (c) Yury Korolev, used under the MIT License.
+
+DTLN-aec: Copyright (c) 2020 Nils L. Westhausen (MIT). Weights are not shipped.
