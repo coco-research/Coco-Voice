@@ -52,7 +52,9 @@ test("today's catalog gives 44 models", () => {
     (entry) => entry.id === "handy-computer/canary-180m-flash-gguf",
   );
   expect(canary?.filename).toBe("canary-180m-flash-Q8_0.gguf");
-  expect(canary?.sha256).toBeNull();
+  expect(canary?.sha256).toBe(
+    "f942ab746040b531a29ab78ca3afc8dc9564efd8e4c942b5541e53644be9c408",
+  );
   const qwen = set.find((entry) => entry.id === "Qwen/Qwen3-4B-GGUF");
   expect(qwen?.sha256).toBe(
     "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
