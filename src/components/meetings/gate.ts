@@ -6,6 +6,7 @@ export interface MeetingsUi {
     descriptionMode?: "inline" | "tooltip";
     grouped?: boolean;
   }>;
+  ConsentDialog: ComponentType;
   MeetingsView: ComponentType;
   icon: ComponentType<{
     width?: number | string;
