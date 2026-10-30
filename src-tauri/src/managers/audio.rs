@@ -246,6 +246,42 @@ impl RecordingState {
     }
 }
 
+pub const MIC_CHANGE_DURING_TAKE: &str = "Cannot change the microphone while recording";
+pub const MIC_CHANGE_DURING_MEETING: &str =
+    "Cannot change the microphone while a meeting is recording";
+
+/// The only gate `try_start_recording` applies to a new take. A meeting is
+/// deliberately absent: its second recorder never sets `RecordingState`, so a
+/// dictation take during a meeting must not be refused as "Already recording".
+pub fn take_allowed(state: &RecordingState) -> bool {
+    matches!(state, RecordingState::Idle)
+}
+
+/// Why a microphone change is refused, or `None` when it is allowed. Dictation
+/// refuses mid-take; a meeting refuses for as long as its Me track holds the
+/// device. Both restart the stream and drop whatever was in flight.
+pub fn mic_change_refusal(state: &RecordingState, meeting_recording: bool) -> Option<&'static str> {
+    if !state.allows_device_change() {
+        return Some(MIC_CHANGE_DURING_TAKE);
+    }
+    if meeting_recording {
+        return Some(MIC_CHANGE_DURING_MEETING);
+    }
+    None
+}
+
+/// Whether a meeting's Me track currently holds the input device.
+fn meeting_mic_recording() -> bool {
+    #[cfg(feature = "meetings")]
+    {
+        crate::managers::meeting_capture::mic_recording_active()
+    }
+    #[cfg(not(feature = "meetings"))]
+    {
+        false
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum MicrophoneMode {
     AlwaysOn,
@@ -648,7 +684,7 @@ impl AudioRecordingManager {
     ) -> Result<(), String> {
         let mut state = self.state.lock().unwrap();
 
-        if let RecordingState::Idle = *state {
+        if take_allowed(&state) {
             // Ensure microphone is open in on-demand mode
             if matches!(*self.mode.lock().unwrap(), MicrophoneMode::OnDemand) {
                 // Cancel any pending lazy close
@@ -680,10 +716,8 @@ impl AudioRecordingManager {
         // Hold the state lock for the whole restart so a take cannot begin
         // half-way through it (try_start_recording takes this lock first too).
         let state = self.state.lock().unwrap();
-        if !state.allows_device_change() {
-            return Err(anyhow::anyhow!(
-                "Cannot change the microphone while recording"
-            ));
+        if let Some(reason) = mic_change_refusal(&state, meeting_mic_recording()) {
+            return Err(anyhow::anyhow!(reason));
         }
         // Device settings changed; drop the cached resolution so the next
         // open re-enumerates. (The name-keyed cache would miss anyway; this
