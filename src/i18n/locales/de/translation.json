@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "Nach dem Einfügen bleibt der diktierte Text in der Zwischenablage, damit du ihn noch einmal einfügen kannst. Er ersetzt, was du vorher kopiert hattest. Du kannst das unter Einstellungen > Erweitert > Zwischenablage-Verhalten ausschalten."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }

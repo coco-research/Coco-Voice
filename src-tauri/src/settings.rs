@@ -507,6 +507,12 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    /// Beta switch for Meetings. Only present when the crate is built with
+    /// `--features meetings`. A default build has no field, so a stored
+    /// `meetings_enabled` key is ignored.
+    #[cfg(feature = "meetings")]
+    #[serde(default = "default_meetings_enabled")]
+    pub meetings_enabled: bool,
 }
 
 fn default_model() -> String {
@@ -580,6 +586,47 @@ fn default_overlay_style() -> OverlayStyle {
     return OverlayStyle::None;
     #[cfg(not(target_os = "linux"))]
     return OverlayStyle::Live;
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn default_meetings_enabled() -> bool {
+    false
+}
+
+/// Meetings UI shows only when the setting is on and `os` is macOS 14.4 or newer.
+/// `version` is `major.minor` with an optional patch, the shape `tauri_plugin_os::version` prints.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn meetings_visible(meetings_enabled: bool, os: &str, version: &str) -> bool {
+    meetings_enabled && macos_at_least_14_4(os, version)
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn macos_at_least_14_4(os: &str, version: &str) -> bool {
+    if os != "macos" {
+        return false;
+    }
+    let mut parts = version.split('.');
+    let Some(major) = parts.next().and_then(|part| part.parse::<u64>().ok()) else {
+        return false;
+    };
+    let minor = match parts.next() {
+        Some(part) => match part.parse::<u64>() {
+            Ok(minor) => minor,
+            Err(_) => return false,
+        },
+        None => 0,
+    };
+    major > 14 || (major == 14 && minor >= 4)
+}
+
+/// Same rule as [`meetings_visible`], using the OS plugin already registered on the app.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn meetings_visible_on_this_host(meetings_enabled: bool) -> bool {
+    meetings_visible(
+        meetings_enabled,
+        tauri_plugin_os::platform(),
+        &tauri_plugin_os::version().to_string(),
+    )
 }
 
 fn default_vad_enabled() -> bool {
@@ -1145,6 +1192,8 @@ pub fn get_default_settings() -> AppSettings {
         extra_recording_buffer_ms: 0,
         vad_enabled: default_vad_enabled(),
         overlay_style: default_overlay_style(),
+        #[cfg(feature = "meetings")]
+        meetings_enabled: default_meetings_enabled(),
     }
 }
 
@@ -2623,5 +2672,47 @@ mod tests {
         assert_eq!(loaded.custom_words, vec!["Coco".to_string()]);
 
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn meetings_default_off_and_hidden_below_14_4() {
+        assert!(!default_meetings_enabled());
+        // The plugin read must not show Meetings while the setting is off.
+        assert!(!meetings_visible_on_this_host(false));
+
+        assert!(!meetings_visible(false, "macos", "14.4"));
+        assert!(!meetings_visible(false, "macos", "15.0"));
+        assert!(!meetings_visible(true, "macos", "14.3"));
+        assert!(!meetings_visible(true, "macos", "14.3.1"));
+        assert!(!meetings_visible(true, "macos", "10.15.7"));
+        assert!(!meetings_visible(true, "macos", "14"));
+        assert!(meetings_visible(true, "macos", "14.4"));
+        assert!(meetings_visible(true, "macos", "14.4.0"));
+        assert!(meetings_visible(true, "macos", "14.4.1"));
+        assert!(meetings_visible(true, "macos", "15"));
+        assert!(meetings_visible(true, "macos", "26.0.1"));
+        assert!(!meetings_visible(true, "windows", "14.4"));
+        assert!(!meetings_visible(true, "linux", "14.4"));
+        assert!(!meetings_visible(true, "macos", "Unknown"));
+
+        #[cfg(feature = "meetings")]
+        {
+            assert!(!get_default_settings().meetings_enabled);
+            let missing: AppSettings = serde_json::from_value(serde_json::json!({})).unwrap();
+            assert!(!missing.meetings_enabled);
+            let enabled: AppSettings =
+                serde_json::from_value(serde_json::json!({ "meetings_enabled": true })).unwrap();
+            assert!(enabled.meetings_enabled);
+        }
+        #[cfg(not(feature = "meetings"))]
+        {
+            let settings: AppSettings =
+                serde_json::from_value(serde_json::json!({ "meetings_enabled": true }))
+                    .expect("a stored meetings_enabled key is ignored without the feature");
+            assert!(serde_json::to_value(&settings)
+                .unwrap()
+                .get("meetings_enabled")
+                .is_none());
+        }
     }
 }

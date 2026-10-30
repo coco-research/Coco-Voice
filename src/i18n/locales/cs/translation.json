@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "Po vložení zůstane nadiktovaný text ve schránce, abyste ho mohli vložit znovu. Nahradí to, co jste předtím zkopírovali. Vypnout to můžete v Nastavení > Pokročilé > Práce se schránkou."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }

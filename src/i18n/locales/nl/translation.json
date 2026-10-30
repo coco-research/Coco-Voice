@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "Na het plakken blijft je gedicteerde tekst op het klembord staan, zodat je hem opnieuw kunt plakken. Hij vervangt wat je eerder had gekopieerd. Je kunt dit uitzetten via Instellingen > Geavanceerd > Klembordbeheer."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }
