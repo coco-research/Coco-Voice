@@ -546,6 +546,33 @@ fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
     0
 }
 
+/// Meetings command names registered below. Empty unless the `meetings` feature is on.
+#[cfg_attr(not(test), allow(dead_code))]
+fn meetings_command_names() -> &'static [&'static str] {
+    #[cfg(feature = "meetings")]
+    {
+        &["change_meetings_enabled_setting"]
+    }
+    #[cfg(not(feature = "meetings"))]
+    {
+        &[]
+    }
+}
+
+#[cfg(feature = "meetings")]
+macro_rules! collect_app_commands {
+    ($($($seg:ident)::+),* $(,)?) => {
+        collect_commands![$($($seg)::+,)* shortcut::change_meetings_enabled_setting]
+    };
+}
+
+#[cfg(not(feature = "meetings"))]
+macro_rules! collect_app_commands {
+    ($($($seg:ident)::+),* $(,)?) => {
+        collect_commands![$($($seg)::+),*]
+    };
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run(cli_args: CliArgs) {
     // --cleanup-eval scores the on-device cleanup model and exits before any
@@ -563,7 +590,7 @@ pub fn run(cli_args: CliArgs) {
     let console_filter = build_console_filter();
 
     let specta_builder = Builder::<tauri::Wry>::new()
-        .commands(collect_commands![
+        .commands(collect_app_commands![
             shortcut::change_binding,
             shortcut::reset_binding,
             shortcut::change_ptt_setting,
@@ -685,12 +712,19 @@ pub fn run(cli_args: CliArgs) {
         ]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
-    specta_builder
-        .export(
-            Typescript::default().bigint(BigIntExportBehavior::Number),
-            "../src/bindings.ts",
-        )
-        .expect("Failed to export typescript bindings");
+    {
+        // A meetings build writes its own bindings file so `src/bindings.ts` stays the default build's.
+        #[cfg(feature = "meetings")]
+        let bindings_path = "../src/bindings.meetings.ts";
+        #[cfg(not(feature = "meetings"))]
+        let bindings_path = "../src/bindings.ts";
+        specta_builder
+            .export(
+                Typescript::default().bigint(BigIntExportBehavior::Number),
+                bindings_path,
+            )
+            .expect("Failed to export typescript bindings");
+    }
 
     let invoke_handler = specta_builder.invoke_handler();
 
@@ -984,4 +1018,27 @@ pub fn run(cli_args: CliArgs) {
             }
             _ => {}
         });
+}
+
+#[cfg(test)]
+mod meetings_gate_tests {
+    use super::meetings_command_names;
+
+    #[test]
+    fn meetings_commands_gated_by_feature() {
+        let names = meetings_command_names();
+        #[cfg(not(feature = "meetings"))]
+        assert!(
+            names.is_empty(),
+            "a build without the meetings feature registers no meetings commands"
+        );
+        #[cfg(feature = "meetings")]
+        {
+            assert!(
+                !names.is_empty(),
+                "a meetings build registers the meetings setting command"
+            );
+            assert!(names.contains(&"change_meetings_enabled_setting"));
+        }
+    }
 }

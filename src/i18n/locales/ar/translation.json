@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "بعد اللصق، يبقى النص الذي أملَيته في الحافظة لتتمكن من لصقه مرة أخرى. يحل محل ما نسخته من قبل. يمكنك إيقاف ذلك من ...الإعدادات > متقدم > التعامل مع الحافظة."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }
