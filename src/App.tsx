@@ -434,6 +434,7 @@ function App() {
         className="h-screen flex flex-col select-none cursor-default"
       >
         <WhatsNewGate />
+        {meetingsUi && <meetingsUi.ConsentDialog />}
         {/* Main content area that takes remaining space */}
         <div className="flex-1 flex overflow-hidden">
           <Sidebar

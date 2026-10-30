@@ -702,6 +702,20 @@
     "clipboardDefault": "Yapıştırdıktan sonra dikte ettiğiniz metin panoda kalır, böylece yeniden yapıştırabilirsiniz. Daha önce kopyaladığınız şeyin yerini alır. Bunu Ayarlar > Gelişmiş > Pano Yönetimi bölümünden kapatabilirsiniz."
   },
   "meetings": {
+    "consent": {
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
     "sidebar": "Meetings",
     "toggle": {
       "label": "Meetings",
