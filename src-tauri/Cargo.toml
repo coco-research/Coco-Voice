@@ -81,7 +81,7 @@ specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
 tauri-plugin-dialog = "2.6"
-hf-hub = { git = "https://github.com/cjpais/hf-hub", branch = "cancellable-downloads", features = [
+hf-hub = { git = "https://github.com/coco-research/hf-hub", rev = "63b60347570622bf898f49e7f10c2429b8dd21b6", features = [
   "tokio",
 ] }
 
