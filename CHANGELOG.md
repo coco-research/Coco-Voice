@@ -6,6 +6,21 @@ from the conventional commit titles when a release is cut. The user-facing notes
 for each version are in [src/content/release-notes/](src/content/release-notes/)
 and on the [GitHub Release](https://github.com/coco-research/Coco-Voice/releases).
 
+## [0.10.1](https://github.com/coco-research/Coco-Voice/compare/v0.10.0...v0.10.1) (2026-10-31)
+
+
+### Fixed
+
+* apply the legal hold to every model source, not only Hugging Face ([#173](https://github.com/coco-research/Coco-Voice/issues/173)) ([5ce6a28](https://github.com/coco-research/Coco-Voice/commit/5ce6a284f397aac084dd87c6c8b78c3befce387a))
+* cancelling a model download stops only that download ([#135](https://github.com/coco-research/Coco-Voice/issues/135)) ([b306eb3](https://github.com/coco-research/Coco-Voice/commit/b306eb344cbed41e1949494316c992a618b88c6c))
+* check every catalog model's download against its SHA-256 ([#180](https://github.com/coco-research/Coco-Voice/issues/180)) ([9a7e453](https://github.com/coco-research/Coco-Voice/commit/9a7e4535896f4e9c8bb70c70acf821b040c9ba0f))
+* format scripts/wer.ts so main's code-quality check passes again ([#183](https://github.com/coco-research/Coco-Voice/issues/183)) ([113e3bc](https://github.com/coco-research/Coco-Voice/commit/113e3bc2439a6fd482abef512b442670ef0974c1))
+* keep models people already downloaded when the catalog pins, hashes or moves them ([#193](https://github.com/coco-research/Coco-Voice/issues/193)) ([89b8bae](https://github.com/coco-research/Coco-Voice/commit/89b8baecdb8482f2809abbd166c7109ff0205415))
+* label Whisper large-v3-turbo MIT and pin licences to the converted source ([#181](https://github.com/coco-research/Coco-Voice/issues/181)) ([0ea3e4c](https://github.com/coco-research/Coco-Voice/commit/0ea3e4cd3ffcf0a052996adb0994ca9fcf53511b))
+* pin every catalog model to a commit instead of main ([#179](https://github.com/coco-research/Coco-Voice/issues/179)) ([d0a279f](https://github.com/coco-research/Coco-Voice/commit/d0a279f9e9d8e9f041b6787836a800f67c405355))
+* reuse a model already in the shared cache instead of downloading it again ([#136](https://github.com/coco-research/Coco-Voice/issues/136)) ([df4b703](https://github.com/coco-research/Coco-Voice/commit/df4b70334ce9f347940c01d95d66fc1ccb220e9b))
+* say why a shortcut can't be registered, and offer Try again ([#149](https://github.com/coco-research/Coco-Voice/issues/149)) ([7512e17](https://github.com/coco-research/Coco-Voice/commit/7512e179ca73b50b8e4f8452a263ea8e4bdae3e9))
+
 ## [0.10.0](https://github.com/coco-research/Coco-Voice/compare/v0.9.6...v0.10.0) (2026-10-28)
 
 
