@@ -5090,8 +5090,9 @@ dependencies = [
 
 [[package]]
 name = "rodio"
-version = "0.20.1"
-source = "git+https://github.com/cjpais/rodio.git#fed30292db417cb95305c118c0e1d804fb74cbff"
+version = "0.21.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e40ecf59e742e03336be6a3d53755e789fd05a059fa22dfa0ed624722319e183"
 dependencies = [
  "cpal",
  "dasp_sample",
