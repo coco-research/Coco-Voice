@@ -1,10 +1,9 @@
 //! The bundled, offline model catalog.
 //!
-//! `catalog.json` is generated at build time by `scripts/gen_catalog.py` from the
-//! `handy-computer` Hugging Face org (card `transcribe_cpp` capabilities +
-//! benchmarks, a GGUF header probe for name/params, and local curation for the
-//! recommended set). It is compiled into the binary so Coco Voice ships a complete
-//! model list with zero network access.
+//! `catalog.json` is maintained by hand. `scripts/gen_catalog.py` lists the
+//! `coco-research` Hugging Face org and must not be rerun over it: a rerun would
+//! drop the handy-computer rows and Qwen3-4B. The file is compiled into the binary
+//! so Coco Voice ships a complete model list with zero network access.
 //!
 //! Each entry is normalised into a [`ModelDescriptor`] — the same source-agnostic
 //! shape every other producer (HF discovery, on-disk scans, the legacy table)
@@ -33,8 +32,11 @@ struct CatalogRoot {
 /// are declared; serde ignores the rest (slug, family, license, …).
 #[derive(Clone, Deserialize)]
 struct CatalogModel {
-    /// HF repo id, e.g. `handy-computer/whisper-small-gguf`.
+    /// Catalog id, e.g. `handy-computer/whisper-small-gguf`.
     id: String,
+    /// Hugging Face repo to download. Empty or absent uses `id`.
+    #[serde(default)]
+    source_repo: Option<String>,
     name: String,
     description: String,
     architecture: Option<String>,
@@ -100,12 +102,21 @@ impl TryFrom<CatalogModel> for ModelDescriptor {
     type Error = ();
 
     fn try_from(m: CatalogModel) -> Result<Self, Self::Error> {
-        // The default download file. Its name is folded into the id so a catalog
-        // entry collides (dedups) with the very same file later discovered in
-        // the HF cache — both compute `"{repo_id}/{filename}"`.
+        // The default download file. Its name is folded into the descriptor id so
+        // a catalog entry collides (dedups) with the same file later discovered in
+        // the HF cache — both compute `"{catalog id}/{filename}"`. `source_repo`
+        // can point the download at another repo; the id stays the catalog id.
         let default_filename = default_quant_file(&m.files, m.default_quant.as_deref())
             .map(|f| f.filename.clone())
             .unwrap_or_default();
+        // Owned copy so the fallback can read `m.id` after this borrow ends.
+        let source_repo = m
+            .source_repo
+            .as_deref()
+            .map(str::trim)
+            .filter(|repo| !repo.is_empty())
+            .map(str::to_string);
+        let repo_id = source_repo.unwrap_or_else(|| m.id.clone());
 
         let sha256 = pinned_sha256(m.sha256.as_deref()).map_err(|()| {
             error!(
@@ -117,7 +128,7 @@ impl TryFrom<CatalogModel> for ModelDescriptor {
         Ok(ModelDescriptor {
             id: format!("{}/{}", m.id, default_filename),
             source: ModelSource::HuggingFace {
-                repo_id: m.id,
+                repo_id,
                 revision: m
                     .revision
                     .map(|r| r.trim().to_string())
@@ -184,17 +195,23 @@ pub const LEGAL_HOLD_IDS: &[&str] = &[
 /// cleared. None today.
 pub const CLEARED_OTHER_IDS: &[&str] = &[];
 
-/// Checks if a given repo id is on the legal hold list (case-insensitive).
-pub(crate) fn repo_on_legal_hold(repo_id: &str) -> bool {
-    LEGAL_HOLD_IDS
+/// True when `id` matches an entry in `hold_ids` (ASCII case-insensitive).
+/// The match is the model id itself, so the same list covers every host.
+pub(crate) fn id_on_hold(id: &str, hold_ids: &[&str]) -> bool {
+    hold_ids
         .iter()
-        .any(|held_id| held_id.eq_ignore_ascii_case(repo_id))
+        .any(|held_id| held_id.eq_ignore_ascii_case(id))
+}
+
+/// Production hold check: [`id_on_hold`] against [`LEGAL_HOLD_IDS`].
+pub(crate) fn model_on_legal_hold(id: &str) -> bool {
+    id_on_hold(id, LEGAL_HOLD_IDS)
 }
 
 /// A catalog entry is offered only if its id is NOT on legal hold, AND its license
 /// is allowlisted (or its id is explicitly cleared).
 fn is_allowed_catalog_entry(id: &str, license: Option<&str>) -> bool {
-    if repo_on_legal_hold(id) {
+    if model_on_legal_hold(id) {
         return false;
     }
 
@@ -231,7 +248,7 @@ static WITHHELD_REPOS: Lazy<std::collections::HashSet<String>> = Lazy::new(|| {
 });
 
 pub(crate) fn repo_withheld(repo_id: &str) -> bool {
-    if repo_on_legal_hold(repo_id) {
+    if model_on_legal_hold(repo_id) {
         return true;
     }
     WITHHELD_REPOS.contains(&repo_id.to_lowercase())
@@ -435,8 +452,12 @@ mod tests {
         let root: serde_json::Value = serde_json::from_str(include_str!("catalog.json")).unwrap();
         let source_sha256 = |pinned: Option<&str>| {
             let mut entry = root["models"][0].clone();
-            if let Some(hash) = pinned {
-                entry["sha256"] = serde_json::json!(hash);
+            // Every bundled row carries a hash now, so drop it to test a row without one.
+            match pinned {
+                Some(hash) => entry["sha256"] = serde_json::json!(hash),
+                None => {
+                    entry.as_object_mut().unwrap().remove("sha256");
+                }
             }
             let model: CatalogModel = serde_json::from_value(entry).unwrap();
             ModelDescriptor::try_from(model).map(|d| match d.source {
@@ -613,6 +634,40 @@ mod tests {
     }
 
     #[test]
+    fn every_bundled_row_sha256_is_on_its_descriptor() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json"))
+            .expect("bundled catalog.json is valid JSON matching the catalog schema");
+        assert_eq!(root.models.len(), CATALOG.len());
+        for model in &root.models {
+            let raw = model
+                .sha256
+                .as_deref()
+                .unwrap_or_else(|| panic!("{} has no sha256", model.id));
+            let normalized = normalize_sha256(Some(raw))
+                .unwrap_or_else(|| panic!("{} sha256 is not 64 lowercase hex: {raw}", model.id));
+            assert_eq!(normalized.len(), 64, "{}", model.id);
+            assert_eq!(
+                normalized, raw,
+                "{} sha256 must be stored lowercase",
+                model.id
+            );
+
+            let prefix = format!("{}/", model.id);
+            let matched: Vec<_> = CATALOG
+                .iter()
+                .filter(|d| d.id.starts_with(&prefix))
+                .collect();
+            assert_eq!(matched.len(), 1, "{}", model.id);
+            match &matched[0].source {
+                ModelSource::HuggingFace {
+                    sha256: Some(hash), ..
+                } => assert_eq!(hash, &normalized, "{}", model.id),
+                other => panic!("{} source does not carry the pin: {other:?}", model.id),
+            }
+        }
+    }
+
+    #[test]
     fn compliance_gated_models_are_dropped() {
         let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
         // Held rows are cut from catalog.json; the list stays so copies already in
@@ -656,7 +711,7 @@ mod tests {
     #[test]
     fn legal_hold_ids_match_the_generator_held_list() {
         // Two independent lists: a typo in either fails here, so a held copy in the
-        // HF cache can't slip past repo_on_legal_hold.
+        // HF cache can't slip past model_on_legal_hold.
         let gen = include_str!("../../../scripts/gen_catalog.py");
         let block = gen
             .split("HELD = {")
@@ -675,10 +730,13 @@ mod tests {
     }
 
     #[test]
-    fn repo_on_legal_hold_is_case_insensitive() {
-        assert!(repo_on_legal_hold("handy-computer/SenseVoiceSmall-gguf"));
-        assert!(repo_on_legal_hold("HANDY-COMPUTER/SENSEVOICESMALL-GGUF"));
-        assert!(!repo_on_legal_hold("handy-computer/whisper-small-gguf"));
+    fn model_on_legal_hold_is_case_insensitive() {
+        assert!(model_on_legal_hold("handy-computer/SenseVoiceSmall-gguf"));
+        assert!(model_on_legal_hold("HANDY-COMPUTER/SENSEVOICESMALL-GGUF"));
+        assert!(!model_on_legal_hold("handy-computer/whisper-small-gguf"));
+        // A caller can pass another list without editing LEGAL_HOLD_IDS.
+        assert!(id_on_hold("small", &["SMALL"]));
+        assert!(!id_on_hold("small", LEGAL_HOLD_IDS));
     }
 
     #[test]
@@ -790,6 +848,250 @@ mod tests {
                 file.models.contains_key(id),
                 "downloadable model {id} has no licence entry"
             );
+        }
+    }
+
+    /// PR 5: the turbo label matches its MIT notice, and every moved pin names the
+    /// commit handy-computer's NOTICE records for that conversion.
+    #[test]
+    fn licence_pins_follow_the_handy_notice() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        let turbo = root
+            .models
+            .iter()
+            .find(|m| m.id == "handy-computer/whisper-large-v3-turbo-gguf")
+            .expect("turbo row in catalog.json");
+        assert_eq!(turbo.license.as_deref(), Some("mit"));
+
+        // The 13 checked NOTICE commits, plus the 4 slug keys that stored the
+        // same old revision as their handy-computer sibling.
+        let pins: [(&str, &str); 17] = [
+            (
+                "handy-computer/parakeet-tdt-0.6b-v3-gguf",
+                "6d590f77001d318fb17a0b5bf7ee329a91b52598",
+            ),
+            (
+                "handy-computer/parakeet-tdt-0.6b-v2-gguf",
+                "1b149a3589351c96ddb101709fe7dd9c7069572f",
+            ),
+            (
+                "handy-computer/canary-1b-flash-gguf",
+                "a9a55e0295e7dd50d0c8c2a19491900a0daf24f3",
+            ),
+            (
+                "handy-computer/canary-1b-v2-gguf",
+                "87bc52657add533cd0156b3fc1aef027280754bf",
+            ),
+            (
+                "handy-computer/gigaam-v3-ctc-gguf",
+                "15ef3b5a88da78f93134b3cb7f015c70aefa8946",
+            ),
+            (
+                "handy-computer/gigaam-v3-e2e-ctc-gguf",
+                "cec030b4c4f35d928e4a9044a3bdb29ebd499fac",
+            ),
+            (
+                "handy-computer/gigaam-v3-rnnt-gguf",
+                "c7f128b8accdd9624df905e5c2d7b7a48c27c0d8",
+            ),
+            (
+                "handy-computer/granite-speech-4.1-2b-nar-gguf",
+                "99a4df9007ac5682f9daa093fb7008ff606e9a5d",
+            ),
+            (
+                "handy-computer/granite-speech-4.1-2b-gguf",
+                "8f4bb5f31ae98971bd218169f00065a041d20058",
+            ),
+            (
+                "handy-computer/granite-speech-4.1-2b-plus-gguf",
+                "edd3bf54fbb06d8e263aa0c1939321d67b073f86",
+            ),
+            (
+                "handy-computer/parakeet-rnnt-0.6b-gguf",
+                "c0c1f09fdc3f18b0b2ddbeafd5d6684f1b38078f",
+            ),
+            (
+                "handy-computer/parakeet-ctc-1.1b-gguf",
+                "a707e818195cb97c8f7da2fc36b221a29f69a5db",
+            ),
+            (
+                "handy-computer/parakeet-rnnt-1.1b-gguf",
+                "a07b19e98a26c1873a3f2622c446a4a1ca6316cb",
+            ),
+            ("canary-1b-v2", "87bc52657add533cd0156b3fc1aef027280754bf"),
+            (
+                "gigaam-v3-e2e-ctc",
+                "cec030b4c4f35d928e4a9044a3bdb29ebd499fac",
+            ),
+            (
+                "parakeet-tdt-0.6b-v2",
+                "1b149a3589351c96ddb101709fe7dd9c7069572f",
+            ),
+            (
+                "parakeet-tdt-0.6b-v3",
+                "6d590f77001d318fb17a0b5bf7ee329a91b52598",
+            ),
+        ];
+
+        let file: LicenceFile = serde_json::from_str(include_str!("model_licences.json")).unwrap();
+        for (id, pin) in pins {
+            let entry = file
+                .models
+                .get(id)
+                .unwrap_or_else(|| panic!("{id} has no licence entry"));
+            assert_eq!(entry.revision, pin, "{id} revision");
+            assert!(
+                entry.url.contains(pin),
+                "{id} url does not contain {pin}: {}",
+                entry.url
+            );
+        }
+
+        // Cohere stays put: the licence at the NOTICE commit could not be read.
+        let cohere = file
+            .models
+            .get("handy-computer/cohere-transcribe-03-2026-gguf")
+            .expect("cohere licence entry");
+        assert_eq!(cohere.revision, "b1eacc2686a3d08ceaae5f24a88b1d519620bc09");
+    }
+
+    fn is_lowercase_40_hex(revision: &str) -> bool {
+        revision.len() == 40
+            && revision
+                .bytes()
+                .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    }
+
+    fn descriptor_for(catalog_id: &str) -> &ModelDescriptor {
+        CATALOG
+            .iter()
+            .find(|d| d.id.starts_with(&format!("{catalog_id}/")))
+            .unwrap_or_else(|| panic!("{catalog_id} is missing from CATALOG"))
+    }
+
+    #[test]
+    fn every_bundled_row_has_a_40_hex_lowercase_revision() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        assert!(!root.models.is_empty());
+        for model in &root.models {
+            let pinned = model
+                .revision
+                .as_deref()
+                .unwrap_or_else(|| panic!("{} has no revision", model.id));
+            assert!(
+                is_lowercase_40_hex(pinned),
+                "{} revision {pinned:?} is not 40 lowercase hex",
+                model.id
+            );
+            match &descriptor_for(&model.id).source {
+                ModelSource::HuggingFace { revision, .. } => {
+                    assert_eq!(revision, pinned, "{}", model.id);
+                    assert_ne!(revision, "main", "{}", model.id);
+                }
+                other => panic!("{} resolved to {other:?}", model.id),
+            }
+        }
+    }
+
+    #[test]
+    fn resolved_download_sources_equal_catalog_ids() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        for model in &root.models {
+            match &descriptor_for(&model.id).source {
+                ModelSource::HuggingFace { repo_id, .. } => {
+                    assert_eq!(repo_id, &model.id, "{}", model.id);
+                    assert!(
+                        !repo_id.contains("coco-research"),
+                        "{repo_id} names coco-research"
+                    );
+                }
+                other => panic!("{} resolved to {other:?}", model.id),
+            }
+        }
+    }
+
+    #[test]
+    fn stay_rows_resolve_to_handy_computer() {
+        for id in [
+            "handy-computer/canary-qwen-2.5b-gguf",
+            "handy-computer/cohere-transcribe-03-2026-gguf",
+        ] {
+            match &descriptor_for(id).source {
+                ModelSource::HuggingFace { repo_id, .. } => {
+                    assert_eq!(repo_id, id);
+                    assert!(
+                        repo_id.starts_with("handy-computer/"),
+                        "{id} resolved to {repo_id}"
+                    );
+                }
+                other => panic!("{id} resolved to {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn qwen_row_resolves_to_qwen_at_the_copy_pin() {
+        match &descriptor_for(QWEN3_REPO).source {
+            ModelSource::HuggingFace {
+                repo_id, revision, ..
+            } => {
+                assert_eq!(repo_id, QWEN3_REPO);
+                assert_eq!(revision, "bc640142c66e1fdd12af0bd68f40445458f3869b");
+            }
+            other => panic!("qwen resolved to {other:?}"),
+        }
+    }
+
+    #[test]
+    fn source_repo_sets_the_download_repo_and_keeps_the_catalog_id() {
+        let row = |source_repo: serde_json::Value| {
+            serde_json::from_value::<CatalogModel>(serde_json::json!({
+                "id": "handy-computer/example-gguf",
+                "source_repo": source_repo,
+                "name": "Example",
+                "description": "",
+                "architecture": null,
+                "languages": [],
+                "capabilities": {
+                    "streaming": false,
+                    "translate": false,
+                    "lang_detect": false
+                },
+                "speed_score": null,
+                "accuracy_score": null,
+                "files": [{
+                    "filename": "example.gguf",
+                    "quant": "Q8_0",
+                    "size_bytes": 1
+                }],
+                "default_quant": null,
+                "recommended_rank": null,
+                "license": "mit"
+            }))
+            .expect("inline catalog row")
+        };
+
+        let pinned =
+            ModelDescriptor::try_from(row(serde_json::json!("coco-research/example-gguf")))
+                .expect("descriptor");
+        assert!(pinned.id.starts_with("handy-computer/example-gguf/"));
+        match pinned.source {
+            ModelSource::HuggingFace { repo_id, .. } => {
+                assert_eq!(repo_id, "coco-research/example-gguf");
+            }
+            other => panic!("inline row resolved to {other:?}"),
+        }
+
+        // Empty and whitespace-only source_repo keep the catalog id.
+        for blank in ["", "  "] {
+            let d = ModelDescriptor::try_from(row(serde_json::json!(blank))).expect("descriptor");
+            assert!(d.id.starts_with("handy-computer/example-gguf/"));
+            match d.source {
+                ModelSource::HuggingFace { repo_id, .. } => {
+                    assert_eq!(repo_id, "handy-computer/example-gguf");
+                }
+                other => panic!("blank source_repo resolved to {other:?}"),
+            }
         }
     }
 }

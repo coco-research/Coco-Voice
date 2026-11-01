@@ -9,44 +9,24 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 #[cfg(not(target_os = "linux"))]
 use crate::settings::get_settings;
-use crate::settings::{self, ShortcutBinding};
+use crate::settings::ShortcutBinding;
 
 use super::handler::handle_shortcut_event;
 
-/// Initialize shortcuts using Tauri's global-shortcut plugin
-pub fn init_shortcuts(app: &AppHandle) {
-    let default_bindings = settings::get_default_settings().bindings;
-    let user_settings = settings::load_or_create_app_settings(app);
-
-    // Register all default shortcuts, applying user customizations
-    for (id, default_binding) in default_bindings {
-        if id == "cancel" {
-            continue; // Skip cancel shortcut, it will be registered dynamically
-        }
-        // Skip post-processing shortcut when the feature is disabled
-        if id == "transcribe_with_post_process" && !user_settings.post_process_enabled {
-            continue;
-        }
-        // Skip the correction shortcut when iterative correction is disabled
-        if id == "correction" && !user_settings.iterative_correction_enabled {
-            continue;
-        }
-        let binding = user_settings
-            .bindings
-            .get(&id)
-            .cloned()
-            .unwrap_or(default_binding);
-
-        // Skip bindings with no key assigned (e.g. the correction shortcut before
-        // the user picks a key) — there is nothing to register.
-        if binding.current_binding.trim().is_empty() {
-            continue;
-        }
-
-        if let Err(e) = register_shortcut(app, binding) {
-            error!("Failed to register shortcut {} during init: {}", id, e);
-        }
+/// Initialize shortcuts using Tauri's global-shortcut plugin.
+///
+/// Failures are returned so the caller can tell the user and try again.
+/// Empty bindings and the correction shortcut while iterative correction is
+/// off are skipped inside [`super::register_active_shortcuts`].
+pub fn init_shortcuts(app: &AppHandle) -> Vec<super::ShortcutFailure> {
+    let failures = super::register_active_shortcuts(app);
+    for failure in &failures {
+        error!(
+            "Failed to register shortcut {} during init: {}",
+            failure.id, failure.error
+        );
     }
+    failures
 }
 
 /// Validate a shortcut string for the Tauri global-shortcut implementation.

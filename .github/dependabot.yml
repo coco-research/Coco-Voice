@@ -40,6 +40,15 @@ updates:
       # src-tauri/Cargo.toml); newer releases fail to resolve (#162). All updates, patches too, since a patch can also
       # need a newer tauri-utils. Bump it when the fork moves.
       - dependency-name: "tauri-build"
+      # rubato 5 removed FftFixedIn, which the audio resampler uses (#168). Move it by hand with that code.
+      - dependency-name: "rubato"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
+      # The overlay passes Tauri's HWND to Win32 calls, so `windows` must stay on the version tauri uses; 0.62 next to
+      # tauri's 0.61 breaks the Windows build (#167), which PR CI never compiles. Bump it with tauri.
+      - dependency-name: "windows"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
   - package-ecosystem: bun
     directory: /
     schedule:

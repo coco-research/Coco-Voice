@@ -7,7 +7,11 @@ import {
   checkAccessibilityPermission,
   checkMicrophonePermission,
 } from "tauri-plugin-macos-permissions-api";
-import { ModelStateEvent, RecordingErrorEvent } from "./lib/types/events";
+import {
+  ModelStateEvent,
+  RecordingErrorEvent,
+  ShortcutRegistrationFailure,
+} from "./lib/types/events";
 import "./App.css";
 import AccessibilityPermissions from "./components/AccessibilityPermissions";
 import Footer from "./components/footer";
@@ -26,6 +30,20 @@ const renderSettingsContent = (section: SidebarSection) => {
     SECTIONS_CONFIG[section]?.component || SECTIONS_CONFIG.general.component;
   return <ActiveComponent />;
 };
+
+function shortcutFailureBodyKey(
+  cause: ShortcutRegistrationFailure["cause"],
+): string {
+  switch (cause) {
+    case "taken":
+      return "errors.shortcutRegistrationFailedTaken";
+    case "rejected":
+      return "errors.shortcutRegistrationFailedRejected";
+    case "other":
+    default:
+      return "errors.shortcutRegistrationFailedOther";
+  }
+}
 
 function App() {
   const { t, i18n } = useTranslation();
@@ -56,6 +74,48 @@ function App() {
   useEffect(() => {
     initializeRTL(i18n.language);
   }, [i18n.language]);
+
+  // A failed registration stays uninitialized on the Rust side, so a later
+  // initializeShortcuts() tries again. This listener has to be up first.
+  useEffect(() => {
+    const unlisten = listen<ShortcutRegistrationFailure[]>(
+      "shortcut-registration-failed",
+      (event) => {
+        const failures = event.payload;
+        const first = failures[0];
+        if (!first) return;
+        const more =
+          failures.length > 1
+            ? t("errors.shortcutRegistrationFailedMore", {
+                count: failures.length - 1,
+              })
+            : "";
+        // A dead shortcut leaves the app unusable, and a tray app's window is
+        // often hidden: bring it forward and keep the notice until dismissed.
+        void commands.showMainWindowCommand();
+        toast(t("errors.shortcutRegistrationFailedTitle"), {
+          description:
+            t(shortcutFailureBodyKey(first.cause), {
+              binding: first.binding,
+            }) + more,
+          duration: Infinity,
+          action: {
+            label: t("errors.shortcutRegistrationOpenSettings"),
+            onClick: () => setCurrentSection("general"),
+          },
+          cancel: {
+            label: t("errors.shortcutRegistrationTryAgain"),
+            onClick: () => {
+              void commands.initializeShortcuts();
+            },
+          },
+        });
+      },
+    );
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [t, setCurrentSection]);
 
   // Initialize Enigo, shortcuts, and refresh audio devices when main app loads
   useEffect(() => {
@@ -335,6 +395,8 @@ function App() {
             "bg-background border border-mid-gray/20 rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 text-sm",
           title: "font-medium",
           description: "text-mid-gray",
+          actionButton:
+            "cursor-pointer shrink-0 rounded-md border border-mid-gray/20 px-2 py-1 text-xs font-medium",
         },
       }}
     />
