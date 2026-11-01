@@ -734,4 +734,45 @@ mod tests {
         assert_eq!(entry.timestamp, 100);
         assert_eq!(entry.transcription_text, "completed");
     }
+
+    #[test]
+    fn transcription_history_survives_app_restart() {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let db_path = dir.path().join("history.db");
+
+        {
+            let mut conn = Connection::open(&db_path).expect("open history db");
+            let migrations = super::Migrations::new(super::MIGRATIONS.to_vec());
+            migrations.validate().expect("Invalid migrations");
+            migrations.to_latest(&mut conn).expect("apply migrations");
+            insert_entry(&conn, 100, "first", None);
+            insert_entry(&conn, 200, "second", None);
+        }
+
+        let conn = Connection::open(&db_path).expect("reopen history db");
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                 FROM transcription_history
+                 ORDER BY id DESC",
+            )
+            .expect("prepare history query");
+        let entries = stmt
+            .query_map([], HistoryManager::map_history_entry)
+            .expect("query history")
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .expect("read history rows");
+
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].timestamp, 200);
+        assert_eq!(entries[0].transcription_text, "second");
+        assert_eq!(entries[1].timestamp, 100);
+        assert_eq!(entries[1].transcription_text, "first");
+
+        let latest = HistoryManager::get_latest_entry_with_conn(&conn)
+            .expect("fetch latest entry")
+            .expect("entry exists");
+        assert_eq!(latest.timestamp, 200);
+        assert_eq!(latest.transcription_text, "second");
+    }
 }

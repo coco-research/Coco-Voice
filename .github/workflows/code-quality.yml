@@ -58,6 +58,9 @@ jobs:
       - name: Run static tests
         run: bun run test:static
 
+      - name: Check Tauri crate and npm versions match
+        run: bun run check:tauri-versions
+
       - name: Run ESLint
         run: bun run lint
 

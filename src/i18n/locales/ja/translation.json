@@ -633,7 +633,14 @@
       "clipboardOnly": "貼り付けができていない可能性があります。言葉はクリップボードにあります。",
       "historyOnly": "貼り付けができていない可能性があります。言葉は履歴にあります。",
       "neither": "貼り付けができていない可能性があります。"
-    }
+    },
+    "shortcutRegistrationFailedTitle": "ショートカットを設定できませんでした",
+    "shortcutRegistrationFailedTaken": "別のアプリがすでに {{binding}} を使っています。設定で別のキーを選ぶか、そのアプリを終了してからもう一度試してください。",
+    "shortcutRegistrationFailedRejected": "{{binding}} はショートカットに使えません。設定で別のキーを選んでください。",
+    "shortcutRegistrationFailedOther": "{{binding}} を設定できませんでした。もう一度試すか、設定で別のキーを選んでください。",
+    "shortcutRegistrationFailedMore": "（ほか{{count}}件）",
+    "shortcutRegistrationOpenSettings": "設定を開く",
+    "shortcutRegistrationTryAgain": "もう一度試す"
   },
   "appLanguage": {
     "title": "アプリの言語",

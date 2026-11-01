@@ -633,7 +633,14 @@
       "clipboardOnly": "Wklejenie mogło się nie udać. Twoje słowa są w schowku.",
       "historyOnly": "Wklejenie mogło się nie udać. Twoje słowa są w Historia.",
       "neither": "Wklejenie mogło się nie udać."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Nie udało się ustawić skrótu",
+    "shortcutRegistrationFailedTaken": "Inna aplikacja używa już {{binding}}. Wybierz inny klawisz w Ustawieniach albo zamknij tę aplikację i spróbuj ponownie.",
+    "shortcutRegistrationFailedRejected": "{{binding}} nie może być skrótem. Wybierz inny klawisz w Ustawieniach.",
+    "shortcutRegistrationFailedOther": "{{binding}} nie udało się ustawić. Spróbuj ponownie albo wybierz inny klawisz w Ustawieniach.",
+    "shortcutRegistrationFailedMore": " (+{{count}} więcej)",
+    "shortcutRegistrationOpenSettings": "Otwórz Ustawienia",
+    "shortcutRegistrationTryAgain": "Spróbuj ponownie"
   },
   "appLanguage": {
     "title": "Język aplikacji",

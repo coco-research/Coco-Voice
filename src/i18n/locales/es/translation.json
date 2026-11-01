@@ -633,7 +633,14 @@
       "clipboardOnly": "Puede que el pegado no haya funcionado. Tus palabras están en el portapapeles.",
       "historyOnly": "Puede que el pegado no haya funcionado. Tus palabras están en el Historial.",
       "neither": "Puede que el pegado no haya funcionado."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "No se pudo configurar un atajo",
+    "shortcutRegistrationFailedTaken": "Otra aplicación ya usa {{binding}}. Elige otra tecla en Configuración, o cierra esa aplicación e inténtalo de nuevo.",
+    "shortcutRegistrationFailedRejected": "{{binding}} no se puede usar como atajo. Elige otra tecla en Configuración.",
+    "shortcutRegistrationFailedOther": "{{binding}} no se pudo configurar. Inténtalo de nuevo, o elige otra tecla en Configuración.",
+    "shortcutRegistrationFailedMore": " (+{{count}} más)",
+    "shortcutRegistrationOpenSettings": "Abrir Configuración",
+    "shortcutRegistrationTryAgain": "Reintentar"
   },
   "appLanguage": {
     "title": "Idioma de la aplicación",

@@ -633,7 +633,14 @@
       "clipboardOnly": "Yapıştırma gerçekleşmemiş olabilir. Sözleriniz panoda.",
       "historyOnly": "Yapıştırma gerçekleşmemiş olabilir. Sözleriniz Geçmiş'te.",
       "neither": "Yapıştırma gerçekleşmemiş olabilir."
-    }
+    },
+    "shortcutRegistrationFailedTitle": "Bir kısayol ayarlanamadı",
+    "shortcutRegistrationFailedTaken": "Başka bir uygulama {{binding}} kısayolunu kullanıyor. Ayarlar'da başka bir tuş seçin veya o uygulamadan çıkıp yeniden deneyin.",
+    "shortcutRegistrationFailedRejected": "{{binding}} kısayol olarak kullanılamaz. Ayarlar'da başka bir tuş seçin.",
+    "shortcutRegistrationFailedOther": "{{binding}} ayarlanamadı. Yeniden deneyin veya Ayarlar'da başka bir tuş seçin.",
+    "shortcutRegistrationFailedMore": " (+{{count}} tane daha)",
+    "shortcutRegistrationOpenSettings": "Ayarları aç",
+    "shortcutRegistrationTryAgain": "Yeniden dene"
   },
   "appLanguage": {
     "title": "Uygulama Dili",

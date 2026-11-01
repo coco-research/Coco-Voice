@@ -633,7 +633,14 @@
       "clipboardOnly": "粘贴可能没有成功。你的文字在剪贴板上。",
       "historyOnly": "粘贴可能没有成功。你的文字在历史记录里。",
       "neither": "粘贴可能没有成功。"
-    }
+    },
+    "shortcutRegistrationFailedTitle": "有一个快捷键未能设置",
+    "shortcutRegistrationFailedTaken": "另一个应用已经在使用 {{binding}}。请在设置中另选一个按键，或退出该应用后再试一次。",
+    "shortcutRegistrationFailedRejected": "{{binding}} 不能用作快捷键。请在设置中另选一个按键。",
+    "shortcutRegistrationFailedOther": "{{binding}} 未能设置。请再试一次，或在设置中另选一个按键。",
+    "shortcutRegistrationFailedMore": "（另有 {{count}} 个）",
+    "shortcutRegistrationOpenSettings": "打开设置",
+    "shortcutRegistrationTryAgain": "再试一次"
   },
   "appLanguage": {
     "title": "应用语言",
