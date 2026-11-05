@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use cidre::cat::audio::Buf;
+use cidre::cat::audio::{Buf, Format, FormatFlags};
 use cidre::cat::AudioBufList;
 use cidre::cf::{self, ArrayOf, DictionaryOf};
 use cidre::core_audio::hardware::{self, aggregate_device_keys, sub_tap_keys, AggregateDevice};
@@ -44,13 +44,24 @@ impl TapError {
     }
 }
 
-/// Plist text must contain the usage key. This does not read the bundle and does not start IO.
+/// Plist text must carry the usage key with a non-empty string value.
+/// This does not read the bundle and does not start IO.
 pub fn require_usage_string(plist_text: &str) -> Result<(), TapError> {
-    if plist_text.contains(USAGE_KEY) {
-        Ok(())
-    } else {
-        Err(TapError::UsageStringMissing)
+    let key = format!("<key>{USAGE_KEY}</key>");
+    let rest = plist_text
+        .split_once(&key)
+        .map(|(_, rest)| rest.trim_start())
+        .ok_or(TapError::UsageStringMissing)?;
+    let rest = rest
+        .strip_prefix("<string>")
+        .ok_or(TapError::UsageStringMissing)?;
+    let (value, _) = rest
+        .split_once("</string>")
+        .ok_or(TapError::UsageStringMissing)?;
+    if value.trim().is_empty() {
+        return Err(TapError::UsageStringMissing);
     }
+    Ok(())
 }
 
 /// What the read path needs from a device. Tests pass a fake. Core Audio is the other impl's caller.
@@ -64,7 +75,6 @@ pub trait SystemAudioDevice {
 /// Shared resample + silence check. The fake pump and the tap worker thread both use this.
 pub struct ReadPath {
     resampler: FrameResampler,
-    saw_any: bool,
     saw_nonzero: bool,
 }
 
@@ -72,17 +82,13 @@ impl ReadPath {
     pub fn new(in_hz: usize) -> Self {
         Self {
             resampler: FrameResampler::new(in_hz, OUT_HZ, FRAME),
-            saw_any: false,
             saw_nonzero: false,
         }
     }
 
     pub fn push(&mut self, src: &[f32], sink: &mut dyn FnMut(&[f32])) {
-        if !src.is_empty() {
-            self.saw_any = true;
-            if src.iter().any(|sample| *sample != 0.0) {
-                self.saw_nonzero = true;
-            }
+        if src.iter().any(|sample| *sample != 0.0) {
+            self.saw_nonzero = true;
         }
         self.resampler.push(src, |frame| sink(frame));
     }
@@ -208,6 +214,45 @@ fn mono_frames(buf: &Buf, channels: u32) -> Vec<f32> {
         .collect()
 }
 
+/// `mono_frames` reads the tap buffers as interleaved f32, so reject anything else before IO starts.
+fn check_tap_format(asbd: &cidre::cat::audio::StreamBasicDesc) -> Result<(), TapError> {
+    let channels = asbd.channels_per_frame;
+    if channels == 0 {
+        return Err(TapError::Device(
+            "unsupported tap format: 0 channels".into(),
+        ));
+    }
+    if asbd.format != Format::LINEAR_PCM {
+        return Err(TapError::Device(format!(
+            "unsupported tap format: format {:?}",
+            asbd.format
+        )));
+    }
+    if !asbd.format_flags.contains(FormatFlags::IS_FLOAT) {
+        return Err(TapError::Device(
+            "unsupported tap format: format_flags without IS_FLOAT".into(),
+        ));
+    }
+    if asbd.format_flags.contains(FormatFlags::IS_NON_INTERLEAVED) {
+        return Err(TapError::Device(
+            "unsupported tap format: format_flags has IS_NON_INTERLEAVED".into(),
+        ));
+    }
+    if asbd.bits_per_channel != 32 {
+        return Err(TapError::Device(format!(
+            "unsupported tap format: bits_per_channel {}",
+            asbd.bits_per_channel
+        )));
+    }
+    if u64::from(asbd.bytes_per_frame) != 4 * u64::from(channels) {
+        return Err(TapError::Device(format!(
+            "unsupported tap format: bytes_per_frame {} for {channels} channels",
+            asbd.bytes_per_frame
+        )));
+    }
+    Ok(())
+}
+
 // cidre 0.29 has no AggregateDevice::destroy. AudioHardwareDestroyAggregateDevice is the C call.
 #[link(name = "CoreAudio", kind = "framework")]
 extern "C" {
@@ -301,6 +346,10 @@ impl SystemAudioSession {
                 return Err(map_os(err));
             }
         };
+        if let Err(err) = check_tap_format(&asbd) {
+            release_partial(tap, None, std::ptr::null_mut());
+            return Err(err);
+        }
         let rate = asbd.sample_rate.round() as usize;
         if rate == 0 {
             release_partial(tap, None, std::ptr::null_mut());
@@ -543,6 +592,72 @@ mod tests {
         .expect_err("missing usage string");
         assert_eq!(err.code(), "system_audio_usage_string_missing");
         assert_eq!(device.starts, 0, "IO started without the usage string");
+    }
+
+    #[test]
+    fn usage_string_needs_a_non_empty_value() {
+        let ok = format!("<key>{USAGE_KEY}</key>\n<string>records meetings</string>");
+        require_usage_string(&ok).expect("key with a value");
+
+        for empty in ["<string></string>", "<string>  </string>"] {
+            let text = format!("<key>{USAGE_KEY}</key>{empty}");
+            assert_eq!(
+                require_usage_string(&text),
+                Err(TapError::UsageStringMissing),
+                "{empty} counted as a usage string"
+            );
+        }
+    }
+
+    #[test]
+    fn usage_key_name_alone_is_missing() {
+        for text in [
+            String::new(),
+            format!("<string>{USAGE_KEY}</string>"),
+            format!("<!-- {USAGE_KEY} -->"),
+        ] {
+            assert_eq!(
+                require_usage_string(&text),
+                Err(TapError::UsageStringMissing),
+                "{text} counted as a usage string"
+            );
+        }
+    }
+
+    #[test]
+    fn tap_format_must_be_interleaved_f32() {
+        use cidre::cat::audio::StreamBasicDesc;
+
+        check_tap_format(&StreamBasicDesc::common_f32(48_000.0, 2, true))
+            .expect("interleaved f32 stereo");
+        check_tap_format(&StreamBasicDesc::common_f32(48_000.0, 1, true))
+            .expect("interleaved f32 mono");
+
+        let non_interleaved = StreamBasicDesc::common_f32(48_000.0, 2, false);
+        assert!(
+            check_tap_format(&non_interleaved).is_err(),
+            "non-interleaved accepted"
+        );
+
+        let mut int16 = StreamBasicDesc::common_f32(48_000.0, 2, true);
+        int16.bits_per_channel = 16;
+        int16.bytes_per_frame = 4;
+        int16.format_flags = FormatFlags::NATIVE_ENDIAN;
+        assert!(check_tap_format(&int16).is_err(), "16-bit int accepted");
+
+        let mut zero_channels = StreamBasicDesc::common_f32(48_000.0, 1, true);
+        zero_channels.channels_per_frame = 0;
+        assert!(
+            check_tap_format(&zero_channels).is_err(),
+            "0 channels accepted"
+        );
+
+        let mut wrong_bytes = StreamBasicDesc::common_f32(48_000.0, 2, true);
+        wrong_bytes.bytes_per_frame = 4;
+        assert!(
+            check_tap_format(&wrong_bytes).is_err(),
+            "bytes_per_frame mismatch accepted"
+        );
     }
 
     #[test]
