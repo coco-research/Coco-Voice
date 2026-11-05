@@ -163,3 +163,6 @@ lto = true
 codegen-units = 1
 strip = true
 panic = "unwind"
+[features]
+default = []
+meetings = []
