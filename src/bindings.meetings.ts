@@ -18,7 +18,57 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async openMeetingConsent(): Promise<Result<MeetingStatus, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("open_meeting_consent"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async confirmMeetingStart(): Promise<Result<MeetingStatus, MeetingRefusal>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("confirm_meeting_start"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async cancelMeetingConsent(): Promise<Result<MeetingStatus, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("cancel_meeting_consent"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async stopMeeting(): Promise<Result<MeetingStatus, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("stop_meeting"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
 };
+
+/** user-defined types **/
+
+export type MeetingRefusal = "already_recording";
+export type MeetingState = "idle" | "consent_open" | "recording" | "stopping";
+export type MeetingStatus = { state: MeetingState; elapsed_secs: number };
 
 /** tauri-specta globals **/
 

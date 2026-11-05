@@ -336,6 +336,12 @@ fn register_active_shortcuts(app: &AppHandle) -> Vec<ShortcutFailure> {
         if id == "transcribe_with_post_process" && !settings.post_process_enabled {
             continue;
         }
+        // No meeting shortcut while the beta switch is off, even if a key was
+        // assigned earlier.
+        #[cfg(feature = "meetings")]
+        if id == "meeting" && !settings.meetings_enabled {
+            continue;
+        }
         let binding = settings
             .bindings
             .get(&id)
@@ -727,6 +733,12 @@ fn register_all_shortcuts_for_implementation(
 
         // Skip post-processing shortcut when the feature is disabled
         if id == "transcribe_with_post_process" && !current_settings.post_process_enabled {
+            continue;
+        }
+
+        // No meeting shortcut while the beta switch is off.
+        #[cfg(feature = "meetings")]
+        if id == "meeting" && !current_settings.meetings_enabled {
             continue;
         }
 
@@ -1302,7 +1314,24 @@ pub fn change_experimental_enabled_setting(app: AppHandle, enabled: bool) -> Res
 #[tauri::command]
 #[specta::specta]
 pub fn change_meetings_enabled_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
-    settings::update_settings(&app, |s| s.meetings_enabled = enabled);
+    // Hotkey register/unregister reads settings and must run after the lock drops.
+    let binding = settings::update_settings(&app, |s| {
+        s.meetings_enabled = enabled;
+        s.bindings.get("meeting").cloned()
+    });
+
+    // The meeting shortcut opens the consent dialog only, so there is nothing to
+    // register until the user assigns a key. Turning the switch off releases it.
+    if let Some(binding) = binding {
+        if enabled {
+            if !binding.current_binding.trim().is_empty() {
+                let _ = register_shortcut(&app, binding);
+            }
+        } else {
+            let _ = unregister_shortcut(&app, binding);
+        }
+    }
+
     Ok(())
 }
 

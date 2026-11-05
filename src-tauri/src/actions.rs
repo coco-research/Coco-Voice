@@ -110,6 +110,21 @@ pub trait ShortcutAction: Send + Sync {
     fn stop(&self, app: &AppHandle, binding_id: &str, shortcut_str: &str);
 }
 
+/// Meeting shortcut. It only opens the consent dialog: never a start, and an
+/// earlier accept is not remembered as consent (the state machine enforces the
+/// second part). Ships with an empty binding, so it never fires until assigned.
+#[cfg(feature = "meetings")]
+struct MeetingConsentAction;
+
+#[cfg(feature = "meetings")]
+impl ShortcutAction for MeetingConsentAction {
+    fn start(&self, app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {
+        let _ = crate::meeting_controller::open_meeting_consent(app.clone());
+    }
+
+    fn stop(&self, _app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {}
+}
+
 // Transcribe Action
 struct TranscribeAction {
     post_process: bool,
@@ -1709,6 +1724,11 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
     map.insert(
         "test".to_string(),
         Arc::new(TestAction) as Arc<dyn ShortcutAction>,
+    );
+    #[cfg(feature = "meetings")]
+    map.insert(
+        "meeting".to_string(),
+        Arc::new(MeetingConsentAction) as Arc<dyn ShortcutAction>,
     );
     map
 });
