@@ -452,8 +452,12 @@ mod tests {
         let root: serde_json::Value = serde_json::from_str(include_str!("catalog.json")).unwrap();
         let source_sha256 = |pinned: Option<&str>| {
             let mut entry = root["models"][0].clone();
-            if let Some(hash) = pinned {
-                entry["sha256"] = serde_json::json!(hash);
+            // Every bundled row carries a hash now, so drop it to test a row without one.
+            match pinned {
+                Some(hash) => entry["sha256"] = serde_json::json!(hash),
+                None => {
+                    entry.as_object_mut().unwrap().remove("sha256");
+                }
             }
             let model: CatalogModel = serde_json::from_value(entry).unwrap();
             ModelDescriptor::try_from(model).map(|d| match d.source {
@@ -625,6 +629,40 @@ mod tests {
                 let h = normalized.unwrap();
                 assert_eq!(h.len(), 64);
                 assert_eq!(&h, hash);
+            }
+        }
+    }
+
+    #[test]
+    fn every_bundled_row_sha256_is_on_its_descriptor() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json"))
+            .expect("bundled catalog.json is valid JSON matching the catalog schema");
+        assert_eq!(root.models.len(), CATALOG.len());
+        for model in &root.models {
+            let raw = model
+                .sha256
+                .as_deref()
+                .unwrap_or_else(|| panic!("{} has no sha256", model.id));
+            let normalized = normalize_sha256(Some(raw))
+                .unwrap_or_else(|| panic!("{} sha256 is not 64 lowercase hex: {raw}", model.id));
+            assert_eq!(normalized.len(), 64, "{}", model.id);
+            assert_eq!(
+                normalized, raw,
+                "{} sha256 must be stored lowercase",
+                model.id
+            );
+
+            let prefix = format!("{}/", model.id);
+            let matched: Vec<_> = CATALOG
+                .iter()
+                .filter(|d| d.id.starts_with(&prefix))
+                .collect();
+            assert_eq!(matched.len(), 1, "{}", model.id);
+            match &matched[0].source {
+                ModelSource::HuggingFace {
+                    sha256: Some(hash), ..
+                } => assert_eq!(hash, &normalized, "{}", model.id),
+                other => panic!("{} source does not carry the pin: {other:?}", model.id),
             }
         }
     }
@@ -811,6 +849,110 @@ mod tests {
                 "downloadable model {id} has no licence entry"
             );
         }
+    }
+
+    /// PR 5: the turbo label matches its MIT notice, and every moved pin names the
+    /// commit handy-computer's NOTICE records for that conversion.
+    #[test]
+    fn licence_pins_follow_the_handy_notice() {
+        let root: CatalogRoot = serde_json::from_str(include_str!("catalog.json")).unwrap();
+        let turbo = root
+            .models
+            .iter()
+            .find(|m| m.id == "handy-computer/whisper-large-v3-turbo-gguf")
+            .expect("turbo row in catalog.json");
+        assert_eq!(turbo.license.as_deref(), Some("mit"));
+
+        // The 13 checked NOTICE commits, plus the 4 slug keys that stored the
+        // same old revision as their handy-computer sibling.
+        let pins: [(&str, &str); 17] = [
+            (
+                "handy-computer/parakeet-tdt-0.6b-v3-gguf",
+                "6d590f77001d318fb17a0b5bf7ee329a91b52598",
+            ),
+            (
+                "handy-computer/parakeet-tdt-0.6b-v2-gguf",
+                "1b149a3589351c96ddb101709fe7dd9c7069572f",
+            ),
+            (
+                "handy-computer/canary-1b-flash-gguf",
+                "a9a55e0295e7dd50d0c8c2a19491900a0daf24f3",
+            ),
+            (
+                "handy-computer/canary-1b-v2-gguf",
+                "87bc52657add533cd0156b3fc1aef027280754bf",
+            ),
+            (
+                "handy-computer/gigaam-v3-ctc-gguf",
+                "15ef3b5a88da78f93134b3cb7f015c70aefa8946",
+            ),
+            (
+                "handy-computer/gigaam-v3-e2e-ctc-gguf",
+                "cec030b4c4f35d928e4a9044a3bdb29ebd499fac",
+            ),
+            (
+                "handy-computer/gigaam-v3-rnnt-gguf",
+                "c7f128b8accdd9624df905e5c2d7b7a48c27c0d8",
+            ),
+            (
+                "handy-computer/granite-speech-4.1-2b-nar-gguf",
+                "99a4df9007ac5682f9daa093fb7008ff606e9a5d",
+            ),
+            (
+                "handy-computer/granite-speech-4.1-2b-gguf",
+                "8f4bb5f31ae98971bd218169f00065a041d20058",
+            ),
+            (
+                "handy-computer/granite-speech-4.1-2b-plus-gguf",
+                "edd3bf54fbb06d8e263aa0c1939321d67b073f86",
+            ),
+            (
+                "handy-computer/parakeet-rnnt-0.6b-gguf",
+                "c0c1f09fdc3f18b0b2ddbeafd5d6684f1b38078f",
+            ),
+            (
+                "handy-computer/parakeet-ctc-1.1b-gguf",
+                "a707e818195cb97c8f7da2fc36b221a29f69a5db",
+            ),
+            (
+                "handy-computer/parakeet-rnnt-1.1b-gguf",
+                "a07b19e98a26c1873a3f2622c446a4a1ca6316cb",
+            ),
+            ("canary-1b-v2", "87bc52657add533cd0156b3fc1aef027280754bf"),
+            (
+                "gigaam-v3-e2e-ctc",
+                "cec030b4c4f35d928e4a9044a3bdb29ebd499fac",
+            ),
+            (
+                "parakeet-tdt-0.6b-v2",
+                "1b149a3589351c96ddb101709fe7dd9c7069572f",
+            ),
+            (
+                "parakeet-tdt-0.6b-v3",
+                "6d590f77001d318fb17a0b5bf7ee329a91b52598",
+            ),
+        ];
+
+        let file: LicenceFile = serde_json::from_str(include_str!("model_licences.json")).unwrap();
+        for (id, pin) in pins {
+            let entry = file
+                .models
+                .get(id)
+                .unwrap_or_else(|| panic!("{id} has no licence entry"));
+            assert_eq!(entry.revision, pin, "{id} revision");
+            assert!(
+                entry.url.contains(pin),
+                "{id} url does not contain {pin}: {}",
+                entry.url
+            );
+        }
+
+        // Cohere stays put: the licence at the NOTICE commit could not be read.
+        let cohere = file
+            .models
+            .get("handy-computer/cohere-transcribe-03-2026-gguf")
+            .expect("cohere licence entry");
+        assert_eq!(cohere.revision, "b1eacc2686a3d08ceaae5f24a88b1d519620bc09");
     }
 
     fn is_lowercase_40_hex(revision: &str) -> bool {
