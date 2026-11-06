@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "पेस्ट पछि, तपाईंले बोलेको पाठ क्लिपबोर्डमा रहन्छ, ताकि फेरि पेस्ट गर्न सकियोस्। यसले पहिले कपी गरेको कुरा बदल्छ। सेटिङहरू > उन्नत > क्लिपबोर्ड व्यवस्थापन मा गएर यो बन्द गर्न सक्नुहुन्छ।"
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }
