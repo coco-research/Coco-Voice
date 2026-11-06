@@ -1,9 +1,14 @@
 // Re-export all audio components
+#[cfg(feature = "meetings")]
+mod append_wav;
 mod device;
 mod recorder;
 mod resampler;
 mod utils;
 mod visualizer;
+
+#[cfg(feature = "meetings")]
+pub use append_wav::AppendWav;
 
 pub use device::{list_input_devices, list_output_devices, CpalDeviceInfo};
 pub use recorder::{

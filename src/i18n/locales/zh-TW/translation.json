@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "貼上之後，聽寫的文字會留在剪貼簿上，方便再貼一次。它會取代你先前複製的內容。可以在設定 > 進階 > 剪貼簿處理裡關掉。"
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }
