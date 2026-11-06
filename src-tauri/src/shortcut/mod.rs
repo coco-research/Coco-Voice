@@ -1298,6 +1298,14 @@ pub fn change_experimental_enabled_setting(app: AppHandle, enabled: bool) -> Res
     Ok(())
 }
 
+#[cfg(feature = "meetings")]
+#[tauri::command]
+#[specta::specta]
+pub fn change_meetings_enabled_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+    settings::update_settings(&app, |s| s.meetings_enabled = enabled);
+    Ok(())
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn change_post_process_base_url_setting(
