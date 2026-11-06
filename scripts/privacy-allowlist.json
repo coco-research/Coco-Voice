@@ -1,0 +1,154 @@
+[
+  {
+    "host": "api.anthropic.com",
+    "why": "Anthropic cloud clean-up. Post-processing is off by default except on Apple Silicon, where the default provider is on-device Apple Intelligence. This host is used only after the user turns clean-up on and selects Anthropic.",
+    "when": "only after the user turns something on",
+    "sends": "the transcript text (the speech, as text), the cleanup prompt, and the API key. Listing models sends the API key and no transcript.",
+    "files": ["src-tauri/src/settings.rs"]
+  },
+  {
+    "host": "api.cerebras.ai",
+    "why": "Cerebras cloud clean-up. Same switch as the other cloud providers: clean-up must be on and Cerebras must be the selected provider. It is not the default on Apple Silicon.",
+    "when": "only after the user turns something on",
+    "sends": "the transcript text (the speech, as text), the cleanup prompt, and the API key. Listing models sends the API key and no transcript.",
+    "files": ["src-tauri/src/settings.rs"]
+  },
+  {
+    "host": "api.groq.com",
+    "why": "Groq cloud clean-up. Used only after the user turns clean-up on and selects Groq.",
+    "when": "only after the user turns something on",
+    "sends": "the transcript text (the speech, as text), the cleanup prompt, and the API key. Listing models sends the API key and no transcript.",
+    "files": ["src-tauri/src/settings.rs"]
+  },
+  {
+    "host": "api.openai.com",
+    "why": "OpenAI cloud clean-up, and the placeholder text in every locale file. The placeholder is not a request. Off Apple Silicon this provider is the default id, but clean-up stays off until the user turns it on. On Apple Silicon the default provider is on-device Apple Intelligence.",
+    "when": "only after the user turns something on",
+    "sends": "the transcript text (the speech, as text), the cleanup prompt, and the API key. Listing models sends the API key and no transcript.",
+    "files": [
+      "src-tauri/src/settings.rs",
+      "src/i18n/locales/ar/translation.json",
+      "src/i18n/locales/bg/translation.json",
+      "src/i18n/locales/cs/translation.json",
+      "src/i18n/locales/de/translation.json",
+      "src/i18n/locales/en/translation.json",
+      "src/i18n/locales/es/translation.json",
+      "src/i18n/locales/fr/translation.json",
+      "src/i18n/locales/he/translation.json",
+      "src/i18n/locales/it/translation.json",
+      "src/i18n/locales/ja/translation.json",
+      "src/i18n/locales/ko/translation.json",
+      "src/i18n/locales/ne/translation.json",
+      "src/i18n/locales/nl/translation.json",
+      "src/i18n/locales/pl/translation.json",
+      "src/i18n/locales/pt/translation.json",
+      "src/i18n/locales/ru/translation.json",
+      "src/i18n/locales/sv/translation.json",
+      "src/i18n/locales/tr/translation.json",
+      "src/i18n/locales/uk/translation.json",
+      "src/i18n/locales/vi/translation.json",
+      "src/i18n/locales/zh-TW/translation.json",
+      "src/i18n/locales/zh/translation.json"
+    ]
+  },
+  {
+    "host": "api.z.ai",
+    "why": "Z.AI cloud clean-up. Used only after the user turns clean-up on and selects Z.AI.",
+    "when": "only after the user turns something on",
+    "sends": "the transcript text (the speech, as text), the cleanup prompt, and the API key. Listing models sends the API key and no transcript.",
+    "files": ["src-tauri/src/settings.rs"]
+  },
+  {
+    "host": "bedrock-mantle.us-east-1.api.aws",
+    "why": "AWS Bedrock (Mantle) cloud clean-up. Used only after the user turns clean-up on and selects this provider.",
+    "when": "only after the user turns something on",
+    "sends": "the transcript text (the speech, as text), the cleanup prompt, and the API key. Listing models sends the API key and no transcript.",
+    "files": ["src-tauri/src/settings.rs"]
+  },
+  {
+    "host": "blob.handy.computer",
+    "why": "Direct download URL for the built-in speech models. The request runs when the user downloads one of those models in onboarding or settings.",
+    "when": "only when they click a button",
+    "sends": "a download request for the model file. The file name is in the URL. No speech and no transcript.",
+    "files": ["src-tauri/src/managers/model.rs"]
+  },
+  {
+    "host": "eus.codesigning.azure.net",
+    "why": "Windows signCommand in tauri.conf.json. Azure Trusted Signing runs during a Windows build. The Mac app does not call it.",
+    "when": "only when a Windows build signs the installer",
+    "sends": "the installer being signed. No speech and no transcript.",
+    "files": ["src-tauri/tauri.conf.json"]
+  },
+  {
+    "host": "example.com",
+    "why": "Stand-in download URL inside a model.rs unit test. It is compiled out of the release build, and the test does not fetch it.",
+    "when": "not contacted by the app",
+    "sends": "nothing",
+    "files": ["src-tauri/src/managers/model.rs"]
+  },
+  {
+    "host": "example.invalid",
+    "why": "Stand-in URL in a model.rs unit test for a model that must not be fetched. The .invalid name does not resolve. It is compiled out of the release build.",
+    "when": "not contacted by the app",
+    "sends": "nothing",
+    "files": ["src-tauri/src/managers/model.rs"]
+  },
+  {
+    "host": "github.com",
+    "why": "Update checks are on by default and request the GitHub releases manifest on launch. The user can turn that off. Source code, release notes, and the portable-update button open github.com in the browser when clicked. Cargo clones git dependencies from GitHub when the app is built. Referer and User-Agent headers name this URL but are sent to the clean-up provider, not to GitHub. Shortcut tests quote GitHub URLs as error text and do not request them.",
+    "when": "always",
+    "sends": "a request for the release manifest, and the update package if they install one. No speech, no transcript, and no account.",
+    "files": [
+      "src-tauri/Cargo.toml",
+      "src-tauri/src/llm_client.rs",
+      "src-tauri/src/shortcut/mod.rs",
+      "src-tauri/tauri.conf.json",
+      "src/components/settings/about/AboutSettings.tsx",
+      "src/components/update-checker/UpdateChecker.tsx",
+      "src/content/release-notes/0.9.0.md",
+      "src/content/release-notes/0.9.5.md"
+    ]
+  },
+  {
+    "host": "huggingface.co",
+    "why": "Licence pages in the model catalogue, opened in the browser when the user clicks the licence badge. Downloading a Hugging Face model uses hf-hub, which requests this host. A large file can redirect to a file host that is not written in the repo, so that host is not listed here. HF_TOKEN or HF_ENDPOINT in the environment is passed through by hf-hub when set.",
+    "when": "only when they click a button",
+    "sends": "on download, the model repo, revision, and file name, plus a Hugging Face token if one is already in the environment. No speech and no transcript.",
+    "files": ["src-tauri/src/catalog/model_licences.json"]
+  },
+  {
+    "host": "localhost",
+    "why": "Custom clean-up defaults to Ollama at http://localhost:11434. The request stays on this Mac unless the user edits the base URL. A host typed in settings is not in the source, so this scan cannot see it. http://localhost:1420 is the Vite server Tauri loads during tauri dev, not in a release build.",
+    "when": "only after the user turns something on",
+    "sends": "when custom clean-up runs, the transcript text (the speech, as text) and the cleanup prompt, to a program on this Mac. The dev URL loads the local UI and sends nothing off the Mac.",
+    "files": ["src-tauri/src/settings.rs", "src-tauri/tauri.conf.json"]
+  },
+  {
+    "host": "openrouter.ai",
+    "why": "OpenRouter cloud clean-up. Used only after the user turns clean-up on and selects OpenRouter.",
+    "when": "only after the user turns something on",
+    "sends": "the transcript text (the speech, as text), the cleanup prompt, and the API key. Listing models sends the API key and no transcript.",
+    "files": ["src-tauri/src/settings.rs"]
+  },
+  {
+    "host": "schema.tauri.app",
+    "why": "JSON Schema URL on tauri.conf.json so an editor can validate the config. The running app does not request it.",
+    "when": "not contacted by the app",
+    "sends": "nothing",
+    "files": ["src-tauri/tauri.conf.json"]
+  },
+  {
+    "host": "www.w3.org",
+    "why": "XML namespace on the inline SVG icons. The webview does not fetch it.",
+    "when": "not contacted by the app",
+    "sends": "nothing",
+    "files": [
+      "src/components/icons/CancelIcon.tsx",
+      "src/components/icons/CocoVoiceIcon.tsx",
+      "src/components/icons/CocoVoiceTextLogo.tsx",
+      "src/components/icons/MicrophoneIcon.tsx",
+      "src/components/icons/ResetIcon.tsx",
+      "src/components/icons/TranscriptionIcon.tsx"
+    ]
+  }
+]
