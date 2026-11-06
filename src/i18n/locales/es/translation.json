@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "Después de pegar, el texto dictado permanece en el portapapeles para que puedas pegarlo otra vez. Sustituye lo que habías copiado antes. Puedes desactivarlo en Configuración > Avanzado > Manejo del Portapapeles."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }
