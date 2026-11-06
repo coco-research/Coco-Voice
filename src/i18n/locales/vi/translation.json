@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "Sau khi dán, chữ bạn vừa đọc vẫn nằm trên clipboard để dán lại. Nó thay phần bạn đã sao chép trước đó. Bạn có thể tắt trong Cài đặt > Nâng cao > Xử lý Clipboard."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }

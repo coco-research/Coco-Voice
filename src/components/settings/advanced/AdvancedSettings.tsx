@@ -17,6 +17,7 @@ import { AppendTrailingSpace } from "../AppendTrailingSpace";
 import { HistoryLimit } from "../HistoryLimit";
 import { RecordingRetentionPeriodSelector } from "../RecordingRetentionPeriod";
 import { ExperimentalToggle } from "../ExperimentalToggle";
+import { useMeetingsUi } from "../../meetings/gate";
 import { useSettings } from "../../../hooks/useSettings";
 import { KeyboardImplementationSelector } from "../debug/KeyboardImplementationSelector";
 import { VoiceActivityDetection } from "../VoiceActivityDetection";
@@ -27,6 +28,7 @@ export const AdvancedSettings: React.FC = () => {
   const { t } = useTranslation();
   const { getSetting } = useSettings();
   const experimentalEnabled = getSetting("experimental_enabled") || false;
+  const meetingsUi = useMeetingsUi();
 
   return (
     <div className="max-w-3xl w-full mx-auto space-y-6">
@@ -37,6 +39,9 @@ export const AdvancedSettings: React.FC = () => {
         <ShowOverlay descriptionMode="tooltip" grouped={true} />
         <ModelUnloadTimeoutSetting descriptionMode="tooltip" grouped={true} />
         <ExperimentalToggle descriptionMode="tooltip" grouped={true} />
+        {meetingsUi ? (
+          <meetingsUi.MeetingsToggle descriptionMode="tooltip" grouped={true} />
+        ) : null}
       </SettingsGroup>
 
       <SettingsGroup title={t("settings.advanced.groups.output")}>

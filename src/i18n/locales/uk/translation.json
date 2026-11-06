@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "Після вставки продиктований текст лишається в буфері обміну, тож його можна вставити ще раз. Він замінює те, що ви копіювали раніше. Це можна вимкнути в Налаштування > Розширені > Робота з буфером обміну."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }
