@@ -475,6 +475,27 @@ fn held_model(model_id: &str, source: &ModelSource, hold_ids: &[&str]) -> bool {
     )
 }
 
+/// One Hugging Face file to fetch. Not a list: a miss is an error in the caller.
+#[derive(Debug, PartialEq, Eq)]
+struct HfFetchTarget {
+    repo_id: String,
+    revision: String,
+    filename: String,
+}
+
+fn hf_fetch_target(model: &ModelInfo) -> Option<HfFetchTarget> {
+    match &model.source {
+        ModelSource::HuggingFace {
+            repo_id, revision, ..
+        } => Some(HfFetchTarget {
+            repo_id: repo_id.clone(),
+            revision: revision.clone(),
+            filename: model.filename.clone(),
+        }),
+        ModelSource::Url { .. } | ModelSource::Local => None,
+    }
+}
+
 /// Resolve a Hugging Face model file in the shared HF cache, if already present.
 /// Uses hf-hub's stock location (HF_HOME or ~/.cache/huggingface/hub) so
 /// downloads are shared with other tools.
@@ -2404,12 +2425,15 @@ impl ModelManager {
     async fn download_hf_model(
         &self,
         model_info: &ModelInfo,
-        repo_id: String,
-        revision: String,
+        fetch: HfFetchTarget,
         expected_sha256: Option<String>,
     ) -> Result<()> {
         let model_id = model_info.id.clone();
-        let filename = model_info.filename.clone();
+        let HfFetchTarget {
+            repo_id,
+            revision,
+            filename,
+        } = fetch;
 
         // Already in the shared cache (possibly from another tool) and, when the
         // catalog pins a hash, verified by us? Done.
@@ -2634,18 +2658,12 @@ impl ModelManager {
 
         let (url, expected_sha256) = match &model_info.source {
             ModelSource::Url { url, sha256 } => (url.clone(), sha256.clone()),
-            ModelSource::HuggingFace {
-                repo_id,
-                revision,
-                sha256,
-            } => {
+            ModelSource::HuggingFace { sha256, .. } => {
+                let Some(fetch) = hf_fetch_target(&model_info) else {
+                    return Err(anyhow::anyhow!("No download source for model"));
+                };
                 return self
-                    .download_hf_model(
-                        &model_info,
-                        repo_id.clone(),
-                        revision.clone(),
-                        sha256.clone(),
-                    )
+                    .download_hf_model(&model_info, fetch, sha256.clone())
                     .await;
             }
             ModelSource::Local => {
@@ -3935,6 +3953,92 @@ mod tests {
             offered.is_empty(),
             "held Hugging Face repo must not be offered"
         );
+    }
+
+    fn hf_model(id: &str, repo_id: &str, revision: &str, filename: &str) -> ModelInfo {
+        let mut model = blob_model(id, "https://example.invalid/not-fetched");
+        model.filename = filename.to_string();
+        model.source = ModelSource::HuggingFace {
+            repo_id: repo_id.to_string(),
+            revision: revision.to_string(),
+            sha256: None,
+        };
+        model
+    }
+
+    #[test]
+    fn catalog_hugging_face_model_fetches_its_own_repo_and_pinned_revision() {
+        let revision = "8b01fc77ac169a0a05c5c0332bbfe54acf65c26f";
+        let model = hf_model(
+            "handy-computer/canary-180m-flash-gguf/canary-180m-flash-Q4_K_M.gguf",
+            "handy-computer/canary-180m-flash-gguf",
+            revision,
+            "canary-180m-flash-Q4_K_M.gguf",
+        );
+        assert_eq!(
+            hf_fetch_target(&model),
+            Some(HfFetchTarget {
+                repo_id: "handy-computer/canary-180m-flash-gguf".to_string(),
+                revision: revision.to_string(),
+                filename: "canary-180m-flash-Q4_K_M.gguf".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn source_repo_fetches_that_repo_only() {
+        let revision = "bc640142c66e1fdd12af0bd68f40445458f3869b";
+        let model = hf_model(
+            "handy-computer/example-gguf/example.gguf",
+            "coco-research/example-gguf",
+            revision,
+            "example.gguf",
+        );
+        assert_eq!(
+            hf_fetch_target(&model),
+            Some(HfFetchTarget {
+                repo_id: "coco-research/example-gguf".to_string(),
+                revision: revision.to_string(),
+                filename: "example.gguf".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn failed_hf_download_is_an_error_with_no_second_fetch() {
+        assert!(hf_fetch_target(&blob_model(
+            "small",
+            "https://blob.handy.computer/ggml-small.bin",
+        ))
+        .is_none());
+
+        let src = include_str!("model.rs");
+        let at = src.find("fn hf_fetch_target(").expect("hf_fetch_target");
+        let decision = &src[at..];
+        let decision = &decision[..decision.find("\nfn hf_cached_path").expect("next")];
+        assert!(!decision.contains("Vec") && !decision.contains("blob.handy.computer"));
+
+        let start = src
+            .find("async fn download_hf_model")
+            .expect("download_hf_model");
+        let body = &src[start..];
+        let body = &body[..body
+            .find("\n    pub async fn download_model")
+            .expect("next")];
+        assert_eq!(
+            body.matches("download_with_progress_cancellable(").count(),
+            1
+        );
+        // The download's own error arm: the first `Err(e) =>` after the single fetch call
+        // (the verification of an existing file has an earlier one).
+        let call_at = body
+            .find("download_with_progress_cancellable(")
+            .expect("fetch call");
+        let err_at = call_at + body[call_at..].find("Err(e) =>").expect("error arm");
+        let err_arm = &body[err_at..body.find("cleanup.disarmed").expect("success path")];
+        assert!(err_arm.contains("return Err("));
+        assert!(!err_arm.contains("download_with_progress"));
+        assert!(!err_arm.contains("blob.handy.computer"));
     }
 
     #[test]

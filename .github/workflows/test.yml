@@ -69,3 +69,7 @@ jobs:
       - name: Run Rust tests
         working-directory: src-tauri
         run: cargo test
+
+      - name: Run Rust tests with the meetings feature
+        working-directory: src-tauri
+        run: cargo test --features meetings
