@@ -15,6 +15,8 @@ mod llm_client;
 #[cfg(target_os = "macos")]
 mod local_llm;
 mod managers;
+#[cfg(feature = "meetings")]
+mod meetings;
 mod overlay;
 pub mod portable;
 mod settings;
@@ -551,7 +553,11 @@ fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
 fn meetings_command_names() -> &'static [&'static str] {
     #[cfg(feature = "meetings")]
     {
-        &["change_meetings_enabled_setting"]
+        &[
+            "change_meetings_enabled_setting",
+            "current_meeting_offer",
+            "dismiss_meeting_offer",
+        ]
     }
     #[cfg(not(feature = "meetings"))]
     {
@@ -562,7 +568,12 @@ fn meetings_command_names() -> &'static [&'static str] {
 #[cfg(feature = "meetings")]
 macro_rules! collect_app_commands {
     ($($($seg:ident)::+),* $(,)?) => {
-        collect_commands![$($($seg)::+,)* shortcut::change_meetings_enabled_setting]
+        collect_commands![
+            $($($seg)::+,)*
+            shortcut::change_meetings_enabled_setting,
+            meetings::current_meeting_offer,
+            meetings::dismiss_meeting_offer
+        ]
     };
 }
 
@@ -891,6 +902,9 @@ pub fn run(cli_args: CliArgs) {
                 return Ok(());
             }
 
+            #[cfg(feature = "meetings")]
+            meetings::install(app.handle());
+
             // Create main window programmatically so we can set data_directory
             // for portable mode (redirects WebView2 cache to portable Data dir)
             let mut win_builder =
@@ -1012,6 +1026,8 @@ pub fn run(cli_args: CliArgs) {
             }
             // Teardown transcribe.cpp before exit
             tauri::RunEvent::Exit => {
+                #[cfg(feature = "meetings")]
+                meetings::stop_offer_poll();
                 if let Some(tm) = app.try_state::<Arc<TranscriptionManager>>() {
                     let _ = tm.unload_model();
                 }
@@ -1039,6 +1055,8 @@ mod meetings_gate_tests {
                 "a meetings build registers the meetings setting command"
             );
             assert!(names.contains(&"change_meetings_enabled_setting"));
+            assert!(names.contains(&"current_meeting_offer"));
+            assert!(names.contains(&"dismiss_meeting_offer"));
         }
     }
 }

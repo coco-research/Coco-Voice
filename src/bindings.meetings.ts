@@ -2,6 +2,14 @@
 
 /** user-defined commands **/
 
+export type MeetingOffer = {
+  bundleId: string;
+  app: string;
+  inCall: boolean;
+  body: string;
+  startsCapture: boolean;
+};
+
 export const commands = {
   async changeMeetingsEnabledSetting(
     enabled: boolean,
@@ -12,6 +20,28 @@ export const commands = {
         data: await TAURI_INVOKE("change_meetings_enabled_setting", {
           enabled,
         }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async currentMeetingOffer(): Promise<Result<MeetingOffer | null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("current_meeting_offer"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async dismissMeetingOffer(bundleId: string): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("dismiss_meeting_offer", { bundleId }),
       };
     } catch (e) {
       if (e instanceof Error) throw e;
