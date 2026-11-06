@@ -32,6 +32,11 @@ on:
         required: false
         type: boolean
         default: false
+      sign-macos:
+        description: Code-sign macOS builds with the certificate in APPLE_CERTIFICATE (self-signed "Coco Research Code Signing" or Developer ID) so the signature, and the Accessibility grant, survive updates. No notarization. Builds ad-hoc with a warning when the secret or identity is missing. Ignored when sign-binaries is true.
+        required: false
+        type: boolean
+        default: false
       sign-updater:
         description: Give this build the Tauri updater minisign key even when OS signing is off. Only trusted release callers set it.
         required: false
@@ -53,7 +58,7 @@ on:
         type: boolean
         default: false
     # Every secret is optional. Trusted callers use `secrets: inherit`.
-    # release-please passes only the updater key.
+    # release-please passes the updater key and the macOS certificate (sign-macos).
     secrets:
       APPLE_CERTIFICATE:
         required: false
@@ -250,8 +255,22 @@ jobs:
         if: ${{ inputs.target != '' && !contains(inputs.target, 'x86_64-unknown-linux-gnu') && !contains(inputs.target, 'aarch64-unknown-linux-gnu') && !contains(inputs.target, 'x86_64-pc-windows-msvc') }}
         run: rustup target add ${{ inputs.target }}
 
+      # sign-macos: sign with a fixed certificate, but never fail a release
+      # because the secret is missing; fall back to today's ad-hoc build.
+      - name: check macOS signing certificate
+        id: macos-sign
+        if: contains(inputs.platform, 'macos') && inputs.sign-macos && !inputs.sign-binaries
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+        run: |
+          if [ -n "$APPLE_CERTIFICATE" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::sign-macos is on but the APPLE_CERTIFICATE secret is empty; building ad-hoc signed."
+          fi
+
       - name: import Apple Developer Certificate
-        if: contains(inputs.platform, 'macos') && inputs.sign-binaries
+        if: contains(inputs.platform, 'macos') && (inputs.sign-binaries || steps.macos-sign.outputs.enabled == 'true')
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -273,6 +292,25 @@ jobs:
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
           echo "Certificate imported."
+
+      # A self-signed certificate is untrusted, so list without -v. Prefer a
+      # Developer ID identity, else the project's fixed self-signed one.
+      - name: pick macOS signing identity
+        if: steps.macos-sign.outputs.enabled == 'true'
+        run: |
+          security list-keychains -d user -s build.keychain $(security list-keychains -d user | tr -d '"')
+          IDENTITIES=$(security find-identity -p codesigning build.keychain)
+          echo "$IDENTITIES"
+          CERT_ID=$(echo "$IDENTITIES" | grep -m1 '"Developer ID Application' | awk -F'"' '{print $2}' || true)
+          if [ -z "$CERT_ID" ]; then
+            CERT_ID=$(echo "$IDENTITIES" | grep -m1 '"Coco Research Code Signing"' | awk -F'"' '{print $2}' || true)
+          fi
+          if [ -z "$CERT_ID" ]; then
+            echo "::warning::APPLE_CERTIFICATE has no 'Coco Research Code Signing' or 'Developer ID Application' identity; building ad-hoc signed."
+            CERT_ID="-"
+          fi
+          echo "CERT_ID=$CERT_ID" >> "$GITHUB_ENV"
+          echo "Signing macOS build as: $CERT_ID"
 
       - name: Patch asset name pattern
         id: patch-release-name
@@ -543,7 +581,11 @@ jobs:
           APPLE_TEAM_ID: ${{ inputs.sign-binaries && secrets.APPLE_TEAM_ID || '' }}
           APPLE_CERTIFICATE: ${{ inputs.sign-binaries && secrets.APPLE_CERTIFICATE || '' }}
           APPLE_CERTIFICATE_PASSWORD: ${{ inputs.sign-binaries && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          APPLE_SIGNING_IDENTITY: ${{ inputs.sign-binaries && env.CERT_ID || '' }}
+          # sign-macos passes only the identity: Tauri's own APPLE_CERTIFICATE
+          # import accepts Apple-issued certificates only, so codesign uses the
+          # build.keychain imported above. This env var overrides the
+          # signingIdentity "-" that release build-args pass.
+          APPLE_SIGNING_IDENTITY: ${{ (inputs.sign-binaries || steps.macos-sign.outputs.enabled == 'true') && env.CERT_ID || '' }}
           AZURE_CLIENT_ID: ${{ inputs.sign-binaries && secrets.AZURE_CLIENT_ID || '' }}
           AZURE_CLIENT_SECRET: ${{ inputs.sign-binaries && secrets.AZURE_CLIENT_SECRET || '' }}
           AZURE_TENANT_ID: ${{ inputs.sign-binaries && secrets.AZURE_TENANT_ID || '' }}
@@ -558,7 +600,9 @@ jobs:
           releaseId: ${{ inputs.release-id }}
           # Unsigned macOS builds: Tauri tries to import a certificate whenever
           # APPLE_CERTIFICATE is set, even to an empty string, so drop those vars.
-          tauriScript: ${{ (!inputs.sign-binaries && contains(inputs.platform, 'macos')) && 'env -u APPLE_CERTIFICATE -u APPLE_CERTIFICATE_PASSWORD -u APPLE_SIGNING_IDENTITY -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID bun tauri' || '' }}
+          # sign-macos keeps APPLE_SIGNING_IDENTITY; the APPLE_ID vars stay
+          # dropped so nothing is notarized.
+          tauriScript: ${{ (!inputs.sign-binaries && contains(inputs.platform, 'macos')) && format('env -u APPLE_CERTIFICATE -u APPLE_CERTIFICATE_PASSWORD{0} -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID bun tauri', steps.macos-sign.outputs.enabled != 'true' && ' -u APPLE_SIGNING_IDENTITY' || '') || '' }}
           assetNamePattern: ${{ steps.patch-release-name.outputs.platform }}
           args: ${{ inputs.build-args }}
 
