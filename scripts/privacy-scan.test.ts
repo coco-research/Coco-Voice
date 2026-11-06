@@ -7,6 +7,7 @@ import {
   missingHosts,
   scanPrivacyHosts,
   staleAllowlistHosts,
+  stripComments,
 } from "./privacy-scan.ts";
 
 function withTree(
@@ -84,6 +85,54 @@ test("a comment-only line is ignored", () => {
       ]);
     },
   );
+});
+
+test("a rust lifetime does not hide a trailing comment", () => {
+  const out = stripComments(
+    `fn f() -> &'static str { "" } // https://comment.example`,
+    "rust",
+  );
+  expect(out).not.toContain("comment.example");
+});
+
+test("a rust char literal is not a comment and the next string is kept", () => {
+  const out = stripComments(
+    `let c = '"'; let u = "https://kept.example";`,
+    "rust",
+  );
+  expect(out).toContain("kept.example");
+});
+
+test("a rust lifetime keeps the real url and drops the trailing comment", () => {
+  const out = stripComments(
+    `let s: &'a str = "https://kept.example"; // https://comment.example`,
+    "rust",
+  );
+  expect(out).toContain("kept.example");
+  expect(out).not.toContain("comment.example");
+});
+
+test("a toml inline comment is dropped and a # inside a string is kept", () => {
+  const out = stripComments('serde = "1" # https://comment.example', "toml");
+  expect(out).not.toContain("comment.example");
+  const kept = stripComments('url = "https://kept.example#frag"', "toml");
+  expect(kept).toContain("kept.example");
+});
+
+test("a toml multi-line string keeps its url", () => {
+  const basic = stripComments('a = """\n# https://kept.example\n"""', "toml");
+  expect(basic).toContain("kept.example");
+  const literal = stripComments("a = '''\n# https://kept.example\n'''", "toml");
+  expect(literal).toContain("kept.example");
+});
+
+test("a ts trailing comment is dropped and the string is kept", () => {
+  const out = stripComments(
+    `const a = 'https://kept.example' // https://comment.example`,
+    "other",
+  );
+  expect(out).toContain("kept.example");
+  expect(out).not.toContain("comment.example");
 });
 
 test("this repo matches the allowlist", () => {

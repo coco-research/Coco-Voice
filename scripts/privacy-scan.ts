@@ -1,7 +1,9 @@
 /**
  * List every http(s) and ws(s) host under the app source.
  * Comment-only text is ignored so a note cannot look like a new network call.
- * A host that is not in scripts/privacy-allowlist.json fails the static check.
+ * Running this file prints the host inventory and exits 0; it is not the gate.
+ * The gate is scripts/privacy-scan.test.ts (run by `bun run test:static`), which
+ * fails when a host is missing from scripts/privacy-allowlist.json.
  */
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -20,6 +22,9 @@ const SKIP_DIRS = new Set(["node_modules", "target"]);
 
 const URL_RE = /(?:https?|wss?):\/\/[^\s<>"'`\\)\]]+/gi;
 
+const RUST_CHAR_RE =
+  /'(?:[^'\\\n]|\\u\{[0-9a-fA-F]{1,6}\}|\\x[0-9a-fA-F]{2}|\\[nrt0\\'"])'/y;
+
 export interface PrivacyHit {
   host: string;
   file: string;
@@ -37,10 +42,14 @@ export interface PrivacyAllowEntry {
 /**
  * Drop comments, keeping every newline so later line numbers still match the file.
  * `//` and `/*` are comments only outside strings. `://` stays, so a URL is not
- * eaten. Cargo `#` comments are dropped only in toml, where that is the comment
- * syntax. A `#` line in Rust is an attribute and is kept.
+ * eaten. In toml, `#` starts a comment anywhere outside a string. In Rust, `#` is
+ * an attribute and is kept, and `'` is a char literal only when it parses as one,
+ * so a lifetime like `&'a` cannot swallow the rest of the line.
  */
-export function stripComments(text: string, toml: boolean): string {
+export function stripComments(
+  text: string,
+  lang: "toml" | "rust" | "other",
+): string {
   let out = "";
   let i = 0;
 
@@ -52,7 +61,26 @@ export function stripComments(text: string, toml: boolean): string {
       continue;
     }
 
+    if (
+      lang === "toml" &&
+      (text.startsWith('"""', i) || text.startsWith("'''", i))
+    ) {
+      const triple = text.slice(i, i + 3);
+      const end = text.indexOf(triple, i + 3);
+      const next = end === -1 ? text.length : end + 3;
+      out += text.slice(i, next);
+      i = next;
+      continue;
+    }
+
     const quote = text[i];
+    if (quote === "'" && lang === "rust") {
+      const end = endOfRustChar(text, i) ?? i + 1;
+      out += text.slice(i, end);
+      i = end;
+      continue;
+    }
+
     if (quote === '"' || quote === "'" || quote === "`") {
       const end = endOfString(text, i, quote);
       out += text.slice(i, end);
@@ -81,7 +109,7 @@ export function stripComments(text: string, toml: boolean): string {
       continue;
     }
 
-    if (toml && text[i] === "#" && lineSoFarIsBlank(out)) {
+    if (lang === "toml" && text[i] === "#") {
       while (i < text.length && text[i] !== "\n") i++;
       continue;
     }
@@ -166,7 +194,7 @@ function collect(root: string, path: string, hits: PrivacyHit[]): void {
   if (!info.isFile()) return;
 
   const text = readFileSync(path, "utf8");
-  const stripped = stripComments(text, path.endsWith(".toml"));
+  const stripped = stripComments(text, langOf(path));
   const file = relative(root, path).split(sep).join("/");
   const lines = stripped.split("\n");
   for (let index = 0; index < lines.length; index++) {
@@ -209,6 +237,19 @@ function readRawString(
   return { value: text.slice(start, next), next };
 }
 
+function langOf(path: string): "toml" | "rust" | "other" {
+  if (path.endsWith(".toml")) return "toml";
+  if (path.endsWith(".rs")) return "rust";
+  return "other";
+}
+
+/** End of a Rust char literal at `start`, or null when `'` is a lifetime. */
+function endOfRustChar(text: string, start: number): number | null {
+  RUST_CHAR_RE.lastIndex = start;
+  const match = RUST_CHAR_RE.exec(text);
+  return match ? start + match[0].length : null;
+}
+
 function endOfString(text: string, start: number, quote: string): number {
   let i = start + 1;
   while (i < text.length) {
@@ -221,13 +262,6 @@ function endOfString(text: string, start: number, quote: string): number {
     i++;
   }
   return text.length;
-}
-
-function lineSoFarIsBlank(out: string): boolean {
-  for (let i = out.length - 1; i >= 0 && out[i] !== "\n"; i--) {
-    if (out[i] !== " " && out[i] !== "\t") return false;
-  }
-  return true;
 }
 
 function unique(hosts: string[]): string[] {
