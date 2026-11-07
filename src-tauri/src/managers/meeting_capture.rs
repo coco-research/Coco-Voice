@@ -42,8 +42,25 @@ pub fn mic_recording_active() -> bool {
     MIC_HOLDERS.load(Ordering::SeqCst) > 0
 }
 
-/// A stretch where the Me track kept no audio, in milliseconds from the meeting
-/// start (wall clock, so it lines up with the Others track).
+/// The microphone is one device, and dictation and the Me track both open and
+/// close streams on it. Without this gate the check-then-act pairs ("is a
+/// device change allowed?" then restart, and "hold the microphone" then open)
+/// can interleave, so a take starts between the check and the restart and its
+/// buffer is dropped. The gate makes each pair one step.
+///
+/// Lock order is the AudioManager `state` lock, then this gate. Nothing in this
+/// module takes `state`, so the order cannot invert.
+static MIC_GATE: Mutex<()> = Mutex::new(());
+
+/// Serializes microphone open/close across dictation and the Me track. A
+/// poisoned lock is recovered: the gate guards no data of its own.
+pub(crate) fn lock_mic_gate() -> std::sync::MutexGuard<'static, ()> {
+    MIC_GATE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// A stretch where the Me track kept no audio, in milliseconds since the
+/// meeting start on a monotonic clock (`Instant`), the same clock the Others
+/// track uses for its segment offsets.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MicGap {
     pub start_ms: u64,
@@ -119,6 +136,23 @@ impl MicTrack {
     }
 }
 
+/// One recorder frame: keep it, or on the first write error pause the track
+/// (which records the gap) and set the error text. A paused track returns
+/// without touching the writer, so the failure is logged once, not per frame.
+fn record_frame(track: &Mutex<MicTrack>, error: &Mutex<Option<String>>, frame: &[f32]) {
+    let mut track = track.lock().unwrap_or_else(|e| e.into_inner());
+    if track.paused {
+        return;
+    }
+    if let Err(e) = track.push(frame) {
+        let reason = format!("{e:#}");
+        track.pause();
+        drop(track);
+        *error.lock().unwrap_or_else(|e| e.into_inner()) = Some(reason.clone());
+        warn!("meeting mic paused after a write error: {reason}");
+    }
+}
+
 /* ──────────────────────────────────────────────────────────────── */
 
 // The meeting controller (PR6) constructs this; until then only tests use it.
@@ -133,8 +167,9 @@ pub struct MeetingMic {
     /// stream config by device name, so reusing it after a rate change would
     /// hand back the old rate.
     recorder: Mutex<Option<AudioRecorder>>,
-    /// Why the Me track is paused, for the meeting screen.
-    error: Mutex<Option<String>>,
+    /// Why the Me track is paused, for the meeting screen. Shared with the
+    /// audio callback, which sets it on the first write error.
+    error: Arc<Mutex<Option<String>>>,
     held: AtomicBool,
 }
 
@@ -157,9 +192,14 @@ impl MeetingMic {
             get_settings(app).selected_microphone.clone(),
             Instant::now(),
         )?;
-        mic.hold_microphone();
-        if let Err(e) = mic.start_stream() {
-            mic.fail(&e);
+        // Holding the microphone and opening the stream is one step: dictation
+        // must not begin while the Me track is between them.
+        {
+            let _gate = lock_mic_gate();
+            mic.hold_microphone();
+            if let Err(e) = mic.start_stream() {
+                mic.fail(&e);
+            }
         }
         info!(
             "meeting {meeting_id}: me track at {} (VAD off)",
@@ -175,14 +215,14 @@ impl MeetingMic {
             device_name,
             track: Arc::new(Mutex::new(MicTrack::started_at(wav, started))),
             recorder: Mutex::new(None),
-            error: Mutex::new(None),
+            error: Arc::new(Mutex::new(None)),
             held: AtomicBool::new(false),
         })
     }
 
-    /// The function the cpal callback calls. Frames arrive untouched because
-    /// this recorder runs `VadPolicy::Disabled`; the callback below is the same
-    /// code path, and tests feed generated PCM here with no device.
+    /// Push one frame by hand, with no device. The callback below reaches this
+    /// through `record_frame`; frames arrive untouched because the recorder
+    /// runs `VadPolicy::Disabled`, and tests feed generated PCM here.
     pub fn push(&self, samples: &[f32]) -> Result<()> {
         self.track.lock().unwrap().push(samples)
     }
@@ -226,8 +266,12 @@ impl MeetingMic {
     /// Reopen after a pause and close the gap. On failure the track stays
     /// paused and the gap stays open, so a later success covers the whole hole.
     pub fn reopen(&self) -> Result<()> {
-        self.close_stream();
-        match self.start_stream() {
+        let restarted = {
+            let _gate = lock_mic_gate();
+            self.close_stream();
+            self.start_stream()
+        };
+        match restarted {
             Ok(()) => {
                 *self.error.lock().unwrap() = None;
                 self.track.lock().unwrap().resume();
@@ -243,8 +287,14 @@ impl MeetingMic {
     /// Stop the recorder and let go of the microphone. The file stays; the last
     /// one-second flush is the durable point.
     pub fn stop(&self) {
-        self.release_microphone();
-        self.close_stream();
+        // Close first, then release: the reverse order would advertise the
+        // device as free while the old stream still holds it. Both under the
+        // gate so a device change cannot land in between.
+        {
+            let _gate = lock_mic_gate();
+            self.close_stream();
+            self.release_microphone();
+        }
         let mut track = self.track.lock().unwrap();
         track.resume();
         if let Err(e) = track.wav.flush() {
@@ -260,17 +310,16 @@ impl MeetingMic {
     fn start_stream(&self) -> Result<()> {
         let device = self.resolve_device();
         let track = Arc::clone(&self.track);
+        let error = Arc::clone(&self.error);
         let mut recorder = AudioRecorder::new()
             .map_err(|e| anyhow!("Failed to create the meeting recorder: {e}"))?
             .with_audio_callback(move |frame: &[f32]| {
                 // Runs on the recorder's consumer thread, not the cpal callback.
-                // Never panic: a poisoned lock is recovered. The writer refuses
-                // after its own write error, and `push`/`error()` carry the
-                // reason to the caller.
-                let mut track = track.lock().unwrap_or_else(|e| e.into_inner());
-                if let Err(e) = track.push(frame) {
-                    warn!("meeting mic write failed: {e:#}");
-                }
+                // Never panic: a poisoned lock is recovered. The first write
+                // error pauses the track and records why, so `is_paused()` and
+                // `error()` agree with the file. A paused track is skipped, so
+                // that log line appears once, not once per frame.
+                record_frame(&track, &error, frame);
             });
         recorder
             .open(device)
@@ -288,12 +337,21 @@ impl MeetingMic {
     /// default. Mirrors what dictation resolves, without its cached handle.
     fn resolve_device(&self) -> Option<cpal::Device> {
         let name = self.device_name.as_ref()?;
-        list_input_devices()
-            .map_err(|e| warn!("meeting mic: device list failed, using the default: {e}"))
+        let found = list_input_devices()
+            .inspect_err(|e| warn!("meeting mic: device list failed, using the default: {e}"))
             .ok()?
             .into_iter()
-            .find(|d| d.name == *name)
-            .map(|d| d.device)
+            .find(|d| d.name == *name);
+        match found {
+            Some(d) => Some(d.device),
+            None => {
+                warn!(
+                    "meeting mic: selected microphone '{name}' not found; \
+                     the Me track is using the system default"
+                );
+                None
+            }
+        }
     }
 
     /// Pause the Me track and record the hole. Nothing else stops: the Others
@@ -306,7 +364,9 @@ impl MeetingMic {
 
     fn close_stream(&self) {
         if let Some(mut recorder) = self.recorder.lock().unwrap().take() {
-            let _ = recorder.close();
+            if let Err(e) = recorder.close() {
+                warn!("meeting mic close failed: {e}");
+            }
         }
     }
 
@@ -489,6 +549,36 @@ mod tests {
         assert!(
             gaps[0].end_ms - gaps[0].start_ms < 1_500,
             "gap is longer than the pause: {gaps:?}"
+        );
+    }
+
+    #[test]
+    fn write_error_pauses_the_me_track_and_sets_the_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("readonly.wav");
+        AppendWav::create(&path).unwrap();
+        // `from_file` accepts a read-only handle (the empty header already
+        // matches the file), and the next append fails at the write.
+        let file = std::fs::OpenOptions::new().read(true).open(&path).unwrap();
+        let wav = AppendWav::from_file(file).unwrap();
+        let track = Mutex::new(MicTrack::started_at(wav, Instant::now()));
+        let error = Mutex::new(None);
+
+        // One 30 ms frame, the size the recorder hands the callback.
+        record_frame(&track, &error, &tone(0.03));
+
+        let track = track.lock().unwrap();
+        assert!(track.paused, "a failed write left the Me track live");
+        assert_eq!(track.gaps.len(), 1, "the write error left no gap");
+        assert_eq!(
+            track.gaps[0].end_ms, track.gaps[0].start_ms,
+            "the gap was closed while the track is still paused"
+        );
+        drop(track);
+        let reason = error.lock().unwrap().clone().unwrap_or_default();
+        assert!(
+            reason.contains("wav write failed"),
+            "error text is {reason:?}"
         );
     }
 }

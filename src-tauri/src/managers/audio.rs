@@ -282,6 +282,22 @@ fn meeting_mic_recording() -> bool {
     }
 }
 
+/// The device-change gate, or `None` when meetings are not compiled in. Taken
+/// right after the AudioManager `state` lock so the refusal check and the
+/// stream restart are one step: a take cannot start between them, and a
+/// meeting's open or stop cannot interleave. The meeting module never takes
+/// `state`, so the `state` then gate order cannot deadlock.
+fn mic_change_gate() -> Option<std::sync::MutexGuard<'static, ()>> {
+    #[cfg(feature = "meetings")]
+    {
+        Some(crate::managers::meeting_capture::lock_mic_gate())
+    }
+    #[cfg(not(feature = "meetings"))]
+    {
+        None
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum MicrophoneMode {
     AlwaysOn,
@@ -716,6 +732,8 @@ impl AudioRecordingManager {
         // Hold the state lock for the whole restart so a take cannot begin
         // half-way through it (try_start_recording takes this lock first too).
         let state = self.state.lock().unwrap();
+        // Gate after `state`, held through the restart below.
+        let _gate = mic_change_gate();
         if let Some(reason) = mic_change_refusal(&state, meeting_mic_recording()) {
             return Err(anyhow::anyhow!(reason));
         }
