@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "貼り付けのあと、音声入力したテキストはクリップボードに残るので、もう一度貼り付けできます。前にコピーしていた内容は置き換わります。設定 > 詳細設定 > クリップボードの処理 でオフにできます。"
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }

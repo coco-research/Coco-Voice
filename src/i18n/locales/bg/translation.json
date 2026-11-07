@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "След поставяне продиктуваният текст остава в клипборда, за да го поставите отново. Той замества това, което сте копирали преди. Можете да го изключите от Настройки > Разширени > Работа с клипборда."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }
