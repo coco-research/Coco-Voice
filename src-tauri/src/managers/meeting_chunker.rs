@@ -9,6 +9,7 @@ use crate::catalog::find_model;
 use crate::managers::meetings::{set_meeting_active, MeetingsStore};
 use crate::managers::transcription::TranscriptionManager;
 use anyhow::{anyhow, Result};
+use log::warn;
 use std::path::Path;
 
 const FRAME_SAMPLES: usize = 480;
@@ -16,6 +17,7 @@ const HANGOVER_FRAMES: usize = 15;
 const MAX_CHUNK_SAMPLES: usize = 16_000 * 30;
 const SAMPLE_RATE: u64 = 16_000;
 /// Speech if a frame's peak is at least this. Tests use it in place of Silero.
+#[cfg(test)]
 const ENERGY_THRESHOLD: f32 = 0.2;
 
 pub const CHANNEL_ME: &str = "me";
@@ -41,28 +43,38 @@ pub trait FrameSpeech: Send {
 #[allow(dead_code)]
 pub struct SileroSpeech {
     vad: SileroVad,
+    warned: bool,
 }
 
 impl SileroSpeech {
     pub fn new(model_path: &Path) -> Result<Self> {
         Ok(Self {
             vad: SileroVad::new(model_path, 0.3)?,
+            warned: false,
         })
     }
 }
 
 impl FrameSpeech for SileroSpeech {
     fn is_speech_frame(&mut self, frame: &[f32]) -> bool {
-        self.vad
-            .push_frame(frame)
-            .map(|frame| frame.is_speech())
-            .unwrap_or(false)
+        match self.vad.push_frame(frame) {
+            Ok(frame) => frame.is_speech(),
+            Err(err) => {
+                if !self.warned {
+                    self.warned = true;
+                    warn!("silero push_frame failed, treating this frame as silence: {err}");
+                }
+                false
+            }
+        }
     }
 }
 
 /// Peak-energy stand-in for Silero. Meeting tests have no VAD weights.
+#[cfg(test)]
 struct EnergySpeech;
 
+#[cfg(test)]
 impl FrameSpeech for EnergySpeech {
     fn is_speech_frame(&mut self, frame: &[f32]) -> bool {
         frame.iter().any(|sample| sample.abs() >= ENERGY_THRESHOLD)
@@ -110,8 +122,10 @@ impl ChannelChunker {
     pub fn push(&mut self, samples: &[f32]) -> Vec<FinishedChunk> {
         self.pending.extend_from_slice(samples);
         let mut done = Vec::new();
+        let mut frame = [0.0f32; FRAME_SAMPLES];
         while self.pending.len() >= FRAME_SAMPLES {
-            let frame: Vec<f32> = self.pending.drain(..FRAME_SAMPLES).collect();
+            frame.copy_from_slice(&self.pending[..FRAME_SAMPLES]);
+            self.pending.drain(..FRAME_SAMPLES);
             if let Some(chunk) = self.take_frame(&frame) {
                 done.push(chunk);
             }
@@ -168,14 +182,8 @@ impl ChannelChunker {
         }
 
         let done = self.emit();
-        if hit_cap && speech {
-            self.in_speech = true;
-            self.hangover = HANGOVER_FRAMES;
-            self.chunk_start = self.seen;
-        } else {
-            self.in_speech = false;
-            self.hangover = 0;
-        }
+        self.in_speech = false;
+        self.hangover = 0;
         done
     }
 
@@ -196,6 +204,7 @@ impl ChannelChunker {
 
 /// Transcribe one chunk under the meeting lock and store the raw text.
 /// Meeting text does not go through `post_process_transcription`.
+/// The segment is stored even when the engine check afterwards fails.
 pub fn commit_chunk<R: tauri::Runtime>(
     tm: &TranscriptionManager<R>,
     store: &MeetingsStore,
@@ -203,9 +212,6 @@ pub fn commit_chunk<R: tauri::Runtime>(
     chunk: FinishedChunk,
 ) -> Result<String> {
     let text = tm.transcribe_meeting_chunk(chunk.samples)?;
-    if !tm.is_engine_available() {
-        return Err(anyhow!("engine still out after a meeting chunk"));
-    }
     store.insert_segment(
         meeting_id,
         chunk.start_ms,
@@ -213,6 +219,9 @@ pub fn commit_chunk<R: tauri::Runtime>(
         chunk.channel,
         &text,
     )?;
+    if !tm.is_engine_available() {
+        return Err(anyhow!("engine still out after a meeting chunk"));
+    }
     Ok(text)
 }
 
@@ -237,7 +246,7 @@ impl std::fmt::Display for MeetingStartRefusal {
 #[derive(Debug)]
 pub enum BeginMeetingError {
     Refused(MeetingStartRefusal),
-    Store(String),
+    Store(anyhow::Error),
 }
 
 /// Speech model to pin. Does not write `selected_model`.
@@ -294,7 +303,7 @@ pub fn begin_meeting(
     let model_id = plan_meeting_model(selected, downloaded).map_err(BeginMeetingError::Refused)?;
     let id = store
         .start_meeting(title, &model_id)
-        .map_err(|err| BeginMeetingError::Store(err.to_string()))?;
+        .map_err(BeginMeetingError::Store)?;
     set_meeting_active(true);
     Ok(id)
 }
@@ -410,6 +419,22 @@ mod tests {
         assert_eq!(rows.iter().filter(|row| row.channel == "others").count(), 2);
         assert!(rows.iter().all(|row| row.end_ms > row.start_ms));
         assert!(rows.iter().all(|row| !row.text.is_empty()));
+    }
+
+    /// A cut on the cap frame must not leave a chunk holding only hangover
+    /// silence. The next speech frame opens the next chunk on its own.
+    #[test]
+    fn cap_cut_on_last_speech_frame_leaves_no_silence_chunk() {
+        let mut audio = vec![0.5_f32; MAX_CHUNK_SAMPLES];
+        audio.resize(audio.len() + 2 * SAMPLE_RATE as usize, 0.0);
+        let mut chunker = ChannelChunker::new(CHANNEL_ME, Box::new(EnergySpeech));
+        let chunks = collect(&mut chunker, &audio);
+        assert_eq!(
+            chunks.len(),
+            1,
+            "a silence-only chunk came out after the cap"
+        );
+        assert!(chunks[0].samples.len() >= MAX_CHUNK_SAMPLES);
     }
 
     #[test]
