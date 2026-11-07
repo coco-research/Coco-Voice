@@ -7,7 +7,6 @@
 use crate::audio_toolkit::vad::{SileroVad, VoiceActivityDetector};
 use crate::catalog::find_model;
 use crate::managers::meetings::{set_meeting_active, MeetingsStore};
-use crate::managers::model::EngineType;
 use crate::managers::transcription::TranscriptionManager;
 use anyhow::{anyhow, Result};
 use log::warn;
@@ -252,57 +251,22 @@ pub enum BeginMeetingError {
 
 /// Speech model to pin. Does not write `selected_model`.
 /// `qwen3` rows are not speech models (`is_local_llm_arch` -> not a speech engine).
-///
-/// `other` answers for a downloaded id the catalog does not know (the ONNX
-/// engines `ModelManager::new` registers); production passes
-/// `|id| model_manager.get_model_info(id).map(|m| m.engine_type)`.
-///
-/// Pick order, deterministic: `selected` when it takes long audio, else the
-/// first parakeet (catalog GGUF ids before non-catalog ones, ties by
-/// `downloaded` order), else the first long-audio id.
 pub fn plan_meeting_model(
     selected: &str,
     downloaded: &[String],
-    other: &dyn Fn(&str) -> Option<EngineType>,
 ) -> Result<String, MeetingStartRefusal> {
     let mut speech = Vec::new();
     let mut long_audio = Vec::new();
-    let mut catalog_parakeet: Option<String> = None;
-    let mut other_parakeet: Option<String> = None;
     for id in downloaded {
-        // Catalog rows keep today's rules: every family but `voxtral` is safe
-        // for 30 s chunks, and `parakeet` is the preferred family.
-        let (is_speech, takes_long_audio, is_parakeet, in_catalog) = match find_model(id) {
-            Some(desc) => (
-                desc.engine_type.is_speech(),
-                desc.family.as_deref() != Some("voxtral"),
-                desc.family.as_deref() == Some("parakeet"),
-                true,
-            ),
-            // ponytail: only Parakeet is cleared for 30 s chunks off-catalog.
-            // Every other ONNX engine counts as speech but not long-audio until
-            // it gets its own long-audio check; add it to this arm after that
-            // check exists. `None` from the lookup means not downloaded: skip.
-            None => match other(id) {
-                Some(engine_type) => {
-                    let is_parakeet = matches!(engine_type, EngineType::Parakeet);
-                    (engine_type.is_speech(), is_parakeet, is_parakeet, false)
-                }
-                None => continue,
-            },
+        let Some(desc) = find_model(id) else {
+            continue;
         };
-        if !is_speech {
+        if !desc.engine_type.is_speech() {
             continue;
         }
         speech.push(id.clone());
-        if !takes_long_audio {
-            continue;
-        }
-        long_audio.push(id.clone());
-        if is_parakeet && in_catalog && catalog_parakeet.is_none() {
-            catalog_parakeet = Some(id.clone());
-        } else if is_parakeet && !in_catalog && other_parakeet.is_none() {
-            other_parakeet = Some(id.clone());
+        if desc.family.as_deref() != Some("voxtral") {
+            long_audio.push(id.clone());
         }
     }
     if long_audio.is_empty() {
@@ -312,11 +276,19 @@ pub fn plan_meeting_model(
             .unwrap_or_else(|| selected.to_string());
         return Err(MeetingStartRefusal::OnlyVoxtral { model_id });
     }
-    if long_audio.iter().any(|id| id == selected) {
-        return Ok(selected.to_string());
+    if let Some(desc) = find_model(selected) {
+        if desc.engine_type.is_speech()
+            && desc.family.as_deref() != Some("voxtral")
+            && long_audio.iter().any(|id| id == selected)
+        {
+            return Ok(selected.to_string());
+        }
     }
-    if let Some(id) = catalog_parakeet.or(other_parakeet) {
-        return Ok(id);
+    if let Some(id) = long_audio
+        .iter()
+        .find(|id| find_model(id).and_then(|desc| desc.family.as_deref()) == Some("parakeet"))
+    {
+        return Ok(id.clone());
     }
     Ok(long_audio.remove(0))
 }
@@ -327,10 +299,8 @@ pub fn begin_meeting(
     selected: &str,
     downloaded: &[String],
     title: &str,
-    other: &dyn Fn(&str) -> Option<EngineType>,
 ) -> Result<i64, BeginMeetingError> {
-    let model_id =
-        plan_meeting_model(selected, downloaded, other).map_err(BeginMeetingError::Refused)?;
+    let model_id = plan_meeting_model(selected, downloaded).map_err(BeginMeetingError::Refused)?;
     let id = store
         .start_meeting(title, &model_id)
         .map_err(BeginMeetingError::Store)?;
@@ -343,7 +313,6 @@ mod tests {
     use super::*;
     use crate::actions::POST_PROCESS_CALLS;
     use crate::managers::meetings::test_lock;
-    use crate::managers::model::{builtin_models, EngineType};
     use crate::managers::transcription::DICTATION_LOAD_KICKOFFS;
     use crate::settings::{get_settings, update_settings, ModelUnloadTimeout};
     use std::sync::atomic::Ordering;
@@ -355,12 +324,6 @@ mod tests {
     const QWEN: &str = "Qwen/Qwen3-4B-GGUF";
     const CANARY: &str = "handy-computer/canary-180m-flash-gguf";
     const CANARY_FILE: &str = "canary-180m-flash-Q8_0.gguf";
-    const PARAKEET_V3: &str = "parakeet-tdt-0.6b-v3";
-    const PARAKEET_V3_DIR: &str = "parakeet-tdt-0.6b-v3-int8";
-
-    /// What `test_app()` produces, so the live fixture helper can hand it to a
-    /// closure without repeating the runtime type at every call site.
-    type TestManager = TranscriptionManager<tauri::test::MockRuntime>;
 
     struct ResetMeeting;
     impl Drop for ResetMeeting {
@@ -409,17 +372,6 @@ mod tests {
             chunks.push(tail);
         }
         chunks
-    }
-
-    /// `other` for the planner: the built-in non-catalog table, by id.
-    fn builtin_lookup() -> impl Fn(&str) -> Option<EngineType> {
-        let models = builtin_models();
-        move |id| {
-            models
-                .iter()
-                .find(|model| model.id == id)
-                .map(|model| model.engine_type.clone())
-        }
     }
 
     #[test]
@@ -485,14 +437,9 @@ mod tests {
         assert!(chunks[0].samples.len() >= MAX_CHUNK_SAMPLES);
     }
 
-    /// Live fixture shared by the ignored live tests: `say` -> `afconvert` ->
-    /// the Silero chunker -> the engine `install` loads -> one `meeting_lock`
-    /// pass. `start` opens the meeting row, so the planner is what pins the
-    /// model. Returns the model id that row was started with.
-    fn run_live_fixture(
-        install: impl FnOnce(&TestManager) -> anyhow::Result<()>,
-        start: impl FnOnce(&MeetingsStore) -> i64,
-    ) -> String {
+    #[test]
+    #[ignore = "live: needs macOS say/afconvert and an installed speech model"]
+    fn live_chunker_transcribes_fixture() {
         let _lock = test_lock();
         let _reset = ResetMeeting;
         let app = test_app();
@@ -550,41 +497,6 @@ mod tests {
         }
         assert!(!chunks.is_empty(), "the chunker produced no finished chunk");
 
-        let tm = TranscriptionManager::new_for_test(app.handle().clone());
-        install(&tm).expect("load the engine at the given path");
-
-        // The meeting row is where the planned model lands, so it is what
-        // "pinned" means for a live run.
-        let store_dir = tempfile::tempdir().expect("create the meeting store dir");
-        let store = MeetingsStore::open(store_dir.path()).expect("open the meeting store");
-        let meeting_id = start(&store);
-        let pinned = store
-            .meeting(meeting_id)
-            .expect("read the meeting")
-            .model_id;
-
-        let mut texts = Vec::new();
-        for chunk in chunks {
-            assert_eq!(chunk.channel, CHANNEL_ME);
-            texts.push(
-                tm.transcribe_meeting_chunk(chunk.samples)
-                    .expect("transcribe a meeting chunk"),
-            );
-        }
-        let joined = texts.join(" ").to_lowercase();
-        for word in ["budget", "review", "monday"] {
-            assert!(joined.contains(word), "missing '{word}' in: {joined}");
-        }
-        assert!(
-            tm.is_engine_available(),
-            "the meeting lock did not release the engine"
-        );
-        pinned
-    }
-
-    #[test]
-    #[ignore = "live: needs macOS say/afconvert and an installed speech model"]
-    fn live_chunker_transcribes_fixture() {
         let snapshots = std::env::var("HOME")
             .map(std::path::PathBuf::from)
             .expect("HOME is set")
@@ -605,113 +517,25 @@ mod tests {
                 )
             });
 
-        run_live_fixture(
-            |tm| tm.install_engine_from_path_for_test(CANARY, &model_path),
-            |store| {
-                store
-                    .start_meeting("Live fixture", CANARY)
-                    .expect("start the meeting")
-            },
-        );
-    }
-
-    /// The ONNX Parakeet V3 engine, read straight from its installed directory.
-    /// The model dir is only read; nothing in it is written, moved or deleted.
-    #[test]
-    #[ignore = "live: needs macOS say/afconvert and the installed Parakeet V3 model"]
-    fn live_chunker_transcribes_fixture_parakeet_v3() {
-        let dir = std::env::var("COCO_TEST_PARAKEET_V3_DIR")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|_| {
-                let home = std::env::var("HOME").expect("HOME is set");
-                std::path::PathBuf::from(home)
-                    .join("Library/Application Support/com.cocoresearch.cocovoice/models")
-                    .join(PARAKEET_V3_DIR)
-            });
-        if !dir.is_dir() {
-            panic!(
-                "missing the Parakeet V3 model under {}; install it first or set \
-                 COCO_TEST_PARAKEET_V3_DIR",
-                dir.display()
+        let tm = TranscriptionManager::new_for_test(app.handle().clone());
+        tm.install_engine_from_path_for_test(CANARY, &model_path)
+            .expect("load the canary engine");
+        let mut texts = Vec::new();
+        for chunk in chunks {
+            assert_eq!(chunk.channel, CHANNEL_ME);
+            texts.push(
+                tm.transcribe_meeting_chunk(chunk.samples)
+                    .expect("transcribe a meeting chunk"),
             );
         }
-
-        let lookup = builtin_lookup();
-        let pinned = run_live_fixture(
-            |tm| tm.install_engine_with_type_for_test(PARAKEET_V3, EngineType::Parakeet, &dir),
-            |store| {
-                let downloaded = [PARAKEET_V3.to_string()];
-                begin_meeting(store, "", &downloaded, "Live fixture", &lookup)
-                    .expect("start the meeting through the planner")
-            },
-        );
-        assert_eq!(pinned, PARAKEET_V3, "the meeting pinned a different model");
-    }
-
-    #[test]
-    fn planner_pins_onnx_parakeet_v3_when_it_is_the_only_download() {
-        let lookup = builtin_lookup();
-        let downloaded = vec![PARAKEET_V3.to_string()];
-        let pinned = plan_meeting_model("", &downloaded, &lookup).unwrap();
-        assert_eq!(pinned, PARAKEET_V3);
-    }
-
-    #[test]
-    fn planner_prefers_gguf_parakeet_over_onnx_when_both_downloaded() {
-        let lookup = builtin_lookup();
-        // The ONNX id comes first, so picking the catalog id proves the order is
-        // not simply `downloaded` order.
-        let downloaded = vec![PARAKEET_V3.to_string(), PARAKEET.to_string()];
-        let pinned = plan_meeting_model(VOXTRAL, &downloaded, &lookup).unwrap();
-        assert_eq!(pinned, PARAKEET);
-
-        let pinned = plan_meeting_model(PARAKEET_V3, &downloaded, &lookup).unwrap();
-        assert_eq!(pinned, PARAKEET_V3);
-    }
-
-    #[test]
-    fn planner_refuses_when_nothing_is_downloaded() {
-        let lookup = builtin_lookup();
-        let downloaded: Vec<String> = Vec::new();
-        let err = plan_meeting_model(VOXTRAL, &downloaded, &lookup).unwrap_err();
-        assert_eq!(
-            err,
-            MeetingStartRefusal::OnlyVoxtral {
-                model_id: VOXTRAL.to_string()
-            }
-        );
-    }
-
-    /// Reads this Mac's installed models. Read only: nothing in that directory
-    /// is written, moved or deleted. Catalog GGUFs live in the Hugging Face
-    /// cache, not this directory, so they are not counted here.
-    #[test]
-    #[ignore = "live: reads this Mac's installed models, read only"]
-    fn planner_picks_on_this_macs_installed_models() {
-        let dir = std::env::var("COCO_TEST_MODELS_DIR")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|_| {
-                let home = std::env::var("HOME").expect("HOME is set");
-                std::path::PathBuf::from(home)
-                    .join("Library/Application Support/com.cocoresearch.cocovoice/models")
-            });
-        let downloaded: Vec<String> = builtin_models()
-            .into_iter()
-            .filter(|model| dir.join(model.filename.as_str()).exists())
-            .map(|model| model.id)
-            .collect();
-        let lookup = builtin_lookup();
-        let picked = match plan_meeting_model("", &downloaded, &lookup) {
-            Ok(id) => id,
-            Err(refusal) => format!("refused: {refusal}"),
-        };
-        println!("downloaded={} picked={}", downloaded.join(", "), picked);
-        if dir.join(PARAKEET_V3_DIR).exists() {
-            assert_eq!(
-                picked, PARAKEET_V3,
-                "the planner did not pick the installed ONNX Parakeet"
-            );
+        let joined = texts.join(" ").to_lowercase();
+        for word in ["budget", "review", "monday"] {
+            assert!(joined.contains(word), "missing '{word}' in: {joined}");
         }
+        assert!(
+            tm.is_engine_available(),
+            "the meeting lock did not release the engine"
+        );
     }
 
     #[test]
@@ -724,7 +548,7 @@ mod tests {
             settings.selected_model = selected.clone();
         });
         let downloaded = vec![VOXTRAL.to_string(), PARAKEET.to_string(), QWEN.to_string()];
-        let pinned = plan_meeting_model(&selected, &downloaded, &|_| None).unwrap();
+        let pinned = plan_meeting_model(&selected, &downloaded).unwrap();
         assert_eq!(pinned, PARAKEET);
         assert_eq!(get_settings(app.handle()).selected_model, selected);
 
@@ -847,7 +671,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = MeetingsStore::open(dir.path()).unwrap();
         let downloaded = vec![VOXTRAL.to_string(), QWEN.to_string()];
-        let err = begin_meeting(&store, VOXTRAL, &downloaded, "Standup", &|_| None).unwrap_err();
+        let err = begin_meeting(&store, VOXTRAL, &downloaded, "Standup").unwrap_err();
         match err {
             BeginMeetingError::Refused(MeetingStartRefusal::OnlyVoxtral { model_id }) => {
                 assert!(
