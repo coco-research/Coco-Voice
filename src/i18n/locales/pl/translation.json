@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "Po wklejeniu podyktowany tekst zostaje w schowku, więc możesz wkleić go ponownie. Zastępuje to, co wcześniej skopiowano. Możesz to wyłączyć w Ustawienia > Zaawansowane > Obsługa schowka."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }
