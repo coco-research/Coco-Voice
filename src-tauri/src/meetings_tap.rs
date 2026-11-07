@@ -1,0 +1,749 @@
+//! Others track: Core Audio process tap, read through a private aggregate device.
+//! Samples go to a caller sink at 16 kHz. A later PR writes system.wav.
+
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError};
+use std::sync::Arc;
+use std::thread::JoinHandle;
+use std::time::Duration;
+
+use cidre::cat::audio::{Format, FormatFlags};
+use cidre::cat::AudioBufList;
+use cidre::cf::{self, ArrayOf, DictionaryOf};
+use cidre::core_audio::hardware::{self, aggregate_device_keys, sub_tap_keys, AggregateDevice};
+use cidre::core_audio::hardware_tapping::TapGuard;
+use cidre::core_audio::{hardware_err, Obj, TapDesc, TapMuteBehavior};
+use cidre::ns;
+use cidre::os::{self, Status};
+
+use crate::audio_toolkit::audio::FrameResampler;
+
+const OUT_HZ: usize = 16_000;
+const FRAME: Duration = Duration::from_millis(30);
+/// Mono blocks in flight. Full queue drops a block instead of stalling the IO thread.
+const QUEUE_BLOCKS: usize = 64;
+/// Pool buffers fit the device's largest IO slice (oversize drop: a guard). Floor, in mono frames.
+const BLOCK_FRAMES: usize = 8192;
+const USAGE_KEY: &str = "NSAudioCaptureUsageDescription";
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum TapError {
+    UsageStringMissing,
+    PermissionDenied,
+    /// Empty or all-zero capture. Never a success, and not a permission denial.
+    Silent,
+    Device(String),
+}
+
+impl TapError {
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::UsageStringMissing => "system_audio_usage_string_missing",
+            Self::PermissionDenied => "system_audio_permission_denied",
+            Self::Silent => "system_audio_silent",
+            Self::Device(_) => "system_audio_device",
+        }
+    }
+}
+
+/// Plist text must carry the usage key with a non-empty string value.
+/// This does not read the bundle and does not start IO.
+pub fn require_usage_string(plist_text: &str) -> Result<(), TapError> {
+    let key = format!("<key>{USAGE_KEY}</key>");
+    let rest = plist_text
+        .split_once(&key)
+        .map(|(_, rest)| rest.trim_start())
+        .ok_or(TapError::UsageStringMissing)?;
+    let rest = rest
+        .strip_prefix("<string>")
+        .ok_or(TapError::UsageStringMissing)?;
+    let (value, _) = rest
+        .split_once("</string>")
+        .ok_or(TapError::UsageStringMissing)?;
+    if value.trim().is_empty() {
+        return Err(TapError::UsageStringMissing);
+    }
+    Ok(())
+}
+
+/// What the read path needs from a device. Tests pass a fake. Core Audio is the other impl's caller.
+pub trait SystemAudioDevice {
+    fn sample_rate_hz(&self) -> usize;
+    fn start(&mut self) -> Result<(), TapError>;
+    fn pull(&mut self) -> Result<Vec<f32>, TapError>;
+    fn stop(&mut self) -> Result<(), TapError>;
+}
+
+/// Shared resample + silence check. The fake pump and the tap worker thread both use this.
+pub struct ReadPath {
+    resampler: FrameResampler,
+    saw_nonzero: bool,
+}
+
+impl ReadPath {
+    pub fn new(in_hz: usize) -> Self {
+        Self {
+            resampler: FrameResampler::new(in_hz, OUT_HZ, FRAME),
+            saw_nonzero: false,
+        }
+    }
+
+    pub fn push(&mut self, src: &[f32], sink: &mut dyn FnMut(&[f32])) {
+        if src.iter().any(|sample| *sample != 0.0) {
+            self.saw_nonzero = true;
+        }
+        self.resampler.push(src, |frame| sink(frame));
+    }
+
+    pub fn finish(&mut self, sink: &mut dyn FnMut(&[f32])) -> Result<(), TapError> {
+        self.resampler.finish(|frame| sink(frame));
+        if self.saw_nonzero {
+            Ok(())
+        } else {
+            Err(TapError::Silent)
+        }
+    }
+}
+
+/// Check the usage string, then run one finite device through [`ReadPath`].
+/// A missing usage string returns before `start`.
+pub fn capture(
+    plist_text: &str,
+    device: &mut impl SystemAudioDevice,
+    sink: &mut dyn FnMut(&[f32]),
+) -> Result<(), TapError> {
+    require_usage_string(plist_text)?;
+    device.start()?;
+    let pulled = device.pull();
+    let stopped = device.stop();
+    let samples = pulled?;
+    stopped?;
+    let mut path = ReadPath::new(device.sample_rate_hz());
+    path.push(&samples, sink);
+    path.finish(sink)
+}
+
+fn map_os(err: os::Error) -> TapError {
+    if err == hardware_err::PERMISSIONS {
+        TapError::PermissionDenied
+    } else {
+        TapError::Device(format!("{err:?}"))
+    }
+}
+
+/// The caller's sink. Owned by the worker thread, never called from the IO thread.
+type TapSink = Box<dyn FnMut(&[f32]) + Send>;
+
+/// All the IO thread touches: the free pool, a bounded queue and a counter. No locks, no sink.
+struct IoState {
+    channels: u32,
+    free: Receiver<Vec<f32>>,
+    tx: SyncSender<Vec<f32>>,
+    dropped: Arc<AtomicU64>,
+}
+
+/// Drains mono blocks, resamples to 16 kHz, calls the sink. Runs on the worker thread only.
+fn run_worker<S: FnMut(&[f32]) + ?Sized>(
+    in_hz: usize,
+    rx: &Receiver<Vec<f32>>,
+    free: &SyncSender<Vec<f32>>,
+    sink: &mut S,
+    heard: &AtomicBool,
+    shutdown: &AtomicBool,
+) -> Result<(), TapError> {
+    let mut path = ReadPath::new(in_hz);
+    let mut mark = |frame: &[f32]| {
+        if !heard.load(Ordering::Relaxed) && frame.iter().any(|sample| *sample != 0.0) {
+            heard.store(true, Ordering::Relaxed);
+        }
+        sink(frame);
+    };
+    // ponytail: polling keeps both channels free of blocked waiters, so the IO thread's
+    // try_recv/try_send never wake anyone. Upgrade: lock-free SPSC ring if 5 ms ever matters.
+    loop {
+        if shutdown.load(Ordering::Acquire) {
+            break;
+        }
+        match rx.try_recv() {
+            Ok(block) => {
+                path.push(&block, &mut mark);
+                let _ = free.try_send(block);
+            }
+            Err(TryRecvError::Empty) => std::thread::sleep(Duration::from_millis(5)),
+            Err(TryRecvError::Disconnected) => break,
+        }
+    }
+    path.finish(&mut mark)
+}
+
+type Worker = JoinHandle<Result<(), TapError>>;
+type Spawned = (SyncSender<Vec<f32>>, Receiver<Vec<f32>>, Worker);
+fn spawn_worker(
+    in_hz: usize,
+    block_frames: usize,
+    mut sink: TapSink,
+    heard: Arc<AtomicBool>,
+    shutdown: Arc<AtomicBool>,
+) -> Result<Spawned, TapError> {
+    let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+    let (free_tx, free) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+    for _ in 0..QUEUE_BLOCKS {
+        let _ = free_tx.try_send(Vec::with_capacity(block_frames));
+    }
+    let worker = std::thread::Builder::new()
+        .name("system-audio-tap".into())
+        .spawn(move || run_worker(in_hz, &rx, &free_tx, &mut *sink, &heard, &shutdown))
+        .map_err(|err| TapError::Device(format!("tap worker thread: {err}")))?;
+    Ok((tx, free, worker))
+}
+
+// ponytail: one AudioBuffer. A tap aggregate that exposes more streams needs a BufListN loop.
+extern "C" fn on_input(
+    _device: hardware::Device,
+    _now: &cidre::cat::AudioTimeStamp,
+    input_data: &AudioBufList<1>,
+    _input_time: &cidre::cat::AudioTimeStamp,
+    _output_data: &mut AudioBufList<1>,
+    _output_time: &cidre::cat::AudioTimeStamp,
+    client_data: Option<&mut IoState>,
+) -> Status {
+    if let Some(state) = client_data {
+        if input_data.number_buffers > 0 {
+            let buf = &input_data.buffers[0];
+            if buf.data.is_null() || buf.data_bytes_size < 4 {
+                return Status::NO_ERR;
+            }
+            let count = buf.data_bytes_size as usize / std::mem::size_of::<f32>();
+            // SAFETY: HAL owns this buffer for the duration of the IO proc. Length is the byte size.
+            let raw = unsafe { std::slice::from_raw_parts(buf.data as *const f32, count) };
+            io_block(state, raw);
+        }
+    }
+    Status::NO_ERR
+}
+
+/// IO thread: no alloc, no block, no lock. Any drop (no buffer, oversize, full queue) is counted.
+fn io_block(state: &IoState, raw: &[f32]) {
+    let sent = state.free.try_recv().is_ok_and(|mut block| {
+        let fits = mono_into(raw, state.channels, &mut block); // oversize: sent empty, buffer recycled
+        state.tx.try_send(block).is_ok() && fits
+    });
+    if !sent {
+        state.dropped.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+/// Downmixes `raw` into `out` (cleared, never grown); false, writing nothing, if it doesn't fit.
+fn mono_into(raw: &[f32], channels: u32, out: &mut Vec<f32>) -> bool {
+    let channels = channels.max(1) as usize;
+    out.clear();
+    if raw.len() > out.capacity() * channels {
+        return false;
+    }
+    for frame in raw.chunks(channels) {
+        out.push(frame.iter().sum::<f32>() / channels as f32);
+    }
+    true
+}
+
+/// `mono_into` reads the tap buffers as interleaved f32, so reject anything else before IO starts.
+fn check_tap_format(asbd: &cidre::cat::audio::StreamBasicDesc) -> Result<(), TapError> {
+    let channels = asbd.channels_per_frame;
+    if channels == 0 {
+        return Err(TapError::Device(
+            "unsupported tap format: 0 channels".into(),
+        ));
+    }
+    if asbd.format != Format::LINEAR_PCM {
+        return Err(TapError::Device(format!(
+            "unsupported tap format: format {:?}",
+            asbd.format
+        )));
+    }
+    if !asbd.format_flags.contains(FormatFlags::IS_FLOAT) {
+        return Err(TapError::Device(
+            "unsupported tap format: format_flags without IS_FLOAT".into(),
+        ));
+    }
+    if asbd.format_flags.contains(FormatFlags::IS_NON_INTERLEAVED) {
+        return Err(TapError::Device(
+            "unsupported tap format: format_flags has IS_NON_INTERLEAVED".into(),
+        ));
+    }
+    if asbd.bits_per_channel != 32 {
+        return Err(TapError::Device(format!(
+            "unsupported tap format: bits_per_channel {}",
+            asbd.bits_per_channel
+        )));
+    }
+    if u64::from(asbd.bytes_per_frame) != 4 * u64::from(channels) {
+        return Err(TapError::Device(format!(
+            "unsupported tap format: bytes_per_frame {} for {channels} channels",
+            asbd.bytes_per_frame
+        )));
+    }
+    Ok(())
+}
+
+// cidre 0.29 has no AggregateDevice::destroy. AudioHardwareDestroyAggregateDevice is the C call.
+#[link(name = "CoreAudio", kind = "framework")]
+extern "C" {
+    fn AudioHardwareDestroyAggregateDevice(in_device: Obj) -> Status;
+}
+
+fn destroy_aggregate(id: u32) {
+    // SAFETY: id is an aggregate this process created. Apple frees it asynchronously.
+    let _ = unsafe { AudioHardwareDestroyAggregateDevice(Obj(id)) };
+}
+
+fn release_partial(tap: TapGuard, aggregate_id: Option<u32>, state: *mut IoState) {
+    if let Some(id) = aggregate_id {
+        destroy_aggregate(id);
+    }
+    if !state.is_null() {
+        // SAFETY: device_start has not returned Ok, so the IO proc is not running.
+        drop(unsafe { Box::from_raw(state) });
+    }
+    drop(tap);
+}
+
+fn private_aggregate(tap_uid: &cf::String) -> Result<(AggregateDevice, u32), TapError> {
+    let drift = cf::Number::from_i32(1);
+    let private_flag = cf::Number::from_i32(1);
+    let name = cf::String::from_str("Coco Voice Meeting Tap");
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let agg_uid = cf::String::from_str(&format!(
+        "com.cocoresearch.cocovoice.tap.{}.{}",
+        std::process::id(),
+        nonce
+    ));
+    // Do not set tapautostart: a non-zero value makes AudioDeviceStart wait for a tapped process.
+    let sub = DictionaryOf::<cf::String, cf::Type>::with_keys_values(
+        &[sub_tap_keys::uid(), sub_tap_keys::drift_compensation()],
+        &[tap_uid, &drift],
+    );
+    let taps = ArrayOf::from_slice(&[&*sub]);
+    let desc = DictionaryOf::<cf::String, cf::Type>::with_keys_values(
+        &[
+            aggregate_device_keys::name(),
+            aggregate_device_keys::uid(),
+            aggregate_device_keys::is_private(),
+            aggregate_device_keys::tap_list(),
+        ],
+        &[&name, &agg_uid, &private_flag, &taps],
+    );
+    let aggregate = AggregateDevice::with_desc(&desc).map_err(map_os)?;
+    let id = aggregate.as_ref().0 .0;
+    Ok((aggregate, id))
+}
+
+/// Live tap. `start` checks the usage string before any Core Audio call.
+/// `stop` stops IO, frees the IO state (which closes the queue), joins the worker,
+/// then destroys the aggregate and drops the tap.
+pub struct SystemAudioSession {
+    tap: Option<TapGuard>,
+    started: Option<hardware::StartedDevice<AggregateDevice>>,
+    aggregate_id: Option<u32>,
+    state: *mut IoState,
+    worker: Option<JoinHandle<Result<(), TapError>>>,
+    dropped: Arc<AtomicU64>,
+    heard: Arc<AtomicBool>,
+    shutdown: Arc<AtomicBool>,
+}
+
+impl SystemAudioSession {
+    pub fn start(plist_text: &str, sink: TapSink) -> Result<Self, TapError> {
+        require_usage_string(plist_text)?;
+
+        let pid = ns::Number::with_u32(std::process::id());
+        let excluded = ns::Array::from_slice(&[pid.as_ref()]);
+        let mut desc = TapDesc::with_mono_global_tap_excluding_processes(&excluded);
+        desc.set_mute_behavior(TapMuteBehavior::Unmuted);
+        desc.set_private(true);
+        let tap = desc.create_process_tap().map_err(map_os)?;
+
+        let uid = match tap.uid() {
+            Ok(uid) => uid,
+            Err(err) => {
+                release_partial(tap, None, std::ptr::null_mut());
+                return Err(map_os(err));
+            }
+        };
+        let asbd = match tap.asbd() {
+            Ok(asbd) => asbd,
+            Err(err) => {
+                release_partial(tap, None, std::ptr::null_mut());
+                return Err(map_os(err));
+            }
+        };
+        if let Err(err) = check_tap_format(&asbd) {
+            release_partial(tap, None, std::ptr::null_mut());
+            return Err(err);
+        }
+        let rate = asbd.sample_rate.round() as usize;
+        if rate == 0 {
+            release_partial(tap, None, std::ptr::null_mut());
+            return Err(TapError::Device("tap sample rate is 0".into()));
+        }
+        let channels = asbd.channels_per_frame.max(1);
+
+        let (aggregate, aggregate_id) = match private_aggregate(&uid) {
+            Ok(pair) => pair,
+            Err(err) => {
+                release_partial(tap, None, std::ptr::null_mut());
+                return Err(err);
+            }
+        };
+
+        let max = aggregate.buf_frame_size_range().map_or(0.0, |r| r.max) as usize;
+        let block_frames = max.clamp(BLOCK_FRAMES, 1 << 16); // a broken max can't size the pool
+        let dropped = Arc::new(AtomicU64::new(0));
+        let heard = Arc::new(AtomicBool::new(false));
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let (tx, free, worker) = match spawn_worker(
+            rate,
+            block_frames,
+            sink,
+            Arc::clone(&heard),
+            Arc::clone(&shutdown),
+        ) {
+            Ok(pair) => pair,
+            Err(err) => {
+                release_partial(tap, Some(aggregate_id), std::ptr::null_mut());
+                return Err(err);
+            }
+        };
+
+        let state = Box::into_raw(Box::new(IoState {
+            channels,
+            free,
+            tx,
+            dropped: Arc::clone(&dropped),
+        }));
+        // SAFETY: `state` stays allocated until stop/drop, and only after AudioDeviceStop returns.
+        let proc_id =
+            aggregate.create_io_proc_id::<1, 1, IoState>(on_input, Some(unsafe { &mut *state }));
+        let proc_id = match proc_id {
+            Ok(proc_id) => proc_id,
+            Err(err) => {
+                release_partial(tap, Some(aggregate_id), state);
+                let _ = worker.join();
+                return Err(map_os(err));
+            }
+        };
+
+        match hardware::device_start(aggregate, Some(proc_id)) {
+            Ok(started) => Ok(Self {
+                tap: Some(tap),
+                started: Some(started),
+                aggregate_id: Some(aggregate_id),
+                state,
+                worker: Some(worker),
+                dropped,
+                heard,
+                shutdown,
+            }),
+            Err(err) => {
+                release_partial(tap, Some(aggregate_id), state);
+                let _ = worker.join();
+                Err(map_os(err))
+            }
+        }
+    }
+
+    /// Blocks dropped because the worker fell behind. The IO thread never blocks.
+    pub fn dropped_blocks(&self) -> u64 {
+        self.dropped.load(Ordering::Relaxed)
+    }
+
+    /// True once the worker saw a non-zero 16 kHz frame.
+    /// macOS often delivers all zeros rather than an error when System Audio Recording is
+    /// off for this process, so callers can warn early instead of waiting for [`TapError::Silent`].
+    pub fn has_heard_audio(&self) -> bool {
+        self.heard.load(Ordering::Relaxed)
+    }
+
+    pub fn stop(mut self) -> Result<(), TapError> {
+        let stop_err = match self.started.take() {
+            Some(started) => match started.stop() {
+                Ok(_aggregate) => None,
+                Err(err) => Some(map_os(err)),
+            },
+            None => None,
+        };
+        let finish_err = if stop_err.is_some() {
+            self.abandon_state()
+        } else {
+            self.finish_worker()
+        };
+        if let Some(id) = self.aggregate_id.take() {
+            destroy_aggregate(id);
+        }
+        self.tap.take();
+        finish_err.or(stop_err).map_or(Ok(()), Err)
+    }
+
+    /// Free the IO state (dropping the only sender, which closes the queue), then join the
+    /// worker and return its `finish` outcome. Only valid once IO has stopped.
+    fn finish_worker(&mut self) -> Option<TapError> {
+        if !self.state.is_null() {
+            // SAFETY: started.take()/stop() has already stopped IO, so the proc is not in on_input.
+            drop(unsafe { Box::from_raw(self.state) });
+            self.state = std::ptr::null_mut();
+        }
+        self.join_worker()
+    }
+
+    /// After a failed stop, IO may still call `on_input` with `state`: Apple frees the aggregate
+    /// asynchronously, so nothing proves IO has quiesced. The state is leaked on purpose (one
+    /// IoState plus its pool, 2-16 MB), only when the HAL refuses to stop. The worker is told to
+    /// exit and joined, so stop() still reports finish()'s outcome.
+    fn abandon_state(&mut self) -> Option<TapError> {
+        self.state = std::ptr::null_mut();
+        self.shutdown.store(true, Ordering::Release);
+        self.join_worker()
+    }
+
+    fn join_worker(&mut self) -> Option<TapError> {
+        let worker = self.worker.take()?;
+        match worker.join() {
+            Ok(result) => result.err(),
+            Err(_) => Some(TapError::Device("tap worker panicked".into())),
+        }
+    }
+}
+
+impl Drop for SystemAudioSession {
+    fn drop(&mut self) {
+        if let Some(started) = self.started.take() {
+            if started.stop().is_err() {
+                let _ = self.abandon_state();
+            }
+        }
+        if !self.state.is_null() {
+            // SAFETY: IO stopped above (or never started), so the proc is not in on_input.
+            drop(unsafe { Box::from_raw(self.state) });
+            self.state = std::ptr::null_mut();
+        }
+        let _ = self.join_worker();
+        if let Some(id) = self.aggregate_id.take() {
+            destroy_aggregate(id);
+        }
+        self.tap.take();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PLIST_WITH_USAGE: &str = "\
+        <key>NSAudioCaptureUsageDescription</key>\
+        <string>Coco Voice records system audio from your meetings and transcribes it on this Mac.</string>";
+
+    struct FakeDevice {
+        rate: usize,
+        samples: Vec<f32>,
+        starts: u32,
+    }
+
+    impl SystemAudioDevice for FakeDevice {
+        fn sample_rate_hz(&self) -> usize {
+            self.rate
+        }
+
+        fn start(&mut self) -> Result<(), TapError> {
+            self.starts += 1;
+            Ok(())
+        }
+
+        fn pull(&mut self) -> Result<Vec<f32>, TapError> {
+            Ok(std::mem::take(&mut self.samples))
+        }
+
+        fn stop(&mut self) -> Result<(), TapError> {
+            Ok(())
+        }
+    }
+
+    fn sine(rate: usize, hz: f32, seconds: f32) -> Vec<f32> {
+        let n = (rate as f32 * seconds) as usize;
+        (0..n)
+            .map(|i| (2.0 * std::f32::consts::PI * hz * i as f32 / rate as f32).sin())
+            .collect()
+    }
+
+    /// Magnitude of correlation against `hz` at `rate`. A matching sine is about 0.707.
+    fn tone_score(samples: &[f32], hz: f32, rate: f32) -> f32 {
+        let start = 480.min(samples.len());
+        let mut end = samples.len();
+        while end > start && samples[end - 1].abs() < 1e-3 {
+            end -= 1;
+        }
+        let slice = &samples[start..end];
+        if slice.len() < 320 {
+            return 0.0;
+        }
+        let mut re = 0.0f32;
+        let mut im = 0.0f32;
+        let mut energy = 0.0f32;
+        let step = 2.0 * std::f32::consts::PI * hz / rate;
+        for (i, sample) in slice.iter().enumerate() {
+            let phase = step * i as f32;
+            re += sample * phase.cos();
+            im += sample * phase.sin();
+            energy += sample * sample;
+        }
+        if energy < 1e-6 {
+            return 0.0;
+        }
+        (re * re + im * im).sqrt() / (energy * slice.len() as f32).sqrt()
+    }
+
+    #[test]
+    fn fake_tap_sine_reaches_the_sink() {
+        let hz = 440.0f32;
+        let mut device = FakeDevice {
+            rate: 48_000,
+            samples: sine(48_000, hz, 0.25),
+            starts: 0,
+        };
+        let mut got = Vec::new();
+        capture(PLIST_WITH_USAGE, &mut device, &mut |frame| {
+            got.extend_from_slice(frame)
+        })
+        .expect("tone capture");
+        assert_eq!(device.starts, 1);
+        assert!(got.len() > 480, "expected 16 kHz frames, got {}", got.len());
+        assert!(got.iter().any(|sample| *sample != 0.0), "sink was silent");
+        let score = tone_score(&got, hz, OUT_HZ as f32);
+        assert!(score > 0.35, "440 Hz not present at 16 kHz (score {score})");
+    }
+
+    #[test]
+    fn missing_usage_string_is_typed_error() {
+        let mut device = FakeDevice {
+            rate: 48_000,
+            samples: sine(48_000, 440.0, 0.1),
+            starts: 0,
+        };
+        let err = capture(
+            "<plist><key>NSMicrophoneUsageDescription</key></plist>",
+            &mut device,
+            &mut |_| {},
+        )
+        .expect_err("missing usage string");
+        assert_eq!(err.code(), "system_audio_usage_string_missing");
+        assert_eq!(device.starts, 0, "IO started without the usage string");
+    }
+
+    #[test]
+    fn silent_stream_is_not_success() {
+        let mut device = FakeDevice {
+            rate: 48_000,
+            samples: vec![0.0; 48_000 / 10],
+            starts: 0,
+        };
+        let err = capture(PLIST_WITH_USAGE, &mut device, &mut |_| {}).expect_err("all-zero stream");
+        assert_eq!(err.code(), "system_audio_silent");
+        assert_ne!(err.code(), "system_audio_permission_denied");
+        assert_eq!(device.starts, 1);
+    }
+
+    /// No Core Audio: the IO thread is faked by pushing blocks into the worker's queue.
+    #[test]
+    fn worker_resamples_blocks_and_reports_silence() {
+        let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+        let (free_tx, _free) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+        let heard = AtomicBool::new(false);
+        let mut got = Vec::new();
+        let tone = sine(48_000, 440.0, 0.25);
+        for block in tone.chunks(1024) {
+            tx.send(block.to_vec()).expect("queue tone block");
+        }
+        drop(tx);
+        run_worker(
+            48_000,
+            &rx,
+            &free_tx,
+            &mut |frame: &[f32]| got.extend_from_slice(frame),
+            &heard,
+            &AtomicBool::new(false),
+        )
+        .expect("tone worker");
+        assert!(got.len() > 480, "expected 16 kHz frames, got {}", got.len());
+        assert!(heard.load(Ordering::Relaxed), "worker missed the tone");
+        assert!(
+            tone_score(&got, 440.0, OUT_HZ as f32) > 0.35,
+            "440 Hz not present at 16 kHz"
+        );
+
+        let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+        let quiet = AtomicBool::new(false);
+        for _ in 0..8 {
+            tx.send(vec![0.0; 1024]).expect("queue silent block");
+        }
+        drop(tx);
+        let err = run_worker(
+            48_000,
+            &rx,
+            &free_tx,
+            &mut |_: &[f32]| {},
+            &quiet,
+            &AtomicBool::new(false),
+        )
+        .expect_err("all-zero blocks");
+        assert_eq!(err, TapError::Silent);
+        assert!(!quiet.load(Ordering::Relaxed), "zeros counted as audio");
+    }
+
+    #[test]
+    fn failed_stop_worker_exits_and_reports_finish() {
+        // The leaked IoState keeps `tx` open, so only `shutdown` can end the worker.
+        let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+        let (free_tx, _free) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+        let (shutdown, heard) = (
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(false)),
+        );
+        let flag = Arc::clone(&shutdown);
+        let worker = std::thread::spawn(move || {
+            run_worker(48_000, &rx, &free_tx, &mut |_: &[f32]| {}, &heard, &flag)
+        });
+        tx.send(vec![0.0; 480]).expect("queue");
+        shutdown.store(true, Ordering::Release);
+        let (done_tx, done) = mpsc::channel();
+        std::thread::spawn(move || done_tx.send(worker.join().expect("worker panicked")));
+        let outcome = done
+            .recv_timeout(Duration::from_secs(2))
+            .expect("worker never exited");
+        assert_eq!(outcome, Err(TapError::Silent), "finish() outcome lost");
+        drop(tx);
+    }
+
+    #[test]
+    fn io_block_reuses_pool_buffers_and_counts_every_drop() {
+        let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(1);
+        let (free_tx, free) = mpsc::sync_channel::<Vec<f32>>(1);
+        free_tx.send(Vec::with_capacity(2)).expect("seed pool");
+        let dropped = Arc::new(AtomicU64::new(0));
+        let state = IoState {
+            channels: 2,
+            free,
+            tx,
+            dropped: Arc::clone(&dropped),
+        };
+        io_block(&state, &[1.0, 3.0, 5.0, 7.0]);
+        let block = rx.try_recv().expect("mono block");
+        assert_eq!((block.as_slice(), block.capacity()), (&[2.0, 6.0][..], 2));
+        io_block(&state, &[1.0, 3.0]); // pool empty: dropped
+        assert_eq!(dropped.load(Ordering::Relaxed), 1);
+        free_tx.send(block).expect("return buffer");
+        io_block(&state, &[0.0; 6]); // 3 frames > capacity 2: dropped, never grown
+        assert_eq!(dropped.load(Ordering::Relaxed), 2);
+        assert_eq!(rx.try_recv().map(|b| b.len()), Ok(0)); // buffer recycled, no oversize data
+    }
+}
