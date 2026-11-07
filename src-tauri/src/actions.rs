@@ -26,7 +26,10 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
 use std::future::Future;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
+#[cfg(all(test, feature = "meetings"))]
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Manager;
@@ -47,6 +50,31 @@ const LOCAL_LLM_MAX_TOKENS: i32 = 512;
 /// How long to wait for a stream worker that overran its finalize timeout to
 /// return the engine before giving up on the batch fallback.
 const STREAM_ENGINE_RETURN_WAIT: Duration = Duration::from_secs(10);
+
+/// Dictation batch transcription. With the meetings feature this holds the
+/// meeting lock so a chunk and a take cannot both take the engine.
+fn transcribe_batch(tm: &TranscriptionManager, samples: Vec<f32>) -> anyhow::Result<String> {
+    #[cfg(feature = "meetings")]
+    {
+        tm.transcribe_with_meeting_lock(samples)
+    }
+    #[cfg(not(feature = "meetings"))]
+    {
+        tm.transcribe(samples)
+    }
+}
+
+/// Skip speaker mute for the whole meeting, including a dictation take.
+fn apply_recording_mute(rm: &AudioRecordingManager, token: u64) {
+    #[cfg(feature = "meetings")]
+    if crate::managers::meetings::meeting_is_active() {
+        return;
+    }
+    rm.apply_mute(token);
+}
+
+#[cfg(all(test, feature = "meetings"))]
+pub(crate) static POST_PROCESS_CALLS: AtomicUsize = AtomicUsize::new(0);
 
 /// How long a produced output stays eligible as the base for an iterative
 /// correction. A follow-up utterance arriving after this window is treated as a
@@ -365,6 +393,8 @@ async fn post_process_transcription(
     local_llm_cancel: Option<LocalLlmCancel>,
     status_emitted: &mut bool,
 ) -> Option<String> {
+    #[cfg(all(test, feature = "meetings"))]
+    POST_PROCESS_CALLS.fetch_add(1, Ordering::SeqCst);
     // Every provider path funnels through here: a blank result (zero-width
     // characters survive `trim`) must fall back to the raw transcript.
     non_blank(
@@ -1239,7 +1269,7 @@ impl ShortcutAction for TranscribeAction {
             // so we can always reuse this thread to ensure mute happens right after playback.
             std::thread::spawn(move || {
                 play_feedback_sound_blocking(&app_clone, SoundType::Start);
-                rm_clone.apply_mute(mute_token);
+                apply_recording_mute(&rm_clone, mute_token);
             });
 
             if let Err(e) = rm.try_start_recording(&binding_id, vad_policy) {
@@ -1263,7 +1293,7 @@ impl ShortcutAction for TranscribeAction {
                         // Helper handles disabled audio feedback by returning early, so we reuse it
                         // to keep mute sequencing consistent in every mode.
                         play_feedback_sound_blocking(&app_clone, SoundType::Start);
-                        rm_clone.apply_mute(mute_token);
+                        apply_recording_mute(&rm_clone, mute_token);
                     });
                 }
                 Err(e) => {
@@ -1400,10 +1430,10 @@ impl ShortcutAction for TranscribeAction {
                         // for it to come back and then fall back to batch, otherwise
                         // surface the timeout error.
                         Ok(Some(text)) if !text.trim().is_empty() => Ok(text),
-                        Ok(_) => tm.transcribe(samples),
+                        Ok(_) => transcribe_batch(&tm, samples),
                         Err(err) if tm.wait_for_engine(STREAM_ENGINE_RETURN_WAIT) => {
                             warn!("Stream finalize failed ({err}); falling back to batch");
-                            tm.transcribe(samples)
+                            transcribe_batch(&tm, samples)
                         }
                         Err(err) => Err(err),
                     };

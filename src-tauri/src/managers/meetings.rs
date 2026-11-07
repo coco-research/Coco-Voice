@@ -14,8 +14,27 @@ use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::AppHandle;
+
+/// One meeting at a time. Mute and the meeting controller read this.
+static MEETING_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+/// Whether a meeting is recording. Dictation mute checks this and returns.
+pub fn meeting_is_active() -> bool {
+    MEETING_ACTIVE.load(Ordering::Acquire)
+}
+
+pub fn set_meeting_active(active: bool) {
+    MEETING_ACTIVE.store(active, Ordering::Release);
+}
+
+#[cfg(test)]
+pub(crate) fn test_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock().unwrap_or_else(|err| err.into_inner())
+}
 
 use crate::audio_toolkit::audio::AppendWav;
 
@@ -42,6 +61,16 @@ static MIGRATIONS: &[M] = &[M::up(
         text TEXT NOT NULL
     );",
 )];
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MeetingSegment {
+    pub id: i64,
+    pub meeting_id: i64,
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub channel: String,
+    pub text: String,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Meeting {
@@ -91,6 +120,55 @@ impl MeetingsStore {
             params![started_at, title, model_id],
         )?;
         Ok(conn.last_insert_rowid())
+    }
+
+    pub fn meeting_count(&self) -> Result<i64> {
+        let conn = self.connection()?;
+        Ok(conn.query_row("SELECT COUNT(*) FROM meetings", [], |row| row.get(0))?)
+    }
+
+    /// One finished chunk, one transaction. Times are milliseconds from the
+    /// meeting start. `channel` is `me` or `others`.
+    pub fn insert_segment(
+        &self,
+        meeting_id: i64,
+        start_ms: i64,
+        end_ms: i64,
+        channel: &str,
+        text: &str,
+    ) -> Result<i64> {
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        tx.execute(
+            "INSERT INTO meeting_segments (meeting_id, start_ms, end_ms, channel, text)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![meeting_id, start_ms, end_ms, channel, text],
+        )?;
+        let id = tx.last_insert_rowid();
+        tx.commit()?;
+        Ok(id)
+    }
+
+    pub fn segments(&self, meeting_id: i64) -> Result<Vec<MeetingSegment>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, meeting_id, start_ms, end_ms, channel, text
+             FROM meeting_segments
+             WHERE meeting_id = ?1
+             ORDER BY id",
+        )?;
+        let rows = stmt.query_map(params![meeting_id], |row| {
+            Ok(MeetingSegment {
+                id: row.get(0)?,
+                meeting_id: row.get(1)?,
+                start_ms: row.get(2)?,
+                end_ms: row.get(3)?,
+                channel: row.get(4)?,
+                text: row.get(5)?,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|err| anyhow!(err))
     }
 
     pub fn meeting(&self, id: i64) -> Result<Meeting> {

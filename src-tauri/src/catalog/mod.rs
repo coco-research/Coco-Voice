@@ -40,6 +40,9 @@ struct CatalogModel {
     name: String,
     description: String,
     architecture: Option<String>,
+    /// Catalog family (`voxtral`, `parakeet`, …). Absent on older rows.
+    #[serde(default)]
+    family: Option<String>,
     languages: Vec<String>,
     capabilities: CatalogCaps,
     speed_score: Option<f32>,
@@ -153,6 +156,7 @@ impl TryFrom<CatalogModel> for ModelDescriptor {
                 supports_translation: Some(m.capabilities.translate),
                 supports_language_detect: Some(m.capabilities.lang_detect),
             },
+            family: m.family,
             files: m.files,
             default_quant: m.default_quant,
             // catalog scores are 0–100; ModelInfo / the UI bars use 0.0–1.0.
@@ -316,6 +320,17 @@ static RANK_BY_ID: Lazy<HashMap<String, u32>> = Lazy::new(|| {
 /// `u32::MAX` for unranked/unknown ids so they sort last in an ascending sort.
 pub fn rank_of(model_id: &str) -> u32 {
     RANK_BY_ID.get(model_id).copied().unwrap_or(u32::MAX)
+}
+
+/// Catalog row for `model_id`, which may be the catalog id (`org/repo`) or the
+/// descriptor id (`org/repo/file.gguf`).
+#[cfg(feature = "meetings")]
+pub(crate) fn find_model(model_id: &str) -> Option<&'static ModelDescriptor> {
+    CATALOG.iter().find(|desc| {
+        desc.id
+            .strip_prefix(model_id)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+    })
 }
 
 /// Catalog ids of the on-device post-processing (llama.cpp) models.
