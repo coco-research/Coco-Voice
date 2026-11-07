@@ -748,6 +748,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "cidre"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fde4542e9dfd21498f5366a5ad60963879fd1885743a18980f6dbb27f525895"
+dependencies = [
+ "cc",
+ "cidre-macros",
+]
+
+[[package]]
+name = "cidre-macros"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a85776177a885b3cd2cda74d634cabe7fa05fecfde8ded8779c0b34110a44dcb"
+
+[[package]]
 name = "clang-sys"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -822,6 +838,7 @@ version = "0.10.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "cidre",
  "clap",
  "cpal",
  "encoding_rs",
@@ -6508,9 +6525,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-store"
-version = "2.4.2"
+version = "2.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ca1a8ff83c269b115e98726ffc13f9e548a10161544a92ad121d6d0a96e16ea"
+checksum = "f2c7c771d3ce796b48c6e52b2fac38087d479a3c58e0424d3850cc21db6b4a69"
 dependencies = [
  "dunce",
  "serde",
