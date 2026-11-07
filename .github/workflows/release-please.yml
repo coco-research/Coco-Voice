@@ -136,6 +136,10 @@ jobs:
       # and .sig files are still produced and minisign-signed.
       build-args: '${{ matrix.args }} --config ''{"bundle":{"macOS":{"signingIdentity":"-"},"windows":{"signCommand":null}}}'''
       sign-binaries: false
+      # macOS: sign with the fixed "Coco Research Code Signing" certificate
+      # (ad-hoc fallback if the secret is missing) so the Accessibility grant
+      # survives updates. Overrides the signingIdentity "-" above.
+      sign-macos: true
       sign-updater: true
       asset-prefix: "coco-voice"
       upload-artifacts: false
@@ -145,6 +149,9 @@ jobs:
     secrets:
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
 
   finalize:
     needs: [release-please, publish]
