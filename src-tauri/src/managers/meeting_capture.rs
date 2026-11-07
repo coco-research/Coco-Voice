@@ -258,7 +258,10 @@ impl MeetingMic {
     /// through `record_frame`; frames arrive untouched because the recorder
     /// runs `VadPolicy::Disabled`, and tests feed generated PCM here.
     pub fn push(&self, samples: &[f32]) -> Result<()> {
-        self.track.lock().unwrap().push(samples)
+        self.track
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .push(samples)
     }
 
     pub fn path(&self) -> &Path {
@@ -268,16 +271,20 @@ impl MeetingMic {
     /// Gaps recorded so far, in order. This is what the meeting screen shows,
     /// and what a later PR writes beside the segments.
     pub fn gaps(&self) -> Vec<MicGap> {
-        self.track.lock().unwrap().gaps.clone()
+        self.track
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .gaps
+            .clone()
     }
 
     pub fn is_paused(&self) -> bool {
-        self.track.lock().unwrap().paused
+        self.track.lock().unwrap_or_else(|p| p.into_inner()).paused
     }
 
     /// Why the Me track is paused, if it is.
     pub fn error(&self) -> Option<String> {
-        self.error.lock().unwrap().clone()
+        self.error.lock().unwrap_or_else(|p| p.into_inner()).clone()
     }
 
     /// The stream died: device unplugged, cpal error, or a Bluetooth profile
@@ -307,7 +314,7 @@ impl MeetingMic {
         };
         match restarted {
             Ok(()) => {
-                *self.error.lock().unwrap() = None;
+                *self.error.lock().unwrap_or_else(|p| p.into_inner()) = None;
                 // Drop the track lock before `fail`, which takes it again.
                 let resumed = self
                     .track
@@ -338,7 +345,7 @@ impl MeetingMic {
             self.close_stream();
             self.release_microphone();
         }
-        let mut track = self.track.lock().unwrap();
+        let mut track = self.track.lock().unwrap_or_else(|p| p.into_inner());
         if let Err(e) = track.resume() {
             warn!("meeting mic resume failed: {e:#}");
             *self.error.lock().unwrap_or_else(|p| p.into_inner()) =
@@ -346,6 +353,8 @@ impl MeetingMic {
         }
         if let Err(e) = track.wav.flush() {
             warn!("meeting mic flush failed: {e:#}");
+            *self.error.lock().unwrap_or_else(|p| p.into_inner()) =
+                Some(format!("mic.wav final flush failed: {e:#}"));
         }
     }
 
@@ -376,7 +385,7 @@ impl MeetingMic {
         recorder
             .start(VadPolicy::Disabled)
             .map_err(|e| anyhow!("Failed to start the meeting microphone: {e}"))?;
-        *self.recorder.lock().unwrap() = Some(recorder);
+        *self.recorder.lock().unwrap_or_else(|p| p.into_inner()) = Some(recorder);
         Ok(())
     }
 
@@ -404,13 +413,18 @@ impl MeetingMic {
     /// Pause the Me track and record the hole. Nothing else stops: the Others
     /// track, dictation, and the meeting row are not ours to stop.
     fn fail(&self, reason: &anyhow::Error) {
-        self.track.lock().unwrap().pause();
-        *self.error.lock().unwrap() = Some(format!("{reason:#}"));
+        self.track.lock().unwrap_or_else(|p| p.into_inner()).pause();
+        *self.error.lock().unwrap_or_else(|p| p.into_inner()) = Some(format!("{reason:#}"));
         warn!("meeting mic paused: {reason:#}");
     }
 
     fn close_stream(&self) {
-        if let Some(mut recorder) = self.recorder.lock().unwrap().take() {
+        if let Some(mut recorder) = self
+            .recorder
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .take()
+        {
             if let Err(e) = recorder.close() {
                 warn!("meeting mic close failed: {e}");
             }
