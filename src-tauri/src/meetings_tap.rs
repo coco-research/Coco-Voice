@@ -172,6 +172,7 @@ fn run_worker<S: FnMut(&[f32]) + ?Sized>(
     free: &SyncSender<Vec<f32>>,
     sink: &mut S,
     heard: &AtomicBool,
+    shutdown: &AtomicBool,
 ) -> Result<(), TapError> {
     let mut path = ReadPath::new(in_hz);
     let mut mark = |frame: &[f32]| {
@@ -183,6 +184,9 @@ fn run_worker<S: FnMut(&[f32]) + ?Sized>(
     // ponytail: polling keeps both channels free of blocked waiters, so the IO thread's
     // try_recv/try_send never wake anyone. Upgrade: lock-free SPSC ring if 5 ms ever matters.
     loop {
+        if shutdown.load(Ordering::Acquire) {
+            break;
+        }
         match rx.try_recv() {
             Ok(block) => {
                 path.push(&block, &mut mark);
@@ -202,6 +206,7 @@ fn spawn_worker(
     block_frames: usize,
     mut sink: TapSink,
     heard: Arc<AtomicBool>,
+    shutdown: Arc<AtomicBool>,
 ) -> Result<Spawned, TapError> {
     let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
     let (free_tx, free) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
@@ -210,7 +215,7 @@ fn spawn_worker(
     }
     let worker = std::thread::Builder::new()
         .name("system-audio-tap".into())
-        .spawn(move || run_worker(in_hz, &rx, &free_tx, &mut *sink, &heard))
+        .spawn(move || run_worker(in_hz, &rx, &free_tx, &mut *sink, &heard, &shutdown))
         .map_err(|err| TapError::Device(format!("tap worker thread: {err}")))?;
     Ok((tx, free, worker))
 }
@@ -384,6 +389,7 @@ pub struct SystemAudioSession {
     dropped: Arc<AtomicU64>,
     worker_gone: Arc<AtomicBool>,
     heard: Arc<AtomicBool>,
+    shutdown: Arc<AtomicBool>,
 }
 
 impl SystemAudioSession {
@@ -435,7 +441,14 @@ impl SystemAudioSession {
         let dropped = Arc::new(AtomicU64::new(0));
         let worker_gone = Arc::new(AtomicBool::new(false));
         let heard = Arc::new(AtomicBool::new(false));
-        let (tx, free, worker) = match spawn_worker(rate, block_frames, sink, Arc::clone(&heard)) {
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let (tx, free, worker) = match spawn_worker(
+            rate,
+            block_frames,
+            sink,
+            Arc::clone(&heard),
+            Arc::clone(&shutdown),
+        ) {
             Ok(pair) => pair,
             Err(err) => {
                 release_partial(tap, Some(aggregate_id), std::ptr::null_mut());
@@ -472,6 +485,7 @@ impl SystemAudioSession {
                 dropped,
                 worker_gone,
                 heard,
+                shutdown,
             }),
             Err(err) => {
                 release_partial(tap, Some(aggregate_id), state);
@@ -508,8 +522,7 @@ impl SystemAudioSession {
             None => None,
         };
         let finish_err = if stop_err.is_some() {
-            self.abandon_state();
-            None
+            self.abandon_state()
         } else {
             self.finish_worker()
         };
@@ -538,14 +551,15 @@ impl SystemAudioSession {
         self.join_worker()
     }
 
-    /// After a failed stop, IO may still call `on_input` with `state`, so the state is leaked on
-    /// purpose (never freed) and the worker detached; its queue stays open, so it just waits.
-    /// `stop()` and `Drop` still destroy the aggregate that owns the IO proc and drop the process
-    /// tap (`TapGuard` drop calls AudioHardwareDestroyProcessTap), so only this struct leaks, never
-    /// a running capture.
-    fn abandon_state(&mut self) {
+    /// After a failed stop, IO may still call `on_input` with `state`: Apple frees the aggregate
+    /// asynchronously, so nothing proves IO has quiesced. The state is leaked on purpose (one
+    /// IoState plus its pool, 2-16 MB), only when the HAL refuses to stop. The worker is told to
+    /// exit and joined, so stop() still reports finish()'s outcome. `stop()` and `Drop` still
+    /// destroy the aggregate and drop the process tap, so no capture keeps running.
+    fn abandon_state(&mut self) -> Option<TapError> {
         self.state = std::ptr::null_mut();
-        self.worker = None;
+        self.shutdown.store(true, Ordering::Release);
+        self.join_worker()
     }
 
     fn join_worker(&mut self) -> Option<TapError> {
@@ -561,7 +575,7 @@ impl Drop for SystemAudioSession {
     fn drop(&mut self) {
         if let Some(started) = self.started.take() {
             if started.stop().is_err() {
-                self.abandon_state();
+                let _ = self.abandon_state();
             }
         }
         if !self.state.is_null() {
@@ -913,6 +927,7 @@ mod tests {
             &free_tx,
             &mut |frame: &[f32]| got.extend_from_slice(frame),
             &heard,
+            &AtomicBool::new(false),
         )
         .expect("tone worker");
         assert!(got.len() > 480, "expected 16 kHz frames, got {}", got.len());
@@ -928,10 +943,41 @@ mod tests {
             tx.send(vec![0.0; 1024]).expect("queue silent block");
         }
         drop(tx);
-        let err = run_worker(48_000, &rx, &free_tx, &mut |_: &[f32]| {}, &quiet)
-            .expect_err("all-zero blocks");
+        let err = run_worker(
+            48_000,
+            &rx,
+            &free_tx,
+            &mut |_: &[f32]| {},
+            &quiet,
+            &AtomicBool::new(false),
+        )
+        .expect_err("all-zero blocks");
         assert_eq!(err, TapError::Silent);
         assert!(!quiet.load(Ordering::Relaxed), "zeros counted as audio");
+    }
+
+    #[test]
+    fn failed_stop_worker_exits_and_reports_finish() {
+        // The leaked IoState keeps `tx` open, so only `shutdown` can end the worker.
+        let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+        let (free_tx, _free) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+        let (shutdown, heard) = (
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(false)),
+        );
+        let flag = Arc::clone(&shutdown);
+        let worker = std::thread::spawn(move || {
+            run_worker(48_000, &rx, &free_tx, &mut |_: &[f32]| {}, &heard, &flag)
+        });
+        tx.send(vec![0.0; 480]).expect("queue");
+        shutdown.store(true, Ordering::Release);
+        let (done_tx, done) = mpsc::channel();
+        std::thread::spawn(move || done_tx.send(worker.join().expect("worker panicked")));
+        let outcome = done
+            .recv_timeout(Duration::from_secs(2))
+            .expect("worker never exited");
+        assert_eq!(outcome, Err(TapError::Silent), "finish() outcome lost");
+        drop(tx);
     }
 
     #[test]
