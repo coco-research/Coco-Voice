@@ -42,7 +42,7 @@
         {
           "filename": "canary-180m-flash-Q8_0.gguf",
           "quant": "Q8_0",
-          "size_bytes": 218447552
+          "size_bytes": 218447648
         },
         {
           "filename": "canary-180m-flash-F16.gguf",
@@ -57,7 +57,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": true,
-      "recommended_rank": 3
+      "recommended_rank": 3,
+      "sha256": "f942ab746040b531a29ab78ca3afc8dc9564efd8e4c942b5541e53644be9c408"
     },
     {
       "id": "handy-computer/cohere-transcribe-03-2026-gguf",
@@ -114,7 +115,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": true,
-      "recommended_rank": 4
+      "recommended_rank": 4,
+      "sha256": "14d02f1ad6dd77b3a60f82639879012c3adb4fe25c50a5a47a2c4c661daf1558"
     },
     {
       "id": "handy-computer/whisper-medium-gguf",
@@ -171,7 +173,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": true,
-      "recommended_rank": 5
+      "recommended_rank": 5,
+      "sha256": "09e6a65e7de377aa5b10bae24608bc6f8ca2ed04b3993ef10d4a02bcd9a82adf"
     },
     {
       "id": "handy-computer/Voxtral-Mini-4B-Realtime-2602-gguf",
@@ -228,7 +231,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": 6
+      "recommended_rank": 6,
+      "sha256": "e20a7582c5cf8159454c909b7f57b184b287cb3d7c3ec85744727a2cec51b08f"
     },
     {
       "id": "handy-computer/parakeet-tdt-0.6b-v3-gguf",
@@ -285,7 +289,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": 7
+      "recommended_rank": 7,
+      "sha256": "5859f77944efcd8eafa23a6350731960b2b55b2203df51f319665c807d802cc7"
     },
     {
       "id": "handy-computer/parakeet-tdt-0.6b-v2-gguf",
@@ -342,7 +347,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": 8
+      "recommended_rank": 8,
+      "sha256": "f0d0e99cebb6d3b83f1f7069b82b5d3c2e39a54545b0da039cb4bafd9c4e5caa"
     },
     {
       "id": "handy-computer/Qwen3-ASR-0.6B-gguf",
@@ -399,7 +405,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": 9
+      "recommended_rank": 9,
+      "sha256": "f081b2d5e23bd669d92cc331d722a8a0681943b8e6f34b48996fd5c319b5acd8"
     },
     {
       "id": "handy-computer/canary-1b-flash-gguf",
@@ -431,7 +438,7 @@
         {
           "filename": "canary-1b-flash-Q5_K_M.gguf",
           "quant": "Q5_K_M",
-          "size_bytes": 769563424
+          "size_bytes": 769563488
         },
         {
           "filename": "canary-1b-flash-Q6_K.gguf",
@@ -456,7 +463,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "17f438ba2708841d526c1c26bf8b493ee98a01c4405d9a8afeeb47cd713680a9"
     },
     {
       "id": "handy-computer/canary-1b-v2-gguf",
@@ -513,7 +521,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "9c3a893c93795438baf9b4b1c853c39b60316c3a0d259a3ba6e284712f5ddb71"
     },
     {
       "id": "handy-computer/canary-qwen-2.5b-gguf",
@@ -570,7 +579,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "d71b1d9ae442dc538665ed4df63a69520eb9be769ec0bc78c7d2f40040928306"
     },
     {
       "id": "handy-computer/gigaam-v3-ctc-gguf",
@@ -627,7 +637,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "71e5c82890e9e243a6bd7575f129f5d1bd2c3ca3ae79aab75cfb1a6934c6a62b"
     },
     {
       "id": "handy-computer/gigaam-v3-e2e-ctc-gguf",
@@ -684,7 +695,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "9ccce4750dc813a493d96ca15ee251712bedec15ac9a02fa3d2bd732f08ae5eb"
     },
     {
       "id": "handy-computer/gigaam-v3-rnnt-gguf",
@@ -741,7 +753,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "130d54450be2922144b265d90d453b781fc2b5adaee52a16954b00f3686201f7"
     },
     {
       "id": "handy-computer/gigaam-v3-e2e-rnnt-gguf",
@@ -798,7 +811,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "78d63b47723b7f8d78c6113a6ef983b5a86e2a86f6c273e1f5cb6967b1c4467a"
     },
     {
       "id": "handy-computer/granite-speech-4.1-2b-nar-gguf",
@@ -830,7 +844,7 @@
         {
           "filename": "granite-speech-4.1-2b-nar-Q5_K_M.gguf",
           "quant": "Q5_K_M",
-          "size_bytes": 1782089344
+          "size_bytes": 1782089376
         },
         {
           "filename": "granite-speech-4.1-2b-nar-Q6_K.gguf",
@@ -855,7 +869,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "dda8ffc26d2969dd3fc3f8d80e29d98d3435b830c83b01bb1263199fee79710a"
     },
     {
       "id": "handy-computer/granite-4.0-1b-speech-gguf",
@@ -887,7 +902,7 @@
         {
           "filename": "granite-4.0-1b-speech-Q5_K_M.gguf",
           "quant": "Q5_K_M",
-          "size_bytes": 1829704544
+          "size_bytes": 1829704640
         },
         {
           "filename": "granite-4.0-1b-speech-Q6_K.gguf",
@@ -912,7 +927,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "6a478270e5a1646249aebe712720be786f538ca23afd22faac4650e9f31f1779"
     },
     {
       "id": "handy-computer/granite-speech-4.1-2b-gguf",
@@ -944,7 +960,7 @@
         {
           "filename": "granite-speech-4.1-2b-Q5_K_M.gguf",
           "quant": "Q5_K_M",
-          "size_bytes": 1829704544
+          "size_bytes": 1829704640
         },
         {
           "filename": "granite-speech-4.1-2b-Q6_K.gguf",
@@ -969,7 +985,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "d9a53cd466b611c0a06bb2766eebc1424f79d6fb8e28300d9aaf09444bfab531"
     },
     {
       "id": "handy-computer/granite-speech-4.1-2b-plus-gguf",
@@ -1001,7 +1018,7 @@
         {
           "filename": "granite-speech-4.1-2b-plus-Q5_K_M.gguf",
           "quant": "Q5_K_M",
-          "size_bytes": 1691297088
+          "size_bytes": 1691297216
         },
         {
           "filename": "granite-speech-4.1-2b-plus-Q6_K.gguf",
@@ -1026,7 +1043,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "74be0ba0aad9b743378458b34c8ec97bf997d315ef89f535b9698d1aed4e564d"
     },
     {
       "id": "handy-computer/moonshine-tiny-gguf",
@@ -1068,7 +1086,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "2fd348d7b38f97d309cc3ec6848f3f57f537b80244950f07d2637e463f95a3a1"
     },
     {
       "id": "handy-computer/moonshine-streaming-tiny-gguf",
@@ -1110,7 +1129,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "930e4622ad3a24158b91406c30c977fa6a26b34cb32d6ac3e57cfb23383a869e"
     },
     {
       "id": "handy-computer/moonshine-base-gguf",
@@ -1152,7 +1172,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "7f0027dfd857d310b63a85ef57cadf183da712cc374f85a648f8bc18aaa2efc8"
     },
     {
       "id": "handy-computer/moonshine-streaming-small-gguf",
@@ -1194,7 +1215,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "d03670f69629b649085d0f44a63d97668b4119117cc9611a4e4ad94341713dfc"
     },
     {
       "id": "handy-computer/moonshine-streaming-medium-gguf",
@@ -1236,7 +1258,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "f7c9564249b508f6012927ec4f9e536087da53a7047f858ca9975bea5f75299e"
     },
     {
       "id": "handy-computer/parakeet-tdt_ctc-110m-gguf",
@@ -1293,7 +1316,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "7dd44c74a331d788a4e5f8b16913b3feb29ced22cf5613aad0e0f6cd30516296"
     },
     {
       "id": "handy-computer/parakeet-ctc-0.6b-gguf",
@@ -1350,7 +1374,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "e47ae86c1b34dbaf054334592575c29aee7de3546e75d1f0ccee05904c5c49ae"
     },
     {
       "id": "handy-computer/parakeet-rnnt-0.6b-gguf",
@@ -1407,7 +1432,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "06da5ba773736984e0513037b27ff9300e95c55eaa2b79dbc688efc34b25df51"
     },
     {
       "id": "handy-computer/parakeet-ctc-1.1b-gguf",
@@ -1464,7 +1490,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "8b38f60bb1c56b518953a39703068adc09991993b5aab52782e038a86a6c04cc"
     },
     {
       "id": "handy-computer/parakeet-tdt-1.1b-gguf",
@@ -1521,7 +1548,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "18c22888fed10676fde72fdd5b833fab9175a6abf4e0cb390eb0a59b0b107cd3"
     },
     {
       "id": "handy-computer/parakeet-rnnt-1.1b-gguf",
@@ -1578,7 +1606,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "8ee2ead0c30773440743591cd8a9f8ac180c27f450c9b053805b2bab6bf352cb"
     },
     {
       "id": "handy-computer/parakeet-tdt_ctc-1.1b-gguf",
@@ -1635,7 +1664,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "da23eb8c78fe3813b88f616db85e8191cfbfffdbc2b8bb8bd74a94eb8987caee"
     },
     {
       "id": "handy-computer/Qwen3-ASR-1.7B-gguf",
@@ -1692,7 +1722,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "034c557fe92ff8fcd9a9c041cbdaad347be0a86a58d3a348f63cf3f0180879d0"
     },
     {
       "id": "handy-computer/Voxtral-Mini-3B-2507-gguf",
@@ -1749,7 +1780,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "9ea2eb85359f7771270715849dc2b0e80381a59dab09d9c5d85352ab9c53f675"
     },
     {
       "id": "handy-computer/Voxtral-Small-24B-2507-gguf",
@@ -1806,7 +1838,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "a53f73a5f63b7663fe155977616a636acac567dac898f6ef82ca519017e8b6e7"
     },
     {
       "id": "handy-computer/whisper-tiny-gguf",
@@ -1863,7 +1896,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "325b9c7997cd1eff81ef709d55766565e71be696130cc3a3d444713798706834"
     },
     {
       "id": "handy-computer/whisper-tiny.en-gguf",
@@ -1920,7 +1954,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "e8c9b73c06344307d8b346e07fbe93dd88d894627854bcff31523f1ce44394fa"
     },
     {
       "id": "handy-computer/whisper-base-gguf",
@@ -1977,7 +2012,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "81c069428bc8a24551a8169cf31cf09bcfd9d4cf50389ae281323c9aa9648c81"
     },
     {
       "id": "handy-computer/whisper-base.en-gguf",
@@ -2034,7 +2070,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "3b46ca40bccbf7609c68d88a36d96077a04ca7c87f2060ede06f129fac3e7652"
     },
     {
       "id": "handy-computer/whisper-small.en-gguf",
@@ -2091,7 +2128,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "9614e6b7fda2d26018e4f268aece8ca25a83296ea0b534169a585b740bfd71ef"
     },
     {
       "id": "handy-computer/whisper-small-gguf",
@@ -2148,7 +2186,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "9b9c8811bbcc82a7766f0fb0925614bdacb0923b2cc630daeac17108b655b860"
     },
     {
       "id": "handy-computer/whisper-medium.en-gguf",
@@ -2205,7 +2244,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "03d7257fef498750ce272631bc6a34de322fc2b438aab5c268ff49dfd1b64c49"
     },
     {
       "id": "handy-computer/whisper-large-v3-turbo-gguf",
@@ -2216,7 +2256,7 @@
       "parameters": "809M",
       "description": "100-language speech-to-text with translation, auto language detection, segment-level timestamps.",
       "base_model": "openai/whisper-large-v3-turbo",
-      "license": "apache-2.0",
+      "license": "mit",
       "revision": "18ada752005f5fddef499256f9a458d0b37a203a",
       "language_count": 100,
       "languages": ["en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi", "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk", "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw", "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo", "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su", "yue"],
@@ -2247,7 +2287,7 @@
         {
           "filename": "whisper-large-v3-turbo-Q8_0.gguf",
           "quant": "Q8_0",
-          "size_bytes": 886381824
+          "size_bytes": 886381728
         },
         {
           "filename": "whisper-large-v3-turbo-F16.gguf",
@@ -2257,7 +2297,8 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "257aa7ec9121c22c167d5e2c49e3e76b4ba0e6e27ebc13074eba0a80f8190220"
     },
     {
       "id": "handy-computer/whisper-large-v3-gguf",
@@ -2309,7 +2350,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "6053d0fd69a0fd48b8fea5ea7a52b9e0cde389343566fa30e453a1b2b258dc38"
     },
     {
       "id": "handy-computer/whisper-large-gguf",
@@ -2366,7 +2408,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "b1dfb9fa0e9b0574d8c822f51662b8e59915831e1a3ca0d191f18ff8ba742639"
     },
     {
       "id": "handy-computer/whisper-large-v2-gguf",
@@ -2423,7 +2466,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "94fab1289a98d26bf375174a8daa00f44c7b16a9944726dde05361e5a8bd07ff"
     },
     {
       "id": "handy-computer/Breeze-ASR-25-gguf",
@@ -2480,7 +2524,8 @@
       ],
       "default_quant": "Q5_K_M",
       "recommended": false,
-      "recommended_rank": null
+      "recommended_rank": null,
+      "sha256": "c871fc811b33a16a5607c4d4166cfa2c0a1d359f7796e3da255e3e922f59139b"
     },
     {
       "id": "Qwen/Qwen3-4B-GGUF",

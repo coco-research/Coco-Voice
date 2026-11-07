@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "אחרי הדבקה, הטקסט שהכתבת נשאר בלוח כדי שתוכל להדביק אותו שוב. הוא מחליף את מה שהעתקת קודם. אפשר לכבות את זה בהגדרות > מתקדם > התנהגות הלוח."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }

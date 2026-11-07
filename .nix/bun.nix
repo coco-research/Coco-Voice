@@ -569,9 +569,9 @@
     url = "https://registry.npmjs.org/@tauri-apps/plugin-autostart/-/plugin-autostart-2.5.1.tgz";
     hash = "sha512-zS/xx7yzveCcotkA+8TqkI2lysmG2wvQXv2HGAVExITmnFfHAdj1arGsbbfs3o6EktRHf6l34pJxc3YGG2mg7w==";
   };
-  "@tauri-apps/plugin-clipboard-manager@2.3.2" = fetchurl {
-    url = "https://registry.npmjs.org/@tauri-apps/plugin-clipboard-manager/-/plugin-clipboard-manager-2.3.2.tgz";
-    hash = "sha512-CUlb5Hqi2oZbcZf4VUyUH53XWPPdtpw43EUpCza5HWZJwxEoDowFzNUDt1tRUXA8Uq+XPn17Ysfptip33sG4eQ==";
+  "@tauri-apps/plugin-clipboard-manager@2.3.3" = fetchurl {
+    url = "https://registry.npmjs.org/@tauri-apps/plugin-clipboard-manager/-/plugin-clipboard-manager-2.3.3.tgz";
+    hash = "sha512-KnyoTs9gj1yEgDkSPUNjOIOHjJTr5wk8IWcYMOWxYTIJCip6QwlyPW8u2X+6bd6kHM4fAdZNpxoal0gy/TwJbg==";
   };
   "@tauri-apps/plugin-dialog@2.6.0" = fetchurl {
     url = "https://registry.npmjs.org/@tauri-apps/plugin-dialog/-/plugin-dialog-2.6.0.tgz";
@@ -1749,9 +1749,9 @@
     url = "https://registry.npmjs.org/zod/-/zod-3.25.76.tgz";
     hash = "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==";
   };
-  "zustand@5.0.8" = fetchurl {
-    url = "https://registry.npmjs.org/zustand/-/zustand-5.0.8.tgz";
-    hash = "sha512-gyPKpIaxY9XcO2vSMrLbiER7QMAMGOQZVRdJ6Zi782jkbzZygq5GI9nG8g+sMgitRtndwaBSl7uiqC49o1SSiw==";
+  "zustand@5.0.16" = fetchurl {
+    url = "https://registry.npmjs.org/zustand/-/zustand-5.0.16.tgz";
+    hash = "sha512-Uv7e327ihlCfayfja3hDc0M64Upev1LWBKpRobdK4NyovDDPeeX4imWXc/wzC1yc6fkYPoAY/ncKVPAs2jrtQw==";
   };
   "zwitch@2.0.4" = fetchurl {
     url = "https://registry.npmjs.org/zwitch/-/zwitch-2.0.4.tgz";
