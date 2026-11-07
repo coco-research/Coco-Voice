@@ -31,6 +31,15 @@ use crate::settings::get_settings;
 /// the device to this rate before the audio callback sees a frame.
 pub const TRACK_RATE: u32 = 16_000;
 
+/// Silent samples per millisecond in mic.wav. Exact at 16 kHz, so a gap of
+/// N milliseconds is `N * SAMPLES_PER_MS` zeros in the file.
+const SAMPLES_PER_MS: u64 = TRACK_RATE as u64 / 1_000;
+const _: () = assert!(TRACK_RATE % 1_000 == 0, "TRACK_RATE must be whole kHz");
+
+/// Upper bound on one silence append, so a long gap is written in pieces
+/// (32 KiB each) instead of one buffer.
+const SILENCE_CHUNK: usize = 16_000;
+
 /// How many Me tracks hold the microphone. Process-wide because the device is:
 /// dictation opens the same one, so a swap restarts both streams and drops
 /// whatever was in flight. One meeting at a time is the rule, so this is 0 or 1
@@ -58,9 +67,11 @@ pub(crate) fn lock_mic_gate() -> std::sync::MutexGuard<'static, ()> {
     MIC_GATE.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// A stretch where the Me track kept no audio, in milliseconds since the
-/// meeting start on a monotonic clock (`Instant`), the same clock the Others
-/// track uses for its segment offsets.
+/// A stretch where the Me track kept no audio, in milliseconds since the Me
+/// track started, on a monotonic clock (`Instant`). Because `MicTrack::resume`
+/// fills the hole with silence, `start_ms` and `end_ms` are also sample
+/// positions in `mic.wav`, the same timeline the Others track's file uses (its
+/// position is samples since it started).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MicGap {
     pub start_ms: u64,
@@ -76,9 +87,13 @@ struct MicTrack {
     /// The meeting clock. Gaps are measured from here.
     started: Instant,
     /// Set while the recorder is closed or dead: samples are dropped, and the
-    /// hole is what the gap records.
+    /// hole is what the gap records. `resume` fills it with silence, so the
+    /// file falls no further behind the meeting clock.
     paused: bool,
     gaps: Vec<MicGap>,
+    /// Silence already written for the open gap, so a retried resume after a
+    /// failed write adds only what is still missing.
+    padded: u64,
 }
 
 impl MicTrack {
@@ -88,6 +103,7 @@ impl MicTrack {
             started,
             paused: false,
             gaps: Vec::new(),
+            padded: 0,
         }
     }
 
@@ -97,7 +113,9 @@ impl MicTrack {
 
     /// What the cpal callback calls, once per 16 kHz frame, while the recorder
     /// runs `VadPolicy::Disabled` (every frame forwarded, silence included).
-    /// f32 to i16 is the whole conversion: the stream is already 16 kHz mono.
+    /// While paused the samples are dropped; `resume` fills the hole with
+    /// silence so a file position stays a meeting time. f32 to i16 is the whole
+    /// conversion: the stream is already 16 kHz mono.
     fn push(&mut self, samples: &[f32]) -> Result<()> {
         if self.paused {
             return Ok(());
@@ -115,6 +133,7 @@ impl MicTrack {
             return;
         }
         self.paused = true;
+        self.padded = 0;
         let at = self.elapsed_ms();
         self.gaps.push(MicGap {
             start_ms: at,
@@ -122,17 +141,32 @@ impl MicTrack {
         });
     }
 
-    /// Close the open gap at the current meeting time. Called on a reopen and
-    /// on stop, so `gaps()` is right whether the track came back or not.
-    fn resume(&mut self) {
+    /// Close the open gap at the current meeting time and write the gap out as
+    /// silence, so a later sample sits at the same offset in `mic.wav` as it
+    /// does on the meeting clock. Called on a reopen and on stop, so `gaps()` is
+    /// right whether the track came back or not.
+    fn resume(&mut self) -> Result<()> {
         if !self.paused {
-            return;
+            return Ok(());
+        }
+        // Write first, then close the gap: a failed write leaves the track
+        // paused with its gap open, so the caller's error state stays true.
+        let now = self.elapsed_ms();
+        let start = self.gaps.last().map_or(now, |gap| gap.start_ms);
+        let end = now.max(start);
+        let mut silence = ((end - start) * SAMPLES_PER_MS).saturating_sub(self.padded);
+        let zeros = [0i16; SILENCE_CHUNK];
+        while silence > 0 {
+            let n = silence.min(SILENCE_CHUNK as u64) as usize;
+            self.wav.append(&zeros[..n])?;
+            silence -= n as u64;
+            self.padded += n as u64;
+        }
+        if let Some(gap) = self.gaps.last_mut() {
+            gap.end_ms = end;
         }
         self.paused = false;
-        let now = self.elapsed_ms();
-        if let Some(gap) = self.gaps.last_mut() {
-            gap.end_ms = now.max(gap.start_ms);
-        }
+        Ok(())
     }
 }
 
@@ -274,7 +308,16 @@ impl MeetingMic {
         match restarted {
             Ok(()) => {
                 *self.error.lock().unwrap() = None;
-                self.track.lock().unwrap().resume();
+                // Drop the track lock before `fail`, which takes it again.
+                let resumed = self
+                    .track
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .resume();
+                if let Err(e) = resumed {
+                    self.fail(&e);
+                    return Err(e);
+                }
                 Ok(())
             }
             Err(e) => {
@@ -296,7 +339,11 @@ impl MeetingMic {
             self.release_microphone();
         }
         let mut track = self.track.lock().unwrap();
-        track.resume();
+        if let Err(e) = track.resume() {
+            warn!("meeting mic resume failed: {e:#}");
+            *self.error.lock().unwrap_or_else(|p| p.into_inner()) =
+                Some(format!("mic.wav is short of the last gap: {e:#}"));
+        }
         if let Err(e) = track.wav.flush() {
             warn!("meeting mic flush failed: {e:#}");
         }
@@ -550,6 +597,43 @@ mod tests {
             gaps[0].end_ms - gaps[0].start_ms < 1_500,
             "gap is longer than the pause: {gaps:?}"
         );
+    }
+
+    #[test]
+    fn paused_time_is_padded_so_the_file_keeps_the_meeting_clock() {
+        let dir = tempfile::tempdir().unwrap();
+        // The meeting began two seconds ago, so a gap opened now closes well
+        // past the 1 000 ms start pinned below.
+        let started = Instant::now()
+            .checked_sub(Duration::from_secs(2))
+            .unwrap_or_else(Instant::now);
+        let mic = MeetingMic::from_wav(dir.path().join("mic.wav"), None, started).unwrap();
+        mic.hold_microphone();
+
+        let speech = tone(1.0);
+        feed(&mic, &speech);
+        {
+            let mut track = mic.track.lock().unwrap();
+            track.pause();
+            if let Some(gap) = track.gaps.last_mut() {
+                gap.start_ms = 1_000;
+            }
+            track.resume().unwrap();
+        }
+
+        let gaps = mic.gaps();
+        assert_eq!(gaps.len(), 1, "expected one gap: {gaps:?}");
+        // 16 kHz is 16 samples per millisecond, so the hole is that long in
+        // the file too: audio after it sits at the meeting time, like Others.
+        let expected = 16_000 + ((gaps[0].end_ms - gaps[0].start_ms) * 16) as usize;
+        let got = read_back(&mic);
+        assert_eq!(
+            got.len(),
+            expected,
+            "paused time left no silence in mic.wav: gap {:?}",
+            gaps[0]
+        );
+        mic.stop();
     }
 
     #[test]
