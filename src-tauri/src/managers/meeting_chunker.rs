@@ -313,6 +313,8 @@ mod tests {
     const VOXTRAL: &str = "handy-computer/Voxtral-Mini-4B-Realtime-2602-gguf";
     const PARAKEET: &str = "handy-computer/parakeet-tdt-0.6b-v3-gguf";
     const QWEN: &str = "Qwen/Qwen3-4B-GGUF";
+    const CANARY: &str = "handy-computer/canary-180m-flash-gguf";
+    const CANARY_FILE: &str = "canary-180m-flash-Q8_0.gguf";
 
     struct ResetMeeting;
     impl Drop for ResetMeeting {
@@ -408,6 +410,107 @@ mod tests {
         assert_eq!(rows.iter().filter(|row| row.channel == "others").count(), 2);
         assert!(rows.iter().all(|row| row.end_ms > row.start_ms));
         assert!(rows.iter().all(|row| !row.text.is_empty()));
+    }
+
+    #[test]
+    #[ignore = "live: needs macOS say/afconvert and an installed speech model"]
+    fn live_chunker_transcribes_fixture() {
+        let _lock = test_lock();
+        let _reset = ResetMeeting;
+        let app = test_app();
+
+        let dir = std::env::temp_dir().join(format!(
+            "coco-live-chunker-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock is before the epoch")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).expect("create the fixture dir");
+        struct FixtureDir(std::path::PathBuf);
+        impl Drop for FixtureDir {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _fixture = FixtureDir(dir.clone());
+
+        let aiff = dir.join("fixture.aiff");
+        let wav = dir.join("fixture.wav");
+        let said = std::process::Command::new("say")
+            .arg("-o")
+            .arg(&aiff)
+            .arg("The quarterly budget review starts on Monday morning")
+            .status()
+            .expect("run say");
+        assert!(said.success(), "say failed: {said}");
+        let converted = std::process::Command::new("afconvert")
+            .args(["-f", "WAVE", "-d", "LEI16@16000", "-c", "1"])
+            .arg(&aiff)
+            .arg(&wav)
+            .status()
+            .expect("run afconvert");
+        assert!(converted.success(), "afconvert failed: {converted}");
+
+        let speech =
+            crate::audio_toolkit::read_wav_samples(&wav).expect("read the 16 kHz fixture wav");
+        let mut audio = vec![0.0_f32; SAMPLE_RATE as usize];
+        audio.extend(speech);
+        audio.resize(audio.len() + 2 * SAMPLE_RATE as usize, 0.0);
+
+        let silero = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("resources/models/silero_vad_v4.onnx");
+        let mut chunker =
+            ChannelChunker::silero(CHANNEL_ME, &silero).expect("build the silero chunker");
+        let mut chunks = Vec::new();
+        for slice in audio.chunks(FRAME_SAMPLES) {
+            chunks.extend(chunker.push(slice));
+        }
+        if let Some(tail) = chunker.finish() {
+            chunks.push(tail);
+        }
+        assert!(!chunks.is_empty(), "the chunker produced no finished chunk");
+
+        let snapshots = std::env::var("HOME")
+            .map(std::path::PathBuf::from)
+            .expect("HOME is set")
+            .join(".cache/huggingface/hub")
+            .join(format!("models--{}/snapshots", CANARY.replace('/', "--")));
+        let model_path = std::fs::read_dir(&snapshots)
+            .ok()
+            .and_then(|entries| {
+                entries
+                    .filter_map(|entry| entry.ok())
+                    .map(|entry| entry.path().join(CANARY_FILE))
+                    .find(|path| path.is_file())
+            })
+            .unwrap_or_else(|| {
+                panic!(
+                    "missing {CANARY_FILE} under {}; download the model first",
+                    snapshots.display()
+                )
+            });
+
+        let tm = TranscriptionManager::new_for_test(app.handle().clone());
+        tm.install_engine_from_path_for_test(CANARY, &model_path)
+            .expect("load the canary engine");
+        let mut texts = Vec::new();
+        for chunk in chunks {
+            assert_eq!(chunk.channel, CHANNEL_ME);
+            texts.push(
+                tm.transcribe_meeting_chunk(chunk.samples)
+                    .expect("transcribe a meeting chunk"),
+            );
+        }
+        let joined = texts.join(" ").to_lowercase();
+        for word in ["budget", "review", "monday"] {
+            assert!(joined.contains(word), "missing '{word}' in: {joined}");
+        }
+        assert!(
+            tm.is_engine_available(),
+            "the meeting lock did not release the engine"
+        );
     }
 
     #[test]
