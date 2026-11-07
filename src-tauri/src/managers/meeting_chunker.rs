@@ -313,6 +313,7 @@ mod tests {
     use super::*;
     use crate::actions::POST_PROCESS_CALLS;
     use crate::managers::meetings::test_lock;
+    use crate::managers::model::EngineType;
     use crate::managers::transcription::DICTATION_LOAD_KICKOFFS;
     use crate::settings::{get_settings, update_settings, ModelUnloadTimeout};
     use std::sync::atomic::Ordering;
@@ -324,6 +325,12 @@ mod tests {
     const QWEN: &str = "Qwen/Qwen3-4B-GGUF";
     const CANARY: &str = "handy-computer/canary-180m-flash-gguf";
     const CANARY_FILE: &str = "canary-180m-flash-Q8_0.gguf";
+    const PARAKEET_V3: &str = "parakeet-tdt-0.6b-v3";
+    const PARAKEET_V3_DIR: &str = "parakeet-tdt-0.6b-v3-int8";
+
+    /// What `test_app()` produces, so the live fixture helper can hand it to a
+    /// closure without repeating the runtime type at every call site.
+    type TestManager = TranscriptionManager<tauri::test::MockRuntime>;
 
     struct ResetMeeting;
     impl Drop for ResetMeeting {
@@ -437,9 +444,13 @@ mod tests {
         assert!(chunks[0].samples.len() >= MAX_CHUNK_SAMPLES);
     }
 
-    #[test]
-    #[ignore = "live: needs macOS say/afconvert and an installed speech model"]
-    fn live_chunker_transcribes_fixture() {
+    /// Live fixture shared by the ignored live tests: `say` -> `afconvert` ->
+    /// the Silero chunker -> the engine `install` loads -> one `meeting_lock`
+    /// pass. Returns the model id the meeting row was started with.
+    fn run_live_fixture(
+        model_id: &str,
+        install: impl FnOnce(&TestManager) -> anyhow::Result<()>,
+    ) -> String {
         let _lock = test_lock();
         let _reset = ResetMeeting;
         let app = test_app();
@@ -497,6 +508,43 @@ mod tests {
         }
         assert!(!chunks.is_empty(), "the chunker produced no finished chunk");
 
+        let tm = TranscriptionManager::new_for_test(app.handle().clone());
+        install(&tm).expect("load the engine at the given path");
+
+        // The meeting row is where the planned model lands, so it is what
+        // "pinned" means for a live run.
+        let store_dir = tempfile::tempdir().expect("create the meeting store dir");
+        let store = MeetingsStore::open(store_dir.path()).expect("open the meeting store");
+        let meeting_id = store
+            .start_meeting("Live fixture", model_id)
+            .expect("start the meeting");
+        let pinned = store
+            .meeting(meeting_id)
+            .expect("read the meeting")
+            .model_id;
+
+        let mut texts = Vec::new();
+        for chunk in chunks {
+            assert_eq!(chunk.channel, CHANNEL_ME);
+            texts.push(
+                tm.transcribe_meeting_chunk(chunk.samples)
+                    .expect("transcribe a meeting chunk"),
+            );
+        }
+        let joined = texts.join(" ").to_lowercase();
+        for word in ["budget", "review", "monday"] {
+            assert!(joined.contains(word), "missing '{word}' in: {joined}");
+        }
+        assert!(
+            tm.is_engine_available(),
+            "the meeting lock did not release the engine"
+        );
+        pinned
+    }
+
+    #[test]
+    #[ignore = "live: needs macOS say/afconvert and an installed speech model"]
+    fn live_chunker_transcribes_fixture() {
         let snapshots = std::env::var("HOME")
             .map(std::path::PathBuf::from)
             .expect("HOME is set")
@@ -517,25 +565,36 @@ mod tests {
                 )
             });
 
-        let tm = TranscriptionManager::new_for_test(app.handle().clone());
-        tm.install_engine_from_path_for_test(CANARY, &model_path)
-            .expect("load the canary engine");
-        let mut texts = Vec::new();
-        for chunk in chunks {
-            assert_eq!(chunk.channel, CHANNEL_ME);
-            texts.push(
-                tm.transcribe_meeting_chunk(chunk.samples)
-                    .expect("transcribe a meeting chunk"),
+        run_live_fixture(CANARY, |tm| {
+            tm.install_engine_from_path_for_test(CANARY, &model_path)
+        });
+    }
+
+    /// The ONNX Parakeet V3 engine, read straight from its installed directory.
+    /// The model dir is only read; nothing in it is written, moved or deleted.
+    #[test]
+    #[ignore = "live: needs macOS say/afconvert and the installed Parakeet V3 model"]
+    fn live_chunker_transcribes_fixture_parakeet_v3() {
+        let dir = std::env::var("COCO_TEST_PARAKEET_V3_DIR")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| {
+                let home = std::env::var("HOME").expect("HOME is set");
+                std::path::PathBuf::from(home)
+                    .join("Library/Application Support/com.cocoresearch.cocovoice/models")
+                    .join(PARAKEET_V3_DIR)
+            });
+        if !dir.is_dir() {
+            panic!(
+                "missing the Parakeet V3 model under {}; install it first or set \
+                 COCO_TEST_PARAKEET_V3_DIR",
+                dir.display()
             );
         }
-        let joined = texts.join(" ").to_lowercase();
-        for word in ["budget", "review", "monday"] {
-            assert!(joined.contains(word), "missing '{word}' in: {joined}");
-        }
-        assert!(
-            tm.is_engine_available(),
-            "the meeting lock did not release the engine"
-        );
+
+        let pinned = run_live_fixture(PARAKEET_V3, |tm| {
+            tm.install_engine_with_type_for_test(PARAKEET_V3, EngineType::Parakeet, &dir)
+        });
+        assert_eq!(pinned, PARAKEET_V3, "the meeting pinned a different model");
     }
 
     #[test]
