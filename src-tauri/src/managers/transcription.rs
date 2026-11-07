@@ -532,6 +532,18 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         let engine_type = crate::catalog::find_model(model_id)
             .map(|desc| desc.engine_type.clone())
             .ok_or_else(|| anyhow::anyhow!("Model {} is not in the catalog", model_id))?;
+        self.install_engine_with_type_for_test(model_id, engine_type, path)
+    }
+
+    /// Same, for a model the catalog does not know (ONNX directory models such
+    /// as `parakeet-tdt-0.6b-v3`), where the caller names the engine itself.
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn install_engine_with_type_for_test(
+        &self,
+        model_id: &str,
+        engine_type: EngineType,
+        path: &std::path::Path,
+    ) -> Result<()> {
         self.load_model_from_path(
             model_id,
             model_id,
