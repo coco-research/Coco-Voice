@@ -217,6 +217,12 @@
       "revision": "6d590f77001d318fb17a0b5bf7ee329a91b52598",
       "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3/tree/6d590f77001d318fb17a0b5bf7ee329a91b52598"
     },
+    "handy-computer/parakeet-ultra-gguf": {
+      "licence": "CC-BY-4.0",
+      "publisher": "moondream/parakeet-ultra",
+      "revision": "73175eb7aeb0d82f1e2a6b53b3aabc10a90bcd0b",
+      "url": "https://huggingface.co/moondream/parakeet-ultra/tree/73175eb7aeb0d82f1e2a6b53b3aabc10a90bcd0b"
+    },
     "handy-computer/parakeet-tdt-1.1b-gguf": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/parakeet-tdt-1.1b",
