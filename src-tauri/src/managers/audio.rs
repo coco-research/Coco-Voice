@@ -207,6 +207,8 @@ struct MuteTracker {
 impl MuteTracker {
     /// Whether a mute scheduled with `token` may still be started.
     fn may_apply(&self, token: u64, stream_open: bool) -> bool {
+        #[cfg(test)]
+        may_apply_watch::note();
         stream_open && self.epoch == token && self.restore_to.is_none()
     }
 
@@ -299,11 +301,10 @@ fn create_audio_recorder(
 
 /* ──────────────────────────────────────────────────────────────── */
 
-#[derive(Clone)]
-pub struct AudioRecordingManager {
+pub struct AudioRecordingManager<R: tauri::Runtime = tauri::Wry> {
     state: Arc<Mutex<RecordingState>>,
     mode: Arc<Mutex<MicrophoneMode>>,
-    app_handle: tauri::AppHandle,
+    app_handle: tauri::AppHandle<R>,
 
     recorder: Arc<Mutex<Option<AudioRecorder>>>,
     is_open: Arc<Mutex<bool>>,
@@ -319,6 +320,112 @@ pub struct AudioRecordingManager {
     /// so the retry re-enumerates. The system-default case is never cached —
     /// the recorder resolves the current default itself, cheaply.
     cached_device: Arc<Mutex<Option<(String, cpal::Device)>>>,
+}
+
+impl<R: tauri::Runtime> Clone for AudioRecordingManager<R> {
+    fn clone(&self) -> Self {
+        Self {
+            state: Arc::clone(&self.state),
+            mode: Arc::clone(&self.mode),
+            app_handle: self.app_handle.clone(),
+            recorder: Arc::clone(&self.recorder),
+            is_open: Arc::clone(&self.is_open),
+            is_recording: Arc::clone(&self.is_recording),
+            did_mute: Arc::clone(&self.did_mute),
+            close_generation: Arc::clone(&self.close_generation),
+            cancel_generation: Arc::clone(&self.cancel_generation),
+            stream_router: Arc::clone(&self.stream_router),
+            cached_device: Arc::clone(&self.cached_device),
+        }
+    }
+}
+
+impl<R: tauri::Runtime> AudioRecordingManager<R> {
+    /// Token identifying the current take. Capture it when the take starts and
+    /// pass it to `apply_mute`, so a mute that runs after the take ended is dropped.
+    pub fn mute_token(&self) -> u64 {
+        self.did_mute.lock().unwrap().epoch
+    }
+
+    /// Applies mute if mute_while_recording is enabled and stream is open.
+    /// Lock order is always `is_open` then `did_mute`, and neither lock is held
+    /// while the mute command runs. A meeting returns before any of that.
+    pub fn apply_mute(&self, token: u64) {
+        #[cfg(feature = "meetings")]
+        if crate::managers::meetings::meeting_is_active() {
+            return;
+        }
+        let settings = get_settings(&self.app_handle);
+        self.mute_output(token, settings.mute_while_recording);
+    }
+
+    fn mute_output(&self, token: u64, mute_while_recording: bool) {
+        #[cfg(feature = "meetings")]
+        if crate::managers::meetings::meeting_is_active() {
+            return;
+        }
+        if !mute_while_recording {
+            return;
+        }
+
+        let may_apply = {
+            let open = *self.is_open.lock().unwrap();
+            self.did_mute.lock().unwrap().may_apply(token, open)
+        };
+        if !may_apply {
+            return;
+        }
+
+        // Remember the speaker state from before the take so it can be restored.
+        let previous = get_mute().unwrap_or(false);
+        if !set_mute(true) {
+            warn!("Mute command failed; not tracking a mute");
+            return;
+        }
+
+        let recorded = {
+            let open = *self.is_open.lock().unwrap();
+            self.did_mute
+                .lock()
+                .unwrap()
+                .record_applied(token, open, previous)
+        };
+        if recorded {
+            debug!("Mute applied");
+        } else {
+            // The take ended while the mute command ran; put the speakers back,
+            // unless a newer take has already taken over the tracker.
+            let orphaned = self.did_mute.lock().unwrap().restore_to.is_none();
+            if orphaned {
+                set_mute(previous);
+                debug!("Mute landed after the take ended; reverted");
+            }
+        }
+    }
+
+    /// Same path as [`apply_mute`](Self::apply_mute) with the setting forced,
+    /// so a test can prove a meeting skips mute without a settings store.
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn mute_output_for_test(&self, token: u64, mute_while_recording: bool) {
+        self.mute_output(token, mute_while_recording);
+    }
+
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn for_test(app: tauri::AppHandle<R>) -> Self {
+        Self {
+            state: Arc::new(Mutex::new(RecordingState::Idle)),
+            mode: Arc::new(Mutex::new(MicrophoneMode::OnDemand)),
+            app_handle: app,
+            recorder: Arc::new(Mutex::new(None)),
+            is_open: Arc::new(Mutex::new(true)),
+            is_recording: Arc::new(Mutex::new(false)),
+            did_mute: Arc::new(Mutex::new(MuteTracker::default())),
+            close_generation: Arc::new(AtomicU64::new(0)),
+            cancel_generation: Arc::new(AtomicU64::new(0)),
+            stream_router: Arc::new(crate::managers::transcription::StreamRouter::new_for_test()),
+            cached_device: Arc::new(Mutex::new(None)),
+        }
+    }
 }
 
 impl AudioRecordingManager {
@@ -449,56 +556,6 @@ impl AudioRecordingManager {
     }
 
     /* ---------- microphone life-cycle -------------------------------------- */
-
-    /// Token identifying the current take. Capture it when the take starts and
-    /// pass it to `apply_mute`, so a mute that runs after the take ended is dropped.
-    pub fn mute_token(&self) -> u64 {
-        self.did_mute.lock().unwrap().epoch
-    }
-
-    /// Applies mute if mute_while_recording is enabled and stream is open.
-    /// Lock order is always `is_open` then `did_mute`, and neither lock is held
-    /// while the mute command runs.
-    pub fn apply_mute(&self, token: u64) {
-        let settings = get_settings(&self.app_handle);
-        if !settings.mute_while_recording {
-            return;
-        }
-
-        let may_apply = {
-            let open = *self.is_open.lock().unwrap();
-            self.did_mute.lock().unwrap().may_apply(token, open)
-        };
-        if !may_apply {
-            return;
-        }
-
-        // Remember the speaker state from before the take so it can be restored.
-        let previous = get_mute().unwrap_or(false);
-        if !set_mute(true) {
-            warn!("Mute command failed; not tracking a mute");
-            return;
-        }
-
-        let recorded = {
-            let open = *self.is_open.lock().unwrap();
-            self.did_mute
-                .lock()
-                .unwrap()
-                .record_applied(token, open, previous)
-        };
-        if recorded {
-            debug!("Mute applied");
-        } else {
-            // The take ended while the mute command ran; put the speakers back,
-            // unless a newer take has already taken over the tracker.
-            let orphaned = self.did_mute.lock().unwrap().restore_to.is_none();
-            if orphaned {
-                set_mute(previous);
-                debug!("Mute landed after the take ended; reverted");
-            }
-        }
-    }
 
     /// Restores the speaker mute from before the take, if this app muted
     pub fn remove_mute(&self) {
@@ -827,6 +884,34 @@ impl AudioRecordingManager {
 }
 
 #[cfg(test)]
+#[allow(dead_code)]
+mod may_apply_watch {
+    use std::cell::Cell;
+
+    thread_local! {
+        static ON: Cell<bool> = const { Cell::new(false) };
+        static HITS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(super) fn watch(on: bool) {
+        ON.with(|flag| flag.set(on));
+        if on {
+            HITS.with(|hits| hits.set(0));
+        }
+    }
+
+    pub(super) fn hits() -> usize {
+        HITS.with(|hits| hits.get())
+    }
+
+    pub(super) fn note() {
+        if ON.with(|flag| flag.get()) {
+            HITS.with(|hits| hits.set(hits.get() + 1));
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -873,5 +958,32 @@ mod tests {
         assert!(!t.record_applied(token, false, false));
         assert!(t.record_applied(token, true, false));
         assert!(!t.may_apply(token, true));
+    }
+
+    /// A meeting skips mute before `MuteTracker::may_apply`, even when the
+    /// setting that would mute is on.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn mute_skipped_while_meeting_active() {
+        let _lock = crate::managers::meetings::test_lock();
+        let app = tauri::test::mock_app();
+        let rm = AudioRecordingManager::for_test(app.handle().clone());
+        crate::managers::meetings::set_meeting_active(true);
+        struct Clear;
+        impl Drop for Clear {
+            fn drop(&mut self) {
+                crate::managers::meetings::set_meeting_active(false);
+            }
+        }
+        let _clear = Clear;
+        may_apply_watch::watch(true);
+        rm.mute_output_for_test(rm.mute_token(), true);
+        assert_eq!(
+            may_apply_watch::hits(),
+            0,
+            "MuteTracker::may_apply ran while a meeting was active"
+        );
+        rm.apply_mute(rm.mute_token());
+        assert_eq!(may_apply_watch::hits(), 0);
     }
 }
