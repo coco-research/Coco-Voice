@@ -2,12 +2,12 @@
 //! Samples go to a caller sink at 16 kHz. A later PR writes system.wav.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
+use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use cidre::cat::audio::{Buf, Format, FormatFlags};
+use cidre::cat::audio::{Format, FormatFlags};
 use cidre::cat::AudioBufList;
 use cidre::cf::{self, ArrayOf, DictionaryOf};
 use cidre::core_audio::hardware::{self, aggregate_device_keys, sub_tap_keys, AggregateDevice};
@@ -22,6 +22,8 @@ const OUT_HZ: usize = 16_000;
 const FRAME: Duration = Duration::from_millis(30);
 /// Mono blocks in flight. Full queue drops a block instead of stalling the IO thread.
 const QUEUE_BLOCKS: usize = 64;
+/// Pool buffers fit the device's largest IO slice (oversize drop: a guard). Floor, in mono frames.
+const BLOCK_FRAMES: usize = 8192;
 const USAGE_KEY: &str = "NSAudioCaptureUsageDescription";
 
 #[derive(Debug, PartialEq, Eq)]
@@ -138,9 +140,10 @@ fn map_os(err: os::Error) -> TapError {
 /// The caller's sink. Owned by the worker thread, never called from the IO thread.
 type TapSink = Box<dyn FnMut(&[f32]) + Send>;
 
-/// Everything the IO thread touches: a bounded queue and three counters. No locks, no sink.
+/// All the IO thread touches: the free pool, a bounded queue and two counters. No locks, no sink.
 struct IoState {
     channels: u32,
+    free: Receiver<Vec<f32>>,
     tx: SyncSender<Vec<f32>>,
     dropped: Arc<AtomicU64>,
     worker_gone: Arc<AtomicBool>,
@@ -166,6 +169,7 @@ fn record_send(
 fn run_worker<S: FnMut(&[f32]) + ?Sized>(
     in_hz: usize,
     rx: &Receiver<Vec<f32>>,
+    free: &SyncSender<Vec<f32>>,
     sink: &mut S,
     heard: &AtomicBool,
 ) -> Result<(), TapError> {
@@ -176,26 +180,39 @@ fn run_worker<S: FnMut(&[f32]) + ?Sized>(
         }
         sink(frame);
     };
-    while let Ok(block) = rx.recv() {
-        path.push(&block, &mut mark);
+    // ponytail: polling keeps both channels free of blocked waiters, so the IO thread's
+    // try_recv/try_send never wake anyone. Upgrade: lock-free SPSC ring if 5 ms ever matters.
+    loop {
+        match rx.try_recv() {
+            Ok(block) => {
+                path.push(&block, &mut mark);
+                let _ = free.try_send(block);
+            }
+            Err(TryRecvError::Empty) => std::thread::sleep(Duration::from_millis(5)),
+            Err(TryRecvError::Disconnected) => break,
+        }
     }
     path.finish(&mut mark)
 }
 
+type Worker = JoinHandle<Result<(), TapError>>;
+type Spawned = (SyncSender<Vec<f32>>, Receiver<Vec<f32>>, Worker);
 fn spawn_worker(
     in_hz: usize,
-    sink: TapSink,
+    block_frames: usize,
+    mut sink: TapSink,
     heard: Arc<AtomicBool>,
-) -> Result<(SyncSender<Vec<f32>>, JoinHandle<Result<(), TapError>>), TapError> {
+) -> Result<Spawned, TapError> {
     let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+    let (free_tx, free) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+    for _ in 0..QUEUE_BLOCKS {
+        let _ = free_tx.try_send(Vec::with_capacity(block_frames));
+    }
     let worker = std::thread::Builder::new()
         .name("system-audio-tap".into())
-        .spawn(move || {
-            let mut sink = sink;
-            run_worker(in_hz, &rx, &mut *sink, &heard)
-        })
+        .spawn(move || run_worker(in_hz, &rx, &free_tx, &mut *sink, &heard))
         .map_err(|err| TapError::Device(format!("tap worker thread: {err}")))?;
-    Ok((tx, worker))
+    Ok((tx, free, worker))
 }
 
 // ponytail: one AudioBuffer. A tap aggregate that exposes more streams needs a BufListN loop.
@@ -210,36 +227,52 @@ extern "C" fn on_input(
 ) -> Status {
     if let Some(state) = client_data {
         if input_data.number_buffers > 0 {
-            let frames = mono_frames(&input_data.buffers[0], state.channels);
-            // Real-time thread: never block, never lock, never touch the sink. A full queue
-            // drops this block and the counter records it; a closed queue marks the worker gone.
-            record_send(
-                state.tx.try_send(frames),
-                &state.dropped,
-                &state.worker_gone,
-            );
+            let buf = &input_data.buffers[0];
+            if buf.data.is_null() || buf.data_bytes_size < 4 {
+                return Status::NO_ERR;
+            }
+            let count = buf.data_bytes_size as usize / std::mem::size_of::<f32>();
+            // SAFETY: HAL owns this buffer for the duration of the IO proc. Length is the byte size.
+            let raw = unsafe { std::slice::from_raw_parts(buf.data as *const f32, count) };
+            io_block(state, raw);
         }
     }
     Status::NO_ERR
 }
 
-fn mono_frames(buf: &Buf, channels: u32) -> Vec<f32> {
-    if buf.data.is_null() || buf.data_bytes_size < 4 {
-        return Vec::new();
+/// IO thread: no alloc, no block, no lock. Any drop (no buffer, oversize, full queue) is counted.
+fn io_block(state: &IoState, raw: &[f32]) {
+    match state.free.try_recv() {
+        Ok(mut block) => {
+            let fits = mono_into(raw, state.channels, &mut block); // oversize: sent empty, recycled
+            let sent = state.tx.try_send(block);
+            if !fits && sent.is_ok() {
+                state.dropped.fetch_add(1, Ordering::Relaxed); // one count per lost block
+            }
+            record_send(sent, &state.dropped, &state.worker_gone);
+        }
+        Err(TryRecvError::Empty) => {
+            state.dropped.fetch_add(1, Ordering::Relaxed);
+        }
+        // The worker owns the pool's sender, so a closed pool also means the worker is gone.
+        Err(TryRecvError::Disconnected) => state.worker_gone.store(true, Ordering::Release),
     }
-    let count = buf.data_bytes_size as usize / std::mem::size_of::<f32>();
-    // SAFETY: HAL owns this buffer for the duration of the IO proc. Length is the byte size.
-    let raw = unsafe { std::slice::from_raw_parts(buf.data as *const f32, count) };
-    if channels <= 1 {
-        return raw.to_vec();
-    }
-    let channels = channels as usize;
-    raw.chunks(channels)
-        .map(|frame| frame.iter().sum::<f32>() / channels as f32)
-        .collect()
 }
 
-/// `mono_frames` reads the tap buffers as interleaved f32, so reject anything else before IO starts.
+/// Downmixes `raw` into `out` (cleared, never grown); false, writing nothing, if it doesn't fit.
+fn mono_into(raw: &[f32], channels: u32, out: &mut Vec<f32>) -> bool {
+    let channels = channels.max(1) as usize;
+    out.clear();
+    if raw.len() > out.capacity() * channels {
+        return false;
+    }
+    for frame in raw.chunks(channels) {
+        out.push(frame.iter().sum::<f32>() / channels as f32);
+    }
+    true
+}
+
+/// `mono_into` reads the tap buffers as interleaved f32, so reject anything else before IO starts.
 fn check_tap_format(asbd: &cidre::cat::audio::StreamBasicDesc) -> Result<(), TapError> {
     let channels = asbd.channels_per_frame;
     if channels == 0 {
@@ -397,10 +430,12 @@ impl SystemAudioSession {
             }
         };
 
+        let max = aggregate.buf_frame_size_range().map_or(0.0, |r| r.max) as usize;
+        let block_frames = max.clamp(BLOCK_FRAMES, 1 << 16); // a broken max can't size the pool
         let dropped = Arc::new(AtomicU64::new(0));
         let worker_gone = Arc::new(AtomicBool::new(false));
         let heard = Arc::new(AtomicBool::new(false));
-        let (tx, worker) = match spawn_worker(rate, sink, Arc::clone(&heard)) {
+        let (tx, free, worker) = match spawn_worker(rate, block_frames, sink, Arc::clone(&heard)) {
             Ok(pair) => pair,
             Err(err) => {
                 release_partial(tap, Some(aggregate_id), std::ptr::null_mut());
@@ -410,6 +445,7 @@ impl SystemAudioSession {
 
         let state = Box::into_raw(Box::new(IoState {
             channels,
+            free,
             tx,
             dropped: Arc::clone(&dropped),
             worker_gone: Arc::clone(&worker_gone),
@@ -771,6 +807,29 @@ mod tests {
             !worker_gone.load(Ordering::Relaxed),
             "full queue flagged the worker gone"
         );
+
+        // Same split on the real IO path: a full queue drops and counts, the worker is alive.
+        let (tx, _rx) = mpsc::sync_channel::<Vec<f32>>(1);
+        tx.send(Vec::new()).expect("fill queue");
+        let (free_tx, free) = mpsc::sync_channel::<Vec<f32>>(1);
+        free_tx.send(Vec::with_capacity(2)).expect("seed pool");
+        let state = IoState {
+            channels: 1,
+            free,
+            tx,
+            dropped: Arc::new(AtomicU64::new(0)),
+            worker_gone: Arc::new(AtomicBool::new(false)),
+        };
+        io_block(&state, &[1.0]);
+        assert_eq!(
+            state.dropped.load(Ordering::Relaxed),
+            1,
+            "full queue not counted"
+        );
+        assert!(
+            !state.worker_gone.load(Ordering::Relaxed),
+            "full queue flagged the worker gone"
+        );
     }
 
     #[test]
@@ -791,6 +850,35 @@ mod tests {
             worker_gone.load(Ordering::Relaxed),
             "disconnected queue left the worker flag down"
         );
+
+        // On the real IO path both closed channels mean a dead worker, never a drop.
+        for close_pool in [false, true] {
+            let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(1);
+            let (free_tx, free) = mpsc::sync_channel::<Vec<f32>>(1);
+            if close_pool {
+                drop(free_tx); // pool empty and its sender gone
+            } else {
+                free_tx.send(Vec::with_capacity(2)).expect("seed pool");
+                drop(rx); // worker's queue closed
+            }
+            let state = IoState {
+                channels: 1,
+                free,
+                tx,
+                dropped: Arc::new(AtomicU64::new(0)),
+                worker_gone: Arc::new(AtomicBool::new(false)),
+            };
+            io_block(&state, &[1.0]);
+            assert_eq!(
+                state.dropped.load(Ordering::Relaxed),
+                0,
+                "dead worker counted as a drop"
+            );
+            assert!(
+                state.worker_gone.load(Ordering::Relaxed),
+                "close_pool={close_pool}: worker not flagged"
+            );
+        }
     }
 
     #[test]
@@ -811,6 +899,7 @@ mod tests {
     #[test]
     fn worker_resamples_blocks_and_reports_silence() {
         let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+        let (free_tx, _free) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
         let heard = AtomicBool::new(false);
         let mut got = Vec::new();
         let tone = sine(48_000, 440.0, 0.25);
@@ -821,6 +910,7 @@ mod tests {
         run_worker(
             48_000,
             &rx,
+            &free_tx,
             &mut |frame: &[f32]| got.extend_from_slice(frame),
             &heard,
         )
@@ -838,9 +928,33 @@ mod tests {
             tx.send(vec![0.0; 1024]).expect("queue silent block");
         }
         drop(tx);
-        let err =
-            run_worker(48_000, &rx, &mut |_: &[f32]| {}, &quiet).expect_err("all-zero blocks");
+        let err = run_worker(48_000, &rx, &free_tx, &mut |_: &[f32]| {}, &quiet)
+            .expect_err("all-zero blocks");
         assert_eq!(err, TapError::Silent);
         assert!(!quiet.load(Ordering::Relaxed), "zeros counted as audio");
+    }
+
+    #[test]
+    fn io_block_reuses_pool_buffers_and_counts_every_drop() {
+        let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(1);
+        let (free_tx, free) = mpsc::sync_channel::<Vec<f32>>(1);
+        free_tx.send(Vec::with_capacity(2)).expect("seed pool");
+        let dropped = Arc::new(AtomicU64::new(0));
+        let state = IoState {
+            channels: 2,
+            free,
+            tx,
+            dropped: Arc::clone(&dropped),
+            worker_gone: Arc::new(AtomicBool::new(false)),
+        };
+        io_block(&state, &[1.0, 3.0, 5.0, 7.0]);
+        let block = rx.try_recv().expect("mono block");
+        assert_eq!((block.as_slice(), block.capacity()), (&[2.0, 6.0][..], 2));
+        io_block(&state, &[1.0, 3.0]); // pool empty: dropped
+        assert_eq!(dropped.load(Ordering::Relaxed), 1);
+        free_tx.send(block).expect("return buffer");
+        io_block(&state, &[0.0; 6]); // 3 frames > capacity 2: dropped, never grown
+        assert_eq!(dropped.load(Ordering::Relaxed), 2);
+        assert_eq!(rx.try_recv().map(|b| b.len()), Ok(0)); // buffer recycled, no oversize data
     }
 }
