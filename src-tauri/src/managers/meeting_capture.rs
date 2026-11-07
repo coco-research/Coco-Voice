@@ -263,10 +263,12 @@ impl MeetingMic {
         let mut recorder = AudioRecorder::new()
             .map_err(|e| anyhow!("Failed to create the meeting recorder: {e}"))?
             .with_audio_callback(move |frame: &[f32]| {
-                // Audio callback: never panic, never block. The writer refuses
+                // Runs on the recorder's consumer thread, not the cpal callback.
+                // Never panic: a poisoned lock is recovered. The writer refuses
                 // after its own write error, and `push`/`error()` carry the
                 // reason to the caller.
-                if let Err(e) = track.lock().unwrap().push(frame) {
+                let mut track = track.lock().unwrap_or_else(|e| e.into_inner());
+                if let Err(e) = track.push(frame) {
                     warn!("meeting mic write failed: {e:#}");
                 }
             });
@@ -287,6 +289,7 @@ impl MeetingMic {
     fn resolve_device(&self) -> Option<cpal::Device> {
         let name = self.device_name.as_ref()?;
         list_input_devices()
+            .map_err(|e| warn!("meeting mic: device list failed, using the default: {e}"))
             .ok()?
             .into_iter()
             .find(|d| d.name == *name)
