@@ -33,13 +33,286 @@ export function normalize(text: string): string[] {
   return cleaned === "" ? [] : cleaned.split(" ");
 }
 
+const UNIT_WORDS = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen",
+];
+
+const TENS_WORDS = [
+  "twenty",
+  "thirty",
+  "forty",
+  "fifty",
+  "sixty",
+  "seventy",
+  "eighty",
+  "ninety",
+];
+
+const ORDINAL_UNIT_WORDS = [
+  "zeroth",
+  "first",
+  "second",
+  "third",
+  "fourth",
+  "fifth",
+  "sixth",
+  "seventh",
+  "eighth",
+  "ninth",
+  "tenth",
+  "eleventh",
+  "twelfth",
+  "thirteenth",
+  "fourteenth",
+  "fifteenth",
+  "sixteenth",
+  "seventeenth",
+  "eighteenth",
+  "nineteenth",
+];
+
+const ORDINAL_TENS_WORDS = [
+  "twentieth",
+  "thirtieth",
+  "fortieth",
+  "fiftieth",
+  "sixtieth",
+  "seventieth",
+  "eightieth",
+  "ninetieth",
+];
+
+const UNIT_VALUE = new Map<string, number>(
+  UNIT_WORDS.map((word, index): [string, number] => [word, index]),
+);
+const DIGIT_VALUE = new Map<string, number>(
+  UNIT_WORDS.slice(0, 10).map((word, index): [string, number] => [word, index]),
+);
+const TENS_VALUE = new Map<string, number>(
+  TENS_WORDS.map((word, index): [string, number] => [word, (index + 2) * 10]),
+);
+const ORDINAL_UNIT_VALUE = new Map<string, number>(
+  ORDINAL_UNIT_WORDS.map((word, index): [string, number] => [word, index]),
+);
+const ORDINAL_TENS_VALUE = new Map<string, number>(
+  ORDINAL_TENS_WORDS.map((word, index): [string, number] => [
+    word,
+    (index + 2) * 10,
+  ]),
+);
+const SCALE_VALUE = new Map<string, number>([
+  ["hundred", 100],
+  ["thousand", 1_000],
+  ["million", 1_000_000],
+]);
+
+const DIGIT_TOKEN = /^\d+$/;
+const DIGIT_ORDINAL = /^(\d+)(?:st|nd|rd|th)$/;
+
+function isNumberContinuation(token: string | undefined): boolean {
+  if (token === undefined) return false;
+  return (
+    UNIT_VALUE.has(token) ||
+    TENS_VALUE.has(token) ||
+    ORDINAL_UNIT_VALUE.has(token) ||
+    ORDINAL_TENS_VALUE.has(token) ||
+    SCALE_VALUE.has(token)
+  );
+}
+
 /**
- * Word-level Levenshtein counts. On a cost tie, prefer a match or
- * substitution, then a deletion, then an insertion.
+ * Whether a unit or tens word may continue the run. A unit word needs an
+ * empty ones place; a teen, tens, or ordinal-tens word needs current to be a
+ * multiple of 100.
  */
-export function wordErrors(ref: string, hyp: string): WordErrorCounts {
-  const left = normalize(ref);
-  const right = normalize(hyp);
+function continuesNumber(
+  current: number,
+  value: number,
+  lastWasUnit: boolean,
+): boolean {
+  if (lastWasUnit) return false;
+  return value < 10 ? current % 10 === 0 : current % 100 === 0;
+}
+
+type ParsedNumber = { value: number; next: number };
+
+/** Parse a cardinal or ordinal number word run starting at `start`. */
+function parseNumber(words: string[], start: number): ParsedNumber | null {
+  let total = 0;
+  let current = 0;
+  let saw = false;
+  let lastWasUnit = false;
+  let index = start;
+  if (words[index] === "a" && SCALE_VALUE.has(words[index + 1])) {
+    current = 1;
+    saw = true;
+    index++;
+  }
+  while (index < words.length) {
+    const token = words[index];
+    if (token === "and") {
+      if (!saw || !isNumberContinuation(words[index + 1])) break;
+      index++;
+      continue;
+    }
+    const ordinalUnit = ORDINAL_UNIT_VALUE.get(token);
+    if (ordinalUnit !== undefined) {
+      if (token === "second" && !saw) break;
+      if (!continuesNumber(current, ordinalUnit, lastWasUnit)) break;
+      current += ordinalUnit;
+      saw = true;
+      index++;
+      break;
+    }
+    const ordinalTen = ORDINAL_TENS_VALUE.get(token);
+    if (ordinalTen !== undefined) {
+      if (!continuesNumber(current, ordinalTen, lastWasUnit)) break;
+      current += ordinalTen;
+      saw = true;
+      index++;
+      break;
+    }
+    const scale = SCALE_VALUE.get(token);
+    if (scale !== undefined) {
+      current = (current === 0 ? 1 : current) * scale;
+      if (scale >= 1_000) {
+        total += current;
+        current = 0;
+      }
+      saw = true;
+      lastWasUnit = false;
+      index++;
+      continue;
+    }
+    const unit = UNIT_VALUE.get(token);
+    if (unit !== undefined) {
+      if (!continuesNumber(current, unit, lastWasUnit)) break;
+      current += unit;
+      saw = true;
+      lastWasUnit = true;
+      index++;
+      continue;
+    }
+    const ten = TENS_VALUE.get(token);
+    if (ten !== undefined) {
+      if (!continuesNumber(current, ten, lastWasUnit)) break;
+      current += ten;
+      saw = true;
+      lastWasUnit = false;
+      index++;
+      continue;
+    }
+    if (DIGIT_TOKEN.test(token)) {
+      if (saw) break;
+      current += Number(token);
+      saw = true;
+      index++;
+      if (!SCALE_VALUE.has(words[index])) break;
+      continue;
+    }
+    break;
+  }
+  if (!saw) return null;
+  return { value: total + current, next: index };
+}
+
+/** Digits after "point": digit words, digit runs, or both. */
+function parseFraction(
+  words: string[],
+  start: number,
+): { digits: string; next: number } | null {
+  let digits = "";
+  let index = start;
+  while (index < words.length) {
+    const token = words[index];
+    const digit = DIGIT_VALUE.get(token);
+    if (digit !== undefined) {
+      digits += String(digit);
+      index++;
+      continue;
+    }
+    if (DIGIT_TOKEN.test(token)) {
+      digits += token;
+      index++;
+      continue;
+    }
+    break;
+  }
+  return digits === "" ? null : { digits, next: index };
+}
+
+/**
+ * Turn English number words into digit tokens so "four thousand four hundred
+ * eighty one" and "4481" meet at the same token.
+ */
+export function normalizeNumbers(words: string[]): string[] {
+  const out: string[] = [];
+  let index = 0;
+  while (index < words.length) {
+    const token = words[index];
+    const digitOrdinal = DIGIT_ORDINAL.exec(token);
+    if (digitOrdinal) {
+      out.push(String(Number(digitOrdinal[1])));
+      index++;
+      continue;
+    }
+    const parsed = parseNumber(words, index);
+    if (!parsed) {
+      out.push(token);
+      index++;
+      continue;
+    }
+    let text = String(parsed.value);
+    let next = parsed.next;
+    if (words[next] === "point") {
+      const fraction = parseFraction(words, next + 1);
+      if (fraction) {
+        text = `${text}.${fraction.digits}`;
+        next = fraction.next;
+      }
+    }
+    out.push(text);
+    index = next;
+  }
+  return out;
+}
+
+/**
+ * normalize() for scoring: keep thousands commas and decimal points that
+ * normalize() would otherwise split, expand `$`, then digit-ify number words.
+ */
+export function normalizeForScoring(text: string): string[] {
+  const prepared = text
+    .replace(/\$(\d[\d,.]*)/g, "$1 dollars")
+    .replace(/(?<=\d),(?=\d{3}(?!\d))/g, "")
+    .replace(/(\d)\.(\d)/g, "$1 point $2");
+  return normalizeNumbers(normalize(prepared));
+}
+
+/**
+ * Word-level Levenshtein counts over two word arrays. On a cost tie, prefer a
+ * match or substitution, then a deletion, then an insertion.
+ */
+function wordErrorCounts(left: string[], right: string[]): WordErrorCounts {
   const n = left.length;
   const m = right.length;
   const dp: number[][] = Array.from({ length: n + 1 }, () =>
@@ -89,6 +362,19 @@ export function wordErrors(ref: string, hyp: string): WordErrorCounts {
   return { sub, del, ins, refWords: n };
 }
 
+/** Raw word errors: a spelled-out number counts as its own words. */
+export function wordErrors(ref: string, hyp: string): WordErrorCounts {
+  return wordErrorCounts(normalize(ref), normalize(hyp));
+}
+
+/** Number-aware word errors: digits and spelled-out numbers score as equal. */
+export function wordErrorsNormalized(
+  ref: string,
+  hyp: string,
+): WordErrorCounts {
+  return wordErrorCounts(normalizeForScoring(ref), normalizeForScoring(hyp));
+}
+
 /** (sub + del + ins) / refWords. Zero when the reference is empty and nothing was wrong. */
 export function wer(errors: WordErrorCounts): number {
   const total = errors.sub + errors.del + errors.ins;
@@ -96,12 +382,17 @@ export function wer(errors: WordErrorCounts): number {
   return total / errors.refWords;
 }
 
-function errorsForRun(ref: string, hyp: string, ok: boolean): WordErrorCounts {
+function errorsForRun(
+  ref: string,
+  hyp: string,
+  ok: boolean,
+  toWords: (text: string) => string[],
+): WordErrorCounts {
   if (!ok) {
-    const refWords = normalize(ref).length;
+    const refWords = toWords(ref).length;
     return { sub: 0, del: refWords, ins: 0, refWords };
   }
-  return wordErrors(ref, hyp);
+  return wordErrorCounts(toWords(ref), toWords(hyp));
 }
 
 function formatPct(rate: number): string {
@@ -156,10 +447,8 @@ type Group = {
   variant: string;
   clips: number;
   failed: number;
-  sub: number;
-  del: number;
-  ins: number;
-  refWords: number;
+  raw: WordErrorCounts;
+  num: WordErrorCounts;
 };
 
 type ClipScore = {
@@ -169,7 +458,19 @@ type ClipScore = {
   ref: string;
   hyp: string;
   rate: number;
+  rateNum: number;
 };
+
+function emptyCounts(): WordErrorCounts {
+  return { sub: 0, del: 0, ins: 0, refWords: 0 };
+}
+
+function addCounts(total: WordErrorCounts, errors: WordErrorCounts): void {
+  total.sub += errors.sub;
+  total.del += errors.del;
+  total.ins += errors.ins;
+  total.refWords += errors.refWords;
+}
 
 function report(runs: Run[], totalsOnly: boolean): void {
   const modelOrder: string[] = [];
@@ -186,27 +487,25 @@ function report(runs: Run[], totalsOnly: boolean): void {
         variant: run.variant,
         clips: 0,
         failed: 0,
-        sub: 0,
-        del: 0,
-        ins: 0,
-        refWords: 0,
+        raw: emptyCounts(),
+        num: emptyCounts(),
       };
       groups.set(key, group);
     }
-    const errors = errorsForRun(run.ref, run.hyp, run.ok);
+    const raw = errorsForRun(run.ref, run.hyp, run.ok, normalize);
+    const num = errorsForRun(run.ref, run.hyp, run.ok, normalizeForScoring);
     group.clips++;
     if (!run.ok) group.failed++;
-    group.sub += errors.sub;
-    group.del += errors.del;
-    group.ins += errors.ins;
-    group.refWords += errors.refWords;
+    addCounts(group.raw, raw);
+    addCounts(group.num, num);
     clips.push({
       model: run.model,
       variant: run.variant,
       clip: run.clip,
       ref: run.ref,
       hyp: run.hyp,
-      rate: wer(errors),
+      rate: wer(raw),
+      rateNum: wer(num),
     });
   }
 
@@ -226,13 +525,22 @@ function report(runs: Run[], totalsOnly: boolean): void {
         group.variant,
         String(group.clips),
         String(group.failed),
-        String(group.refWords),
-        formatPct(wer(group)),
+        String(group.raw.refWords),
+        formatPct(wer(group.raw)),
+        formatPct(wer(group.num)),
       ]);
     }
   }
 
-  const header = ["model", "variant", "clips", "failed", "ref_words", "wer"];
+  const header = [
+    "model",
+    "variant",
+    "clips",
+    "failed",
+    "ref_words",
+    "wer",
+    "wer_num",
+  ];
   const widths = header.map((label, index) =>
     Math.max(label.length, ...rows.map((row) => row[index].length), 0),
   );
@@ -253,7 +561,7 @@ function report(runs: Run[], totalsOnly: boolean): void {
       .filter((clip) => clip.model === model)
       .sort(
         (a, b) =>
-          b.rate - a.rate ||
+          b.rateNum - a.rateNum ||
           a.clip.localeCompare(b.clip) ||
           a.variant.localeCompare(b.variant),
       )
@@ -261,7 +569,9 @@ function report(runs: Run[], totalsOnly: boolean): void {
     console.log("");
     console.log(`worst ${model}`);
     for (const clip of worst) {
-      console.log(`${formatPct(clip.rate)}  ${clip.clip}  ${clip.variant}`);
+      console.log(
+        `${formatPct(clip.rateNum)} (raw ${formatPct(clip.rate)})  ${clip.clip}  ${clip.variant}`,
+      );
       console.log(`  ref: ${clip.ref}`);
       console.log(`  hyp: ${clip.hyp}`);
     }
