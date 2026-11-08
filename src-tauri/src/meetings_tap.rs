@@ -2,7 +2,7 @@
 //! Samples go to a caller sink at 16 kHz. A later PR writes system.wav.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError};
+use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -116,8 +116,14 @@ pub fn capture(
     device.start()?;
     let pulled = device.pull();
     let stopped = device.stop();
-    let samples = pulled?;
-    stopped?;
+    let samples = match (pulled, stopped) {
+        (Ok(samples), Ok(())) => samples,
+        (Err(err), Ok(())) | (Ok(_), Err(err)) => return Err(err),
+        (Err(pull_err), Err(stop_err)) => {
+            log::warn!("system audio tap: stop failed after pull error: {stop_err:?}");
+            return Err(pull_err);
+        }
+    };
     let mut path = ReadPath::new(device.sample_rate_hz());
     path.push(&samples, sink);
     path.finish(sink)
@@ -134,12 +140,29 @@ fn map_os(err: os::Error) -> TapError {
 /// The caller's sink. Owned by the worker thread, never called from the IO thread.
 type TapSink = Box<dyn FnMut(&[f32]) + Send>;
 
-/// All the IO thread touches: the free pool, a bounded queue and a counter. No locks, no sink.
+/// All the IO thread touches: the free pool, a bounded queue and two counters. No locks, no sink.
 struct IoState {
     channels: u32,
     free: Receiver<Vec<f32>>,
     tx: SyncSender<Vec<f32>>,
     dropped: Arc<AtomicU64>,
+    worker_gone: Arc<AtomicBool>,
+}
+
+/// Count one non-blocking send. `Full` means the worker fell behind, so the block is dropped.
+/// `Disconnected` means the worker exited or panicked: capture is dead and nothing was dropped.
+fn record_send(
+    result: Result<(), TrySendError<Vec<f32>>>,
+    dropped: &AtomicU64,
+    worker_gone: &AtomicBool,
+) {
+    match result {
+        Ok(()) => {}
+        Err(TrySendError::Full(_)) => {
+            dropped.fetch_add(1, Ordering::Relaxed);
+        }
+        Err(TrySendError::Disconnected(_)) => worker_gone.store(true, Ordering::Release),
+    }
 }
 
 /// Drains mono blocks, resamples to 16 kHz, calls the sink. Runs on the worker thread only.
@@ -224,12 +247,20 @@ extern "C" fn on_input(
 
 /// IO thread: no alloc, no block, no lock. Any drop (no buffer, oversize, full queue) is counted.
 fn io_block(state: &IoState, raw: &[f32]) {
-    let sent = state.free.try_recv().is_ok_and(|mut block| {
-        let fits = mono_into(raw, state.channels, &mut block); // oversize: sent empty, buffer recycled
-        state.tx.try_send(block).is_ok() && fits
-    });
-    if !sent {
-        state.dropped.fetch_add(1, Ordering::Relaxed);
+    match state.free.try_recv() {
+        Ok(mut block) => {
+            let fits = mono_into(raw, state.channels, &mut block); // oversize: sent empty, recycled
+            let sent = state.tx.try_send(block);
+            if !fits && sent.is_ok() {
+                state.dropped.fetch_add(1, Ordering::Relaxed); // one count per lost block
+            }
+            record_send(sent, &state.dropped, &state.worker_gone);
+        }
+        Err(TryRecvError::Empty) => {
+            state.dropped.fetch_add(1, Ordering::Relaxed);
+        }
+        // The worker owns the pool's sender, so a closed pool also means the worker is gone.
+        Err(TryRecvError::Disconnected) => state.worker_gone.store(true, Ordering::Release),
     }
 }
 
@@ -291,14 +322,20 @@ extern "C" {
     fn AudioHardwareDestroyAggregateDevice(in_device: Obj) -> Status;
 }
 
-fn destroy_aggregate(id: u32) {
+fn destroy_aggregate(id: u32) -> Result<(), TapError> {
     // SAFETY: id is an aggregate this process created. Apple frees it asynchronously.
-    let _ = unsafe { AudioHardwareDestroyAggregateDevice(Obj(id)) };
+    let status = unsafe { AudioHardwareDestroyAggregateDevice(Obj(id)) };
+    if status == Status::NO_ERR {
+        Ok(())
+    } else {
+        Err(TapError::Device(format!("destroy aggregate: {status:?}")))
+    }
 }
 
 fn release_partial(tap: TapGuard, aggregate_id: Option<u32>, state: *mut IoState) {
     if let Some(id) = aggregate_id {
-        destroy_aggregate(id);
+        // Nobody to return to while unwinding start().
+        let _ = destroy_aggregate(id);
     }
     if !state.is_null() {
         // SAFETY: device_start has not returned Ok, so the IO proc is not running.
@@ -350,6 +387,7 @@ pub struct SystemAudioSession {
     state: *mut IoState,
     worker: Option<JoinHandle<Result<(), TapError>>>,
     dropped: Arc<AtomicU64>,
+    worker_gone: Arc<AtomicBool>,
     heard: Arc<AtomicBool>,
     shutdown: Arc<AtomicBool>,
 }
@@ -401,6 +439,7 @@ impl SystemAudioSession {
         let max = aggregate.buf_frame_size_range().map_or(0.0, |r| r.max) as usize;
         let block_frames = max.clamp(BLOCK_FRAMES, 1 << 16); // a broken max can't size the pool
         let dropped = Arc::new(AtomicU64::new(0));
+        let worker_gone = Arc::new(AtomicBool::new(false));
         let heard = Arc::new(AtomicBool::new(false));
         let shutdown = Arc::new(AtomicBool::new(false));
         let (tx, free, worker) = match spawn_worker(
@@ -422,6 +461,7 @@ impl SystemAudioSession {
             free,
             tx,
             dropped: Arc::clone(&dropped),
+            worker_gone: Arc::clone(&worker_gone),
         }));
         // SAFETY: `state` stays allocated until stop/drop, and only after AudioDeviceStop returns.
         let proc_id =
@@ -443,6 +483,7 @@ impl SystemAudioSession {
                 state,
                 worker: Some(worker),
                 dropped,
+                worker_gone,
                 heard,
                 shutdown,
             }),
@@ -457,6 +498,12 @@ impl SystemAudioSession {
     /// Blocks dropped because the worker fell behind. The IO thread never blocks.
     pub fn dropped_blocks(&self) -> u64 {
         self.dropped.load(Ordering::Relaxed)
+    }
+
+    /// True once the worker's queue closed under the IO thread: the worker exited or panicked,
+    /// so capture is dead even though IO may still be running.
+    pub fn worker_gone(&self) -> bool {
+        self.worker_gone.load(Ordering::Acquire)
     }
 
     /// True once the worker saw a non-zero 16 kHz frame.
@@ -479,11 +526,18 @@ impl SystemAudioSession {
         } else {
             self.finish_worker()
         };
-        if let Some(id) = self.aggregate_id.take() {
-            destroy_aggregate(id);
-        }
+        let destroy_err = match self.aggregate_id.take() {
+            Some(id) => destroy_aggregate(id).err(),
+            None => None,
+        };
         self.tap.take();
-        finish_err.or(stop_err).map_or(Ok(()), Err)
+        if let Some(err) = finish_err.or(stop_err).or(destroy_err) {
+            return Err(err);
+        }
+        if self.worker_gone.load(Ordering::Acquire) {
+            return Err(TapError::Device("tap worker stopped during capture".into()));
+        }
+        Ok(())
     }
 
     /// Free the IO state (dropping the only sender, which closes the queue), then join the
@@ -500,7 +554,8 @@ impl SystemAudioSession {
     /// After a failed stop, IO may still call `on_input` with `state`: Apple frees the aggregate
     /// asynchronously, so nothing proves IO has quiesced. The state is leaked on purpose (one
     /// IoState plus its pool, 2-16 MB), only when the HAL refuses to stop. The worker is told to
-    /// exit and joined, so stop() still reports finish()'s outcome.
+    /// exit and joined, so stop() still reports finish()'s outcome. `stop()` and `Drop` still
+    /// destroy the aggregate and drop the process tap, so no capture keeps running.
     fn abandon_state(&mut self) -> Option<TapError> {
         self.state = std::ptr::null_mut();
         self.shutdown.store(true, Ordering::Release);
@@ -530,7 +585,8 @@ impl Drop for SystemAudioSession {
         }
         let _ = self.join_worker();
         if let Some(id) = self.aggregate_id.take() {
-            destroy_aggregate(id);
+            // Nobody to return to while dropping.
+            let _ = destroy_aggregate(id);
         }
         self.tap.take();
     }
@@ -548,6 +604,20 @@ mod tests {
         rate: usize,
         samples: Vec<f32>,
         starts: u32,
+        pull_err: Option<TapError>,
+        stop_err: Option<TapError>,
+    }
+
+    impl Default for FakeDevice {
+        fn default() -> Self {
+            Self {
+                rate: 48_000,
+                samples: Vec::new(),
+                starts: 0,
+                pull_err: None,
+                stop_err: None,
+            }
+        }
     }
 
     impl SystemAudioDevice for FakeDevice {
@@ -561,11 +631,17 @@ mod tests {
         }
 
         fn pull(&mut self) -> Result<Vec<f32>, TapError> {
-            Ok(std::mem::take(&mut self.samples))
+            match self.pull_err.take() {
+                Some(err) => Err(err),
+                None => Ok(std::mem::take(&mut self.samples)),
+            }
         }
 
         fn stop(&mut self) -> Result<(), TapError> {
-            Ok(())
+            match self.stop_err.take() {
+                Some(err) => Err(err),
+                None => Ok(()),
+            }
         }
     }
 
@@ -610,6 +686,7 @@ mod tests {
             rate: 48_000,
             samples: sine(48_000, hz, 0.25),
             starts: 0,
+            ..FakeDevice::default()
         };
         let mut got = Vec::new();
         capture(PLIST_WITH_USAGE, &mut device, &mut |frame| {
@@ -629,6 +706,7 @@ mod tests {
             rate: 48_000,
             samples: sine(48_000, 440.0, 0.1),
             starts: 0,
+            ..FakeDevice::default()
         };
         let err = capture(
             "<plist><key>NSMicrophoneUsageDescription</key></plist>",
@@ -641,11 +719,189 @@ mod tests {
     }
 
     #[test]
+    fn usage_string_needs_a_non_empty_value() {
+        let ok = format!("<key>{USAGE_KEY}</key>\n<string>records meetings</string>");
+        require_usage_string(&ok).expect("key with a value");
+
+        for empty in ["<string></string>", "<string>  </string>"] {
+            let text = format!("<key>{USAGE_KEY}</key>{empty}");
+            assert_eq!(
+                require_usage_string(&text),
+                Err(TapError::UsageStringMissing),
+                "{empty} counted as a usage string"
+            );
+        }
+    }
+
+    #[test]
+    fn usage_key_name_alone_is_missing() {
+        for text in [
+            String::new(),
+            format!("<string>{USAGE_KEY}</string>"),
+            format!("<!-- {USAGE_KEY} -->"),
+        ] {
+            assert_eq!(
+                require_usage_string(&text),
+                Err(TapError::UsageStringMissing),
+                "{text} counted as a usage string"
+            );
+        }
+    }
+
+    #[test]
+    fn tap_format_must_be_interleaved_f32() {
+        use cidre::cat::audio::StreamBasicDesc;
+
+        check_tap_format(&StreamBasicDesc::common_f32(48_000.0, 2, true))
+            .expect("interleaved f32 stereo");
+        check_tap_format(&StreamBasicDesc::common_f32(48_000.0, 1, true))
+            .expect("interleaved f32 mono");
+
+        let non_interleaved = StreamBasicDesc::common_f32(48_000.0, 2, false);
+        assert!(
+            check_tap_format(&non_interleaved).is_err(),
+            "non-interleaved accepted"
+        );
+
+        let mut int16 = StreamBasicDesc::common_f32(48_000.0, 2, true);
+        int16.bits_per_channel = 16;
+        int16.bytes_per_frame = 4;
+        int16.format_flags = FormatFlags::NATIVE_ENDIAN;
+        assert!(check_tap_format(&int16).is_err(), "16-bit int accepted");
+
+        let mut zero_channels = StreamBasicDesc::common_f32(48_000.0, 1, true);
+        zero_channels.channels_per_frame = 0;
+        assert!(
+            check_tap_format(&zero_channels).is_err(),
+            "0 channels accepted"
+        );
+
+        let mut wrong_bytes = StreamBasicDesc::common_f32(48_000.0, 2, true);
+        wrong_bytes.bytes_per_frame = 4;
+        assert!(
+            check_tap_format(&wrong_bytes).is_err(),
+            "bytes_per_frame mismatch accepted"
+        );
+    }
+
+    #[test]
+    fn capture_keeps_stop_and_pull_errors() {
+        let mut device = FakeDevice {
+            samples: sine(48_000, 440.0, 0.1),
+            stop_err: Some(TapError::Device("stop failed".into())),
+            ..FakeDevice::default()
+        };
+        let err = capture(PLIST_WITH_USAGE, &mut device, &mut |_| {}).expect_err("stop error");
+        assert_eq!(err, TapError::Device("stop failed".into()));
+
+        let mut device = FakeDevice {
+            pull_err: Some(TapError::PermissionDenied),
+            stop_err: Some(TapError::Device("stop failed".into())),
+            ..FakeDevice::default()
+        };
+        let err = capture(PLIST_WITH_USAGE, &mut device, &mut |_| {}).expect_err("both failed");
+        assert_eq!(
+            err,
+            TapError::PermissionDenied,
+            "pull error lost its variant when stop also failed"
+        );
+    }
+
+    #[test]
+    fn record_send_ok_and_full() {
+        let dropped = AtomicU64::new(0);
+        let worker_gone = AtomicBool::new(false);
+        record_send(Ok(()), &dropped, &worker_gone);
+        assert_eq!(dropped.load(Ordering::Relaxed), 0);
+        assert!(!worker_gone.load(Ordering::Relaxed));
+
+        record_send(Err(TrySendError::Full(Vec::new())), &dropped, &worker_gone);
+        assert_eq!(dropped.load(Ordering::Relaxed), 1, "full queue not counted");
+        assert!(
+            !worker_gone.load(Ordering::Relaxed),
+            "full queue flagged the worker gone"
+        );
+
+        // Same split on the real IO path: a full queue drops and counts, the worker is alive.
+        let (tx, _rx) = mpsc::sync_channel::<Vec<f32>>(1);
+        tx.send(Vec::new()).expect("fill queue");
+        let (free_tx, free) = mpsc::sync_channel::<Vec<f32>>(1);
+        free_tx.send(Vec::with_capacity(2)).expect("seed pool");
+        let state = IoState {
+            channels: 1,
+            free,
+            tx,
+            dropped: Arc::new(AtomicU64::new(0)),
+            worker_gone: Arc::new(AtomicBool::new(false)),
+        };
+        io_block(&state, &[1.0]);
+        assert_eq!(
+            state.dropped.load(Ordering::Relaxed),
+            1,
+            "full queue not counted"
+        );
+        assert!(
+            !state.worker_gone.load(Ordering::Relaxed),
+            "full queue flagged the worker gone"
+        );
+    }
+
+    #[test]
+    fn record_send_disconnected_marks_worker_gone() {
+        let dropped = AtomicU64::new(0);
+        let worker_gone = AtomicBool::new(false);
+        record_send(
+            Err(TrySendError::Disconnected(Vec::new())),
+            &dropped,
+            &worker_gone,
+        );
+        assert_eq!(
+            dropped.load(Ordering::Relaxed),
+            0,
+            "disconnected queue counted as a drop"
+        );
+        assert!(
+            worker_gone.load(Ordering::Relaxed),
+            "disconnected queue left the worker flag down"
+        );
+
+        // On the real IO path both closed channels mean a dead worker, never a drop.
+        for close_pool in [false, true] {
+            let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(1);
+            let (free_tx, free) = mpsc::sync_channel::<Vec<f32>>(1);
+            if close_pool {
+                drop(free_tx); // pool empty and its sender gone
+            } else {
+                free_tx.send(Vec::with_capacity(2)).expect("seed pool");
+                drop(rx); // worker's queue closed
+            }
+            let state = IoState {
+                channels: 1,
+                free,
+                tx,
+                dropped: Arc::new(AtomicU64::new(0)),
+                worker_gone: Arc::new(AtomicBool::new(false)),
+            };
+            io_block(&state, &[1.0]);
+            assert_eq!(
+                state.dropped.load(Ordering::Relaxed),
+                0,
+                "dead worker counted as a drop"
+            );
+            assert!(
+                state.worker_gone.load(Ordering::Relaxed),
+                "close_pool={close_pool}: worker not flagged"
+            );
+        }
+    }
+
+    #[test]
     fn silent_stream_is_not_success() {
         let mut device = FakeDevice {
             rate: 48_000,
             samples: vec![0.0; 48_000 / 10],
             starts: 0,
+            ..FakeDevice::default()
         };
         let err = capture(PLIST_WITH_USAGE, &mut device, &mut |_| {}).expect_err("all-zero stream");
         assert_eq!(err.code(), "system_audio_silent");
@@ -735,6 +991,7 @@ mod tests {
             free,
             tx,
             dropped: Arc::clone(&dropped),
+            worker_gone: Arc::new(AtomicBool::new(false)),
         };
         io_block(&state, &[1.0, 3.0, 5.0, 7.0]);
         let block = rx.try_recv().expect("mono block");
