@@ -84,7 +84,7 @@ pub async fn retry_history_entry_transcription(
     transcription_manager.initiate_model_load();
 
     let tm = Arc::clone(&transcription_manager);
-    let transcription = tauri::async_runtime::spawn_blocking(move || tm.transcribe(samples))
+    let transcription = tauri::async_runtime::spawn_blocking(move || retranscribe(&tm, samples))
         .await
         .map_err(|e| format!("Transcription task panicked: {}", e))?
         .map_err(|e| e.to_string())?;
@@ -207,4 +207,112 @@ pub async fn update_recording_retention_period(
         .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+/// The engine call for a history re-transcribe. During a meeting it takes the same meeting
+/// lock as batch dictation, so it waits for an in-flight chunk instead of racing it.
+fn retranscribe<R: tauri::Runtime>(
+    tm: &TranscriptionManager<R>,
+    samples: Vec<f32>,
+) -> anyhow::Result<String> {
+    #[cfg(feature = "meetings")]
+    return tm.transcribe_with_meeting_lock(samples);
+    #[cfg(not(feature = "meetings"))]
+    tm.transcribe(samples)
+}
+
+#[cfg(all(test, feature = "meetings"))]
+mod tests {
+    use super::*;
+    use crate::managers::meetings::test_lock;
+    use crate::settings::ModelUnloadTimeout;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    const PARAKEET: &str = "handy-computer/parakeet-tdt-0.6b-v3-gguf";
+    const SAMPLES: usize = 1600;
+    const WAIT: Duration = Duration::from_secs(5);
+    const ROUNDS: usize = 20;
+
+    fn test_app() -> tauri::App<tauri::test::MockRuntime> {
+        tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app")
+    }
+
+    /// The engine call the history re-transcribe command makes: the real one, not a copy.
+    fn history_retranscribe<R: tauri::Runtime>(
+        tm: &TranscriptionManager<R>,
+        samples: Vec<f32>,
+    ) -> anyhow::Result<String> {
+        super::retranscribe(tm, samples)
+    }
+
+    /// True once a meeting chunk has checked the engine out (it holds the
+    /// meeting lock for that whole window). False if no chunk was seen.
+    fn wait_until_engine_out(tm: &TranscriptionManager<tauri::test::MockRuntime>) -> bool {
+        let deadline = Instant::now() + WAIT;
+        while Instant::now() < deadline {
+            if !tm.is_engine_available() {
+                return true;
+            }
+            thread::sleep(Duration::from_micros(200));
+        }
+        false
+    }
+
+    #[test]
+    fn history_retranscribe_waits_for_meeting_lock() {
+        let _serial = test_lock();
+        let app = test_app();
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.install_fake_engine(PARAKEET);
+        tm.set_test_unload_timeout(Some(ModelUnloadTimeout::Never));
+
+        let mut windows = 0;
+        for round in 0..ROUNDS {
+            let chunk_tm = Arc::clone(&tm);
+            let chunker = thread::spawn(move || {
+                chunk_tm.transcribe_meeting_chunk(vec![0.2_f32; SAMPLES])
+            });
+
+            // While the chunk owns the engine it also holds the meeting lock,
+            // so a re-transcribe started now has to queue behind it.
+            if !wait_until_engine_out(&tm) {
+                let _ = chunker.join().expect("meeting chunk panicked");
+                continue;
+            }
+            windows += 1;
+
+            let (tx, rx) = mpsc::channel();
+            let history_tm = Arc::clone(&tm);
+            thread::spawn(move || {
+                let _ = tx.send(history_retranscribe(&history_tm, vec![0.2_f32; SAMPLES]));
+            });
+
+            let outcome = rx
+                .recv_timeout(WAIT)
+                .expect("history re-transcribe never finished while a chunk ran");
+            let chunk = chunker.join().expect("meeting chunk panicked");
+
+            assert!(
+                chunk.is_ok(),
+                "round {round}: the meeting chunk failed: {:?}",
+                chunk.err()
+            );
+            assert!(
+                outcome.is_ok(),
+                "round {round}: history re-transcribe failed instead of waiting for the \
+                 meeting lock: {:?}",
+                outcome.err()
+            );
+        }
+
+        assert!(
+            windows > 0,
+            "test never observed a meeting chunk owning the engine"
+        );
+    }
 }
