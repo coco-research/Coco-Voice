@@ -2,7 +2,7 @@ use crate::actions::ACTION_MAP;
 use crate::managers::audio::AudioRecordingManager;
 use log::{debug, error, warn};
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex, PoisonError, Weak};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError, Weak};
 use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
@@ -74,6 +74,10 @@ fn classify_ptt_event(
 pub struct TranscriptionCoordinator {
     /// Shared with the worker so it can swap in a fresh channel after a panic.
     tx: Arc<Mutex<Sender<Command>>>,
+    /// Set by `mark_ready` once setup has managed every state the actions read.
+    /// Until then the worker holds commands in the channel instead of running
+    /// them, so an early toggle can't hit `state()` before `manage()` (#212).
+    ready: Arc<OnceLock<()>>,
 }
 
 pub fn is_transcribe_binding(id: &str) -> bool {
@@ -87,14 +91,27 @@ impl TranscriptionCoordinator {
     pub fn new(app: AppHandle) -> Self {
         let (tx, rx) = mpsc::channel();
         let tx = Arc::new(Mutex::new(tx));
-        Self::spawn_worker(app, Arc::downgrade(&tx), rx);
-        Self { tx }
+        let ready = Arc::new(OnceLock::new());
+        Self::spawn_worker(app, Arc::downgrade(&tx), rx, ready.clone());
+        Self { tx, ready }
+    }
+
+    /// Lets the worker run queued and future commands. Call once the managers,
+    /// tray and overlay are managed.
+    pub fn mark_ready(&self) {
+        let _ = self.ready.set(());
     }
 
     /// Runs the coordinator loop on its own thread. If the loop panics, a new
     /// channel and worker are installed so the hotkey keeps working.
-    fn spawn_worker(app: AppHandle, tx: Weak<Mutex<Sender<Command>>>, rx: Receiver<Command>) {
+    fn spawn_worker(
+        app: AppHandle,
+        tx: Weak<Mutex<Sender<Command>>>,
+        rx: Receiver<Command>,
+        ready: Arc<OnceLock<()>>,
+    ) {
         thread::spawn(move || {
+            wait_until_ready(&ready);
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let mut stage = Stage::Idle;
                 let mut last_press: Option<Instant> = None;
@@ -233,7 +250,7 @@ impl TranscriptionCoordinator {
                 // new worker (stage Idle). A dropped coordinator ends the chain.
                 if let Some(tx) = tx.upgrade() {
                     let new_rx = replace_channel(&tx);
-                    Self::spawn_worker(app, Arc::downgrade(&tx), new_rx);
+                    Self::spawn_worker(app, Arc::downgrade(&tx), new_rx, ready);
                 }
             }
         });
@@ -255,6 +272,9 @@ impl TranscriptionCoordinator {
         is_pressed: bool,
         push_to_talk: bool,
     ) {
+        if self.ready.get().is_none() {
+            warn!("Input for '{binding_id}' arrived during startup; it will run once the app is ready");
+        }
         if self
             .send(Command::Input {
                 binding_id: binding_id.to_string(),
@@ -283,6 +303,14 @@ impl TranscriptionCoordinator {
         if self.send(Command::ProcessingFinished).is_err() {
             warn!("Transcription coordinator channel closed");
         }
+    }
+}
+
+/// Blocks until `ready` is set. Commands sent meanwhile wait in the channel.
+fn wait_until_ready(ready: &OnceLock<()>) {
+    if ready.get().is_none() {
+        debug!("Transcription coordinator waiting for startup to finish");
+        ready.wait();
     }
 }
 
@@ -342,6 +370,41 @@ mod tests {
             new_rx.recv().unwrap(),
             Command::ProcessingFinished
         ));
+    }
+
+    /// Regression for #212: a toggle sent before setup has managed the managers
+    /// must not reach them (Tauri panics with "state() called before manage()")
+    /// and must not be lost: it runs once the app is marked ready.
+    #[test]
+    fn toggle_before_ready_waits_and_runs_once_ready() {
+        let ready = Arc::new(OnceLock::new());
+        let managed = Arc::new(OnceLock::<()>::new()); // stands in for app.manage()
+        let (tx, rx) = mpsc::channel();
+        let (done_tx, done_rx) = mpsc::channel();
+        let worker = {
+            let (ready, managed) = (ready.clone(), managed.clone());
+            thread::spawn(move || {
+                wait_until_ready(&ready);
+                let cmd = rx.recv().unwrap();
+                // What app.state::<...>() does when nothing is managed yet.
+                managed.get().expect("state() called before manage()");
+                done_tx.send(cmd).unwrap();
+            })
+        };
+
+        tx.send(Command::ProcessingFinished).unwrap(); // the early toggle
+        assert!(
+            done_rx.recv_timeout(Duration::from_millis(100)).is_err(),
+            "command ran before the app was ready"
+        );
+
+        managed.set(()).unwrap(); // initialize_core_logic finishes
+        ready.set(()).unwrap(); // mark_ready
+        assert!(matches!(
+            done_rx.recv_timeout(Duration::from_secs(5)),
+            Ok(Command::ProcessingFinished)
+        ));
+        worker.join().expect("worker must not panic");
     }
 
     #[test]
