@@ -1032,8 +1032,15 @@ mod tests {
             shutdown: Arc::new(AtomicBool::new(true)),
         };
         io_block(&state, &[1.0, 3.0]);
-        let kept = state.free.try_recv().expect("shutdown path drained the pool");
-        assert_eq!(kept.capacity(), 2, "pool buffer left the pool after shutdown");
+        let kept = state
+            .free
+            .try_recv()
+            .expect("shutdown path drained the pool");
+        assert_eq!(
+            kept.capacity(),
+            2,
+            "pool buffer left the pool after shutdown"
+        );
         assert_eq!(
             rx.try_recv(),
             Err(TryRecvError::Empty),
