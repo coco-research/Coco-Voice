@@ -274,9 +274,8 @@ mod tests {
         let mut windows = 0;
         for round in 0..ROUNDS {
             let chunk_tm = Arc::clone(&tm);
-            let chunker = thread::spawn(move || {
-                chunk_tm.transcribe_meeting_chunk(vec![0.2_f32; SAMPLES])
-            });
+            let chunker =
+                thread::spawn(move || chunk_tm.transcribe_meeting_chunk(vec![0.2_f32; SAMPLES]));
 
             // While the chunk owns the engine it also holds the meeting lock,
             // so a re-transcribe started now has to queue behind it.
