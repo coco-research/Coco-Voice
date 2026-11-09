@@ -46,24 +46,25 @@ impl TapError {
     }
 }
 
-/// Plist text must carry the usage key with a non-empty string value.
+/// Plist text must carry the usage key as a top-level, non-empty string value.
+/// A real plist parse is used, so a commented-out or nested key does not count.
 /// This does not read the bundle and does not start IO.
 pub fn require_usage_string(plist_text: &str) -> Result<(), TapError> {
-    let key = format!("<key>{USAGE_KEY}</key>");
-    let rest = plist_text
-        .split_once(&key)
-        .map(|(_, rest)| rest.trim_start())
-        .ok_or(TapError::UsageStringMissing)?;
-    let rest = rest
-        .strip_prefix("<string>")
-        .ok_or(TapError::UsageStringMissing)?;
-    let (value, _) = rest
-        .split_once("</string>")
-        .ok_or(TapError::UsageStringMissing)?;
-    if value.trim().is_empty() {
-        return Err(TapError::UsageStringMissing);
+    let parsed = match plist::Value::from_reader_xml(plist_text.as_bytes()) {
+        Ok(value) if value.as_dictionary().is_some() => value,
+        // A bare key/value fragment has no `<plist>` root, so it is read inside a
+        // wrapper dict. A real document never takes this path.
+        _ => {
+            let wrapped = format!("<plist><dict>{plist_text}</dict></plist>");
+            plist::Value::from_reader_xml(wrapped.as_bytes())
+                .map_err(|_| TapError::UsageStringMissing)?
+        }
+    };
+    let dict = parsed.as_dictionary().ok_or(TapError::UsageStringMissing)?;
+    match dict.get(USAGE_KEY).and_then(|value| value.as_string()) {
+        Some(value) if !value.trim().is_empty() => Ok(()),
+        _ => Err(TapError::UsageStringMissing),
     }
-    Ok(())
 }
 
 /// What the read path needs from a device. Tests pass a fake. Core Audio is the other impl's caller.
@@ -746,6 +747,40 @@ mod tests {
                 "{text} counted as a usage string"
             );
         }
+    }
+
+    /// A real plist parse is needed: a text search counts a commented-out key and a nested key.
+    #[test]
+    fn usage_string_ignores_comments_and_nesting() {
+        const VALUE: &str = "Coco Voice records system audio from your meetings.";
+
+        let commented = format!(
+            "<plist version=\"1.0\"><dict><!-- <key>{USAGE_KEY}</key>\
+             <string>{VALUE}</string> --></dict></plist>"
+        );
+        assert_eq!(
+            require_usage_string(&commented),
+            Err(TapError::UsageStringMissing),
+            "a commented-out key counted as a usage string"
+        );
+
+        let nested = format!(
+            "<plist version=\"1.0\"><dict><key>Other</key>\
+             <dict><key>{USAGE_KEY}</key><string>{VALUE}</string></dict></dict></plist>"
+        );
+        assert_eq!(
+            require_usage_string(&nested),
+            Err(TapError::UsageStringMissing),
+            "a key nested in another dict counted as a top-level usage string"
+        );
+
+        let valid = format!(
+            "<plist version=\"1.0\"><dict>\
+             <key>CFBundleName</key><string>Coco Voice</string>\
+             <key>{USAGE_KEY}</key><string>{VALUE}</string>\
+             </dict></plist>"
+        );
+        require_usage_string(&valid).expect("a top-level usage string must pass");
     }
 
     #[test]
