@@ -937,6 +937,8 @@ pub fn run(cli_args: CliArgs) {
             app.manage(TranscriptionCoordinator::new(app_handle.clone()));
 
             initialize_core_logic(&app_handle);
+            // Now the managers exist: run any toggle that arrived meanwhile (#212).
+            app_handle.state::<TranscriptionCoordinator>().mark_ready();
 
             // Populate the overlay-enabled cache from initial settings so the
             // audio path (overlay::emit_levels, called ~24 Hz during recording)
