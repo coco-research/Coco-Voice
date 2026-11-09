@@ -1066,7 +1066,9 @@ mod tests {
             heard,
             shutdown: Arc::clone(&shutdown),
         };
-        let err = session.stop().expect_err("device stop failure was swallowed");
+        let err = session
+            .stop()
+            .expect_err("device stop failure was swallowed");
         assert_eq!(err, TapError::Device("stop failed".into()));
         assert!(
             shutdown.load(Ordering::Acquire),
