@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+#[cfg(feature = "meetings")]
+use std::sync::TryLockError;
 use std::sync::{mpsc, Arc, Condvar, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
@@ -523,23 +525,36 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         crate::managers::meetings::set_meeting_active(false);
     }
 
-    /// Meeting chunks and dictation both enter here. The meeting path does not
-    /// call [`transcribe`](Self::transcribe) without this lock.
-    ///
-    /// If a live stream holds the engine, this waits one `MEETING_LEASE_WAIT`
-    /// and then errors. Meeting chunks retry it in
-    /// [`transcribe_meeting_chunk`](Self::transcribe_meeting_chunk) while a
-    /// stream holds the lease.
+    /// How often a cancel-aware dictation take polls the meeting lock.
     #[cfg(feature = "meetings")]
-    pub fn transcribe_with_meeting_lock(&self, audio: Vec<f32>) -> Result<String> {
-        let _guard = self
-            .meeting_lock
-            .lock()
-            .unwrap_or_else(|err| err.into_inner());
-        if self.availability() == EngineAvailability::LeasedToStream
-            && !self.wait_for_engine(MEETING_LEASE_WAIT)
-        {
-            return Err(EngineLeased.into());
+    const MEETING_LOCK_POLL: Duration = Duration::from_millis(10);
+
+    /// The one error a wait that a cancelled take gave up on returns. Must stay
+    /// byte-identical: a test matches this text.
+    #[cfg(feature = "meetings")]
+    fn meeting_wait_cancelled() -> anyhow::Error {
+        anyhow::anyhow!("cancelled while waiting for a meeting chunk")
+    }
+
+    /// The shared body of both locked entry points. The caller hands over the
+    /// held meeting lock; this waits for a stream lease, then transcribes.
+    #[cfg(feature = "meetings")]
+    fn transcribe_holding_meeting_lock(
+        &self,
+        _guard: MutexGuard<'_, ()>,
+        audio: Vec<f32>,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<String> {
+        if self.availability() == EngineAvailability::LeasedToStream {
+            let ready = poll_until(MEETING_LEASE_WAIT, Duration::from_millis(100), || {
+                self.is_engine_available() || cancelled()
+            });
+            if cancelled() {
+                return Err(Self::meeting_wait_cancelled());
+            }
+            if !ready {
+                return Err(EngineLeased.into());
+            }
         }
         #[cfg(all(test, feature = "meetings"))]
         {
@@ -554,6 +569,8 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
                 hook();
             }
         }
+        // ponytail: the engine run itself can't be interrupted; a take cancelled
+        // mid-run is discarded by its caller.
         // Dispatch only after the wait: the lease hands the engine back, so the
         // engine that runs this chunk is the one observed now, not before.
         #[cfg(test)]
@@ -561,6 +578,52 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             return self.transcribe_fake(audio);
         }
         self.transcribe(audio)
+    }
+
+    /// Meeting chunks and dictation both enter here. The meeting path does not
+    /// call [`transcribe`](Self::transcribe) without this lock.
+    ///
+    /// If a live stream holds the engine, this waits one `MEETING_LEASE_WAIT`
+    /// and then errors. Meeting chunks retry it in
+    /// [`transcribe_meeting_chunk`](Self::transcribe_meeting_chunk) while a
+    /// stream holds the lease.
+    #[cfg(feature = "meetings")]
+    pub fn transcribe_with_meeting_lock(&self, audio: Vec<f32>) -> Result<String> {
+        let guard = self
+            .meeting_lock
+            .lock()
+            .unwrap_or_else(|err| err.into_inner());
+        self.transcribe_holding_meeting_lock(guard, audio, &|| false)
+    }
+
+    /// A dictation take queued behind a meeting chunk. Same body as
+    /// [`transcribe_with_meeting_lock`](Self::transcribe_with_meeting_lock),
+    /// but a take the user cancelled, before it starts or while it waits, gives
+    /// up at once instead of parking a worker for the whole chunk. An
+    /// uncancelled take waits with no deadline, exactly like the blocking
+    /// acquire, so waiting never fails it.
+    #[cfg(feature = "meetings")]
+    pub fn transcribe_with_meeting_lock_unless(
+        &self,
+        audio: Vec<f32>,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<String> {
+        let guard = loop {
+            match self.meeting_lock.try_lock() {
+                Ok(guard) => break guard,
+                Err(TryLockError::Poisoned(err)) => break err.into_inner(),
+                Err(TryLockError::WouldBlock) => {
+                    if cancelled() {
+                        return Err(Self::meeting_wait_cancelled());
+                    }
+                    thread::sleep(Self::MEETING_LOCK_POLL);
+                }
+            }
+        };
+        if cancelled() {
+            return Err(Self::meeting_wait_cancelled());
+        }
+        self.transcribe_holding_meeting_lock(guard, audio, cancelled)
     }
 
     /// A meeting chunk. Never calls `transcribe()` without the meeting lock.
@@ -2460,6 +2523,207 @@ mod tests {
         assert!(matches!(plan.task, Task::Transcribe));
         assert_eq!(plan.language.as_deref(), Some("es"));
         assert_eq!(plan.target_language, None);
+    }
+
+    /// Simulated in-flight meeting chunk: takes the meeting lock and reports
+    /// once it holds it. The returned sender releases the lock when a message
+    /// arrives or when the sender is dropped.
+    #[cfg(feature = "meetings")]
+    fn hold_meeting_lock(
+        tm: &TranscriptionManager<tauri::test::MockRuntime>,
+        hold: Option<Duration>,
+    ) -> (mpsc::Sender<()>, thread::JoinHandle<()>, mpsc::Receiver<()>) {
+        let chunk_lock = Arc::clone(&tm.meeting_lock);
+        let (locked_tx, locked_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+        let chunk = thread::spawn(move || {
+            let _guard = chunk_lock.lock().unwrap_or_else(|err| err.into_inner());
+            let _ = locked_tx.send(());
+            match hold {
+                Some(hold) => thread::sleep(hold),
+                None => {
+                    let _ = release_rx.recv_timeout(Duration::from_secs(30));
+                }
+            }
+        });
+        (release_tx, chunk, locked_rx)
+    }
+
+    /// A dictation take queued behind a whole meeting chunk must stop waiting
+    /// once the user cancels, and must not touch the engine afterwards.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn dictation_waits_for_chunk_then_cancel_discards() {
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.install_fake_engine("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+
+        // The chunk holds the meeting lock until told to release it, so the
+        // take can never get a turn in the meantime.
+        let (release_tx, chunk, locked_rx) = hold_meeting_lock(&tm, None);
+        locked_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("the simulated meeting chunk never took the lock");
+
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let take_cancelled = Arc::clone(&cancelled);
+        let take_tm = Arc::clone(&tm);
+        let (done_tx, done_rx) = mpsc::channel();
+        let take = thread::spawn(move || {
+            let result = take_tm
+                .transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| {
+                    take_cancelled.load(Ordering::Acquire)
+                });
+            let _ = done_tx.send(result);
+        });
+
+        thread::sleep(Duration::from_millis(100));
+        cancelled.store(true, Ordering::Release);
+
+        let result = match done_rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(result) => result,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                panic!("the cancelled take was still waiting on the meeting lock after 1 s")
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                panic!("the take thread died before reporting")
+            }
+        };
+        let chunk_still_held = !chunk.is_finished();
+
+        // Release before asserting so a failed assertion cannot hang the chunk.
+        let _ = release_tx.send(());
+        chunk.join().expect("the chunk thread panicked");
+        take.join().expect("the take thread panicked");
+
+        assert!(
+            chunk_still_held,
+            "the chunk released the lock before the take gave up"
+        );
+        let err = result
+            .expect_err("a cancelled take must not return text")
+            .to_string();
+        assert!(
+            err.contains("cancelled while waiting for a meeting chunk"),
+            "unexpected error: {err}"
+        );
+        assert_eq!(
+            tm.fake_seq.load(Ordering::SeqCst),
+            0,
+            "the cancelled take ran the engine"
+        );
+    }
+
+    /// A take queued behind a meeting chunk that is not cancelled must wait
+    /// with no deadline and return text once the chunk releases the lock.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn dictation_waits_for_chunk_when_not_cancelled() {
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.install_fake_engine("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+
+        let (release_tx, chunk, locked_rx) =
+            hold_meeting_lock(&tm, Some(Duration::from_millis(300)));
+        locked_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("the simulated meeting chunk never took the lock");
+
+        let take_tm = Arc::clone(&tm);
+        let (done_tx, done_rx) = mpsc::channel();
+        let take = thread::spawn(move || {
+            let started = Instant::now();
+            let result =
+                take_tm.transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| false);
+            let _ = done_tx.send((started.elapsed(), result));
+        });
+
+        let (waited, result) = match done_rx.recv_timeout(Duration::from_secs(5)) {
+            Ok(reported) => reported,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                panic!("the uncancelled take never got the meeting lock")
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                panic!("the take thread died before reporting")
+            }
+        };
+
+        let _ = release_tx.send(());
+        chunk.join().expect("the chunk thread panicked");
+        take.join().expect("the take thread panicked");
+
+        let text = result.expect("an uncancelled take must never fail for waiting");
+        assert!(!text.is_empty(), "the take returned no text");
+        assert!(
+            waited >= Duration::from_millis(250),
+            "the take did not wait for the chunk, waited {waited:?}"
+        );
+    }
+
+    /// A take that is cancelled before it gets the meeting lock gives up instead of transcribing.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn dictation_cancelled_before_the_lock_does_not_transcribe() {
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.install_fake_engine("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+
+        // The meeting lock is free: the take gets it at once, then must give
+        // up because the user already cancelled.
+        let result = tm.transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| true);
+        let err = result
+            .expect_err("a take cancelled before the lock still transcribed")
+            .to_string();
+        assert!(err.contains("cancelled"), "unexpected error: {err}");
+        assert!(
+            tm.is_engine_available(),
+            "the engine was not left available for the next take"
+        );
+    }
+
+    /// A take cancelled while it waits for a stream to hand the engine back gives up as cancelled.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn dictation_cancelled_during_the_lease_wait_gives_up() {
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        // A simulated stream holds the engine; the meeting lock stays free.
+        tm.lease_engine_for_test("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let take_cancelled = Arc::clone(&cancelled);
+        let canceller = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(20));
+            take_cancelled.store(true, Ordering::SeqCst);
+        });
+
+        let result = tm.transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| {
+            cancelled.load(Ordering::SeqCst)
+        });
+        canceller.join().expect("the cancel thread panicked");
+
+        let err = result
+            .expect_err("a take cancelled during the lease wait still transcribed")
+            .to_string();
+        assert!(err.contains("cancelled"), "unexpected error: {err}");
+
+        tm.release_engine_lease_for_test("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+        assert!(
+            tm.is_engine_available(),
+            "the engine was not left available for the next take"
+        );
     }
 }
 

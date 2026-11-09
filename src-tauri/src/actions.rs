@@ -52,14 +52,20 @@ const LOCAL_LLM_MAX_TOKENS: i32 = 512;
 const STREAM_ENGINE_RETURN_WAIT: Duration = Duration::from_secs(10);
 
 /// Dictation batch transcription. With the meetings feature this holds the
-/// meeting lock so a chunk and a take cannot both take the engine.
-fn transcribe_batch(tm: &TranscriptionManager, samples: Vec<f32>) -> anyhow::Result<String> {
+/// meeting lock so a chunk and a take cannot both take the engine, and gives up
+/// while it waits only when the take was cancelled.
+fn transcribe_batch(
+    tm: &TranscriptionManager,
+    samples: Vec<f32>,
+    is_cancelled: &dyn Fn() -> bool,
+) -> anyhow::Result<String> {
     #[cfg(feature = "meetings")]
     {
-        tm.transcribe_with_meeting_lock(samples)
+        tm.transcribe_with_meeting_lock_unless(samples, is_cancelled)
     }
     #[cfg(not(feature = "meetings"))]
     {
+        let _ = is_cancelled;
         tm.transcribe(samples)
     }
 }
@@ -1430,10 +1436,14 @@ impl ShortcutAction for TranscribeAction {
                         // for it to come back and then fall back to batch, otherwise
                         // surface the timeout error.
                         Ok(Some(text)) if !text.trim().is_empty() => Ok(text),
-                        Ok(_) => transcribe_batch(&tm, samples),
+                        Ok(_) => transcribe_batch(&tm, samples, &|| {
+                            rm.was_cancelled_since(cancel_generation)
+                        }),
                         Err(err) if tm.wait_for_engine(STREAM_ENGINE_RETURN_WAIT) => {
                             warn!("Stream finalize failed ({err}); falling back to batch");
-                            transcribe_batch(&tm, samples)
+                            transcribe_batch(&tm, samples, &|| {
+                                rm.was_cancelled_since(cancel_generation)
+                            })
                         }
                         Err(err) => Err(err),
                     };
