@@ -205,13 +205,25 @@ impl ChannelChunker {
 /// Transcribe one chunk under the meeting lock and store the raw text.
 /// Meeting text does not go through `post_process_transcription`.
 /// The segment is stored even when the engine check afterwards fails.
+/// A chunk the engine never freed is not stored, so it is logged here instead
+/// of vanishing: the agent that fed it decides whether to retry. Rows already
+/// written for earlier chunks are never touched.
 pub fn commit_chunk<R: tauri::Runtime>(
     tm: &TranscriptionManager<R>,
     store: &MeetingsStore,
     meeting_id: i64,
     chunk: FinishedChunk,
 ) -> Result<String> {
-    let text = tm.transcribe_meeting_chunk(chunk.samples)?;
+    let text = match tm.transcribe_meeting_chunk(chunk.samples) {
+        Ok(text) => text,
+        Err(err) => {
+            warn!(
+                "meeting chunk {}..{} ms on {} was not stored: {err}",
+                chunk.start_ms, chunk.end_ms, chunk.channel
+            );
+            return Err(err);
+        }
+    };
     store.insert_segment(
         meeting_id,
         chunk.start_ms,
@@ -662,6 +674,174 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].text, text);
         assert_eq!(rows[0].channel, CHANNEL_ME);
+    }
+
+    /// A chunk that arrives while a live stream holds the engine lease must
+    /// wait for the lease instead of being dropped, and its text must reach
+    /// the meeting transcript.
+    #[test]
+    fn stream_lease_vs_meeting_chunk() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let _lock = test_lock();
+        let _reset = ResetMeeting;
+        let app = test_app();
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.pin_meeting_model(PARAKEET);
+        tm.lease_engine_for_test(PARAKEET);
+        assert!(
+            !tm.is_engine_available(),
+            "the simulated stream lease did not take the engine"
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let meeting_id = store.start_meeting("Standup", PARAKEET).unwrap();
+        let mut me = ChannelChunker::new(CHANNEL_ME, Box::new(EnergySpeech));
+        let mut chunks = collect(&mut me, &speech_silence_speech());
+        let chunk = chunks.pop().expect("no chunk to submit");
+
+        let (tx, rx) = mpsc::channel();
+        let worker = {
+            let tm = Arc::clone(&tm);
+            let store = store;
+            thread::spawn(move || {
+                let result = commit_chunk(&tm, &store, meeting_id, chunk);
+                let rows = store.segments(meeting_id).unwrap_or_default();
+                let _ = tx.send(result.map(|text| (text, rows)).map_err(|e| e.to_string()));
+            })
+        };
+
+        // The live stream finishes and releases the lease shortly after the
+        // chunk arrives, so a correct chunker waits instead of dropping it.
+        thread::sleep(Duration::from_millis(200));
+        tm.release_engine_lease_for_test(PARAKEET);
+
+        let received = rx.recv_timeout(Duration::from_secs(5));
+        let Ok(outcome) = received else {
+            panic!("the chunk never returned after the lease was released: {received:?}");
+        };
+        let _ = worker.join();
+        let (text, rows) = match outcome {
+            Ok(value) => value,
+            Err(err) => panic!("the chunk was dropped while the stream held the lease: {err}"),
+        };
+        assert!(!text.is_empty());
+        assert_eq!(
+            rows.len(),
+            1,
+            "the chunk left a hole in the meeting transcript"
+        );
+        assert_eq!(rows[0].text, text);
+        assert_eq!(rows[0].channel, CHANNEL_ME);
+        assert!(tm.is_engine_available());
+    }
+
+    /// A lease that outlives one wait round must not drop the chunk: the wait
+    /// repeats while the meeting is active, then the chunk lands.
+    #[test]
+    fn meeting_chunk_outlasts_a_stream_lease_longer_than_the_wait() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let _lock = test_lock();
+        let _reset = ResetMeeting;
+        let app = test_app();
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.pin_meeting_model(PARAKEET);
+        tm.lease_engine_for_test(PARAKEET);
+        assert!(
+            !tm.is_engine_available(),
+            "the simulated stream lease did not take the engine"
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let meeting_id = store.start_meeting("Standup", PARAKEET).unwrap();
+        let mut me = ChannelChunker::new(CHANNEL_ME, Box::new(EnergySpeech));
+        let mut chunks = collect(&mut me, &speech_silence_speech());
+        let chunk = chunks.pop().expect("no chunk to submit");
+
+        let (tx, rx) = mpsc::channel();
+        let worker = {
+            let tm = Arc::clone(&tm);
+            let store = store;
+            thread::spawn(move || {
+                let result = commit_chunk(&tm, &store, meeting_id, chunk);
+                let rows = store.segments(meeting_id).unwrap_or_default();
+                let _ = tx.send(result.map(|text| (text, rows)).map_err(|e| e.to_string()));
+            })
+        };
+
+        // Longer than the test wait bound (100 ms), so the first round times
+        // out and the chunk has to wait again.
+        thread::sleep(Duration::from_millis(500));
+        tm.release_engine_lease_for_test(PARAKEET);
+
+        let received = rx.recv_timeout(Duration::from_secs(5));
+        let Ok(outcome) = received else {
+            panic!("the chunk never returned after the lease was released: {received:?}");
+        };
+        let _ = worker.join();
+        let (text, rows) = match outcome {
+            Ok(value) => value,
+            Err(err) => panic!("the chunk was dropped while the stream held the lease: {err}"),
+        };
+        assert!(!text.is_empty());
+        assert_eq!(
+            rows.len(),
+            1,
+            "the chunk left a hole in the meeting transcript"
+        );
+        assert_eq!(rows[0].text, text);
+        assert_eq!(rows[0].channel, CHANNEL_ME);
+        assert!(tm.is_engine_available());
+    }
+
+    /// A meeting that ends while its chunk waits must stop the wait with an
+    /// error instead of storing a row.
+    #[test]
+    fn meeting_chunk_gives_up_when_the_meeting_ends() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let _lock = test_lock();
+        let _reset = ResetMeeting;
+        let app = test_app();
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        set_meeting_active(false);
+        tm.lease_engine_for_test(PARAKEET);
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let meeting_id = store.start_meeting("Standup", PARAKEET).unwrap();
+        let mut me = ChannelChunker::new(CHANNEL_ME, Box::new(EnergySpeech));
+        let mut chunks = collect(&mut me, &speech_silence_speech());
+        let chunk = chunks.pop().expect("no chunk to submit");
+
+        let (tx, rx) = mpsc::channel();
+        let worker = {
+            let tm = Arc::clone(&tm);
+            let store = store;
+            thread::spawn(move || {
+                let result =
+                    commit_chunk(&tm, &store, meeting_id, chunk).map_err(|e| e.to_string());
+                let rows = store.segments(meeting_id).unwrap_or_default();
+                let _ = tx.send((result, rows));
+            })
+        };
+
+        let (result, rows) = rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("the chunk did not give up within 1 s after the meeting ended");
+        let _ = worker.join();
+        let err = result.expect_err("the chunk succeeded after the meeting ended");
+        assert!(err.contains("meeting ended"), "unexpected error: {err}");
+        assert!(
+            rows.is_empty(),
+            "the chunk stored a row after the meeting ended"
+        );
     }
 
     #[test]

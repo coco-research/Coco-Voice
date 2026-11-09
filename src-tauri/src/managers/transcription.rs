@@ -35,6 +35,12 @@ use transcribe_rs::{
 
 const STREAM_PERF_LOG_INTERVAL: Duration = Duration::from_secs(5);
 const STREAM_FINALIZE_REPLY_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long one round of a meeting chunk's lease wait lasts. Test builds use a
+/// short bound so a test can outlast it.
+#[cfg(all(feature = "meetings", not(test)))]
+const MEETING_LEASE_WAIT: Duration = Duration::from_secs(30);
+#[cfg(all(feature = "meetings", test))]
+const MEETING_LEASE_WAIT: Duration = Duration::from_millis(100);
 
 #[derive(Clone, Debug, Serialize)]
 pub struct ModelStateEvent {
@@ -485,30 +491,56 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
 
     /// Meeting chunks and dictation both enter here. The meeting path does not
     /// call [`transcribe`](Self::transcribe) without this lock.
+    ///
+    /// If a live stream holds the engine, this waits one `MEETING_LEASE_WAIT`
+    /// and then errors. Meeting chunks wait out longer leases in
+    /// [`transcribe_meeting_chunk`](Self::transcribe_meeting_chunk) first.
     #[cfg(feature = "meetings")]
     pub fn transcribe_with_meeting_lock(&self, audio: Vec<f32>) -> Result<String> {
         let _guard = self
             .meeting_lock
             .lock()
             .unwrap_or_else(|err| err.into_inner());
-        #[cfg(test)]
-        if self.engine_is_fake() {
-            return self.transcribe_fake(audio);
-        }
         if self.availability() == EngineAvailability::LeasedToStream
-            && !self.wait_for_engine(Duration::from_secs(30))
+            && !self.wait_for_engine(MEETING_LEASE_WAIT)
         {
             return Err(anyhow::anyhow!(
                 "The transcription engine is still busy finishing the previous live \
                  transcription. Please try again in a moment."
             ));
         }
+        // Dispatch only after the wait: the lease hands the engine back, so the
+        // engine that runs this chunk is the one observed now, not before.
+        #[cfg(test)]
+        if self.engine_is_fake() {
+            return self.transcribe_fake(audio);
+        }
         self.transcribe(audio)
     }
 
     /// A meeting chunk. Never calls `transcribe()` without the meeting lock.
+    ///
+    /// A live stream can hold the engine when a chunk closes. The chunk waits
+    /// out that lease in rounds and is never dropped while its meeting is
+    /// active; only a meeting that ends mid-wait stops it with an error.
     #[cfg(feature = "meetings")]
     pub fn transcribe_meeting_chunk(&self, audio: Vec<f32>) -> Result<String> {
+        while self.availability() == EngineAvailability::LeasedToStream {
+            if self.wait_for_engine(MEETING_LEASE_WAIT) {
+                break;
+            }
+            if !crate::managers::meetings::meeting_is_active() {
+                return Err(anyhow::anyhow!(
+                    "The meeting ended while a meeting chunk was waiting for the \
+                     transcription engine."
+                ));
+            }
+            warn!(
+                "Meeting chunk is still waiting for the transcription engine; \
+                 waiting another {} ms",
+                MEETING_LEASE_WAIT.as_millis()
+            );
+        }
         self.transcribe_with_meeting_lock(audio)
     }
 
@@ -519,6 +551,22 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             .current_model_id
             .lock()
             .unwrap_or_else(|err| err.into_inner()) = Some(model_id.to_string());
+    }
+
+    /// Test hook: simulate a live stream worker holding the engine, so a
+    /// meeting chunk observes `LeasedToStream` instead of the pool.
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn lease_engine_for_test(&self, model_id: &str) {
+        self.install_fake_engine(model_id);
+        self.active_engine_lease.store(1, Ordering::Release);
+        let _ = self.lock_engine().take();
+    }
+
+    /// Test hook: end the simulated lease and hand the engine back to the pool.
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn release_engine_lease_for_test(&self, model_id: &str) {
+        self.install_fake_engine(model_id);
+        self.active_engine_lease.store(0, Ordering::Release);
     }
 
     /// Live meeting test hook: install a real engine from a model file the
