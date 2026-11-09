@@ -221,6 +221,22 @@ enum EngineAvailability {
     NotLoaded,
 }
 
+/// Returned while a live stream still holds the engine.
+#[derive(Debug)]
+pub(crate) struct EngineLeased;
+
+impl std::fmt::Display for EngineLeased {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "The transcription engine is still busy finishing the previous live \
+             transcription. Please try again in a moment."
+        )
+    }
+}
+
+impl std::error::Error for EngineLeased {}
+
 fn engine_availability(in_pool: bool, leased_to_stream: bool) -> EngineAvailability {
     if in_pool {
         EngineAvailability::Ready
@@ -325,6 +341,10 @@ pub struct TranscriptionManager<R: tauri::Runtime = tauri::Wry> {
     test_unload_timeout: Arc<Mutex<Option<ModelUnloadTimeout>>>,
     #[cfg(all(test, feature = "meetings"))]
     fake_seq: Arc<AtomicU64>,
+    /// Test-only: the next fake transcription fails after a stream takes the
+    /// lease, simulating a real engine failure under a live stream.
+    #[cfg(all(test, feature = "meetings"))]
+    fake_fails_under_lease: Arc<AtomicBool>,
 }
 
 #[cfg(all(test, feature = "meetings"))]
@@ -358,6 +378,8 @@ impl<R: tauri::Runtime> Clone for TranscriptionManager<R> {
             test_unload_timeout: Arc::clone(&self.test_unload_timeout),
             #[cfg(all(test, feature = "meetings"))]
             fake_seq: Arc::clone(&self.fake_seq),
+            #[cfg(all(test, feature = "meetings"))]
+            fake_fails_under_lease: Arc::clone(&self.fake_fails_under_lease),
         }
     }
 }
@@ -390,6 +412,8 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             test_unload_timeout: Arc::new(Mutex::new(None)),
             #[cfg(all(test, feature = "meetings"))]
             fake_seq: Arc::new(AtomicU64::new(0)),
+            #[cfg(all(test, feature = "meetings"))]
+            fake_fails_under_lease: Arc::new(AtomicBool::new(false)),
         };
 
         // Start the idle watcher
@@ -440,6 +464,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             after_lease_check_hook: Arc::new(Mutex::new(None)),
             test_unload_timeout: Arc::new(Mutex::new(None)),
             fake_seq: Arc::new(AtomicU64::new(0)),
+            fake_fails_under_lease: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -515,10 +540,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         if self.availability() == EngineAvailability::LeasedToStream
             && !self.wait_for_engine(MEETING_LEASE_WAIT)
         {
-            return Err(anyhow::anyhow!(
-                "The transcription engine is still busy finishing the previous live \
-                 transcription. Please try again in a moment."
-            ));
+            return Err(EngineLeased.into());
         }
         #[cfg(all(test, feature = "meetings"))]
         {
@@ -588,20 +610,22 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
 
     /// A meeting chunk. Never calls `transcribe()` without the meeting lock.
     ///
-    /// A live stream can hold the engine when a chunk closes. The chunk waits
-    /// out that lease in rounds and is never dropped while its meeting is
-    /// active; only a meeting that ends mid-wait stops it with an error.
+    /// A live stream can hold the engine when a chunk closes, and can take it
+    /// again between attempts. The chunk retries only while the engine reports
+    /// itself leased, and is never dropped while its meeting is active; a
+    /// meeting that ends mid-wait, or any other engine failure, stops it with
+    /// that error.
     #[cfg(feature = "meetings")]
     pub fn transcribe_meeting_chunk(&self, audio: Vec<f32>) -> Result<String> {
         loop {
             // ponytail: the chunk audio is copied once per attempt; pass a
             // slice through if chunk copies ever show up in a profile.
             match self.transcribe_with_meeting_lock(audio.clone()) {
-                Err(err) if self.availability() == EngineAvailability::LeasedToStream => {
+                Err(err) if err.is::<EngineLeased>() => {
                     if !crate::managers::meetings::meeting_is_active() {
-                        return Err(anyhow::anyhow!(
+                        return Err(err.context(
                             "The meeting ended while a meeting chunk was waiting for the \
-                             transcription engine."
+                             transcription engine.",
                         ));
                     }
                     warn!(
@@ -634,6 +658,13 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             .after_lease_check_hook
             .lock()
             .unwrap_or_else(|err| err.into_inner()) = Some(hook);
+    }
+
+    /// Test hook: the next fake transcription fails while a stream holds the
+    /// lease, so a chunk sees an engine error under a lease.
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn fail_next_fake_call_under_lease_for_test(&self) {
+        self.fake_fails_under_lease.store(true, Ordering::SeqCst);
     }
 
     /// Test hook: simulate a live stream worker holding the engine, so a
@@ -693,13 +724,15 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
 
     #[cfg(all(test, feature = "meetings"))]
     fn transcribe_fake(&self, audio: Vec<f32>) -> Result<String> {
+        if self.fake_fails_under_lease.swap(false, Ordering::SeqCst) {
+            self.active_engine_lease.store(1, Ordering::Release);
+            let _ = self.lock_engine().take();
+            return Err(anyhow::anyhow!("fake engine failure"));
+        }
         match self.availability() {
             EngineAvailability::Ready => {}
             EngineAvailability::LeasedToStream => {
-                return Err(anyhow::anyhow!(
-                    "The transcription engine is still busy finishing the previous live \
-                     transcription. Please try again in a moment."
-                ));
+                return Err(EngineLeased.into());
             }
             EngineAvailability::NotLoaded => {
                 return Err(anyhow::anyhow!("Model is not loaded for transcription."));
@@ -1623,10 +1656,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             match self.availability() {
                 EngineAvailability::Ready => {}
                 EngineAvailability::LeasedToStream => {
-                    return Err(anyhow::anyhow!(
-                        "The transcription engine is still busy finishing the previous live \
-                         transcription. Please try again in a moment."
-                    ));
+                    return Err(EngineLeased.into());
                 }
                 EngineAvailability::NotLoaded => {
                     return Err(anyhow::anyhow!("Model is not loaded for transcription."));

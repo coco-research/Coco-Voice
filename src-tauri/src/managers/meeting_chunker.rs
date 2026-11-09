@@ -869,6 +869,70 @@ mod tests {
         assert!(tm.is_engine_available());
     }
 
+    /// A real engine failure while a stream holds the lease is returned, not
+    /// retried until the meeting ends.
+    #[test]
+    fn meeting_chunk_returns_an_engine_failure_during_a_lease() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let _lock = test_lock();
+        let _reset = ResetMeeting;
+        let app = test_app();
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.pin_meeting_model(PARAKEET);
+        tm.install_fake_engine(PARAKEET);
+        assert!(
+            tm.is_engine_available(),
+            "the engine should start available for this test"
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let meeting_id = store.start_meeting("Standup", PARAKEET).unwrap();
+        let mut me = ChannelChunker::new(CHANNEL_ME, Box::new(EnergySpeech));
+        let mut chunks = collect(&mut me, &speech_silence_speech());
+        let chunk = chunks.pop().expect("no chunk to submit");
+
+        // The engine fails while a stream takes the lease, as a real stream
+        // finishing inference would.
+        tm.fail_next_fake_call_under_lease_for_test();
+
+        let (tx, rx) = mpsc::channel();
+        let worker = {
+            let tm = Arc::clone(&tm);
+            let store = store;
+            thread::spawn(move || {
+                let result =
+                    commit_chunk(&tm, &store, meeting_id, chunk).map_err(|e| e.to_string());
+                let rows = store.segments(meeting_id).unwrap_or_default();
+                let _ = tx.send((result, rows));
+            })
+        };
+
+        let received = rx.recv_timeout(Duration::from_secs(2));
+        let (result, rows) = match received {
+            Ok(value) => value,
+            Err(recv_err) => {
+                set_meeting_active(false);
+                tm.release_engine_lease_for_test(PARAKEET);
+                let _ = worker.join();
+                panic!("the chunk kept retrying a real engine failure: {recv_err:?}");
+            }
+        };
+        tm.release_engine_lease_for_test(PARAKEET);
+        let _ = worker.join();
+        let err = result.expect_err("the chunk succeeded instead of returning the failure");
+        assert!(
+            err.contains("fake engine failure"),
+            "unexpected error: {err}"
+        );
+        assert!(
+            rows.is_empty(),
+            "the chunk stored a row after the engine failed"
+        );
+    }
+
     /// A meeting that ends while its chunk waits must stop the wait with an
     /// error instead of storing a row.
     #[test]
