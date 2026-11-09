@@ -582,9 +582,10 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
 
     /// A dictation take queued behind a meeting chunk. Same body as
     /// [`transcribe_with_meeting_lock`](Self::transcribe_with_meeting_lock),
-    /// but one the user cancelled while waiting gives up at once instead of
-    /// parking a worker for the whole chunk. An uncancelled take waits with no
-    /// deadline, exactly like the blocking acquire, so waiting never fails it.
+    /// but a take the user cancelled, before it starts or while it waits, gives
+    /// up at once instead of parking a worker for the whole chunk. An
+    /// uncancelled take waits with no deadline, exactly like the blocking
+    /// acquire, so waiting never fails it.
     #[cfg(feature = "meetings")]
     pub fn transcribe_with_meeting_lock_unless(
         &self,
@@ -605,6 +606,11 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
                 }
             }
         };
+        if cancelled() {
+            return Err(anyhow::anyhow!(
+                "cancelled while waiting for a meeting chunk"
+            ));
+        }
         self.transcribe_holding_meeting_lock(guard, audio)
     }
 
@@ -2645,6 +2651,30 @@ mod tests {
         assert!(
             waited >= Duration::from_millis(250),
             "the take did not wait for the chunk, waited {waited:?}"
+        );
+    }
+
+    /// A take that is cancelled before it gets the meeting lock gives up instead of transcribing.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn dictation_cancelled_before_the_lock_does_not_transcribe() {
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.install_fake_engine("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+
+        // The meeting lock is free: the take gets it at once, then must give
+        // up because the user already cancelled.
+        let result = tm.transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| true);
+        let err = result
+            .expect_err("a take cancelled before the lock still transcribed")
+            .to_string();
+        assert!(err.contains("cancelled"), "unexpected error: {err}");
+        assert!(
+            tm.is_engine_available(),
+            "the engine was not left available for the next take"
         );
     }
 }
