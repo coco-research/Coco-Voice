@@ -799,6 +799,76 @@ mod tests {
         assert!(tm.is_engine_available());
     }
 
+    /// A stream that re-takes the lease after the chunk's wait must not drop
+    /// the chunk.
+    #[test]
+    fn meeting_chunk_survives_a_stream_retaking_the_lease() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let _lock = test_lock();
+        let _reset = ResetMeeting;
+        let app = test_app();
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.pin_meeting_model(PARAKEET);
+        tm.install_fake_engine(PARAKEET);
+        assert!(
+            tm.is_engine_available(),
+            "the engine should start available for this test"
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let meeting_id = store.start_meeting("Standup", PARAKEET).unwrap();
+        let mut me = ChannelChunker::new(CHANNEL_ME, Box::new(EnergySpeech));
+        let mut chunks = collect(&mut me, &speech_silence_speech());
+        let chunk = chunks.pop().expect("no chunk to submit");
+
+        // A stream takes the lease back right after the chunk's lease check,
+        // then holds it past one wait round before handing it back.
+        tm.set_after_lease_check_hook_for_test(Box::new({
+            let tm = Arc::clone(&tm);
+            move || {
+                tm.lease_engine_for_test(PARAKEET);
+                let tm = Arc::clone(&tm);
+                let _ = thread::spawn(move || {
+                    thread::sleep(Duration::from_millis(300));
+                    tm.release_engine_lease_for_test(PARAKEET);
+                });
+            }
+        }));
+
+        let (tx, rx) = mpsc::channel();
+        let worker = {
+            let tm = Arc::clone(&tm);
+            let store = store;
+            thread::spawn(move || {
+                let result = commit_chunk(&tm, &store, meeting_id, chunk);
+                let rows = store.segments(meeting_id).unwrap_or_default();
+                let _ = tx.send(result.map(|text| (text, rows)).map_err(|e| e.to_string()));
+            })
+        };
+
+        let received = rx.recv_timeout(Duration::from_secs(5));
+        let Ok(outcome) = received else {
+            panic!("the chunk never returned after the lease was released: {received:?}");
+        };
+        let _ = worker.join();
+        let (text, rows) = match outcome {
+            Ok(value) => value,
+            Err(err) => panic!("the chunk was dropped when the stream re-took the lease: {err}"),
+        };
+        assert!(!text.is_empty());
+        assert_eq!(
+            rows.len(),
+            1,
+            "the chunk left a hole in the meeting transcript"
+        );
+        assert_eq!(rows[0].text, text);
+        assert_eq!(rows[0].channel, CHANNEL_ME);
+        assert!(tm.is_engine_available());
+    }
+
     /// A meeting that ends while its chunk waits must stop the wait with an
     /// error instead of storing a row.
     #[test]

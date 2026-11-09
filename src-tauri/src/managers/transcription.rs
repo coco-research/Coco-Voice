@@ -313,6 +313,10 @@ pub struct TranscriptionManager<R: tauri::Runtime = tauri::Wry> {
     /// Speech model pinned for the meeting. `None` when no meeting is pinned.
     #[cfg(feature = "meetings")]
     meeting_pin: Arc<Mutex<Option<String>>>,
+    /// Test-only: runs after the lease check and before dispatch, so a test can
+    /// simulate a live stream taking the engine lease back in that window.
+    #[cfg(all(test, feature = "meetings"))]
+    after_lease_check_hook: Arc<Mutex<Option<Box<dyn FnOnce() + Send>>>>,
     /// When set, idle unload and `maybe_unload_immediately` use this instead of
     /// the settings store. Tests have no store.
     #[cfg(all(test, feature = "meetings"))]
@@ -347,6 +351,8 @@ impl<R: tauri::Runtime> Clone for TranscriptionManager<R> {
             #[cfg(feature = "meetings")]
             meeting_pin: Arc::clone(&self.meeting_pin),
             #[cfg(all(test, feature = "meetings"))]
+            after_lease_check_hook: Arc::clone(&self.after_lease_check_hook),
+            #[cfg(all(test, feature = "meetings"))]
             test_unload_timeout: Arc::clone(&self.test_unload_timeout),
             #[cfg(all(test, feature = "meetings"))]
             fake_seq: Arc::clone(&self.fake_seq),
@@ -376,6 +382,8 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             meeting_lock: Arc::new(Mutex::new(())),
             #[cfg(feature = "meetings")]
             meeting_pin: Arc::new(Mutex::new(None)),
+            #[cfg(all(test, feature = "meetings"))]
+            after_lease_check_hook: Arc::new(Mutex::new(None)),
             #[cfg(all(test, feature = "meetings"))]
             test_unload_timeout: Arc::new(Mutex::new(None)),
             #[cfg(all(test, feature = "meetings"))]
@@ -427,6 +435,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             active_engine_lease: Arc::new(AtomicU64::new(0)),
             meeting_lock: Arc::new(Mutex::new(())),
             meeting_pin: Arc::new(Mutex::new(None)),
+            after_lease_check_hook: Arc::new(Mutex::new(None)),
             test_unload_timeout: Arc::new(Mutex::new(None)),
             fake_seq: Arc::new(AtomicU64::new(0)),
         }
@@ -493,8 +502,9 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
     /// call [`transcribe`](Self::transcribe) without this lock.
     ///
     /// If a live stream holds the engine, this waits one `MEETING_LEASE_WAIT`
-    /// and then errors. Meeting chunks wait out longer leases in
-    /// [`transcribe_meeting_chunk`](Self::transcribe_meeting_chunk) first.
+    /// and then errors. Meeting chunks retry it in
+    /// [`transcribe_meeting_chunk`](Self::transcribe_meeting_chunk) while a
+    /// stream holds the lease.
     #[cfg(feature = "meetings")]
     pub fn transcribe_with_meeting_lock(&self, audio: Vec<f32>) -> Result<String> {
         let _guard = self
@@ -508,6 +518,19 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
                 "The transcription engine is still busy finishing the previous live \
                  transcription. Please try again in a moment."
             ));
+        }
+        #[cfg(all(test, feature = "meetings"))]
+        {
+            let hook = {
+                let mut slot = self
+                    .after_lease_check_hook
+                    .lock()
+                    .unwrap_or_else(|err| err.into_inner());
+                slot.take()
+            };
+            if let Some(hook) = hook {
+                hook();
+            }
         }
         // Dispatch only after the wait: the lease hands the engine back, so the
         // engine that runs this chunk is the one observed now, not before.
@@ -525,23 +548,27 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
     /// active; only a meeting that ends mid-wait stops it with an error.
     #[cfg(feature = "meetings")]
     pub fn transcribe_meeting_chunk(&self, audio: Vec<f32>) -> Result<String> {
-        while self.availability() == EngineAvailability::LeasedToStream {
-            if self.wait_for_engine(MEETING_LEASE_WAIT) {
-                break;
+        loop {
+            // ponytail: the chunk audio is copied once per attempt; pass a
+            // slice through if chunk copies ever show up in a profile.
+            match self.transcribe_with_meeting_lock(audio.clone()) {
+                Err(err) if self.availability() == EngineAvailability::LeasedToStream => {
+                    if !crate::managers::meetings::meeting_is_active() {
+                        return Err(anyhow::anyhow!(
+                            "The meeting ended while a meeting chunk was waiting for the \
+                             transcription engine."
+                        ));
+                    }
+                    warn!(
+                        "Meeting chunk is still waiting for the transcription engine; \
+                         waiting another {} ms: {}",
+                        MEETING_LEASE_WAIT.as_millis(),
+                        err
+                    );
+                }
+                result => return result,
             }
-            if !crate::managers::meetings::meeting_is_active() {
-                return Err(anyhow::anyhow!(
-                    "The meeting ended while a meeting chunk was waiting for the \
-                     transcription engine."
-                ));
-            }
-            warn!(
-                "Meeting chunk is still waiting for the transcription engine; \
-                 waiting another {} ms",
-                MEETING_LEASE_WAIT.as_millis()
-            );
         }
-        self.transcribe_with_meeting_lock(audio)
     }
 
     #[cfg(all(test, feature = "meetings"))]
@@ -551,6 +578,17 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             .current_model_id
             .lock()
             .unwrap_or_else(|err| err.into_inner()) = Some(model_id.to_string());
+    }
+
+    /// Test hook: run `hook` after the lease check and before the engine is
+    /// dispatched. A live stream taking the lease in that window would make
+    /// the chunk observe `LeasedToStream` again with no wait left.
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn set_after_lease_check_hook_for_test(&self, hook: Box<dyn FnOnce() + Send>) {
+        *self
+            .after_lease_check_hook
+            .lock()
+            .unwrap_or_else(|err| err.into_inner()) = Some(hook);
     }
 
     /// Test hook: simulate a live stream worker holding the engine, so a
