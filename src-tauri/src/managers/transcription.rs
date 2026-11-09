@@ -529,6 +529,13 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
     #[cfg(feature = "meetings")]
     const MEETING_LOCK_POLL: Duration = Duration::from_millis(10);
 
+    /// The one error a wait that a cancelled take gave up on returns. Must stay
+    /// byte-identical: a test matches this text.
+    #[cfg(feature = "meetings")]
+    fn meeting_wait_cancelled() -> anyhow::Error {
+        anyhow::anyhow!("cancelled while waiting for a meeting chunk")
+    }
+
     /// The shared body of both locked entry points. The caller hands over the
     /// held meeting lock; this waits for a stream lease, then transcribes.
     #[cfg(feature = "meetings")]
@@ -536,11 +543,18 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         &self,
         _guard: MutexGuard<'_, ()>,
         audio: Vec<f32>,
+        cancelled: &dyn Fn() -> bool,
     ) -> Result<String> {
-        if self.availability() == EngineAvailability::LeasedToStream
-            && !self.wait_for_engine(MEETING_LEASE_WAIT)
-        {
-            return Err(EngineLeased.into());
+        if self.availability() == EngineAvailability::LeasedToStream {
+            let ready = poll_until(MEETING_LEASE_WAIT, Duration::from_millis(100), || {
+                self.is_engine_available() || cancelled()
+            });
+            if cancelled() {
+                return Err(Self::meeting_wait_cancelled());
+            }
+            if !ready {
+                return Err(EngineLeased.into());
+            }
         }
         #[cfg(all(test, feature = "meetings"))]
         {
@@ -555,6 +569,8 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
                 hook();
             }
         }
+        // ponytail: the engine run itself can't be interrupted; a take cancelled
+        // mid-run is discarded by its caller.
         // Dispatch only after the wait: the lease hands the engine back, so the
         // engine that runs this chunk is the one observed now, not before.
         #[cfg(test)]
@@ -577,7 +593,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             .meeting_lock
             .lock()
             .unwrap_or_else(|err| err.into_inner());
-        self.transcribe_holding_meeting_lock(guard, audio)
+        self.transcribe_holding_meeting_lock(guard, audio, &|| false)
     }
 
     /// A dictation take queued behind a meeting chunk. Same body as
@@ -598,20 +614,16 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
                 Err(TryLockError::Poisoned(err)) => break err.into_inner(),
                 Err(TryLockError::WouldBlock) => {
                     if cancelled() {
-                        return Err(anyhow::anyhow!(
-                            "cancelled while waiting for a meeting chunk"
-                        ));
+                        return Err(Self::meeting_wait_cancelled());
                     }
                     thread::sleep(Self::MEETING_LOCK_POLL);
                 }
             }
         };
         if cancelled() {
-            return Err(anyhow::anyhow!(
-                "cancelled while waiting for a meeting chunk"
-            ));
+            return Err(Self::meeting_wait_cancelled());
         }
-        self.transcribe_holding_meeting_lock(guard, audio)
+        self.transcribe_holding_meeting_lock(guard, audio, cancelled)
     }
 
     /// A meeting chunk. Never calls `transcribe()` without the meeting lock.
@@ -2672,6 +2684,42 @@ mod tests {
             .expect_err("a take cancelled before the lock still transcribed")
             .to_string();
         assert!(err.contains("cancelled"), "unexpected error: {err}");
+        assert!(
+            tm.is_engine_available(),
+            "the engine was not left available for the next take"
+        );
+    }
+
+    /// A take cancelled while it waits for a stream to hand the engine back gives up as cancelled.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn dictation_cancelled_during_the_lease_wait_gives_up() {
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        // A simulated stream holds the engine; the meeting lock stays free.
+        tm.lease_engine_for_test("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let take_cancelled = Arc::clone(&cancelled);
+        let canceller = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(20));
+            take_cancelled.store(true, Ordering::SeqCst);
+        });
+
+        let result = tm.transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| {
+            cancelled.load(Ordering::SeqCst)
+        });
+        canceller.join().expect("the cancel thread panicked");
+
+        let err = result
+            .expect_err("a take cancelled during the lease wait still transcribed")
+            .to_string();
+        assert!(err.contains("cancelled"), "unexpected error: {err}");
+
+        tm.release_engine_lease_for_test("handy-computer/parakeet-tdt-0.6b-v3-gguf");
         assert!(
             tm.is_engine_available(),
             "the engine was not left available for the next take"
