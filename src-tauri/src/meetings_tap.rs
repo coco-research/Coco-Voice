@@ -140,13 +140,15 @@ fn map_os(err: os::Error) -> TapError {
 /// The caller's sink. Owned by the worker thread, never called from the IO thread.
 type TapSink = Box<dyn FnMut(&[f32]) + Send>;
 
-/// All the IO thread touches: the free pool, a bounded queue and two counters. No locks, no sink.
+/// All the IO thread touches: the pool, a bounded queue, two counters and the stop flag.
+/// No locks, no sink. `shutdown` is the worker's flag, shared so IO can see it after a stop.
 struct IoState {
     channels: u32,
     free: Receiver<Vec<f32>>,
     tx: SyncSender<Vec<f32>>,
     dropped: Arc<AtomicU64>,
     worker_gone: Arc<AtomicBool>,
+    shutdown: Arc<AtomicBool>,
 }
 
 /// Count one non-blocking send. `Full` means the worker fell behind, so the block is dropped.
@@ -247,6 +249,12 @@ extern "C" fn on_input(
 
 /// IO thread: no alloc, no block, no lock. Any drop (no buffer, oversize, full queue) is counted.
 fn io_block(state: &IoState, raw: &[f32]) {
+    // A failed stop leaks this state with the queue still open, so IO can still call here after
+    // the worker exited. Touching the pool then would free a block on the real-time thread.
+    if state.shutdown.load(Ordering::Acquire) {
+        state.dropped.fetch_add(1, Ordering::Relaxed);
+        return;
+    }
     match state.free.try_recv() {
         Ok(mut block) => {
             let fits = mono_into(raw, state.channels, &mut block); // oversize: sent empty, recycled
@@ -462,6 +470,7 @@ impl SystemAudioSession {
             tx,
             dropped: Arc::clone(&dropped),
             worker_gone: Arc::clone(&worker_gone),
+            shutdown: Arc::clone(&shutdown),
         }));
         // SAFETY: `state` stays allocated until stop/drop, and only after AudioDeviceStop returns.
         let proc_id =
@@ -833,6 +842,7 @@ mod tests {
             tx,
             dropped: Arc::new(AtomicU64::new(0)),
             worker_gone: Arc::new(AtomicBool::new(false)),
+            shutdown: Arc::new(AtomicBool::new(false)),
         };
         io_block(&state, &[1.0]);
         assert_eq!(
@@ -881,6 +891,7 @@ mod tests {
                 tx,
                 dropped: Arc::new(AtomicU64::new(0)),
                 worker_gone: Arc::new(AtomicBool::new(false)),
+                shutdown: Arc::new(AtomicBool::new(false)),
             };
             io_block(&state, &[1.0]);
             assert_eq!(
@@ -992,6 +1003,7 @@ mod tests {
             tx,
             dropped: Arc::clone(&dropped),
             worker_gone: Arc::new(AtomicBool::new(false)),
+            shutdown: Arc::new(AtomicBool::new(false)),
         };
         io_block(&state, &[1.0, 3.0, 5.0, 7.0]);
         let block = rx.try_recv().expect("mono block");
@@ -1002,5 +1014,35 @@ mod tests {
         io_block(&state, &[0.0; 6]); // 3 frames > capacity 2: dropped, never grown
         assert_eq!(dropped.load(Ordering::Relaxed), 2);
         assert_eq!(rx.try_recv().map(|b| b.len()), Ok(0)); // buffer recycled, no oversize data
+    }
+
+    #[test]
+    fn io_block_after_shutdown_leaves_pool_untouched() {
+        // A failed stop leaks the state with the queue still open, so IO can still call this.
+        let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(1);
+        let (free_tx, free) = mpsc::sync_channel::<Vec<f32>>(1);
+        free_tx.send(Vec::with_capacity(2)).expect("seed pool");
+        let dropped = Arc::new(AtomicU64::new(0));
+        let state = IoState {
+            channels: 2,
+            free,
+            tx,
+            dropped: Arc::clone(&dropped),
+            worker_gone: Arc::new(AtomicBool::new(false)),
+            shutdown: Arc::new(AtomicBool::new(true)),
+        };
+        io_block(&state, &[1.0, 3.0]);
+        let kept = state.free.try_recv().expect("shutdown path drained the pool");
+        assert_eq!(kept.capacity(), 2, "pool buffer left the pool after shutdown");
+        assert_eq!(
+            rx.try_recv(),
+            Err(TryRecvError::Empty),
+            "block sent after shutdown"
+        );
+        assert_eq!(dropped.load(Ordering::Relaxed), 1, "shutdown not counted");
+        assert!(
+            !state.worker_gone.load(Ordering::Relaxed),
+            "shutdown flagged the worker gone"
+        );
     }
 }
