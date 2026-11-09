@@ -377,12 +377,45 @@ fn private_aggregate(tap_uid: &cf::String) -> Result<(AggregateDevice, u32), Tap
     Ok((aggregate, id))
 }
 
+/// The real device: a started aggregate. The session runs IO itself, so only `stop` works;
+/// the other members exist to satisfy [`SystemAudioDevice`].
+pub struct StartedAggregate {
+    started: Option<hardware::StartedDevice<AggregateDevice>>,
+    rate: usize,
+}
+
+impl SystemAudioDevice for StartedAggregate {
+    fn sample_rate_hz(&self) -> usize {
+        self.rate
+    }
+
+    fn start(&mut self) -> Result<(), TapError> {
+        Err(TapError::Device(
+            "a started aggregate is never started again".into(),
+        ))
+    }
+
+    fn pull(&mut self) -> Result<Vec<f32>, TapError> {
+        Err(TapError::Device(
+            "a streaming aggregate is never pulled".into(),
+        ))
+    }
+
+    fn stop(&mut self) -> Result<(), TapError> {
+        match self.started.take() {
+            Some(started) => started.stop().map(|_| ()).map_err(map_os),
+            None => Ok(()),
+        }
+    }
+}
+
 /// Live tap. `start` checks the usage string before any Core Audio call.
 /// `stop` stops IO, frees the IO state (which closes the queue), joins the worker,
 /// then destroys the aggregate and drops the tap.
-pub struct SystemAudioSession {
+/// Generic over the device so a test can fail `stop` without Core Audio.
+pub struct SystemAudioSession<D: SystemAudioDevice = StartedAggregate> {
     tap: Option<TapGuard>,
-    started: Option<hardware::StartedDevice<AggregateDevice>>,
+    device: Option<D>,
     aggregate_id: Option<u32>,
     state: *mut IoState,
     worker: Option<JoinHandle<Result<(), TapError>>>,
@@ -392,7 +425,7 @@ pub struct SystemAudioSession {
     shutdown: Arc<AtomicBool>,
 }
 
-impl SystemAudioSession {
+impl SystemAudioSession<StartedAggregate> {
     pub fn start(plist_text: &str, sink: TapSink) -> Result<Self, TapError> {
         require_usage_string(plist_text)?;
 
@@ -478,7 +511,10 @@ impl SystemAudioSession {
         match hardware::device_start(aggregate, Some(proc_id)) {
             Ok(started) => Ok(Self {
                 tap: Some(tap),
-                started: Some(started),
+                device: Some(StartedAggregate {
+                    started: Some(started),
+                    rate,
+                }),
                 aggregate_id: Some(aggregate_id),
                 state,
                 worker: Some(worker),
@@ -494,7 +530,9 @@ impl SystemAudioSession {
             }
         }
     }
+}
 
+impl<D: SystemAudioDevice> SystemAudioSession<D> {
     /// Blocks dropped because the worker fell behind. The IO thread never blocks.
     pub fn dropped_blocks(&self) -> u64 {
         self.dropped.load(Ordering::Relaxed)
@@ -514,11 +552,8 @@ impl SystemAudioSession {
     }
 
     pub fn stop(mut self) -> Result<(), TapError> {
-        let stop_err = match self.started.take() {
-            Some(started) => match started.stop() {
-                Ok(_aggregate) => None,
-                Err(err) => Some(map_os(err)),
-            },
+        let stop_err = match self.device.take() {
+            Some(mut device) => device.stop().err(),
             None => None,
         };
         let finish_err = if stop_err.is_some() {
@@ -544,7 +579,7 @@ impl SystemAudioSession {
     /// worker and return its `finish` outcome. Only valid once IO has stopped.
     fn finish_worker(&mut self) -> Option<TapError> {
         if !self.state.is_null() {
-            // SAFETY: started.take()/stop() has already stopped IO, so the proc is not in on_input.
+            // SAFETY: device.stop() has already stopped IO, so the proc is not in on_input.
             drop(unsafe { Box::from_raw(self.state) });
             self.state = std::ptr::null_mut();
         }
@@ -571,10 +606,10 @@ impl SystemAudioSession {
     }
 }
 
-impl Drop for SystemAudioSession {
+impl<D: SystemAudioDevice> Drop for SystemAudioSession<D> {
     fn drop(&mut self) {
-        if let Some(started) = self.started.take() {
-            if started.stop().is_err() {
+        if let Some(mut device) = self.device.take() {
+            if device.stop().is_err() {
                 let _ = self.abandon_state();
             }
         }
@@ -977,6 +1012,68 @@ mod tests {
             .recv_timeout(Duration::from_secs(2))
             .expect("worker never exited");
         assert_eq!(outcome, Err(TapError::Silent), "finish() outcome lost");
+        drop(tx);
+    }
+
+    /// Drive `stop()` itself: a device whose stop fails must report that failure, join the
+    /// worker and raise the shutdown flag. No Core Audio: the session is built over the fake.
+    #[test]
+    fn session_stop_with_failing_device_reports_and_exits() {
+        // The test keeps `tx` open, so only `shutdown` can end the worker.
+        let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+        let (free_tx, _free) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+        let (shutdown, heard) = (
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(false)),
+        );
+        let (flag, worker_heard) = (Arc::clone(&shutdown), Arc::clone(&heard));
+        let (done_tx, done) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let result = run_worker(
+                48_000,
+                &rx,
+                &free_tx,
+                &mut |_: &[f32]| {},
+                &worker_heard,
+                &flag,
+            );
+            let _ = done_tx.send(());
+            result
+        });
+        tx.send(sine(48_000, 440.0, 0.25)).expect("queue tone");
+        for _ in 0..400 {
+            if heard.load(Ordering::Relaxed) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(
+            heard.load(Ordering::Relaxed),
+            "worker never reached the queued tone"
+        );
+
+        let session: SystemAudioSession<FakeDevice> = SystemAudioSession {
+            tap: None,
+            device: Some(FakeDevice {
+                stop_err: Some(TapError::Device("stop failed".into())),
+                ..FakeDevice::default()
+            }),
+            aggregate_id: None,
+            state: std::ptr::null_mut(),
+            worker: Some(worker),
+            dropped: Arc::new(AtomicU64::new(0)),
+            worker_gone: Arc::new(AtomicBool::new(false)),
+            heard,
+            shutdown: Arc::clone(&shutdown),
+        };
+        let err = session.stop().expect_err("device stop failure was swallowed");
+        assert_eq!(err, TapError::Device("stop failed".into()));
+        assert!(
+            shutdown.load(Ordering::Acquire),
+            "stop left the shutdown flag down with IO possibly live"
+        );
+        done.recv_timeout(Duration::from_secs(2))
+            .expect("worker thread never exited");
         drop(tx);
     }
 
