@@ -981,7 +981,7 @@ export type ImplementationChangeResult = { success: boolean;
  * List of binding IDs that were reset to defaults due to incompatibility
  */
 reset_bindings: string[] }
-export type KeyboardImplementation = "tauri" | "handy_keys" | "coco_keys"
+export type KeyboardImplementation = "tauri" | "coco_voice_keys"
 export type CorrectionPair = { from: string; to: string }
 export type LLMPrompt = { id: string; name: string; prompt: string }
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error"
