@@ -15,10 +15,12 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 const VAD_THRESHOLD: f32 = 0.3;
+/// Broadcast with `true` when a take starts capturing and `false` when it ends.
+const RECORDING_STATE_EVENT: &str = "recording-state-changed";
 
 /// Sets the default output mute. Returns whether the mute command succeeded.
 ///
@@ -667,6 +669,7 @@ impl AudioRecordingManager {
                         binding_id: binding_id.to_string(),
                     };
                     debug!("Recording started for binding {binding_id}");
+                    self.emit_recording_state(true);
                     return Ok(());
                 }
             }
@@ -754,6 +757,7 @@ impl AudioRecordingManager {
 
                 *self.is_recording.lock().unwrap() = false;
                 *self.state.lock().unwrap() = RecordingState::Idle;
+                self.emit_recording_state(false);
 
                 // In on-demand mode, close the mic (lazily if the setting is enabled)
                 if matches!(*self.mode.lock().unwrap(), MicrophoneMode::OnDemand) {
@@ -783,6 +787,13 @@ impl AudioRecordingManager {
             _ => None,
         }
     }
+
+    fn emit_recording_state(&self, recording: bool) {
+        if let Err(e) = self.app_handle.emit(RECORDING_STATE_EVENT, recording) {
+            debug!("Failed to emit {RECORDING_STATE_EVENT}: {e}");
+        }
+    }
+
     pub fn is_recording(&self) -> bool {
         matches!(
             *self.state.lock().unwrap(),
@@ -805,6 +816,7 @@ impl AudioRecordingManager {
                 }
 
                 *self.is_recording.lock().unwrap() = false;
+                self.emit_recording_state(false);
                 // A cancelled take must not leave the speakers muted (always-on
                 // mode never closes the stream, which would otherwise restore it).
                 self.remove_mute();

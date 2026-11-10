@@ -25,6 +25,9 @@ const WAVE_BARS = 9;
 // Reduced motion batches word updates. 250 ms is 4 Hz.
 const REDUCED_MOTION_GAP_MS = 250;
 
+// How long "Still working" replaces the work label after a refused press.
+const BUSY_NOTICE_MS = 1500;
+
 type PolishSnapshot = { text: string; done: boolean };
 
 function overlayWorkLabel(
@@ -101,6 +104,9 @@ const RecordingOverlay: React.FC = () => {
   // True once live text overflows the cap. A top overlay fades its top edge only
   // while overflowing, so the resting first line stays crisp flush under the pill.
   const [overflowing, setOverflowing] = useState(false);
+  // A shortcut press arrived while this take is still being transcribed.
+  const [busy, setBusy] = useState(false);
+  const busyTimerRef = useRef<number | null>(null);
 
   const smoothedLevelsRef = useRef<number[]>(Array(16).fill(0));
   // The cleanup listener is registered once, so it reads these instead of the
@@ -229,6 +235,17 @@ const RecordingOverlay: React.FC = () => {
         setIsVisible(false);
       });
 
+      const unlistenBusy = await listen("pipeline-busy", () => {
+        setBusy(true);
+        if (busyTimerRef.current !== null) {
+          window.clearTimeout(busyTimerRef.current);
+        }
+        busyTimerRef.current = window.setTimeout(() => {
+          busyTimerRef.current = null;
+          setBusy(false);
+        }, BUSY_NOTICE_MS);
+      });
+
       const unlistenLevel = await listen<number[]>("mic-level", (event) => {
         const newLevels = event.payload as number[];
         // Exponential smoothing across the 16 buckets, then take the first N
@@ -279,6 +296,11 @@ const RecordingOverlay: React.FC = () => {
       return () => {
         unlistenShow();
         unlistenHide();
+        unlistenBusy();
+        if (busyTimerRef.current !== null) {
+          window.clearTimeout(busyTimerRef.current);
+          busyTimerRef.current = null;
+        }
         unlistenLevel();
         unlistenStream();
         unlistenPhase();
@@ -452,9 +474,15 @@ const RecordingOverlay: React.FC = () => {
           </div>
           {working
             ? workingRow(
-                overlayWorkLabel(workKind === "polishing", onDevicePolish, t),
+                busy
+                  ? t("overlay.stillWorking")
+                  : overlayWorkLabel(
+                      workKind === "polishing",
+                      onDevicePolish,
+                      t,
+                    ),
                 true,
-                workKind === "polishing" && onDevicePolish,
+                busy || (workKind === "polishing" && onDevicePolish),
               )
             : listeningRow(open, true)}
         </div>
@@ -466,7 +494,9 @@ const RecordingOverlay: React.FC = () => {
   // spinner + label (transcribing / processing). Never both. The pill animates its
   // width between them; the cancel button is in both rows so it stays put.
   const working = state === "transcribing" || state === "processing";
-  const workLabel = overlayWorkLabel(state === "processing", onDevicePolish, t);
+  const workLabel = busy
+    ? t("overlay.stillWorking")
+    : overlayWorkLabel(state === "processing", onDevicePolish, t);
 
   return (
     <div
@@ -482,7 +512,7 @@ const RecordingOverlay: React.FC = () => {
           ? workingRow(
               workLabel,
               true,
-              state === "processing" && onDevicePolish,
+              busy || (state === "processing" && onDevicePolish),
             )
           : listeningRow(false, true)}
       </div>

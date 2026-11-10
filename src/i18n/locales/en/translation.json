@@ -661,7 +661,8 @@
   "overlay": {
     "transcribing": "Transcribing...",
     "processing": "Processing...",
-    "polishing": "Polishing..."
+    "polishing": "Polishing...",
+    "stillWorking": "Still working"
   },
   "cleanupStatus": {
     "chip": {

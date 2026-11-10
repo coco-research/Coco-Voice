@@ -658,7 +658,8 @@
   "overlay": {
     "transcribing": "Přepisuji...",
     "processing": "Zpracovávám...",
-    "polishing": "Upravuji..."
+    "polishing": "Upravuji...",
+    "stillWorking": "Stále pracuji"
   },
   "whatsNew": {
     "title": "Novinky v Coco Voice v{{version}}"
