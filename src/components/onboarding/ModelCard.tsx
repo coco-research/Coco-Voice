@@ -11,7 +11,8 @@ import {
   Loader2,
   Trash2,
 } from "lucide-react";
-import type { ModelInfo } from "@/bindings";
+import type { DownloadFailureCause, ModelInfo } from "@/bindings";
+import { useModelStore } from "../../stores/modelStore";
 import modelLicences from "../../../src-tauri/src/catalog/model_licences.json";
 import { formatModelSize } from "../../lib/utils/format";
 import {
@@ -96,7 +97,16 @@ interface ModelCardProps {
   downloadProgress?: number;
   downloadSpeed?: number; // MB/s
   showRecommended?: boolean;
+  /** Onboarding only: leave a failed download and go on to the app. */
+  onSkip?: () => void;
 }
+
+const failureKey: Record<DownloadFailureCause, string> = {
+  network: "modelSelector.downloadFailed.network",
+  disk_space: "modelSelector.downloadFailed.diskSpace",
+  checksum: "modelSelector.downloadFailed.checksum",
+  other: "modelSelector.downloadFailed.other",
+};
 
 const ModelCard: React.FC<ModelCardProps> = ({
   model,
@@ -111,8 +121,10 @@ const ModelCard: React.FC<ModelCardProps> = ({
   downloadProgress,
   downloadSpeed,
   showRecommended = true,
+  onSkip,
 }) => {
   const { t } = useTranslation();
+  const failure = useModelStore((s) => s.downloadFailures[model.id]);
   const licence = licenceEntry(model);
   const isFeatured = variant === "featured";
   const isClickable =
@@ -361,6 +373,38 @@ const ModelCard: React.FC<ModelCardProps> = ({
               )}
             </div>
           </div>
+        </div>
+      )}
+      {failure && status === "downloadable" && (
+        <div className="w-full mt-1 flex items-center gap-2 flex-wrap">
+          <p role="alert" className="text-xs text-red-500 flex-1">
+            {t(failureKey[failure])}
+          </p>
+          {onDownload && (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={disabled}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDownload(model.id);
+              }}
+            >
+              {t("modelSelector.downloadFailed.retry")}
+            </Button>
+          )}
+          {onSkip && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSkip();
+              }}
+            >
+              {t("modelSelector.downloadFailed.skip")}
+            </Button>
+          )}
         </div>
       )}
       {status === "verifying" && (

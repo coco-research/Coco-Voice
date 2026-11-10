@@ -2,7 +2,12 @@ import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { produce } from "immer";
 import { listen } from "@tauri-apps/api/event";
-import { commands, type ModelInfo } from "@/bindings";
+import {
+  commands,
+  type DownloadFailureCause,
+  type ModelDownloadFailed,
+  type ModelInfo,
+} from "@/bindings";
 import { toast } from "sonner";
 
 interface DownloadProgress {
@@ -28,6 +33,7 @@ interface ModelsStore {
   extractingModels: Record<string, true>;
   downloadProgress: Record<string, DownloadProgress>;
   downloadStats: Record<string, DownloadStats>;
+  downloadFailures: Record<string, DownloadFailureCause>;
   loading: boolean;
   error: string | null;
   initialized: boolean;
@@ -64,6 +70,7 @@ export const useModelStore = create<ModelsStore>()(
     extractingModels: {},
     downloadProgress: {},
     downloadStats: {},
+    downloadFailures: {},
     loading: true,
     error: null,
     initialized: false,
@@ -165,6 +172,7 @@ export const useModelStore = create<ModelsStore>()(
         set(
           produce((state) => {
             state.downloadingModels[modelId] = true;
+            delete state.downloadFailures[modelId];
             state.downloadProgress[modelId] = {
               model_id: modelId,
               downloaded: 0,
@@ -332,22 +340,20 @@ export const useModelStore = create<ModelsStore>()(
         get().loadModels();
       });
 
-      listen<{ model_id: string; error: string }>(
-        "model-download-failed",
-        (event) => {
-          const { model_id: modelId, error } = event.payload;
-          set(
-            produce((state) => {
-              delete state.downloadingModels[modelId];
-              delete state.verifyingModels[modelId];
-              delete state.downloadProgress[modelId];
-              delete state.downloadStats[modelId];
-              state.error = error;
-            }),
-          );
-          toast.error(error);
-        },
-      );
+      listen<ModelDownloadFailed>("model-download-failed", (event) => {
+        const { model_id: modelId, error, cause } = event.payload;
+        set(
+          produce((state) => {
+            delete state.downloadingModels[modelId];
+            delete state.verifyingModels[modelId];
+            delete state.downloadProgress[modelId];
+            delete state.downloadStats[modelId];
+            state.downloadFailures[modelId] = cause;
+            state.error = error;
+          }),
+        );
+        toast.error(error);
+      });
 
       listen<string>("model-verification-started", (event) => {
         const modelId = event.payload;

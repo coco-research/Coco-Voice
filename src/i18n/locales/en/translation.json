@@ -144,6 +144,14 @@
     "downloadSpeed": "{{speed}} MB/s",
     "cancel": "Cancel",
     "cancelDownload": "Cancel download",
+    "downloadFailed": {
+      "network": "Download failed: check your internet connection.",
+      "diskSpace": "Download failed: not enough disk space.",
+      "checksum": "Download failed: the file did not pass its integrity check.",
+      "other": "Download failed.",
+      "retry": "Try again",
+      "skip": "Skip for now"
+    },
     "capabilities": {
       "languageSelection": "Supports multiple input languages",
       "singleLanguage": "Supports this language only",
