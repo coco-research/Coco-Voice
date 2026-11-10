@@ -658,7 +658,8 @@
   "overlay": {
     "transcribing": "מתמלל...",
     "processing": "מעבד...",
-    "polishing": "עורך..."
+    "polishing": "עורך...",
+    "stillWorking": "עדיין עובד"
   },
   "whatsNew": {
     "title": "חדש ב-Coco Voice v{{version}}"

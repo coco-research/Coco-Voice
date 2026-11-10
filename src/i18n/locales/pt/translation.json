@@ -658,7 +658,8 @@
   "overlay": {
     "transcribing": "Transcrevendo...",
     "processing": "Processando...",
-    "polishing": "Revisando..."
+    "polishing": "Revisando...",
+    "stillWorking": "Ainda trabalhando"
   },
   "whatsNew": {
     "title": "Novidades no Coco Voice v{{version}}"

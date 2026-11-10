@@ -658,7 +658,8 @@
   "overlay": {
     "transcribing": "Đang chuyển đổi...",
     "processing": "Đang xử lý...",
-    "polishing": "Đang sửa..."
+    "polishing": "Đang sửa...",
+    "stillWorking": "Vẫn đang xử lý"
   },
   "whatsNew": {
     "title": "Điểm mới trong Coco Voice v{{version}}"

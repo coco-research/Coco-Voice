@@ -32,6 +32,8 @@ interface ModelsStore {
   error: string | null;
   initialized: boolean;
   isRescanning: boolean;
+  // A take is being captured; the model picker stays locked until it ends.
+  isRecording: boolean;
 
   // Actions
   initialize: () => Promise<void>;
@@ -68,6 +70,7 @@ export const useModelStore = create<ModelsStore>()(
     error: null,
     initialized: false,
     isRescanning: false,
+    isRecording: false,
 
     // Internal setters
     setModels: (models) => set({ models }),
@@ -424,6 +427,21 @@ export const useModelStore = create<ModelsStore>()(
       listen("models-updated", () => {
         get().loadModels();
       });
+
+      // An event that lands first is newer than the snapshot, so it wins.
+      let recordingEventSeen = false;
+      listen<boolean>("recording-state-changed", (event) => {
+        recordingEventSeen = true;
+        set({ isRecording: event.payload });
+      }).catch((err) =>
+        console.error("Failed to listen for recording state:", err),
+      );
+      commands
+        .isRecording()
+        .then((isRecording) => {
+          if (!recordingEventSeen) set({ isRecording });
+        })
+        .catch((err) => console.error("Failed to read recording state:", err));
 
       set({ initialized: true });
     },
