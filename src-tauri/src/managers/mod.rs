@@ -3,6 +3,8 @@ pub mod gguf_meta;
 pub mod history;
 #[cfg(feature = "meetings")]
 pub mod meetings;
+#[cfg(feature = "meetings")]
+pub mod meetings_export;
 pub mod model;
 pub mod model_capabilities;
 pub mod transcription;
