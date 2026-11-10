@@ -958,6 +958,8 @@ export type CleanupStatus = { reason: CleanupStatusReason; needs_action: boolean
 export type CleanupStatusReason = "no_provider_selected" | "no_model_configured" | "no_prompt_selected" | "prompt_not_found" | "prompt_empty" | "no_api_key" | "provider_unavailable_in_this_build" | "apple_intelligence_unavailable" | "local_model_not_downloaded" | "provider_not_found" | "too_long" | "stopped_early" | "model_load_failed"
 export type ClipboardHandling = "dont_modify" | "copy_to_clipboard"
 export type CustomSounds = { start: boolean; stop: boolean }
+/** Why a model download failed, so the UI can say what to do next. */
+export type DownloadFailureCause = "network" | "disk_space" | "checksum" | "other"
 export type EngineType = 
 /**
  * Any GGML/GGUF model loaded through transcribe-cpp (Whisper, Parakeet,
@@ -986,6 +988,8 @@ export type CorrectionPair = { from: string; to: string }
 export type LLMPrompt = { id: string; name: string; prompt: string }
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error"
 export type ModelInfo = { id: string; name: string; description: string; filename: string; source: ModelSource; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; is_directory: boolean; engine_type: EngineType; accuracy_score: number; speed_score: number; supports_translation: boolean; is_recommended: boolean; supported_languages: string[]; supports_language_selection: boolean; is_custom: boolean; supports_streaming: boolean; supports_language_detection: boolean }
+/** Payload of the `model-download-failed` event. */
+export type ModelDownloadFailed = { model_id: string; error: string; cause: DownloadFailureCause }
 export type ModelLoadStatus = { is_loaded: boolean; current_model: string | null }
 /**
  * Where a model comes from and how Coco Voice obtains it — the routing discriminant

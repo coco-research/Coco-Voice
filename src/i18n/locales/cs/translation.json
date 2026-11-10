@@ -151,6 +151,14 @@
     },
     "cancel": "Zrušit",
     "cancelDownload": "Zrušit stahování",
+    "downloadFailed": {
+      "network": "Stahování selhalo: zkontrolujte připojení k internetu.",
+      "diskSpace": "Stahování selhalo: na disku není dost místa.",
+      "checksum": "Stahování selhalo: soubor neprošel kontrolou integrity.",
+      "other": "Stahování selhalo.",
+      "retry": "Zkusit znovu",
+      "skip": "Zatím přeskočit"
+    },
     "legacy": "Zastaralé",
     "licence": "Licence: {{licence}}"
   },

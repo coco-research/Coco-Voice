@@ -142,6 +142,14 @@
     "downloadSpeed": "{{speed}} MB/s",
     "cancel": "取消",
     "cancelDownload": "取消下載",
+    "downloadFailed": {
+      "network": "下載失敗：請檢查網路連線。",
+      "diskSpace": "下載失敗：磁碟空間不足。",
+      "checksum": "下載失敗：檔案未通過完整性檢查。",
+      "other": "下載失敗。",
+      "retry": "再試一次",
+      "skip": "暫時略過"
+    },
     "capabilities": {
       "languageSelection": "支援多種輸入語言",
       "singleLanguage": "僅支援此語言",

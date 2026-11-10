@@ -151,6 +151,14 @@
     },
     "cancel": "Hủy",
     "cancelDownload": "Hủy tải xuống",
+    "downloadFailed": {
+      "network": "Tải xuống thất bại: hãy kiểm tra kết nối internet.",
+      "diskSpace": "Tải xuống thất bại: không đủ dung lượng ổ đĩa.",
+      "checksum": "Tải xuống thất bại: tệp không vượt qua kiểm tra toàn vẹn.",
+      "other": "Tải xuống thất bại.",
+      "retry": "Thử lại",
+      "skip": "Bỏ qua lúc này"
+    },
     "legacy": "Cũ",
     "licence": "Giấy phép: {{licence}}"
   },

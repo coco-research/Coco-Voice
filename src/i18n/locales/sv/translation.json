@@ -142,6 +142,14 @@
     "downloadSpeed": "{{speed}} MB/s",
     "cancel": "Avbryt",
     "cancelDownload": "Avbryt nedladdning",
+    "downloadFailed": {
+      "network": "Nedladdningen misslyckades: kontrollera din internetanslutning.",
+      "diskSpace": "Nedladdningen misslyckades: inte tillräckligt med diskutrymme.",
+      "checksum": "Nedladdningen misslyckades: filen klarade inte integritetskontrollen.",
+      "other": "Nedladdningen misslyckades.",
+      "retry": "Försök igen",
+      "skip": "Hoppa över tills vidare"
+    },
     "capabilities": {
       "languageSelection": "Stöder flera indataspråk",
       "singleLanguage": "Stöder endast detta språk",

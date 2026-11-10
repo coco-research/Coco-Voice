@@ -711,7 +711,9 @@ pub fn run(cli_args: CliArgs) {
             managers::transcription::StreamPhaseEvent,
             cleanup_resolver::CleanupStatus,
             actions::CleanupProgress,
-        ]);
+        ])
+        // Emitted with a plain `emit`, registered so bindings.ts carries its type.
+        .typ::<managers::model::ModelDownloadFailed>();
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
     {
