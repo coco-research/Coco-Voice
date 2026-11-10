@@ -107,7 +107,14 @@
       },
       "accessibility": {
         "title": "Přístup k usnadnění",
-        "description": "Potřebný pro psaní přepsaného textu do vašich aplikací."
+        "description": "Potřebný pro psaní přepsaného textu do vašich aplikací.",
+        "stale": {
+          "description": "macOS uvádí Coco Voice jako povolený, ale záznam je zastaralý (často po aktualizaci), takže vkládání nebude fungovat. Oprava:",
+          "step1": "Otevřete Nastavení systému > Soukromí a zabezpečení > Zpřístupnění.",
+          "step2": "Vyberte Coco Voice a odeberte jej tlačítkem minus (-).",
+          "step3": "Přidejte Coco Voice znovu tlačítkem plus (+) a zapněte jej.",
+          "checkAgain": "Zkontrolovat znovu"
+        }
       },
       "grant": "Udělit oprávnění",
       "granted": "Uděleno",

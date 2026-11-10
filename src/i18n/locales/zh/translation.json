@@ -107,7 +107,14 @@
       },
       "accessibility": {
         "title": "辅助功能访问",
-        "description": "需要将转录文本输入到您的应用程序中。"
+        "description": "需要将转录文本输入到您的应用程序中。",
+        "stale": {
+          "description": "macOS 显示 Coco Voice 已获允许，但该条目已过期（常见于更新之后），因此无法粘贴。修复方法：",
+          "step1": "打开 系统设置 > 隐私与安全性 > 辅助功能。",
+          "step2": "选中 Coco Voice，然后用减号 (-) 按钮将其移除。",
+          "step3": "用加号 (+) 按钮重新添加 Coco Voice 并将其打开。",
+          "checkAgain": "再次检查"
+        }
       },
       "grant": "授予权限",
       "granted": "已授予",
