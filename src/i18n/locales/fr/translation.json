@@ -107,7 +107,14 @@
       },
       "accessibility": {
         "title": "Accès à l'accessibilité",
-        "description": "Nécessaire pour taper le texte transcrit dans vos applications."
+        "description": "Nécessaire pour taper le texte transcrit dans vos applications.",
+        "stale": {
+          "description": "macOS indique que Coco Voice est autorisé, mais l'entrée est obsolète (souvent après une mise à jour), donc le collage ne fonctionnera pas. Pour corriger :",
+          "step1": "Ouvrez Réglages Système > Confidentialité et sécurité > Accessibilité.",
+          "step2": "Sélectionnez Coco Voice et supprimez-le avec le bouton moins (-).",
+          "step3": "Ajoutez à nouveau Coco Voice avec le bouton plus (+) et activez-le.",
+          "checkAgain": "Vérifier à nouveau"
+        }
       },
       "grant": "Accorder l'autorisation",
       "granted": "Accordé",

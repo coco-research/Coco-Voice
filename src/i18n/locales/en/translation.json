@@ -107,7 +107,14 @@
       },
       "accessibility": {
         "title": "Accessibility Access",
-        "description": "Required to type transcribed text into your applications."
+        "description": "Required to type transcribed text into your applications.",
+        "stale": {
+          "description": "macOS lists Coco Voice as allowed, but the entry is out of date (this often happens after an update), so pasting won't work. To fix it:",
+          "step1": "Open System Settings > Privacy & Security > Accessibility.",
+          "step2": "Select Coco Voice and remove it with the minus (-) button.",
+          "step3": "Add Coco Voice again with the plus (+) button and turn it on.",
+          "checkAgain": "Check again"
+        }
       },
       "grant": "Grant Permission",
       "granted": "Granted",

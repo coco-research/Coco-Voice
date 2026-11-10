@@ -107,7 +107,14 @@
       },
       "accessibility": {
         "title": "Quyền truy cập Trợ năng",
-        "description": "Cần thiết để nhập văn bản đã chuyển đổi vào các ứng dụng của bạn."
+        "description": "Cần thiết để nhập văn bản đã chuyển đổi vào các ứng dụng của bạn.",
+        "stale": {
+          "description": "macOS hiển thị Coco Voice là đã được cho phép, nhưng mục này đã cũ (thường xảy ra sau khi cập nhật), nên không thể dán. Cách khắc phục:",
+          "step1": "Mở Cài đặt hệ thống > Quyền riêng tư & Bảo mật > Trợ năng.",
+          "step2": "Chọn Coco Voice và xóa bằng nút trừ (-).",
+          "step3": "Thêm lại Coco Voice bằng nút cộng (+) và bật lên.",
+          "checkAgain": "Kiểm tra lại"
+        }
       },
       "grant": "Cấp quyền",
       "granted": "Đã cấp",
