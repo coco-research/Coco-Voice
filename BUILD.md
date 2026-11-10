@@ -115,6 +115,8 @@ bun run tauri build
 
 This compiles a release binary and generates platform-specific bundles (deb, rpm, AppImage on Linux; dmg on macOS; msi on Windows).
 
+The meetings feature is off in release builds. To bundle it on macOS with its system-audio permission text, run `bun run tauri build --features meetings --config src-tauri/tauri.meetings.conf.json` (`tauri dev` reads only `src-tauri/Info.plist`, so the text is in bundled builds only).
+
 ## Linux Install (from source)
 
 The raw binary (`src-tauri/target/release/coco-voice`) cannot run standalone — it needs Tauri resource files (tray icons, sounds, VAD model) to be co-located at the expected path.

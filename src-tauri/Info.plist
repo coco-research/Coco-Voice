@@ -4,7 +4,5 @@
 <dict>
   <key>NSMicrophoneUsageDescription</key>
   <string>Request microphone access to transcribe audio locally</string>
-  <key>NSAudioCaptureUsageDescription</key>
-  <string>Coco Voice records system audio from your meetings and transcribes it on this Mac.</string>
 </dict>
 </plist>
