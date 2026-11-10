@@ -89,6 +89,33 @@ pub struct StoredNote {
     pub citations: Vec<i64>,
 }
 
+/// Map one `meetings` row; shared by every `Meeting` query.
+fn meeting_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Meeting> {
+    Ok(Meeting {
+        id: row.get(0)?,
+        started_at: row.get(1)?,
+        ended_at: row.get(2)?,
+        title: row.get(3)?,
+        status: row.get(4)?,
+        model_id: row.get(5)?,
+        saved: row.get(6)?,
+    })
+}
+
+/// Escape `%`, `_` and `\` so the query is a plain substring, not a pattern.
+fn like_pattern(query: &str) -> String {
+    let mut out = String::with_capacity(query.len() + 2);
+    out.push('%');
+    for c in query.chars() {
+        if c == '%' || c == '_' || c == '\\' {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out.push('%');
+    out
+}
+
 pub struct MeetingsStore {
     db_path: PathBuf,
 }
@@ -134,19 +161,51 @@ impl MeetingsStore {
             "SELECT id, started_at, ended_at, title, status, model_id, saved
              FROM meetings WHERE id = ?1",
             params![id],
-            |row| {
-                Ok(Meeting {
-                    id: row.get(0)?,
-                    started_at: row.get(1)?,
-                    ended_at: row.get(2)?,
-                    title: row.get(3)?,
-                    status: row.get(4)?,
-                    model_id: row.get(5)?,
-                    saved: row.get(6)?,
-                })
-            },
+            meeting_from_row,
         )
         .map_err(|e| anyhow!("meeting {id}: {e}"))
+    }
+
+    /// Every meeting, newest first.
+    pub fn list_meetings(&self) -> Result<Vec<Meeting>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, started_at, ended_at, title, status, model_id, saved
+             FROM meetings ORDER BY started_at DESC, id DESC",
+        )?;
+        let rows = stmt.query_map([], meeting_from_row)?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
+    }
+
+    /// Meetings with `query` in the title, any segment, or any note text or owner; blank lists all.
+    pub fn search_meetings(&self, query: &str) -> Result<Vec<Meeting>> {
+        let trimmed = query.trim();
+        if trimmed.is_empty() {
+            return self.list_meetings();
+        }
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT m.id, m.started_at, m.ended_at, m.title, m.status, m.model_id, m.saved
+             FROM meetings m
+             WHERE m.title LIKE ?1 ESCAPE '\\'
+                OR EXISTS (SELECT 1 FROM meeting_segments s
+                           WHERE s.meeting_id = m.id AND s.text LIKE ?1 ESCAPE '\\')
+                OR EXISTS (SELECT 1 FROM meeting_notes n
+                           WHERE n.meeting_id = m.id
+                             AND (n.text LIKE ?1 ESCAPE '\\'
+                                  OR n.owner LIKE ?1 ESCAPE '\\'))
+             ORDER BY m.started_at DESC, m.id DESC",
+        )?;
+        let rows = stmt.query_map(params![like_pattern(trimmed)], meeting_from_row)?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
     }
 
     /// Replace every note of `meeting_id` with `notes`, in one transaction.
@@ -634,5 +693,100 @@ mod tests {
 
         let result = MeetingsStore::open(dir.path());
         assert!(result.is_err(), "a newer meetings.db was accepted");
+    }
+
+    fn segment(store: &MeetingsStore, meeting_id: i64, text: &str) {
+        store
+            .connection()
+            .unwrap()
+            .execute(
+                "INSERT INTO meeting_segments (meeting_id, start_ms, end_ms, channel, text)
+                 VALUES (?1, 0, 0, 'mic', ?2)",
+                params![meeting_id, text],
+            )
+            .unwrap();
+    }
+
+    fn ids(meetings: &[Meeting]) -> Vec<i64> {
+        meetings.iter().map(|m| m.id).collect()
+    }
+
+    #[test]
+    fn search_matches_transcript_segment() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let a = store.start_meeting("Standup", "model").unwrap();
+        let b = store.start_meeting("Planning", "model").unwrap();
+        segment(&store, a, "a zebra crossed the car park");
+        segment(&store, b, "nothing unusual happened");
+        assert_eq!(ids(&store.search_meetings("zebra").unwrap()), vec![a]);
+    }
+
+    #[test]
+    fn search_matches_action_item_note() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let _ = store.start_meeting("Standup", "model").unwrap();
+        let b = store.start_meeting("Planning", "model").unwrap();
+        store
+            .save_notes(b, &[note("action", "Email the zebra report", None, vec![])])
+            .unwrap();
+        assert_eq!(ids(&store.search_meetings("zebra").unwrap()), vec![b]);
+    }
+
+    #[test]
+    fn blank_query_lists_all_newest_first() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let a = store.start_meeting("Older", "model").unwrap();
+        let b = store.start_meeting("Newer", "model").unwrap();
+        assert_eq!(ids(&store.list_meetings().unwrap()), vec![b, a]);
+        assert_eq!(ids(&store.search_meetings("").unwrap()), vec![b, a]);
+        assert_eq!(ids(&store.search_meetings("   ").unwrap()), vec![b, a]);
+    }
+
+    #[test]
+    fn search_is_case_insensitive() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let a = store.start_meeting("Standup", "model").unwrap();
+        segment(&store, a, "Zebra crossing closed");
+        assert_eq!(ids(&store.search_meetings("ZEBRA").unwrap()), vec![a]);
+    }
+
+    #[test]
+    fn wildcards_are_literal() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let sale = store.start_meeting("50% off", "model").unwrap();
+        let plain = store.start_meeting("5000", "model").unwrap();
+        assert_eq!(ids(&store.search_meetings("50%").unwrap()), vec![sale]);
+        assert_eq!(ids(&store.search_meetings("5000").unwrap()), vec![plain]);
+
+        let snake = store.start_meeting("snake_case plan", "model").unwrap();
+        let camel = store.start_meeting("snakeXcase plan", "model").unwrap();
+        assert_eq!(
+            ids(&store.search_meetings("snake_case").unwrap()),
+            vec![snake]
+        );
+        assert_eq!(
+            ids(&store.search_meetings("snakeXcase").unwrap()),
+            vec![camel]
+        );
+    }
+
+    #[test]
+    fn meeting_matching_twice_appears_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let first = store.start_meeting("Zebra review", "model").unwrap();
+        let second = store.start_meeting("Standup", "model").unwrap();
+        segment(&store, first, "the zebra is back");
+        segment(&store, first, "another zebra line");
+        segment(&store, second, "zebra again");
+        assert_eq!(
+            ids(&store.search_meetings("zebra").unwrap()),
+            vec![second, first]
+        );
     }
 }
