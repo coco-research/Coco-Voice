@@ -89,6 +89,19 @@ pub struct StoredNote {
     pub citations: Vec<i64>,
 }
 
+/// What [`MeetingsStore::delete_meeting`] managed to remove.
+///
+/// `Deleted` means every row and the meeting's audio directory are gone.
+/// `DeletedAudioLeft` means the rows are gone but `dir` is still on disk, with
+/// `error` saying why. The row deletion is final either way, so the caller must
+/// tell the user about the leftover audio instead of retrying blindly.
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, PartialEq, Eq)]
+pub enum DeleteOutcome {
+    Deleted,
+    DeletedAudioLeft { dir: PathBuf, error: String },
+}
+
 pub struct MeetingsStore {
     db_path: PathBuf,
 }
@@ -236,6 +249,68 @@ impl MeetingsStore {
             out.push(row?);
         }
         Ok(out)
+    }
+
+    /// Delete `id` completely: rows first in one transaction, files after the commit.
+    ///
+    /// The transaction removes the meeting's segments, notes, notepad points and
+    /// the meeting row. A missing meeting row rolls back and returns an error, so
+    /// nothing changes. There is no foreign key, so every table is cleared here
+    /// by hand.
+    ///
+    /// The audio directory `{meetings dir}/<id>` is removed with
+    /// `fs::remove_dir_all` only after the commit: a file error cannot be rolled
+    /// back, and rows that disagree with the files on disk are worse than audio
+    /// that lingers while the rows are already gone. A missing directory counts as
+    /// success. Any other file failure keeps the committed deletion, logs it, and
+    /// returns [`DeleteOutcome::DeletedAudioLeft`] so the caller can report it;
+    /// [`DeleteOutcome::Deleted`] is never returned while files remain. The only
+    /// path touched is the directory named exactly by `id` inside the meetings
+    /// dir; `meetings.db` and other meetings' dirs are never touched.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn delete_meeting(&self, id: i64) -> Result<DeleteOutcome> {
+        let meetings_dir = self
+            .db_path
+            .parent()
+            .ok_or_else(|| anyhow!("no meetings dir for {}", self.db_path.display()))?;
+        let name = id.to_string();
+        let dir = meetings_dir.join(&name);
+        if dir.file_name().and_then(|n| n.to_str()) != Some(name.as_str()) {
+            return Err(anyhow!("refusing to delete {}", dir.display()));
+        }
+
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        tx.execute(
+            "DELETE FROM meeting_segments WHERE meeting_id = ?1",
+            params![id],
+        )?;
+        tx.execute(
+            "DELETE FROM meeting_notes WHERE meeting_id = ?1",
+            params![id],
+        )?;
+        tx.execute(
+            "DELETE FROM meeting_notepad WHERE meeting_id = ?1",
+            params![id],
+        )?;
+        if tx.execute("DELETE FROM meetings WHERE id = ?1", params![id])? == 0 {
+            tx.rollback()?;
+            return Err(anyhow!("meeting {id} not found"));
+        }
+        tx.commit()?;
+
+        match fs::remove_dir_all(&dir) {
+            Ok(()) => Ok(DeleteOutcome::Deleted),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(DeleteOutcome::Deleted),
+            Err(e) => {
+                let error = e.to_string();
+                log::warn!(
+                    "meeting {id}: rows deleted but {} was left on disk: {error}",
+                    dir.display()
+                );
+                Ok(DeleteOutcome::DeletedAudioLeft { dir, error })
+            }
+        }
     }
 
     /// Append PCM. On a write error the writer is stopped, this meeting is
@@ -619,6 +694,154 @@ mod tests {
         assert_eq!(version, 2);
         let row = store.meeting(1).unwrap();
         assert_eq!(row.title, "Old");
+    }
+
+    fn audio_dir(app_dir: &Path, id: i64) -> PathBuf {
+        app_dir.join("meetings").join(id.to_string())
+    }
+
+    fn child_rows(store: &MeetingsStore, table: &str, id: i64) -> i64 {
+        store
+            .connection()
+            .unwrap()
+            .query_row(
+                &format!("SELECT COUNT(*) FROM {table} WHERE meeting_id = ?1"),
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap()
+    }
+
+    fn meeting_rows(store: &MeetingsStore, id: i64) -> i64 {
+        store
+            .connection()
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM meetings WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap()
+    }
+
+    /// A meeting with one segment, one note, one notepad point and both WAVs.
+    fn full_meeting(store: &MeetingsStore, app_dir: &Path, title: &str) -> i64 {
+        let id = store.start_meeting(title, "model").unwrap();
+        store
+            .connection()
+            .unwrap()
+            .execute(
+                "INSERT INTO meeting_segments (meeting_id, start_ms, end_ms, channel, text)
+                 VALUES (?1, 0, 1000, 'mic', ?2)",
+                params![id, format!("{title} line")],
+            )
+            .unwrap();
+        store
+            .save_notes(id, &[note("decision", "ship", None, vec![1])])
+            .unwrap();
+        store.add_notepad_point(id, 1000, "point").unwrap();
+        let audio = audio_dir(app_dir, id);
+        fs::create_dir_all(&audio).unwrap();
+        fs::write(audio.join("mic.wav"), b"mic").unwrap();
+        fs::write(audio.join("system.wav"), b"system").unwrap();
+        id
+    }
+
+    fn assert_full(store: &MeetingsStore, app_dir: &Path, id: i64) {
+        assert_eq!(meeting_rows(store, id), 1, "meeting {id} row missing");
+        assert_eq!(child_rows(store, "meeting_segments", id), 1);
+        assert_eq!(child_rows(store, "meeting_notes", id), 1);
+        assert_eq!(child_rows(store, "meeting_notepad", id), 1);
+        let audio = audio_dir(app_dir, id);
+        assert_eq!(fs::read(audio.join("mic.wav")).unwrap(), b"mic");
+        assert_eq!(fs::read(audio.join("system.wav")).unwrap(), b"system");
+    }
+
+    fn assert_gone(store: &MeetingsStore, app_dir: &Path, id: i64) {
+        assert_eq!(meeting_rows(store, id), 0, "meeting {id} row survived");
+        assert_eq!(child_rows(store, "meeting_segments", id), 0);
+        assert_eq!(child_rows(store, "meeting_notes", id), 0);
+        assert_eq!(child_rows(store, "meeting_notepad", id), 0);
+        assert!(!audio_dir(app_dir, id).exists(), "audio dir survived");
+    }
+
+    #[test]
+    fn delete_meeting_removes_rows_and_files_only_of_that_meeting() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let a = full_meeting(&store, dir.path(), "A");
+        let b = full_meeting(&store, dir.path(), "B");
+
+        assert_eq!(store.delete_meeting(a).unwrap(), DeleteOutcome::Deleted);
+
+        assert_gone(&store, dir.path(), a);
+        assert_full(&store, dir.path(), b);
+        assert_eq!(store.notes(b).unwrap().len(), 1);
+        assert_eq!(store.notepad(b).unwrap().len(), 1);
+        assert!(store.meeting(b).is_ok());
+        assert!(dir.path().join("meetings").join("meetings.db").exists());
+    }
+
+    #[test]
+    fn delete_missing_meeting_changes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let b = full_meeting(&store, dir.path(), "B");
+
+        let err = store
+            .delete_meeting(b + 100)
+            .expect_err("missing id deleted");
+        assert!(
+            err.to_string().contains("not found"),
+            "unexpected error: {err}"
+        );
+
+        assert_full(&store, dir.path(), b);
+    }
+
+    #[test]
+    fn delete_meeting_without_audio_dir_succeeds() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = full_meeting(&store, dir.path(), "A");
+        fs::remove_dir_all(audio_dir(dir.path(), id)).unwrap();
+
+        assert_eq!(store.delete_meeting(id).unwrap(), DeleteOutcome::Deleted);
+        assert_gone(&store, dir.path(), id);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn failed_audio_delete_reports_left_dir_and_keeps_rows_gone() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = full_meeting(&store, dir.path(), "A");
+        let audio = audio_dir(dir.path(), id);
+        fs::create_dir_all(audio.join("sub")).unwrap();
+        fs::write(audio.join("sub").join("mic.wav"), b"mic").unwrap();
+        // Unlinking inside the meeting dir needs write on that dir. 0o555 denies
+        // it while the parent meetings dir stays writable, so remove_dir_all fails.
+        fs::set_permissions(&audio, fs::Permissions::from_mode(0o555)).unwrap();
+
+        let outcome = store.delete_meeting(id);
+
+        // Restore before asserting: a failed assert must not block tempdir cleanup.
+        fs::set_permissions(&audio, fs::Permissions::from_mode(0o755)).unwrap();
+
+        match outcome.unwrap() {
+            DeleteOutcome::DeletedAudioLeft { dir: left, error } => {
+                assert_eq!(left, audio);
+                assert!(!error.is_empty(), "no reason given for the leftover dir");
+            }
+            other => panic!("expected DeletedAudioLeft, got {other:?}"),
+        }
+        assert_eq!(meeting_rows(&store, id), 0);
+        assert_eq!(child_rows(&store, "meeting_segments", id), 0);
+        assert_eq!(child_rows(&store, "meeting_notes", id), 0);
+        assert_eq!(child_rows(&store, "meeting_notepad", id), 0);
+        assert!(audio.exists());
     }
 
     #[test]
