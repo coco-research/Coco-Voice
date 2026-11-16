@@ -29,6 +29,19 @@ pub fn get_tray_translations(locale: Option<String>) -> TrayStrings {
         .get(locale_str)
         .or_else(|| TRANSLATIONS.get(lang_code))
         .or_else(|| TRANSLATIONS.get("en"))
+        .or_else(|| TRANSLATIONS.values().next())
         .cloned()
-        .expect("English translations must exist")
+        .unwrap_or_else(fallback_tray_strings)
+}
+
+fn fallback_tray_strings() -> TrayStrings {
+    TrayStrings {
+        settings: "Settings".to_string(),
+        check_updates: "Check for updates".to_string(),
+        copy_last_transcript: "Copy last transcript".to_string(),
+        unload_model: "Unload model".to_string(),
+        model: "Model".to_string(),
+        quit: "Quit".to_string(),
+        cancel: "Cancel".to_string(),
+    }
 }
