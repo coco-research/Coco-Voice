@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "Não foi possível registar o atalho da reunião. Inicie e pare por aqui ou pela barra de menus."
+    },
+    "record": {
+      "startNowHeading": "Começar agora",
+      "whenCallStartsHeading": "Quando uma chamada começa",
+      "offerLabel": "Sugerir iniciar notas",
+      "offerDescription": "Mostra \"Iniciar notas?\" quando Zoom, Meet ou Teams está em chamada. Nunca grava sozinho.",
+      "wordsHeading": "Palavras e nomes de reuniões",
+      "wordsDescription": "Usadas apenas em reuniões e separadas das palavras personalizadas de ditado.",
+      "wordsPlaceholder": "Adicionar nome ou termo...",
+      "addWord": "Adicionar",
+      "removeWordAria": "Remover {{word}}",
+      "dictationKeepsWorking": "Gravar uma reunião nunca interrompe o ditado. O seu atalho continua a funcionar."
     }
   }
 }

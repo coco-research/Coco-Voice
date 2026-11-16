@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "No se pudo registrar el atajo de reunión. Inicia y detén desde aquí o desde la barra de menús."
+    },
+    "record": {
+      "startNowHeading": "Empezar ahora",
+      "whenCallStartsHeading": "Cuando empieza una llamada",
+      "offerLabel": "Ofrecer iniciar notas",
+      "offerDescription": "Muestra «¿Iniciar notas?» cuando Zoom, Meet o Teams está en llamada. Nunca graba por su cuenta.",
+      "wordsHeading": "Palabras y nombres de reuniones",
+      "wordsDescription": "Se usa solo en reuniones, separado de tus palabras personalizadas de dictado.",
+      "wordsPlaceholder": "Añadir nombre o término...",
+      "addWord": "Añadir",
+      "removeWordAria": "Quitar {{word}}",
+      "dictationKeepsWorking": "Grabar una reunión nunca detiene el dictado. Tu atajo sigue funcionando."
     }
   }
 }

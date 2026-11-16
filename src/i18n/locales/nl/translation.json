@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "Vergadersneltoets kon niet worden geregistreerd. Start en stop vanaf hier of via de menubalk."
+    },
+    "record": {
+      "startNowHeading": "Nu starten",
+      "whenCallStartsHeading": "Wanneer een gesprek begint",
+      "offerLabel": "Aanbieden om notities te starten",
+      "offerDescription": "Toont \"Notities starten?\" wanneer Zoom, Meet of Teams in gesprek is. Neemt nooit vanzelf op.",
+      "wordsHeading": "Woorden en namen voor vergaderingen",
+      "wordsDescription": "Alleen gebruikt voor vergaderingen, los van je aangepaste dicteerwoorden.",
+      "wordsPlaceholder": "Naam of term toevoegen...",
+      "addWord": "Toevoegen",
+      "removeWordAria": "Verwijder {{word}}",
+      "dictationKeepsWorking": "Een vergadering opnemen stopt dicteren nooit. Je sneltoets blijft werken."
     }
   }
 }

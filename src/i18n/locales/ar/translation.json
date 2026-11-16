@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "تعذّر تسجيل اختصار الاجتماع. يمكنك البدء والإيقاف من هنا أو من شريط القوائم."
+    },
+    "record": {
+      "startNowHeading": "ابدأ الآن",
+      "whenCallStartsHeading": "عند بدء مكالمة",
+      "offerLabel": "اعرض بدء الملاحظات",
+      "offerDescription": "يعرض «بدء الملاحظات؟» عندما يكون Zoom أو Meet أو Teams في مكالمة. لا يسجّل تلقائياً أبداً.",
+      "wordsHeading": "كلمات وأسماء الاجتماعات",
+      "wordsDescription": "تُستخدم للاجتماعات فقط وتبقى منفصلة عن كلمات الإملاء المخصّصة.",
+      "wordsPlaceholder": "أضف اسماً أو مصطلحاً للاجتماع...",
+      "addWord": "إضافة",
+      "removeWordAria": "إزالة {{word}}",
+      "dictationKeepsWorking": "تسجيل الاجتماع لا يوقف الإملاء أبداً. يظل اختصارك يعمل."
     }
   }
 }

@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "会議のショートカットを登録できませんでした。ここから、またはメニューバーから開始・停止できます。"
+    },
+    "record": {
+      "startNowHeading": "今すぐ開始",
+      "whenCallStartsHeading": "通話が始まったとき",
+      "offerLabel": "メモの開始を提案する",
+      "offerDescription": "Zoom、Meet、Teams の通話中に「メモを開始しますか？」を表示します。自動で録音することはありません。",
+      "wordsHeading": "会議用の単語と名前",
+      "wordsDescription": "会議でのみ使用され、音声入力のカスタム単語とは分けて保存されます。",
+      "wordsPlaceholder": "会議の名前や用語を追加...",
+      "addWord": "追加",
+      "removeWordAria": "{{word}} を削除",
+      "dictationKeepsWorking": "会議を録音しても音声入力は止まりません。ショートカットはそのまま使えます。"
     }
   }
 }

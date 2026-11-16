@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "Impossibile registrare la scorciatoia riunione. Avvia e interrompi da qui o dalla barra dei menu."
+    },
+    "record": {
+      "startNowHeading": "Inizia ora",
+      "whenCallStartsHeading": "Quando inizia una chiamata",
+      "offerLabel": "Proponi di avviare le note",
+      "offerDescription": "Mostra «Avviare le note?» quando Zoom, Meet o Teams è in chiamata. Non registra mai da solo.",
+      "wordsHeading": "Parole e nomi delle riunioni",
+      "wordsDescription": "Usati solo per le riunioni e separati dalle parole personalizzate di dettatura.",
+      "wordsPlaceholder": "Aggiungi un nome o termine...",
+      "addWord": "Aggiungi",
+      "removeWordAria": "Rimuovi {{word}}",
+      "dictationKeepsWorking": "Registrare una riunione non interrompe mai la dettatura. La scorciatoia continua a funzionare."
     }
   }
 }

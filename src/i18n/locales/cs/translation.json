@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "Zkratku schůzky se nepodařilo zaregistrovat. Spustit a zastavit můžete zde nebo v řádku nabídek."
+    },
+    "record": {
+      "startNowHeading": "Začít hned",
+      "whenCallStartsHeading": "Když začne hovor",
+      "offerLabel": "Nabídnout zahájení poznámek",
+      "offerDescription": "Zobrazí „Zahájit poznámky?“, když probíhá hovor v Zoomu, Meetu nebo Teams. Nikdy nenahrává samo.",
+      "wordsHeading": "Slova a jména pro schůzky",
+      "wordsDescription": "Používá se pouze u schůzek, odděleně od vlastních slov pro diktování.",
+      "wordsPlaceholder": "Přidat jméno nebo výraz...",
+      "addWord": "Přidat",
+      "removeWordAria": "Odebrat {{word}}",
+      "dictationKeepsWorking": "Nahrávání schůzky nikdy nezastaví diktování. Vaše zkratka funguje dál."
     }
   }
 }

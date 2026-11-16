@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "Не вдалося зареєструвати скорочення зустрічі. Запускайте й зупиняйте тут або зі смуги меню."
+    },
+    "record": {
+      "startNowHeading": "Почати зараз",
+      "whenCallStartsHeading": "Коли починається дзвінок",
+      "offerLabel": "Пропонувати почати нотатки",
+      "offerDescription": "Показує «Почати нотатки?», коли триває дзвінок у Zoom, Meet або Teams. Ніколи не записує самостійно.",
+      "wordsHeading": "Слова та імена для зустрічей",
+      "wordsDescription": "Використовуються лише для зустрічей окремо від власних слів диктування.",
+      "wordsPlaceholder": "Додати ім’я або термін...",
+      "addWord": "Додати",
+      "removeWordAria": "Видалити {{word}}",
+      "dictationKeepsWorking": "Запис зустрічі ніколи не зупиняє диктування. Ваше скорочення працює й далі."
     }
   }
 }

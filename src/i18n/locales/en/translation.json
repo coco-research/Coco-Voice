@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "Meeting shortcut could not be registered. Start and stop from here or the menu bar."
+    },
+    "record": {
+      "startNowHeading": "Start now",
+      "whenCallStartsHeading": "When a call starts",
+      "offerLabel": "Offer to start notes",
+      "offerDescription": "Shows \"Start notes?\" when Zoom, Meet or Teams is in a call. Never records on its own.",
+      "wordsHeading": "Meeting words and names",
+      "wordsDescription": "Used only for meetings and kept separate from your dictation custom words.",
+      "wordsPlaceholder": "Add a name or term for meetings...",
+      "addWord": "Add",
+      "removeWordAria": "Remove {{word}}",
+      "dictationKeepsWorking": "Recording a meeting never stops dictation. Your shortcut keeps working."
     }
   }
 }

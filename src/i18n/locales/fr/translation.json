@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "Impossible d’enregistrer le raccourci de réunion. Démarrez et arrêtez d’ici ou depuis la barre des menus."
+    },
+    "record": {
+      "startNowHeading": "Commencer maintenant",
+      "whenCallStartsHeading": "Lorsqu’un appel commence",
+      "offerLabel": "Proposer de prendre des notes",
+      "offerDescription": "Affiche « Prendre des notes ? » quand Zoom, Meet ou Teams est en appel. N’enregistre jamais seul.",
+      "wordsHeading": "Mots et noms de réunion",
+      "wordsDescription": "Utilisés uniquement pour les réunions, séparés de vos mots de dictée.",
+      "wordsPlaceholder": "Ajouter un nom ou un terme...",
+      "addWord": "Ajouter",
+      "removeWordAria": "Supprimer {{word}}",
+      "dictationKeepsWorking": "Enregistrer une réunion n’arrête jamais la dictée. Votre raccourci continue de fonctionner."
     }
   }
 }

@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "Không thể đăng ký phím tắt cuộc họp. Hãy bắt đầu và dừng từ đây hoặc thanh menu."
+    },
+    "record": {
+      "startNowHeading": "Bắt đầu ngay",
+      "whenCallStartsHeading": "Khi cuộc gọi bắt đầu",
+      "offerLabel": "Đề xuất ghi chú",
+      "offerDescription": "Hiện \"Bắt đầu ghi chú?\" khi Zoom, Meet hoặc Teams đang gọi. Không bao giờ tự ghi âm.",
+      "wordsHeading": "Từ ngữ và tên trong cuộc họp",
+      "wordsDescription": "Chỉ dùng cho cuộc họp và tách biệt với từ tùy chỉnh của đọc chính tả.",
+      "wordsPlaceholder": "Thêm tên hoặc thuật ngữ...",
+      "addWord": "Thêm",
+      "removeWordAria": "Xóa {{word}}",
+      "dictationKeepsWorking": "Ghi âm cuộc họp không bao giờ dừng đọc chính tả. Phím tắt của bạn vẫn hoạt động."
     }
   }
 }

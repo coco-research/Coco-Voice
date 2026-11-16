@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "无法注册会议快捷键。可在此处或菜单栏开始和停止。"
+    },
+    "record": {
+      "startNowHeading": "立即开始",
+      "whenCallStartsHeading": "通话开始时",
+      "offerLabel": "提示开始记笔记",
+      "offerDescription": "当 Zoom、Meet 或 Teams 通话中时显示“开始记笔记？”。绝不会自动录音。",
+      "wordsHeading": "会议词汇与姓名",
+      "wordsDescription": "仅用于会议识别，与听写自定义词汇分开保存。",
+      "wordsPlaceholder": "添加会议人名或术语...",
+      "addWord": "添加",
+      "removeWordAria": "移除 {{word}}",
+      "dictationKeepsWorking": "录制会议绝不会中断听写。你的快捷键始终可用。"
     }
   }
 }

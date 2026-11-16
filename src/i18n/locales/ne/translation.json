@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "बैठक सर्टकट दर्ता गर्न सकिएन। यहाँबाट वा मेनु बारबाट सुरु र बन्द गर्नुहोस्।"
+    },
+    "record": {
+      "startNowHeading": "अहिले सुरु गर्नुहोस्",
+      "whenCallStartsHeading": "कल सुरु हुँदा",
+      "offerLabel": "टिप्पण सुरु गर्न सुझाव दिनुहोस्",
+      "offerDescription": "Zoom, Meet वा Teams कलमा हुँदा \"टिप्पण सुरु गर्ने?\" देखाउँछ। आफै कहिल्यै रेकर्ड गर्दैन।",
+      "wordsHeading": "बैठकका शब्द र नामहरू",
+      "wordsDescription": "बैठकका लागि मात्र प्रयोग गरिन्छ र डिक्टेसनका शब्दहरूभन्दा अलग राखिन्छ।",
+      "wordsPlaceholder": "नाम वा शब्द थप्नुहोस्...",
+      "addWord": "थप्नुहोस्",
+      "removeWordAria": "{{word}} हटाउनुहोस्",
+      "dictationKeepsWorking": "बैठक रेकर्ड गर्दा डिक्टेसन कहिल्यै रोकिँदैन। तपाईंको सर्टकट चलिरहन्छ।"
     }
   }
 }

@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "Mötesgenvägen kunde inte registreras. Starta och stoppa härifrån eller från menyraden."
+    },
+    "record": {
+      "startNowHeading": "Starta nu",
+      "whenCallStartsHeading": "När ett samtal börjar",
+      "offerLabel": "Föreslå att starta anteckningar",
+      "offerDescription": "Visar \"Starta anteckningar?\" när Zoom, Meet eller Teams är i samtal. Spelar aldrig in av sig själv.",
+      "wordsHeading": "Ord och namn för möten",
+      "wordsDescription": "Används bara för möten och hålls åtskilda från dina egna dikteringsord.",
+      "wordsPlaceholder": "Lägg till namn eller term...",
+      "addWord": "Lägg till",
+      "removeWordAria": "Ta bort {{word}}",
+      "dictationKeepsWorking": "Att spela in ett möte stoppar aldrig diktering. Din genväg fortsätter fungera."
     }
   }
 }

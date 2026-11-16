@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "Der Besprechungs-Kurzbefehl konnte nicht registriert werden. Starten und stoppen Sie hier oder über die Menüleiste."
+    },
+    "record": {
+      "startNowHeading": "Jetzt starten",
+      "whenCallStartsHeading": "Wenn ein Anruf beginnt",
+      "offerLabel": "Notizen vorschlagen",
+      "offerDescription": "Zeigt „Notizen starten?“, wenn Zoom, Meet oder Teams in einem Anruf ist. Nimmt nie von selbst auf.",
+      "wordsHeading": "Wörter und Namen für Besprechungen",
+      "wordsDescription": "Nur für Besprechungen verwendet, getrennt von Ihren Diktier-Wörtern.",
+      "wordsPlaceholder": "Name oder Fachbegriff hinzufügen...",
+      "addWord": "Hinzufügen",
+      "removeWordAria": "{{word}} entfernen",
+      "dictationKeepsWorking": "Eine Besprechungsaufnahme stoppt das Diktieren nie. Ihr Kurzbefehl funktioniert weiter."
     }
   }
 }

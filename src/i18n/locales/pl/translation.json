@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "Nie udało się zarejestrować skrótu spotkania. Uruchamiaj i zatrzymuj tutaj lub z paska menu."
+    },
+    "record": {
+      "startNowHeading": "Zacznij teraz",
+      "whenCallStartsHeading": "Gdy zaczyna się rozmowa",
+      "offerLabel": "Proponuj rozpoczęcie notatek",
+      "offerDescription": "Pokazuje „Rozpocząć notatki?”, gdy Zoom, Meet lub Teams prowadzi rozmowę. Nigdy nie nagrywa samo.",
+      "wordsHeading": "Słowa i nazwy ze spotkań",
+      "wordsDescription": "Używane tylko na spotkaniach, oddzielnie od słów dyktowania.",
+      "wordsPlaceholder": "Dodaj nazwisko lub termin...",
+      "addWord": "Dodaj",
+      "removeWordAria": "Usuń {{word}}",
+      "dictationKeepsWorking": "Nagrywanie spotkania nigdy nie zatrzymuje dyktowania. Twój skrót nadal działa."
     }
   }
 }

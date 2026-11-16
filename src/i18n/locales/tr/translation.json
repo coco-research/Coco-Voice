@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "Toplantı kısayolu kaydedilemedi. Buradan veya menü çubuğundan başlatıp durdurabilirsiniz."
+    },
+    "record": {
+      "startNowHeading": "Şimdi başlat",
+      "whenCallStartsHeading": "Bir arama başladığında",
+      "offerLabel": "Not başlatmayı öner",
+      "offerDescription": "Zoom, Meet veya Teams aramadayken \"Notlar başlatılsın mı?\" gösterir. Asla kendi kendine kaydetmez.",
+      "wordsHeading": "Toplantı kelimeleri ve adları",
+      "wordsDescription": "Yalnızca toplantılarda kullanılır; dikte özel kelimelerinizden ayrı tutulur.",
+      "wordsPlaceholder": "Ad veya terim ekleyin...",
+      "addWord": "Ekle",
+      "removeWordAria": "{{word}} öğesini kaldır",
+      "dictationKeepsWorking": "Toplantı kaydetmek dikteyi asla durdurmaz. Kısayolunuz çalışmaya devam eder."
     }
   }
 }

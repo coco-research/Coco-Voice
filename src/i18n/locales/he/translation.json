@@ -853,6 +853,18 @@
         "dictation": "Dictation still works during a meeting."
       },
       "shortcutFailed": "לא ניתן היה לרשום את קיצור הפגישה. אפשר להתחיל ולעצור מכאן או משורת התפריטים."
+    },
+    "record": {
+      "startNowHeading": "התחל עכשיו",
+      "whenCallStartsHeading": "כאשר שיחה מתחילה",
+      "offerLabel": "להציע התחלת סיכום",
+      "offerDescription": "מציג ״להתחיל סיכום?״ כאשר Zoom, Meet או Teams בשיחה. לעולם לא מקליט מעצמו.",
+      "wordsHeading": "מילים ושמות לפגישות",
+      "wordsDescription": "משמש לפגישות בלבד ונשמר בנפרד ממילות ההכתבה המותאמות.",
+      "wordsPlaceholder": "הוספת שם או מונח...",
+      "addWord": "הוספה",
+      "removeWordAria": "הסרת {{word}}",
+      "dictationKeepsWorking": "הקלטת פגישה לעולם לא עוצרת הכתבה. הקיצור שלך ממשיך לעבוד."
     }
   }
 }
