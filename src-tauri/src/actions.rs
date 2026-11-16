@@ -2056,13 +2056,22 @@ mod tests {
 
     #[test]
     fn missing_local_model_skips_without_downloading_and_notifies_once() {
-        let settings = crate::settings::get_default_settings();
+        let mut settings = crate::settings::get_default_settings();
+        assert!(settings.post_process_enabled);
         let download_calls = std::cell::Cell::new(0usize);
         let notified = AtomicBool::new(false);
         let mut emitted = Vec::new();
-        for _ in 0..3 {
-            let decision = super::resolve_cleanup(&settings.post_process_provider_id, |pid| {
+        for provider in [
+            settings.post_process_provider_id.clone(),
+            super::LOCAL_LLM_PROVIDER_ID.to_string(),
+            super::LOCAL_LLM_PROVIDER_ID.to_string(),
+        ] {
+            settings.post_process_provider_id = provider.clone();
+            let decision = super::resolve_cleanup(&provider, |pid| {
                 provider_configured(&settings, pid)?;
+                if pid == crate::settings::APPLE_INTELLIGENCE_PROVIDER_ID {
+                    return Err(SkipReason::AppleIntelligenceUnavailable);
+                }
                 if pid == super::LOCAL_LLM_PROVIDER_ID {
                     return Err(SkipReason::LocalModelNotDownloaded);
                 }
