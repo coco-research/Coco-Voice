@@ -187,7 +187,7 @@ where
     W: Write,
     F: FnMut(&str, &str) -> Result<String, &'static str>,
 {
-    let mut client = String::from("Claude Code");
+    let mut client = String::from("Local Agent");
     let mut queue = AgentAskQueue::new("fn");
     for line in r.lines() {
         let line = line?;
@@ -330,7 +330,7 @@ mod tests {
         assert!(!prod.contains("TcpListener") && !prod.contains("UdpSocket") && !prod.contains("reqwest"));
         let dir = tempfile::tempdir().expect("tempdir");
         let p = dir.path();
-        let mut client = String::from("Claude Code");
+        let mut client = String::from("Local Agent");
         let mut queue = AgentAskQueue::new("fn");
 
         let req_off = json!({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ask_user","arguments":{"question":"Which branch?"}}}).to_string();
@@ -340,24 +340,24 @@ mod tests {
 
         fs::write(p.join("settings_store.json"), r#"{"settings":{"agents_can_ask_enabled":true}}"#).unwrap();
         let stream = [
-            json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"Claude Code"}}}),
+            json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"Local Editor"}}}),
             json!({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}),
             json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"ask_user","arguments":{"question":"Which branch?","queued_follow_up":"Run tests now?"}}}),
         ].iter().map(Value::to_string).collect::<Vec<_>>().join("\n");
         let mut out = Vec::new();
         serve_stdio_with_voice(Cursor::new(stream), &mut out, p, |_agent, q| {
             assert_eq!(q, "Which branch?");
-            Ok("cleo/voice-v42-vd18-ask-user".to_string())
+            Ok("feat/voice-ask-user".to_string())
         }).unwrap();
         let replies: Vec<Value> = String::from_utf8(out).unwrap().lines().map(|l| serde_json::from_str(l).unwrap()).collect();
         assert_eq!(replies.len(), 3);
         assert_eq!(replies[1]["result"]["tools"][0]["name"], json!("ask_user"));
         assert_eq!(replies[2]["result"]["isError"], json!(false));
         let body: Value = serde_json::from_str(replies[2]["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
-        assert_eq!(body["answer"], json!("cleo/voice-v42-vd18-ask-user"));
-        assert_eq!(body["asking_pill"]["Asking"]["label"], json!("? Claude Code asks: \"Which branch?\" · hold fn to answer"));
+        assert_eq!(body["answer"], json!("feat/voice-ask-user"));
+        assert_eq!(body["asking_pill"]["Asking"]["label"], json!("? Local Editor asks: \"Which branch?\" · hold fn to answer"));
         assert_eq!(body["asking_pill"]["Asking"]["waiting_badge"], json!("? 1 more question waiting"));
-        assert_eq!(body["sent_pill"]["AnswerSent"]["label"], json!("✓ Answer sent to Claude Code"));
-        assert_eq!(body["next_pill"]["Asking"]["label"], json!("? Claude Code asks: \"Run tests now?\" · hold fn to answer"));
+        assert_eq!(body["sent_pill"]["AnswerSent"]["label"], json!("✓ Answer sent to Local Editor"));
+        assert_eq!(body["next_pill"]["Asking"]["label"], json!("? Local Editor asks: \"Run tests now?\" · hold fn to answer"));
     }
 }
