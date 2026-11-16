@@ -1,18 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
-import {
-  Check,
-  Copy,
-  FolderOpen,
-  Pencil,
-  RotateCcw,
-  Star,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import {
   commands,
   events,
@@ -20,11 +10,8 @@ import {
   type HistoryUpdatePayload,
 } from "@/bindings";
 import { useOsType } from "@/hooks/useOsType";
-import { learnCorrectionsFromEdit } from "@/lib/utils/autoLearnCorrections";
 import { formatDateTime } from "@/utils/dateFormat";
 import { AudioPlayer } from "../../ui/AudioPlayer";
-import { Button } from "../../ui/Button";
-import { Textarea } from "../../ui/Textarea";
 
 const IconButton: React.FC<{
   onClick: () => void;
@@ -60,27 +47,6 @@ const displayTextFor = (e: HistoryEntry): string =>
   e.post_processed_text && e.post_processed_text.trim().length > 0
     ? e.post_processed_text
     : e.transcription_text;
-
-interface OpenRecordingsButtonProps {
-  onClick: () => void;
-  label: string;
-}
-
-const OpenRecordingsButton: React.FC<OpenRecordingsButtonProps> = ({
-  onClick,
-  label,
-}) => (
-  <Button
-    onClick={onClick}
-    variant="secondary"
-    size="sm"
-    className="flex items-center gap-2"
-    title={label}
-  >
-    <FolderOpen className="w-4 h-4" />
-    <span>{label}</span>
-  </Button>
-);
 
 export const HistorySettings: React.FC = () => {
   const { t } = useTranslation();
@@ -173,28 +139,6 @@ export const HistorySettings: React.FC = () => {
     };
   }, []);
 
-  const toggleSaved = async (id: number) => {
-    // Optimistic update
-    setEntries((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, saved: !e.saved } : e)),
-    );
-    try {
-      const result = await commands.toggleHistoryEntrySaved(id);
-      if (result.status !== "ok") {
-        // Revert on failure
-        setEntries((prev) =>
-          prev.map((e) => (e.id === id ? { ...e, saved: !e.saved } : e)),
-        );
-      }
-    } catch (error) {
-      console.error("Failed to toggle saved status:", error);
-      // Revert on failure
-      setEntries((prev) =>
-        prev.map((e) => (e.id === id ? { ...e, saved: !e.saved } : e)),
-      );
-    }
-  };
-
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -224,118 +168,6 @@ export const HistorySettings: React.FC = () => {
     [osType],
   );
 
-  const deleteAudioEntry = async (id: number) => {
-    // Optimistically remove
-    setEntries((prev) => prev.filter((e) => e.id !== id));
-    try {
-      const result = await commands.deleteHistoryEntry(id);
-      if (result.status !== "ok") {
-        // Reload on failure
-        loadPage();
-      }
-    } catch (error) {
-      console.error("Failed to delete entry:", error);
-      loadPage();
-    }
-  };
-
-  const retryHistoryEntry = async (id: number) => {
-    const result = await commands.retryHistoryEntryTranscription(id);
-    if (result.status !== "ok") {
-      throw new Error(String(result.error));
-    }
-  };
-
-  // Persist a manual edit of a transcription and auto-learn correction pairs
-  // from the word-level diff. Conservative single-word swaps are appended to the
-  // existing correction map (Feature 1's `update_corrections` command) so the
-  // same fix is applied automatically to future transcriptions.
-  const saveEditAndLearn = async (id: number, newText: string) => {
-    const entry = entriesRef.current.find((e) => e.id === id);
-    // Diff and persist against the text the user actually saw.
-    const original = entry ? displayTextFor(entry) : "";
-    // Write the edit back to the same field that was displayed: the
-    // post-processed text when post-processing produced output, otherwise the
-    // raw transcript. Keeping the field consistent means auto-learn diffs
-    // post-processed-vs-edited and the display stays in sync.
-    const usedPostProcessed = !!(
-      entry?.post_processed_text && entry.post_processed_text.trim().length > 0
-    );
-    const trimmed = newText.trim();
-    if (!trimmed || trimmed === original.trim()) {
-      return;
-    }
-
-    const applyText = (e: HistoryEntry, text: string): HistoryEntry =>
-      usedPostProcessed
-        ? { ...e, post_processed_text: text }
-        : { ...e, transcription_text: text };
-
-    // Optimistic update; the backend also emits an "updated" event that resolves
-    // to the same text, so this stays consistent on reload.
-    setEntries((prev) =>
-      prev.map((e) => (e.id === id ? applyText(e, trimmed) : e)),
-    );
-
-    try {
-      const result = await commands.updateHistoryEntryText(id, trimmed);
-      if (result.status !== "ok") {
-        setEntries((prev) =>
-          prev.map((e) => (e.id === id ? applyText(e, original) : e)),
-        );
-        toast.error(t("settings.history.editError"));
-        return;
-      }
-    } catch (error) {
-      console.error("Failed to save transcription edit:", error);
-      setEntries((prev) =>
-        prev.map((e) => (e.id === id ? applyText(e, original) : e)),
-      );
-      toast.error(t("settings.history.editError"));
-      return;
-    }
-
-    // Turn the edit into correction pairs and append them to the map.
-    try {
-      const settingsResult = await commands.getAppSettings();
-      if (settingsResult.status !== "ok") {
-        return;
-      }
-      const existing = settingsResult.data.corrections ?? [];
-      const learned = learnCorrectionsFromEdit(original, trimmed, existing);
-      if (learned.length === 0) {
-        return;
-      }
-      const updateResult = await commands.updateCorrections([
-        ...existing,
-        ...learned,
-      ]);
-      if (updateResult.status === "ok") {
-        toast.success(
-          learned.length === 1
-            ? t("settings.history.learnedOne", {
-                from: learned[0].from,
-                to: learned[0].to,
-              })
-            : t("settings.history.learnedMany", { count: learned.length }),
-        );
-      }
-    } catch (error) {
-      console.error("Failed to auto-learn corrections:", error);
-    }
-  };
-
-  const openRecordingsFolder = async () => {
-    try {
-      const result = await commands.openRecordingsFolder();
-      if (result.status !== "ok") {
-        throw new Error(String(result.error));
-      }
-    } catch (error) {
-      console.error("Failed to open recordings folder:", error);
-    }
-  };
-
   let content: React.ReactNode;
 
   if (loading) {
@@ -358,12 +190,8 @@ export const HistorySettings: React.FC = () => {
             <HistoryEntryComponent
               key={entry.id}
               entry={entry}
-              onToggleSaved={() => toggleSaved(entry.id)}
               onCopyText={() => copyToClipboard(displayTextFor(entry))}
-              onSaveEdit={saveEditAndLearn}
               getAudioUrl={getAudioUrl}
-              deleteAudio={deleteAudioEntry}
-              retryTranscription={retryHistoryEntry}
             />
           ))}
         </div>
@@ -382,10 +210,6 @@ export const HistorySettings: React.FC = () => {
               {t("settings.history.title")}
             </h2>
           </div>
-          <OpenRecordingsButton
-            onClick={openRecordingsFolder}
-            label={t("settings.history.openFolder")}
-          />
         </div>
         <div className="bg-background border border-mid-gray/20 rounded-lg overflow-visible">
           {content}
@@ -397,51 +221,19 @@ export const HistorySettings: React.FC = () => {
 
 interface HistoryEntryProps {
   entry: HistoryEntry;
-  onToggleSaved: () => void;
   onCopyText: () => void;
-  onSaveEdit: (id: number, newText: string) => Promise<void>;
   getAudioUrl: (fileName: string) => Promise<string | null>;
-  deleteAudio: (id: number) => Promise<void>;
-  retryTranscription: (id: number) => Promise<void>;
 }
 
 const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
   entry,
-  onToggleSaved,
   onCopyText,
-  onSaveEdit,
   getAudioUrl,
-  deleteAudio,
-  retryTranscription,
 }) => {
   const { t, i18n } = useTranslation();
   const [showCopied, setShowCopied] = useState(false);
-  const [retrying, setRetrying] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(displayTextFor(entry));
-  const [saving, setSaving] = useState(false);
 
   const hasTranscription = entry.transcription_text.trim().length > 0;
-
-  const startEditing = () => {
-    setDraft(displayTextFor(entry));
-    setIsEditing(true);
-  };
-
-  const cancelEditing = () => {
-    setIsEditing(false);
-    setDraft(displayTextFor(entry));
-  };
-
-  const handleSaveEdit = async () => {
-    setSaving(true);
-    try {
-      await onSaveEdit(entry.id, draft);
-      setIsEditing(false);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleLoadAudio = useCallback(
     () => getAudioUrl(entry.file_name),
@@ -458,27 +250,6 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
     setTimeout(() => setShowCopied(false), 2000);
   };
 
-  const handleDeleteEntry = async () => {
-    try {
-      await deleteAudio(entry.id);
-    } catch (error) {
-      console.error("Failed to delete entry:", error);
-      toast.error(t("settings.history.deleteError"));
-    }
-  };
-
-  const handleRetranscribe = async () => {
-    try {
-      setRetrying(true);
-      await retryTranscription(entry.id);
-    } catch (error) {
-      console.error("Failed to re-transcribe:", error);
-      toast.error(t("settings.history.retranscribeError"));
-    } finally {
-      setRetrying(false);
-    }
-  };
-
   const formattedDate = formatDateTime(String(entry.timestamp), i18n.language);
 
   return (
@@ -488,7 +259,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
         <div className="flex items-center">
           <IconButton
             onClick={handleCopyText}
-            disabled={!hasTranscription || retrying}
+            disabled={!hasTranscription}
             title={t("settings.history.copyToClipboard")}
           >
             {showCopied ? (
@@ -497,118 +268,13 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
               <Copy width={16} height={16} />
             )}
           </IconButton>
-          <IconButton
-            onClick={isEditing ? cancelEditing : startEditing}
-            disabled={!hasTranscription || retrying}
-            active={isEditing}
-            title={t("settings.history.edit")}
-          >
-            <Pencil width={16} height={16} />
-          </IconButton>
-          <IconButton
-            onClick={onToggleSaved}
-            disabled={retrying}
-            active={entry.saved}
-            title={
-              entry.saved
-                ? t("settings.history.unsave")
-                : t("settings.history.save")
-            }
-          >
-            <Star
-              width={16}
-              height={16}
-              fill={entry.saved ? "currentColor" : "none"}
-            />
-          </IconButton>
-          <IconButton
-            onClick={handleRetranscribe}
-            disabled={retrying}
-            title={t("settings.history.retranscribe")}
-          >
-            <RotateCcw
-              width={16}
-              height={16}
-              style={
-                retrying
-                  ? { animation: "spin 1s linear infinite reverse" }
-                  : undefined
-              }
-            />
-          </IconButton>
-          <IconButton
-            onClick={handleDeleteEntry}
-            disabled={retrying}
-            title={t("settings.history.delete")}
-          >
-            <Trash2 width={16} height={16} />
-          </IconButton>
         </div>
       </div>
-
-      {isEditing ? (
-        <div className="flex flex-col gap-2 pb-2">
-          <Textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            disabled={saving}
-            autoFocus
-            className="w-full text-sm"
-          />
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={handleSaveEdit}
-              disabled={saving || !draft.trim()}
-              variant="primary"
-              size="sm"
-              className="flex items-center gap-1"
-            >
-              <Check width={14} height={14} />
-              <span>{t("settings.history.saveEdit")}</span>
-            </Button>
-            <Button
-              onClick={cancelEditing}
-              disabled={saving}
-              variant="secondary"
-              size="sm"
-              className="flex items-center gap-1"
-            >
-              <X width={14} height={14} />
-              <span>{t("tray.cancel")}</span>
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <p
-          className={`italic text-sm pb-2 ${
-            retrying
-              ? ""
-              : hasTranscription
-                ? "text-text/90 select-text cursor-text whitespace-pre-wrap break-words"
-                : "text-text/40"
-          }`}
-          style={
-            retrying
-              ? { animation: "transcribe-pulse 3s ease-in-out infinite" }
-              : undefined
-          }
-        >
-          {retrying && (
-            <style>{`
-              @keyframes transcribe-pulse {
-                0%, 100% { color: color-mix(in srgb, var(--color-text) 40%, transparent); }
-                50% { color: color-mix(in srgb, var(--color-text) 90%, transparent); }
-              }
-            `}</style>
-          )}
-          {retrying
-            ? t("settings.history.transcribing")
-            : hasTranscription
-              ? displayTextFor(entry)
-              : t("settings.history.transcriptionFailed")}
-        </p>
-      )}
-
+      <p className="text-sm pb-2 text-text/90">
+        {hasTranscription
+          ? displayTextFor(entry)
+          : t("settings.history.transcriptionFailed")}
+      </p>
       <AudioPlayer onLoadRequest={handleLoadAudio} className="w-full" />
     </div>
   );
