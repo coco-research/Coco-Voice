@@ -880,7 +880,17 @@
       "oversized": "नोट बनाउँदा {{count}} अति लामो खण्ड छोडियो।",
       "transcriptHeading": "ट्रान्सक्रिप्ट",
       "failed": "नोट बनाउन सकिएन। तपाईंको ट्रान्सक्रिप्ट र नोटहरू सुरक्षित छन्।",
-      "retry": "पुनः प्रयास गर्नुहोस्"
+      "retry": "पुनः प्रयास गर्नुहोस्",
+      "openQuestions": "Open questions",
+      "citeRule": "Every line links to the moment it came from. A line with no source is not shown.",
+      "notesSoFar": "Notes so far",
+      "notesSoFarHint": "Updated every few minutes.",
+      "timeToNotes": "Ready in {{seconds}} s",
+      "leftOutHeading": "Left out",
+      "smallTalkLabel": "Treated as small talk",
+      "uncoveredLabel": "Not covered by any note",
+      "showInTranscript": "Show in transcript",
+      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript."
     }
   }
 }

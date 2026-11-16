@@ -880,7 +880,17 @@
       "oversized": "דולגו {{count}} מקטעים ארוכים מדי בעת יצירת ההערות.",
       "transcriptHeading": "תמלול",
       "failed": "לא ניתן היה ליצור הערות. התמלול וההערות שלך בטוחים.",
-      "retry": "נסה שוב"
+      "retry": "נסה שוב",
+      "openQuestions": "Open questions",
+      "citeRule": "Every line links to the moment it came from. A line with no source is not shown.",
+      "notesSoFar": "Notes so far",
+      "notesSoFarHint": "Updated every few minutes.",
+      "timeToNotes": "Ready in {{seconds}} s",
+      "leftOutHeading": "Left out",
+      "smallTalkLabel": "Treated as small talk",
+      "uncoveredLabel": "Not covered by any note",
+      "showInTranscript": "Show in transcript",
+      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript."
     }
   }
 }

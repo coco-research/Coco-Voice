@@ -880,7 +880,17 @@
       "oversized": "建立筆記時略過了 {{count}} 個過長片段。",
       "transcriptHeading": "逐字稿",
       "failed": "無法產生筆記。你的逐字稿與筆記均已安全保留。",
-      "retry": "重試"
+      "retry": "重試",
+      "openQuestions": "Open questions",
+      "citeRule": "Every line links to the moment it came from. A line with no source is not shown.",
+      "notesSoFar": "Notes so far",
+      "notesSoFarHint": "Updated every few minutes.",
+      "timeToNotes": "Ready in {{seconds}} s",
+      "leftOutHeading": "Left out",
+      "smallTalkLabel": "Treated as small talk",
+      "uncoveredLabel": "Not covered by any note",
+      "showInTranscript": "Show in transcript",
+      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript."
     }
   }
 }

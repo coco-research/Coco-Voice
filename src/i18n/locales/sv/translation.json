@@ -880,7 +880,17 @@
       "oversized": "Hoppade över {{count}} för långt/långa segment när anteckningar skapades.",
       "transcriptHeading": "Transkript",
       "failed": "Anteckningar kunde inte skapas. Ditt transkript och dina anteckningar är säkra.",
-      "retry": "Försök igen"
+      "retry": "Försök igen",
+      "openQuestions": "Open questions",
+      "citeRule": "Every line links to the moment it came from. A line with no source is not shown.",
+      "notesSoFar": "Notes so far",
+      "notesSoFarHint": "Updated every few minutes.",
+      "timeToNotes": "Ready in {{seconds}} s",
+      "leftOutHeading": "Left out",
+      "smallTalkLabel": "Treated as small talk",
+      "uncoveredLabel": "Not covered by any note",
+      "showInTranscript": "Show in transcript",
+      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript."
     }
   }
 }

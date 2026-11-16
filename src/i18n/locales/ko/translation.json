@@ -880,7 +880,17 @@
       "oversized": "노트 생성 중 너무 긴 구간 {{count}}개를 건너뛰었습니다.",
       "transcriptHeading": "전사 내용",
       "failed": "노트를 만들지 못했습니다. 전사 내용과 메모는 안전합니다.",
-      "retry": "다시 시도"
+      "retry": "다시 시도",
+      "openQuestions": "Open questions",
+      "citeRule": "Every line links to the moment it came from. A line with no source is not shown.",
+      "notesSoFar": "Notes so far",
+      "notesSoFarHint": "Updated every few minutes.",
+      "timeToNotes": "Ready in {{seconds}} s",
+      "leftOutHeading": "Left out",
+      "smallTalkLabel": "Treated as small talk",
+      "uncoveredLabel": "Not covered by any note",
+      "showInTranscript": "Show in transcript",
+      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript."
     }
   }
 }

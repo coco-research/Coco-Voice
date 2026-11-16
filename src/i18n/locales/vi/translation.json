@@ -880,7 +880,17 @@
       "oversized": "Đã bỏ qua {{count}} đoạn quá dài khi tạo ghi chú.",
       "transcriptHeading": "Bản chép lời",
       "failed": "Không thể tạo ghi chú. Bản chép lời và ghi chú của bạn vẫn an toàn.",
-      "retry": "Thử lại"
+      "retry": "Thử lại",
+      "openQuestions": "Open questions",
+      "citeRule": "Every line links to the moment it came from. A line with no source is not shown.",
+      "notesSoFar": "Notes so far",
+      "notesSoFarHint": "Updated every few minutes.",
+      "timeToNotes": "Ready in {{seconds}} s",
+      "leftOutHeading": "Left out",
+      "smallTalkLabel": "Treated as small talk",
+      "uncoveredLabel": "Not covered by any note",
+      "showInTranscript": "Show in transcript",
+      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript."
     }
   }
 }

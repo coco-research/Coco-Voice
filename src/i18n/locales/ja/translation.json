@@ -880,7 +880,17 @@
       "oversized": "ノート作成時に長すぎるセグメント {{count}} 件をスキップしました。",
       "transcriptHeading": "文字起こし",
       "failed": "ノートを作成できませんでした。文字起こしとメモは安全に保存されています。",
-      "retry": "再試行"
+      "retry": "再試行",
+      "openQuestions": "未解決の質問",
+      "citeRule": "すべての行は元の発言時刻にリンクします。出典のない行は表示されません。",
+      "notesSoFar": "ここまでのメモ",
+      "notesSoFarHint": "数分ごとに更新されます。",
+      "timeToNotes": "{{seconds}} 秒で完了",
+      "leftOutHeading": "メモから除外",
+      "smallTalkLabel": "雑談として処理",
+      "uncoveredLabel": "どのメモにも未収録",
+      "showInTranscript": "文字起こしで表示",
+      "leftOutRule": "却下された案や保留の案はメモに含めず、文字起こしに残します。"
     }
   }
 }

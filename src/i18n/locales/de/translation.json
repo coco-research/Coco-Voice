@@ -880,7 +880,17 @@
       "oversized": "{{count}} überlange(s) Segment(e) beim Erstellen der Notizen übersprungen.",
       "transcriptHeading": "Transkript",
       "failed": "Notizen konnten nicht erstellt werden. Transkript und Notizen sind sicher.",
-      "retry": "Erneut versuchen"
+      "retry": "Erneut versuchen",
+      "openQuestions": "Offene Fragen",
+      "citeRule": "Jede Zeile verlinkt auf die Stelle im Gespräch. Zeilen ohne Quelle werden nicht gezeigt.",
+      "notesSoFar": "Bisherige Notizen",
+      "notesSoFarHint": "Alle paar Minuten aktualisiert.",
+      "timeToNotes": "Bereit in {{seconds}} s",
+      "leftOutHeading": "Ausgelassen",
+      "smallTalkLabel": "Als Smalltalk eingestuft",
+      "uncoveredLabel": "Von keiner Notiz abgedeckt",
+      "showInTranscript": "Im Transkript zeigen",
+      "leftOutRule": "Verworfene oder offene Ideen werden nicht als Beschluss notiert. Sie bleiben im Transkript."
     }
   }
 }

@@ -880,7 +880,17 @@
       "oversized": "تم تخطي {{count}} مقطع طويل عند إعداد الملاحظات.",
       "transcriptHeading": "النص المفرغ",
       "failed": "تعذر إنشاء الملاحظات. النص وملاحظاتك بأمان.",
-      "retry": "إعادة المحاولة"
+      "retry": "إعادة المحاولة",
+      "openQuestions": "Open questions",
+      "citeRule": "Every line links to the moment it came from. A line with no source is not shown.",
+      "notesSoFar": "Notes so far",
+      "notesSoFarHint": "Updated every few minutes.",
+      "timeToNotes": "Ready in {{seconds}} s",
+      "leftOutHeading": "Left out",
+      "smallTalkLabel": "Treated as small talk",
+      "uncoveredLabel": "Not covered by any note",
+      "showInTranscript": "Show in transcript",
+      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript."
     }
   }
 }

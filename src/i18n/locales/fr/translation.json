@@ -880,7 +880,17 @@
       "oversized": "{{count}} segment(s) trop long(s) ignoré(s) lors de la création des notes.",
       "transcriptHeading": "Transcription",
       "failed": "Les notes n'ont pas pu être créées. Votre transcription et vos notes sont intactes.",
-      "retry": "Réessayer"
+      "retry": "Réessayer",
+      "openQuestions": "Questions ouvertes",
+      "citeRule": "Chaque ligne renvoie au moment d’origine. Une ligne sans source n’est pas affichée.",
+      "notesSoFar": "Notes jusqu’ici",
+      "notesSoFarHint": "Mis à jour toutes les quelques minutes.",
+      "timeToNotes": "Prêt en {{seconds}} s",
+      "leftOutHeading": "Laissé de côté",
+      "smallTalkLabel": "Classé comme discussion informelle",
+      "uncoveredLabel": "Non couvert par une note",
+      "showInTranscript": "Voir dans la transcription",
+      "leftOutRule": "Les idées rejetées ou en suspens ne deviennent pas des notes. Elles restent dans la transcription."
     }
   }
 }

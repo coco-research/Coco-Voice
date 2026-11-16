@@ -880,7 +880,17 @@
       "oversized": "生成笔记时跳过了 {{count}} 个过长片段。",
       "transcriptHeading": "转录",
       "failed": "无法生成笔记。你的转录与笔记均已安全保留。",
-      "retry": "重试"
+      "retry": "重试",
+      "openQuestions": "待定问题",
+      "citeRule": "每一行都链接到原话时刻。没有来源的行不会显示。",
+      "notesSoFar": "当前笔记",
+      "notesSoFarHint": "每隔几分钟更新一次。",
+      "timeToNotes": "{{seconds}} 秒完成",
+      "leftOutHeading": "未纳入笔记",
+      "smallTalkLabel": "归为寒暄闲聊",
+      "uncoveredLabel": "未被任何笔记覆盖",
+      "showInTranscript": "在转写中查看",
+      "leftOutRule": "被否决或暂定的想法不会写入笔记，但保留在转写中。"
     }
   }
 }

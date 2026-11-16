@@ -880,7 +880,17 @@
       "oversized": "Se omitieron {{count}} segmentos demasiado largos al crear las notas.",
       "transcriptHeading": "Transcripción",
       "failed": "No se pudieron crear las notas. Tu transcripción y tus notas están a salvo.",
-      "retry": "Reintentar"
+      "retry": "Reintentar",
+      "openQuestions": "Preguntas abiertas",
+      "citeRule": "Cada línea enlaza al momento del que proviene. Una línea sin fuente no se muestra.",
+      "notesSoFar": "Notas hasta ahora",
+      "notesSoFarHint": "Se actualiza cada pocos minutos.",
+      "timeToNotes": "Listo en {{seconds}} s",
+      "leftOutHeading": "Dejado fuera",
+      "smallTalkLabel": "Tratado como charla informal",
+      "uncoveredLabel": "No cubierto por ninguna nota",
+      "showInTranscript": "Mostrar en la transcripción",
+      "leftOutRule": "Las ideas descartadas o en duda no son notas. Permanecen en la transcripción."
     }
   }
 }
