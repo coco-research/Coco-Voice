@@ -901,6 +901,20 @@
       "createFolder": "Add folder",
       "editTemplates": "Edit templates",
       "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "Зустрічі · Зберігання",
+      "deleteAudioLabel": "Видаляти аудіо після створення нотаток",
+      "deleteAudioDescription": "Увімкнено за замовчуванням. Аудіофайли видаляються, щойно нотатки готові.",
+      "keepTranscriptsLabel": "Зберігати транскрипти на цьому Mac",
+      "keepTranscriptsDescription": "Транскрипти залишаються тут, доки ви їх не видалите.",
+      "onThisMac": "На цьому Mac",
+      "deleteAll": "Видалити все",
+      "confirmPrompt": "Видалити всі зустрічі, транскрипти, нотатки та записи?",
+      "confirmDeleteAll": "Підтвердити видалення всього",
+      "cancel": "Скасувати",
+      "audioLeftWarning": "Зустрічі видалено, але одну чи кілька папок з аудіо не вдалося прибрати.",
+      "actionFailed": "Не вдалося оновити налаштування зберігання зустрічей."
     }
   }
 }

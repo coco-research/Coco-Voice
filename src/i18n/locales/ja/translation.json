@@ -901,6 +901,20 @@
       "createFolder": "フォルダを追加",
       "editTemplates": "テンプレートを編集",
       "flatFoldersHint": "この Mac 上のローカルフォルダ（1 階層のみ）。"
+    },
+    "retention": {
+      "title": "会議 · 保存期間",
+      "deleteAudioLabel": "ノート作成後に音声を削除",
+      "deleteAudioDescription": "デフォルトでオン。ノートが完成すると音声ファイルは削除されます。",
+      "keepTranscriptsLabel": "文字起こしをこの Mac に保持",
+      "keepTranscriptsDescription": "削除するまで文字起こしはこの Mac に残ります。",
+      "onThisMac": "この Mac 内",
+      "deleteAll": "すべて削除",
+      "confirmPrompt": "すべての会議・文字起こし・ノート・録音を削除しますか？",
+      "confirmDeleteAll": "すべて削除を確定",
+      "cancel": "キャンセル",
+      "audioLeftWarning": "会議は削除されましたが、1 つ以上の音声フォルダを削除できませんでした。",
+      "actionFailed": "会議の保存設定を更新できませんでした。"
     }
   }
 }

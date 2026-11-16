@@ -901,6 +901,20 @@
       "createFolder": "Add folder",
       "editTemplates": "Edit templates",
       "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "Срещи · Запазване",
+      "deleteAudioLabel": "Изтриване на аудиото след създаване на бележките",
+      "deleteAudioDescription": "Включено по подразбиране. Аудио файловете се премахват след готовност на бележките.",
+      "keepTranscriptsLabel": "Запазване на транскриптите на този Mac",
+      "keepTranscriptsDescription": "Транскриптите остават тук, докато не ги изтриете.",
+      "onThisMac": "На този Mac",
+      "deleteAll": "Изтрий всички",
+      "confirmPrompt": "Да се изтрият ли всички срещи, транскрипти, бележки и записи?",
+      "confirmDeleteAll": "Потвърди изтриването",
+      "cancel": "Отказ",
+      "audioLeftWarning": "Срещите бяха изтрити, но една или повече аудио папки не можаха да бъдат премахнати.",
+      "actionFailed": "Неуспешна промяна на запазването на срещите."
     }
   }
 }

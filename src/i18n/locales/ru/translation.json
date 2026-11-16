@@ -901,6 +901,20 @@
       "createFolder": "Add folder",
       "editTemplates": "Edit templates",
       "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "Встречи · Хранение",
+      "deleteAudioLabel": "Удалять аудио после создания заметок",
+      "deleteAudioDescription": "Включено по умолчанию. Аудиофайлы удаляются, как только заметки готовы.",
+      "keepTranscriptsLabel": "Хранить расшифровки на этом Mac",
+      "keepTranscriptsDescription": "Расшифровки остаются здесь, пока вы их не удалите.",
+      "onThisMac": "На этом Mac",
+      "deleteAll": "Удалить всё",
+      "confirmPrompt": "Удалить все встречи, расшифровки, заметки и записи?",
+      "confirmDeleteAll": "Подтвердить удаление всего",
+      "cancel": "Отмена",
+      "audioLeftWarning": "Встречи удалены, но одну или несколько папок с аудио удалить не удалось.",
+      "actionFailed": "Не удалось обновить настройки хранения встреч."
     }
   }
 }

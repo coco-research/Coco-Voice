@@ -901,6 +901,20 @@
       "createFolder": "Añadir carpeta",
       "editTemplates": "Editar plantillas",
       "flatFoldersHint": "Carpetas locales en este Mac. Un solo nivel."
+    },
+    "retention": {
+      "title": "Reuniones · Retención",
+      "deleteAudioLabel": "Eliminar el audio después de crear las notas",
+      "deleteAudioDescription": "Activado por defecto. Los archivos de audio se eliminan cuando las notas están listas.",
+      "keepTranscriptsLabel": "Conservar transcripciones en este Mac",
+      "keepTranscriptsDescription": "Las transcripciones permanecen aquí hasta que las elimines.",
+      "onThisMac": "En este Mac",
+      "deleteAll": "Eliminar todo",
+      "confirmPrompt": "¿Eliminar todas las reuniones, transcripciones, notas y grabaciones?",
+      "confirmDeleteAll": "Confirmar eliminar todo",
+      "cancel": "Cancelar",
+      "audioLeftWarning": "Se eliminaron las reuniones, pero no se pudo borrar una o más carpetas de audio.",
+      "actionFailed": "No se pudo actualizar la retención de reuniones."
     }
   }
 }

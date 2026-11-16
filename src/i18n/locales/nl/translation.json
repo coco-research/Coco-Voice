@@ -901,6 +901,20 @@
       "createFolder": "Add folder",
       "editTemplates": "Edit templates",
       "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "Vergaderingen · Bewaren",
+      "deleteAudioLabel": "Audio verwijderen zodra notities zijn gemaakt",
+      "deleteAudioDescription": "Standaard aan. Audiobestanden worden verwijderd zodra de notities klaar zijn.",
+      "keepTranscriptsLabel": "Transcripten op deze Mac bewaren",
+      "keepTranscriptsDescription": "Transcripten blijven hier staan totdat je ze verwijdert.",
+      "onThisMac": "Op deze Mac",
+      "deleteAll": "Alles verwijderen",
+      "confirmPrompt": "Alle vergaderingen, transcripten, notities en opnamen verwijderen?",
+      "confirmDeleteAll": "Alles verwijderen bevestigen",
+      "cancel": "Annuleren",
+      "audioLeftWarning": "Vergaderingen zijn verwijderd, maar een of meer audiomappen konden niet worden verwijderd.",
+      "actionFailed": "Kon bewaarinstellingen voor vergaderingen niet bijwerken."
     }
   }
 }

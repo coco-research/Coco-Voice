@@ -901,6 +901,20 @@
       "createFolder": "Add folder",
       "editTemplates": "Edit templates",
       "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "Meetings · Retention",
+      "deleteAudioLabel": "Delete audio after notes are made",
+      "deleteAudioDescription": "On by default. Audio files are removed once the notes are ready.",
+      "keepTranscriptsLabel": "Keep transcripts on this Mac",
+      "keepTranscriptsDescription": "Transcripts stay here until you delete them.",
+      "onThisMac": "On this Mac",
+      "deleteAll": "Delete all",
+      "confirmPrompt": "Delete every meeting, transcript, note, and recording?",
+      "confirmDeleteAll": "Confirm delete all",
+      "cancel": "Cancel",
+      "audioLeftWarning": "Meetings were deleted, but one or more audio folders could not be removed.",
+      "actionFailed": "Could not update meeting retention."
     }
   }
 }

@@ -901,6 +901,20 @@
       "createFolder": "Add folder",
       "editTemplates": "Edit templates",
       "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "會議 · 保留設定",
+      "deleteAudioLabel": "建立筆記後刪除音訊",
+      "deleteAudioDescription": "預設開啟。筆記完成後即會移除音訊檔案。",
+      "keepTranscriptsLabel": "在這台 Mac 上保留逐字稿",
+      "keepTranscriptsDescription": "逐字稿會保留於此，直到你手動刪除。",
+      "onThisMac": "在這台 Mac 上",
+      "deleteAll": "全部刪除",
+      "confirmPrompt": "要刪除所有會議、逐字稿、筆記與錄音嗎？",
+      "confirmDeleteAll": "確認全部刪除",
+      "cancel": "取消",
+      "audioLeftWarning": "已刪除會議，但無法移除一或多個音訊資料夾。",
+      "actionFailed": "無法更新會議保留設定。"
     }
   }
 }

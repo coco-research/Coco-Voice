@@ -901,6 +901,20 @@
       "createFolder": "Add folder",
       "editTemplates": "Edit templates",
       "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "Spotkania · Przechowywanie",
+      "deleteAudioLabel": "Usuń dźwięk po utworzeniu notatek",
+      "deleteAudioDescription": "Domyślnie włączone. Pliki audio są usuwane, gdy notatki są gotowe.",
+      "keepTranscriptsLabel": "Zachowaj transkrypcje na tym Macu",
+      "keepTranscriptsDescription": "Transkrypcje pozostają tutaj, dopóki ich nie usuniesz.",
+      "onThisMac": "Na tym Macu",
+      "deleteAll": "Usuń wszystko",
+      "confirmPrompt": "Usunąć wszystkie spotkania, transkrypcje, notatki i nagrania?",
+      "confirmDeleteAll": "Potwierdź usunięcie wszystkiego",
+      "cancel": "Anuluj",
+      "audioLeftWarning": "Spotkania zostały usunięte, ale nie udało się usunąć co najmniej jednego folderu audio.",
+      "actionFailed": "Nie udało się zaktualizować przechowywania spotkań."
     }
   }
 }

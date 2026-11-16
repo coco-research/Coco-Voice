@@ -901,6 +901,20 @@
       "createFolder": "添加文件夹",
       "editTemplates": "编辑模板",
       "flatFoldersHint": "此 Mac 上的本地单层文件夹。"
+    },
+    "retention": {
+      "title": "会议 · 保留设置",
+      "deleteAudioLabel": "生成笔记后删除音频",
+      "deleteAudioDescription": "默认开启。笔记就绪后即会移除音频文件。",
+      "keepTranscriptsLabel": "在此 Mac 上保留转录",
+      "keepTranscriptsDescription": "转录会保留在此处，直到你手动删除。",
+      "onThisMac": "在此 Mac 上",
+      "deleteAll": "全部删除",
+      "confirmPrompt": "要删除所有会议、转录、笔记和录音吗？",
+      "confirmDeleteAll": "确认全部删除",
+      "cancel": "取消",
+      "audioLeftWarning": "已删除会议，但无法移除一个或多个音频文件夹。",
+      "actionFailed": "无法更新会议保留设置。"
     }
   }
 }

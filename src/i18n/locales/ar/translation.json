@@ -901,6 +901,20 @@
       "createFolder": "Add folder",
       "editTemplates": "Edit templates",
       "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "الاجتماعات · الاحتفاظ",
+      "deleteAudioLabel": "حذف الصوت بعد إعداد الملاحظات",
+      "deleteAudioDescription": "مفعّل افتراضياً. تُزال ملفات الصوت بمجرد جهوزية الملاحظات.",
+      "keepTranscriptsLabel": "الاحتفاظ بالنصوص على هذا الـ Mac",
+      "keepTranscriptsDescription": "تبقى النصوص هنا حتى تحذفها.",
+      "onThisMac": "على هذا الـ Mac",
+      "deleteAll": "حذف الكل",
+      "confirmPrompt": "حذف كل اجتماع ونص وملاحظة وتسجيل؟",
+      "confirmDeleteAll": "تأكيد حذف الكل",
+      "cancel": "إلغاء",
+      "audioLeftWarning": "تم حذف الاجتماعات، لكن تعذرت إزالة مجلد صوتي واحد أو أكثر.",
+      "actionFailed": "تعذر تحديث إعدادات الاحتفاظ بالاجتماعات."
     }
   }
 }

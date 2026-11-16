@@ -901,6 +901,20 @@
       "createFolder": "Ajouter un dossier",
       "editTemplates": "Modifier les modèles",
       "flatFoldersHint": "Dossiers locaux sur ce Mac. Un seul niveau."
+    },
+    "retention": {
+      "title": "Réunions · Conservation",
+      "deleteAudioLabel": "Supprimer l’audio une fois les notes créées",
+      "deleteAudioDescription": "Activé par défaut. Les fichiers audio sont supprimés dès que les notes sont prêtes.",
+      "keepTranscriptsLabel": "Conserver les transcriptions sur ce Mac",
+      "keepTranscriptsDescription": "Les transcriptions restent ici jusqu’à ce que vous les supprimiez.",
+      "onThisMac": "Sur ce Mac",
+      "deleteAll": "Tout supprimer",
+      "confirmPrompt": "Supprimer toutes les réunions, transcriptions, notes et enregistrements ?",
+      "confirmDeleteAll": "Confirmer la suppression",
+      "cancel": "Annuler",
+      "audioLeftWarning": "Les réunions ont été supprimées, mais un ou plusieurs dossiers audio n’ont pas pu être retirés.",
+      "actionFailed": "Impossible de modifier la conservation des réunions."
     }
   }
 }

@@ -901,6 +901,20 @@
       "createFolder": "Ordner hinzufügen",
       "editTemplates": "Vorlagen bearbeiten",
       "flatFoldersHint": "Lokale Ordner auf diesem Mac. Nur eine flache Ebene."
+    },
+    "retention": {
+      "title": "Meetings · Aufbewahrung",
+      "deleteAudioLabel": "Audio nach dem Erstellen der Notizen löschen",
+      "deleteAudioDescription": "Standardmäßig aktiviert. Audiodateien werden entfernt, sobald die Notizen bereit sind.",
+      "keepTranscriptsLabel": "Transkripte auf diesem Mac behalten",
+      "keepTranscriptsDescription": "Transkripte bleiben hier, bis du sie löschst.",
+      "onThisMac": "Auf diesem Mac",
+      "deleteAll": "Alle löschen",
+      "confirmPrompt": "Alle Meetings, Transkripte, Notizen und Aufnahmen löschen?",
+      "confirmDeleteAll": "Alle endgültig löschen",
+      "cancel": "Abbrechen",
+      "audioLeftWarning": "Meetings wurden gelöscht, aber mindestens ein Audio-Ordner konnte nicht entfernt werden.",
+      "actionFailed": "Meeting-Aufbewahrung konnte nicht aktualisiert werden."
     }
   }
 }

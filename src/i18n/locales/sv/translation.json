@@ -901,6 +901,20 @@
       "createFolder": "Add folder",
       "editTemplates": "Edit templates",
       "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "Möten · Lagring",
+      "deleteAudioLabel": "Ta bort ljud när anteckningar har skapats",
+      "deleteAudioDescription": "På som standard. Ljudfiler tas bort så snart anteckningarna är klara.",
+      "keepTranscriptsLabel": "Behåll transkript på denna Mac",
+      "keepTranscriptsDescription": "Transkript blir kvar här tills du tar bort dem.",
+      "onThisMac": "På denna Mac",
+      "deleteAll": "Ta bort alla",
+      "confirmPrompt": "Ta bort alla möten, transkript, anteckningar och inspelningar?",
+      "confirmDeleteAll": "Bekräfta ta bort alla",
+      "cancel": "Avbryt",
+      "audioLeftWarning": "Möten togs bort, men en eller flera ljudmappar kunde inte tas bort.",
+      "actionFailed": "Kunde inte uppdatera lagring för möten."
     }
   }
 }

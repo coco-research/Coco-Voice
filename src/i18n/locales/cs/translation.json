@@ -901,6 +901,20 @@
       "createFolder": "Add folder",
       "editTemplates": "Edit templates",
       "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "Schůzky · Uchovávání",
+      "deleteAudioLabel": "Smazat zvuk po vytvoření poznámek",
+      "deleteAudioDescription": "Ve výchozím stavu zapnuto. Zvukové soubory se odstraní, jakmile jsou poznámky připraveny.",
+      "keepTranscriptsLabel": "Ponechat přepisy na tomto Macu",
+      "keepTranscriptsDescription": "Přepisy zde zůstávají, dokud je nesmažete.",
+      "onThisMac": "Na tomto Macu",
+      "deleteAll": "Smazat vše",
+      "confirmPrompt": "Smazat všechny schůzky, přepisy, poznámky a nahrávky?",
+      "confirmDeleteAll": "Potvrdit smazání všeho",
+      "cancel": "Zrušit",
+      "audioLeftWarning": "Schůzky byly smazány, ale jednu či více složek se zvukem se nepodařilo odstranit.",
+      "actionFailed": "Nastavení uchovávání schůzek se nepodařilo upravit."
     }
   }
 }
