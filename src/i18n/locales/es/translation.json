@@ -27,7 +27,18 @@
     "perAppProfiles": "Perfiles por aplicación",
     "wordsAndCleanup": "Palabras y limpieza",
     "settings": "Configuración",
-    "sectionPlaceholder": "Disponible en esta sección cuando esté activado."
+    "sectionPlaceholder": "Disponible en esta sección cuando esté activado.",
+    "startRecording": "Iniciar grabación",
+    "seeAllMeetings": "Todas las reuniones →",
+    "dictateHeading": "Dicta en cualquier lugar",
+    "holdToTalk": "mantén para hablar",
+    "changeShortcut": "Cambiar atajo",
+    "seeAllDictations": "Todos los dictados →",
+    "dictationSearchPlaceholder": "Palabras que dijiste",
+    "dictationSearchAria": "Buscar dictados",
+    "cleanedUp": "Limpio",
+    "emptyDictationSearch": "Ningún dictado coincide con tu búsqueda.",
+    "keptDays": "Guardado 30 días"
   },
   "onboarding": {
     "subtitle": "Para comenzar, elige un modelo de transcripción",

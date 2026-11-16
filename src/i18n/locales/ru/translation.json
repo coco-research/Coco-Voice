@@ -27,7 +27,18 @@
     "perAppProfiles": "Профили для приложений",
     "wordsAndCleanup": "Слова и очистка",
     "settings": "Настройки",
-    "sectionPlaceholder": "Доступно в этом разделе после включения."
+    "sectionPlaceholder": "Доступно в этом разделе после включения.",
+    "startRecording": "Начать запись",
+    "seeAllMeetings": "Все встречи →",
+    "dictateHeading": "Диктуйте где угодно",
+    "holdToTalk": "удерживайте для речи",
+    "changeShortcut": "Изменить сочетание",
+    "seeAllDictations": "Все диктовки →",
+    "dictationSearchPlaceholder": "Произнесённые слова",
+    "dictationSearchAria": "Поиск по диктовкам",
+    "cleanedUp": "Очищено",
+    "emptyDictationSearch": "Нет диктовок по вашему запросу.",
+    "keptDays": "Хранится 30 дней"
   },
   "onboarding": {
     "subtitle": "Для начала выберите модель транскрипции",

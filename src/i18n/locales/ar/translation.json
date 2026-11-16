@@ -27,7 +27,18 @@
     "perAppProfiles": "ملفات تعريف التطبيقات",
     "wordsAndCleanup": "الكلمات والتنقيح",
     "settings": "الإعدادات",
-    "sectionPlaceholder": "يتوفر في هذا القسم عند التفعيل."
+    "sectionPlaceholder": "يتوفر في هذا القسم عند التفعيل.",
+    "startRecording": "بدء التسجيل",
+    "seeAllMeetings": "كل الاجتماعات ←",
+    "dictateHeading": "أملِ في أي مكان",
+    "holdToTalk": "اضغط مطولاً للتحدث",
+    "changeShortcut": "تغيير الاختصار",
+    "seeAllDictations": "كل عمليات الإملاء ←",
+    "dictationSearchPlaceholder": "الكلمات التي قلتها",
+    "dictationSearchAria": "ابحث في عمليات الإملاء",
+    "cleanedUp": "منقّح",
+    "emptyDictationSearch": "لا توجد عمليات إملاء تطابق بحثك.",
+    "keptDays": "تُحفظ لمدة 30 يوماً"
   },
   "onboarding": {
     "subtitle": "للبدء، اختر نموذج التفريغ الصوتي",

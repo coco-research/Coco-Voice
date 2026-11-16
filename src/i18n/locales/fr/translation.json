@@ -27,7 +27,18 @@
     "perAppProfiles": "Profils par application",
     "wordsAndCleanup": "Mots et nettoyage",
     "settings": "Paramètres",
-    "sectionPlaceholder": "Disponible dans cette section une fois activé."
+    "sectionPlaceholder": "Disponible dans cette section une fois activé.",
+    "startRecording": "Démarrer l'enregistrement",
+    "seeAllMeetings": "Toutes les réunions →",
+    "dictateHeading": "Dictez partout",
+    "holdToTalk": "maintenir pour parler",
+    "changeShortcut": "Modifier le raccourci",
+    "seeAllDictations": "Toutes les dictées →",
+    "dictationSearchPlaceholder": "Mots prononcés",
+    "dictationSearchAria": "Rechercher dans les dictées",
+    "cleanedUp": "Nettoyé",
+    "emptyDictationSearch": "Aucune dictée ne correspond à votre recherche.",
+    "keptDays": "Conservé 30 jours"
   },
   "onboarding": {
     "subtitle": "Pour commencer, choisissez un modèle de transcription",

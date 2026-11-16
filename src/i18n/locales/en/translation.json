@@ -27,7 +27,18 @@
     "perAppProfiles": "Per-app profiles",
     "wordsAndCleanup": "Words and clean-up",
     "settings": "Settings",
-    "sectionPlaceholder": "Available in this section when configured."
+    "sectionPlaceholder": "Available in this section when configured.",
+    "startRecording": "Start recording",
+    "seeAllMeetings": "All meetings →",
+    "dictateHeading": "Dictate anywhere",
+    "holdToTalk": "hold to talk",
+    "changeShortcut": "Change shortcut",
+    "seeAllDictations": "All dictations →",
+    "dictationSearchPlaceholder": "Words you said",
+    "dictationSearchAria": "Search dictations",
+    "cleanedUp": "Cleaned up",
+    "emptyDictationSearch": "No dictations match your search.",
+    "keptDays": "Kept 30 days"
   },
   "onboarding": {
     "subtitle": "To get started, choose a transcription model",

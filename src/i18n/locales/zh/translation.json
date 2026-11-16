@@ -27,7 +27,18 @@
     "perAppProfiles": "分应用配置",
     "wordsAndCleanup": "词库与润色",
     "settings": "设置",
-    "sectionPlaceholder": "启用后可在此分组中使用。"
+    "sectionPlaceholder": "启用后可在此分组中使用。",
+    "startRecording": "开始录制",
+    "seeAllMeetings": "全部会议 →",
+    "dictateHeading": "随处听写",
+    "holdToTalk": "按住说话",
+    "changeShortcut": "更改快捷键",
+    "seeAllDictations": "全部听写 →",
+    "dictationSearchPlaceholder": "你说过的话",
+    "dictationSearchAria": "搜索听写记录",
+    "cleanedUp": "已润色",
+    "emptyDictationSearch": "没有匹配的听写记录。",
+    "keptDays": "保留 30 天"
   },
   "onboarding": {
     "subtitle": "请选择一个转录模型以开始使用",

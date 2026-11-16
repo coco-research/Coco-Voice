@@ -27,7 +27,18 @@
     "perAppProfiles": "Hồ sơ theo ứng dụng",
     "wordsAndCleanup": "Từ vựng và làm sạch",
     "settings": "Cài đặt",
-    "sectionPlaceholder": "Khả dụng trong mục này khi được bật."
+    "sectionPlaceholder": "Khả dụng trong mục này khi được bật.",
+    "startRecording": "Bắt đầu ghi âm",
+    "seeAllMeetings": "Tất cả cuộc họp →",
+    "dictateHeading": "Đọc chính tả ở mọi nơi",
+    "holdToTalk": "giữ để nói",
+    "changeShortcut": "Đổi phím tắt",
+    "seeAllDictations": "Tất cả bản đọc →",
+    "dictationSearchPlaceholder": "Từ bạn đã nói",
+    "dictationSearchAria": "Tìm bản đọc chính tả",
+    "cleanedUp": "Đã làm sạch",
+    "emptyDictationSearch": "Không có bản đọc nào khớp tìm kiếm.",
+    "keptDays": "Lưu 30 ngày"
   },
   "onboarding": {
     "subtitle": "Để bắt đầu, hãy chọn một mô hình chuyển đổi giọng nói",

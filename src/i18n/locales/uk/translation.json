@@ -27,7 +27,18 @@
     "perAppProfiles": "Профілі для програм",
     "wordsAndCleanup": "Слова та очищення",
     "settings": "Налаштування",
-    "sectionPlaceholder": "Доступно в цьому розділі після увімкнення."
+    "sectionPlaceholder": "Доступно в цьому розділі після увімкнення.",
+    "startRecording": "Почати запис",
+    "seeAllMeetings": "Усі зустрічі →",
+    "dictateHeading": "Диктуйте будь-де",
+    "holdToTalk": "утримуйте для мовлення",
+    "changeShortcut": "Змінити скорочення",
+    "seeAllDictations": "Усі диктування →",
+    "dictationSearchPlaceholder": "Сказані вами слова",
+    "dictationSearchAria": "Пошук у диктуваннях",
+    "cleanedUp": "Очищено",
+    "emptyDictationSearch": "Немає диктувань за вашим запитом.",
+    "keptDays": "Зберігається 30 днів"
   },
   "onboarding": {
     "subtitle": "Для початку оберіть модель транскрипції",

@@ -20,6 +20,17 @@ export const REQUIRED_LAYOUT_KEYS = [
   "sidebar.settings",
   "sidebar.about",
   "sidebar.sectionPlaceholder",
+  "sidebar.startRecording",
+  "sidebar.seeAllMeetings",
+  "sidebar.dictateHeading",
+  "sidebar.holdToTalk",
+  "sidebar.changeShortcut",
+  "sidebar.seeAllDictations",
+  "sidebar.dictationSearchPlaceholder",
+  "sidebar.dictationSearchAria",
+  "sidebar.cleanedUp",
+  "sidebar.emptyDictationSearch",
+  "sidebar.keptDays",
 ] as const;
 
 function getPath(obj: Record<string, unknown>, dotted: string): unknown {
