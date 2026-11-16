@@ -964,6 +964,22 @@
       "listeningQuestion": "Écoute de votre question...",
       "citationRule": "Chaque réponse cite la réunion et le moment exact d’où elle provient.",
       "todosTab": "Vos tâches"
+    },
+    "agent": {
+      "todosSubtitle": "Issu de vos réunions des 14 derniers jours",
+      "todosDone": "Terminé",
+      "todosFooter": "Chaque tâche ouvre le moment où vous l’avez dite. Trouvé sur ce Mac ; mis à jour après chaque réunion.",
+      "subtitle": "Autorisez un agent IA sur ce Mac (Claude Code, Cursor, Codex) à lire vos réunions pendant que vous travaillez. Désactivé tant que vous ne l’activez pas. Rien ne quitte ce Mac via Coco Voice.",
+      "masterLabel": "Autoriser les agents locaux à lire les réunions",
+      "offByDefault": "Désactivé par défaut",
+      "canReadHeading": "Ce qu’un agent peut lire",
+      "liveMeetingLabel": "La réunion en cours",
+      "pastMeetingsLabel": "Les réunions passées",
+      "audioLabel": "Audio de la réunion",
+      "audioNever": "Jamais · Non proposé",
+      "connectHeading": "Connecter un agent",
+      "copyCommand": "Copier",
+      "recentReadsHeading": "Lectures récentes"
     }
   }
 }

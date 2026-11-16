@@ -964,6 +964,22 @@
       "listeningQuestion": "Hört Ihre Frage...",
       "citationRule": "Jede Antwort nennt die Besprechung und den genauen Zeitpunkt.",
       "todosTab": "Ihre Aufgaben"
+    },
+    "agent": {
+      "todosSubtitle": "Aus Ihren Besprechungen der letzten 14 Tage",
+      "todosDone": "Erledigt",
+      "todosFooter": "Jede Aufgabe öffnet den Moment, in dem Sie es gesagt haben. Lokal auf diesem Mac gefunden; nach jeder Besprechung aktualisiert.",
+      "subtitle": "Erlauben Sie einem KI-Agenten auf diesem Mac (Claude Code, Cursor, Codex), Ihre Besprechungen beim Arbeiten zu lesen. Aus, bis Sie es einschalten. Nichts verlässt diesen Mac über Coco Voice.",
+      "masterLabel": "Lokalen Agenten Lesezugriff auf Besprechungen erlauben",
+      "offByDefault": "Standardmäßig aus",
+      "canReadHeading": "Was ein Agent lesen kann",
+      "liveMeetingLabel": "Die aktuell laufende Besprechung",
+      "pastMeetingsLabel": "Vergangene Besprechungen",
+      "audioLabel": "Besprechungs-Audio",
+      "audioNever": "Nie · Nicht angeboten",
+      "connectHeading": "Agent verbinden",
+      "copyCommand": "Kopieren",
+      "recentReadsHeading": "Letzte Lesezugriffe"
     }
   }
 }
