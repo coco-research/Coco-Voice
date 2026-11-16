@@ -2,6 +2,11 @@ import React, { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../hooks/useSettings";
 import { HomeView } from "../home/HomeView";
+import { AgentAccessView } from "../meetings/AgentAccessView";
+import {
+  AskMeetingsView,
+  MeetingTodosPanel,
+} from "../meetings/AskMeetingsView";
 import { FoldersAndTemplatesView } from "../meetings/FoldersAndTemplatesView";
 import { MeetingHistoryHub } from "../meetings/MeetingHistoryExtras";
 import { RecordMeetingPage } from "../meetings/RecordMeetingPage";
@@ -105,6 +110,16 @@ const ShellPage: React.FC<{
   );
 };
 
+const TodosHistoryMount: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <MeetingHistoryHub
+      todosLabel={t("meetings.ask.todosTab")}
+      todosSlot={<MeetingTodosPanel />}
+    />
+  );
+};
+
 export function renderShellSection(
   s: ShellSectionId,
   mUi: MeetingsUi | null,
@@ -124,13 +139,25 @@ export function renderShellSection(
   if (s === "meetings-history")
     return (
       <div data-route-domain="meetings" className="w-full">
-        <MeetingHistoryHub />
+        <TodosHistoryMount />
+      </div>
+    );
+  if (s === "meetings-ask")
+    return (
+      <div data-route-domain="meetings" className="w-full">
+        <AskMeetingsView />
       </div>
     );
   if (s === "meetings-folders")
     return (
       <div data-route-domain="meetings" className="w-full">
         <FoldersAndTemplatesView />
+      </div>
+    );
+  if (s === "meetings-agent")
+    return (
+      <div data-route-domain="meetings" className="w-full">
+        <AgentAccessView />
       </div>
     );
   if (s === "voice-history")
