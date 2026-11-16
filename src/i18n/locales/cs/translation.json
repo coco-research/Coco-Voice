@@ -593,7 +593,7 @@
       "leavesLabel": "Opouští váš Mac:",
       "openHeading": "Při každém spuštění aplikace",
       "githubName": "GitHub (vydání Coco Voice)",
-      "githubWhen": "Při každém otevření aplikace kvůli kontrole aktualizací. Chcete-li to zastavit, vypněte kontrolu aktualizací v nastavení ladění (Cmd+Shift+D). Kliknuté odkazy se otevírají v prohlížeči.",
+      "githubWhen": "Při každém otevření aplikace kvůli kontrole aktualizací. Chcete-li to zastavit, vypněte kontrolu aktualizací výše v části O aplikaci. Kliknuté odkazy se otevírají v prohlížeči.",
       "githubLeaves": "požadavek na seznam vydání a soubor aktualizace, pokud ji nainstalujete. Žádná řeč a žádný text.",
       "updateChecksOn": "Kontrola aktualizací zapnuta",
       "updateChecksOff": "Kontrola aktualizací vypnuta",

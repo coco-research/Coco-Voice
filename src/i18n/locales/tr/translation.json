@@ -593,7 +593,7 @@
       "leavesLabel": "Mac’inizden çıkan:",
       "openHeading": "Uygulama her açıldığında",
       "githubName": "GitHub (Coco Voice sürümleri)",
-      "githubWhen": "Güncellemeleri denetlemek için uygulama her açıldığında. Bunu durdurmak için Hata Ayıklama ayarlarında (Cmd+Shift+D) güncelleme denetimini kapatın. Tıkladığınız bağlantılar tarayıcınızda açılır.",
+      "githubWhen": "Güncellemeleri denetlemek için uygulama her açıldığında. Bunu durdurmak için yukarıdaki Hakkında bölümünde güncelleme denetimini kapatın. Tıkladığınız bağlantılar tarayıcınızda açılır.",
       "githubLeaves": "sürüm listesi isteği ve yüklerseniz güncelleme dosyası. Ses veya metin gönderilmez.",
       "updateChecksOn": "Güncelleme denetimi açık",
       "updateChecksOff": "Güncelleme denetimi kapalı",

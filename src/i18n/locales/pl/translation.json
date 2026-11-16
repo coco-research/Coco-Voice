@@ -593,7 +593,7 @@
       "leavesLabel": "Opuszcza Twojego Maca:",
       "openHeading": "Przy każdym uruchomieniu aplikacji",
       "githubName": "GitHub (wydania Coco Voice)",
-      "githubWhen": "Przy każdym otwarciu aplikacji w celu sprawdzenia aktualizacji. Aby to wyłączyć, wyłącz sprawdzanie aktualizacji w ustawieniach debugowania (Cmd+Shift+D). Kliknięte linki otwierają się w przeglądarce.",
+      "githubWhen": "Przy każdym otwarciu aplikacji w celu sprawdzenia aktualizacji. Aby to wyłączyć, wyłącz sprawdzanie aktualizacji powyżej w sekcji O programie. Kliknięte linki otwierają się w przeglądarce.",
       "githubLeaves": "żądanie listy wydań oraz plik aktualizacji, jeśli ją zainstalujesz. Bez mowy i bez tekstu.",
       "updateChecksOn": "Sprawdzanie aktualizacji wł.",
       "updateChecksOff": "Sprawdzanie aktualizacji wył.",

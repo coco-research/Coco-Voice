@@ -593,7 +593,7 @@
       "leavesLabel": "Quitte votre Mac :",
       "openHeading": "À chaque ouverture de l’application",
       "githubName": "GitHub (versions de Coco Voice)",
-      "githubWhen": "À chaque ouverture de l’application, pour vérifier les mises à jour. Pour l’arrêter, désactivez la recherche de mises à jour dans les réglages de débogage (Cmd+Shift+D). Les liens cliqués s’ouvrent dans votre navigateur.",
+      "githubWhen": "À chaque ouverture de l’application, pour vérifier les mises à jour. Pour l’arrêter, désactivez la recherche de mises à jour ci-dessus dans À propos. Les liens cliqués s’ouvrent dans votre navigateur.",
       "githubLeaves": "une requête pour la liste des versions et le fichier de mise à jour si vous l’installez. Aucune parole ni aucun texte.",
       "updateChecksOn": "Mises à jour activées",
       "updateChecksOff": "Mises à jour désactivées",

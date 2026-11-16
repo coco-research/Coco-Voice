@@ -593,7 +593,7 @@
       "leavesLabel": "Lämnar din Mac:",
       "openHeading": "Varje gång appen öppnas",
       "githubName": "GitHub (Coco Voice-utgåvor)",
-      "githubWhen": "Varje gång appen öppnas för att söka efter uppdateringar. Stäng av uppdateringskontroller i felsökningsinställningarna (Cmd+Shift+D) för att stoppa detta. Länkar du klickar på öppnas i webbläsaren.",
+      "githubWhen": "Varje gång appen öppnas för att söka efter uppdateringar. Stäng av uppdateringskontroller ovan under Om för att stoppa detta. Länkar du klickar på öppnas i webbläsaren.",
       "githubLeaves": "en begäran om listan över utgåvor och uppdateringsfilen om du installerar en. Inget tal och ingen text.",
       "updateChecksOn": "Uppdateringskontroll på",
       "updateChecksOff": "Uppdateringskontroll av",

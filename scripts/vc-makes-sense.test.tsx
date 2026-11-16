@@ -21,8 +21,12 @@ mock.module("../src/i18n", () => ({
 }));
 
 const { SECTIONS_CONFIG } = await import("../src/components/Sidebar");
+const { AboutSettings } =
+  await import("../src/components/settings/about/AboutSettings");
 const { AdvancedSettings } =
   await import("../src/components/settings/advanced/AdvancedSettings");
+const { DebugSettings } =
+  await import("../src/components/settings/debug/DebugSettings");
 const { PostProcessingSettings } =
   await import("../src/components/settings/post-processing/PostProcessingSettings");
 
@@ -103,5 +107,43 @@ describe("V-C2 (E13): Clean up page out of Experimental", () => {
     });
     expect(cleanupHtml).toContain(">Clean up</h2>");
     expect(cleanupHtml).toContain(">Clean up</h3>");
+  });
+});
+
+describe("V-C6 (E17): Update checks and paste timing in normal settings", () => {
+  test("update checks live in About, paste timing lives in Advanced Output, Debug has neither, and What goes online names About instead of Debug", () => {
+    const aboutHtml = renderWithSettings(<AboutSettings />);
+    expect(aboutHtml).toContain(`>${en.settings.debug.updateChecks.label}<`);
+    expect(aboutHtml).toContain(en.settings.online.githubWhen);
+
+    const advancedHtml = renderWithSettings(<AdvancedSettings />, {
+      debug_mode: false,
+      experimental_enabled: false,
+    });
+    expect(advancedHtml).toContain(`>${en.settings.debug.pasteDelay.title}<`);
+    expect(advancedHtml).toContain(
+      `>${en.settings.debug.pasteDelayAfter.title}<`,
+    );
+
+    const debugHtml = renderWithSettings(<DebugSettings />, {
+      debug_mode: true,
+    });
+    expect(debugHtml).not.toContain(
+      `>${en.settings.debug.updateChecks.label}<`,
+    );
+    expect(debugHtml).not.toContain(`>${en.settings.debug.pasteDelay.title}<`);
+    expect(debugHtml).not.toContain(
+      `>${en.settings.debug.pasteDelayAfter.title}<`,
+    );
+
+    for (const loc of readdirSync(localesDir).sort()) {
+      const data = JSON.parse(
+        readFileSync(join(localesDir, loc, "translation.json"), "utf8"),
+      ) as { settings?: { online?: { githubWhen?: string } } };
+      const gw = data.settings?.online?.githubWhen ?? "";
+      expect(gw.length).toBeGreaterThan(0);
+      expect(gw).not.toContain("Cmd+Shift+D");
+      expect(gw.toLowerCase()).not.toContain("debug");
+    }
   });
 });

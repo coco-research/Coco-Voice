@@ -593,7 +593,7 @@
       "leavesLabel": "Verlaat je Mac:",
       "openHeading": "Elke keer dat de app opent",
       "githubName": "GitHub (Coco Voice-releases)",
-      "githubWhen": "Elke keer dat de app opent om op updates te controleren. Schakel updatecontroles uit in Debug-instellingen (Cmd+Shift+D) om dit te stoppen. Aangeklikte links openen in je browser.",
+      "githubWhen": "Elke keer dat de app opent om op updates te controleren. Schakel updatecontroles hierboven uit onder Over om dit te stoppen. Aangeklikte links openen in je browser.",
       "githubLeaves": "een verzoek om de lijst met versies en het updatebestand als je er een installeert. Geen spraak en geen tekst.",
       "updateChecksOn": "Updatecontrole aan",
       "updateChecksOff": "Updatecontrole uit",

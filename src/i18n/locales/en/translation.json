@@ -593,7 +593,7 @@
       "leavesLabel": "Leaves your Mac:",
       "openHeading": "Every time the app opens",
       "githubName": "GitHub (Coco Voice releases)",
-      "githubWhen": "Each time the app opens, to check for an update. To stop this, turn off update checks in Debug settings (Cmd+Shift+D). Links you click open in your browser.",
+      "githubWhen": "Each time the app opens, to check for an update. To stop this, turn off Check for Updates above in About. Links you click open in your browser.",
       "githubLeaves": "a request for the list of releases, and the update file if you install one. No speech and no text.",
       "updateChecksOn": "Update checks on",
       "updateChecksOff": "Update checks off",

@@ -593,7 +593,7 @@
       "leavesLabel": "Rời khỏi máy Mac của bạn:",
       "openHeading": "Mỗi khi mở ứng dụng",
       "githubName": "GitHub (các bản phát hành Coco Voice)",
-      "githubWhen": "Mỗi khi mở ứng dụng để kiểm tra bản cập nhật. Để tắt, hãy tắt kiểm tra cập nhật trong cài đặt Gỡ lỗi (Cmd+Shift+D). Các liên kết bạn bấm sẽ mở trong trình duyệt.",
+      "githubWhen": "Mỗi khi mở ứng dụng để kiểm tra bản cập nhật. Để tắt, hãy tắt kiểm tra cập nhật ở mục Giới thiệu phía trên. Các liên kết bạn bấm sẽ mở trong trình duyệt.",
       "githubLeaves": "yêu cầu danh sách bản phát hành và tệp cập nhật nếu bạn cài đặt. Không có giọng nói và không có văn bản.",
       "updateChecksOn": "Đang bật kiểm tra cập nhật",
       "updateChecksOff": "Đã tắt kiểm tra cập nhật",

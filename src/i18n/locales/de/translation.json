@@ -593,7 +593,7 @@
       "leavesLabel": "Verlässt deinen Mac:",
       "openHeading": "Bei jedem Start der App",
       "githubName": "GitHub (Coco Voice-Versionen)",
-      "githubWhen": "Bei jedem Öffnen der App, um nach Updates zu suchen. Zum Abschalten deaktiviere die Updateprüfung in den Debug-Einstellungen (Cmd+Shift+D). Angeklickte Links öffnen sich im Browser.",
+      "githubWhen": "Bei jedem Öffnen der App, um nach Updates zu suchen. Zum Abschalten deaktiviere die Updateprüfung oben unter Info. Angeklickte Links öffnen sich im Browser.",
       "githubLeaves": "eine Anfrage nach der Versionsliste und die Updatedatei, falls du eine installierst. Keine Sprache und kein Text.",
       "updateChecksOn": "Updateprüfung ein",
       "updateChecksOff": "Updateprüfung aus",

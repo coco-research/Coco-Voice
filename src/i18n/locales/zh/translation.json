@@ -593,7 +593,7 @@
       "leavesLabel": "离开您 Mac 的内容：",
       "openHeading": "每次打开应用时",
       "githubName": "GitHub（Coco Voice 版本发布）",
-      "githubWhen": "每次打开应用时检查更新。若要停用，请在调试设置（Cmd+Shift+D）中关闭更新检查。点击的链接会在浏览器中打开。",
+      "githubWhen": "每次打开应用时检查更新。若要停用，请在上方“关于”中关闭更新检查。点击的链接会在浏览器中打开。",
       "githubLeaves": "获取版本列表的请求，以及安装更新时的更新文件。不包含语音，也不包含文字。",
       "updateChecksOn": "更新检查已开启",
       "updateChecksOff": "更新检查已关闭",

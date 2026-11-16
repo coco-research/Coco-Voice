@@ -593,7 +593,7 @@
       "leavesLabel": "離開這台 Mac 的內容：",
       "openHeading": "每次開啟應用程式時",
       "githubName": "GitHub（Coco Voice 版本發佈）",
-      "githubWhen": "每次開啟應用程式時檢查更新。若要停用，請在除錯設定（Cmd+Shift+D）中關閉更新檢查。點擊的連結會在瀏覽器中開啟。",
+      "githubWhen": "每次開啟應用程式時檢查更新。若要停用，請在上方「關於」中關閉更新檢查。點擊的連結會在瀏覽器中開啟。",
       "githubLeaves": "取得版本清單的請求，以及安裝更新時的更新檔案。不含語音，也不含文字。",
       "updateChecksOn": "更新檢查已開啟",
       "updateChecksOff": "更新檢查已關閉",

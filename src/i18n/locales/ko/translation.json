@@ -593,7 +593,7 @@
       "leavesLabel": "이 Mac에서 나가는 항목:",
       "openHeading": "앱을 열 때마다",
       "githubName": "GitHub (Coco Voice 릴리스)",
-      "githubWhen": "앱을 열 때마다 업데이트를 확인합니다. 중지하려면 디버그 설정(Cmd+Shift+D)에서 업데이트 확인을 끄세요. 클릭한 링크는 브라우저에서 열립니다.",
+      "githubWhen": "앱을 열 때마다 업데이트를 확인합니다. 중지하려면 위쪽 정보 섹션에서 업데이트 확인을 끄세요. 클릭한 링크는 브라우저에서 열립니다.",
       "githubLeaves": "릴리스 목록 요청 및 설치 시 업데이트 파일. 음성과 텍스트는 전송되지 않습니다.",
       "updateChecksOn": "업데이트 확인 켜짐",
       "updateChecksOff": "업데이트 확인 꺼짐",

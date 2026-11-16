@@ -593,7 +593,7 @@
       "leavesLabel": "Sale de tu Mac:",
       "openHeading": "Cada vez que se abre la aplicación",
       "githubName": "GitHub (versiones de Coco Voice)",
-      "githubWhen": "Cada vez que se abre la aplicación, para buscar actualizaciones. Para detenerlo, desactiva las comprobaciones de actualización en Ajustes de depuración (Cmd+Shift+D). Los enlaces que pulsas se abren en tu navegador.",
+      "githubWhen": "Cada vez que se abre la aplicación, para buscar actualizaciones. Para detenerlo, desactiva las comprobaciones de actualización arriba en Acerca de. Los enlaces que pulsas se abren en tu navegador.",
       "githubLeaves": "una solicitud de la lista de versiones y el archivo de actualización si instalas una. Sin voz ni texto.",
       "updateChecksOn": "Búsqueda de actualizaciones activa",
       "updateChecksOff": "Búsqueda de actualizaciones desactivada",
