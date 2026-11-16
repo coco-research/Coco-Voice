@@ -84,12 +84,10 @@ describe("Group 3 (A3, A4, A5, A6, A10) screens", () => {
 
   test("Frame 12 Notes as Markdown files is off by default, warns only on synced cloud folders, and renders A5 Meeting language", () => {
     expect(detectSyncedFolderService("~/Documents/Meetings")).toBeNull();
-    expect(detectSyncedFolderService("/Users/alex/Dropbox/Notes")).toBe(
-      "Dropbox",
-    );
+    expect(detectSyncedFolderService("~/Dropbox/Notes")).toBe("Dropbox");
     expect(
       detectSyncedFolderService(
-        "/Users/alex/Library/Mobile Documents/com~apple~CloudDocs/Notes",
+        "~/Library/Mobile Documents/com~apple~CloudDocs/Notes",
       ),
     ).toBe("iCloud Drive");
 
@@ -112,7 +110,7 @@ describe("Group 3 (A3, A4, A5, A6, A10) screens", () => {
     const dropboxHtml = wrap(
       <MeetingsFilesAndLanguageSection
         saveMarkdownEnabled={true}
-        folderPath="/Users/alex/Dropbox/Meetings"
+        folderPath="~/Dropbox/Meetings"
         meetingLanguage="fr"
         perMeetingOverride={true}
         onToggleSaveMarkdown={() => {}}
