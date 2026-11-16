@@ -229,9 +229,7 @@ function toHomeDictation(e: HistoryEntry, lang: string): HomeDictationItem {
       ? e.post_processed_text
       : e.transcription_text;
   const time = new Date(e.timestamp * 1000).toLocaleTimeString(lang, TIME_OPTS);
-  const appName =
-    (e as HistoryEntry & { app_name?: string | null }).app_name ?? null;
-  return { id: e.id, text: txt, appName, time };
+  return { id: e.id, text: txt, appName: e.app_name, time };
 }
 
 export const HomeView: React.FC<{

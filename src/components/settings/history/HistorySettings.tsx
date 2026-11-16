@@ -24,8 +24,6 @@ const SHORT_DATE_OPTS: Intl.DateTimeFormatOptions = {
   month: "short",
 };
 
-type EntryWithApp = HistoryEntry & { app_name?: string | null };
-
 const displayTextFor = (e: HistoryEntry): string =>
   e.post_processed_text && e.post_processed_text.trim().length > 0
     ? e.post_processed_text
@@ -66,7 +64,7 @@ export function formatDictationTime(
   return `${date.toLocaleDateString(lang, SHORT_DATE_OPTS)} ${clock}`;
 }
 
-function isDictationEntry(x: unknown): x is EntryWithApp {
+function isDictationEntry(x: unknown): x is HistoryEntry {
   const o =
     typeof x === "object" && x !== null ? (x as Record<string, unknown>) : null;
   return Boolean(
@@ -80,7 +78,7 @@ function isDictationEntry(x: unknown): x is EntryWithApp {
 export function selectDictationEntries(
   records: readonly unknown[],
   query: string,
-): EntryWithApp[] {
+): HistoryEntry[] {
   const q = query.trim().toLowerCase();
   const takes = records.filter(isDictationEntry);
   return q
@@ -102,7 +100,7 @@ export interface HistoryProps {
 export const HistorySettings: React.FC<HistoryProps> = (props) => {
   const { t } = useTranslation();
   const osType = useOsType();
-  const [entries, setEntries] = useState<EntryWithApp[]>(() =>
+  const [entries, setEntries] = useState<HistoryEntry[]>(() =>
     props.initialEntries
       ? selectDictationEntries(props.initialEntries, "")
       : [],
@@ -111,7 +109,7 @@ export const HistorySettings: React.FC<HistoryProps> = (props) => {
   const [query, setQuery] = useState(props.initialQuery ?? "");
   const [hasMore, setHasMore] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const entriesRef = useRef<EntryWithApp[]>([]);
+  const entriesRef = useRef<HistoryEntry[]>([]);
   const loadingRef = useRef(false);
 
   useEffect(() => {
@@ -287,7 +285,7 @@ export const HistorySettings: React.FC<HistoryProps> = (props) => {
 };
 
 interface HistoryRowProps {
-  entry: EntryWithApp;
+  entry: HistoryEntry;
   nowTimestamp?: number;
   onCopyText: () => void;
   getAudioUrl: (fileName: string) => Promise<string | null>;

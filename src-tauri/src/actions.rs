@@ -52,6 +52,84 @@ const STREAM_ENGINE_RETURN_WAIT: Duration = Duration::from_secs(10);
 /// correction. A follow-up utterance arriving after this window is treated as a
 /// fresh dictation rather than an edit of the previous result.
 const REFINE_BUFFER_TTL: Duration = Duration::from_secs(30);
+const FRONTMOST_APP_TIMEOUT: Duration = Duration::from_millis(500);
+
+fn is_self_app_identifier(value: &str) -> bool {
+    let t = value.trim();
+    t.eq_ignore_ascii_case("Coco Voice")
+        || t.eq_ignore_ascii_case("coco-voice")
+        || t.eq_ignore_ascii_case("com.cocoresearch.cocovoice")
+}
+
+fn parse_lsappinfo_display_name(raw: &str) -> Option<String> {
+    let (mut bundle_id, mut display_name, mut exec_stem) = (None, None, None);
+    for line in raw.lines() {
+        let Some((k, v)) = line.trim().split_once('=') else {
+            continue;
+        };
+        let val = v.trim();
+        if val == "NULL" {
+            continue;
+        }
+        let val = val.trim_matches('"').trim();
+        if val.is_empty() {
+            continue;
+        }
+        match k.trim().trim_matches('"') {
+            "CFBundleIdentifier" => bundle_id = Some(val.to_string()),
+            "LSDisplayName" => display_name = Some(val.to_string()),
+            "CFBundleExecutablePath" => {
+                exec_stem = std::path::Path::new(val)
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string);
+            }
+            _ => {}
+        }
+    }
+    if bundle_id.as_deref().is_some_and(is_self_app_identifier)
+        || display_name.as_deref().is_some_and(is_self_app_identifier)
+        || exec_stem.as_deref().is_some_and(is_self_app_identifier)
+    {
+        return None;
+    }
+    display_name.or(exec_stem)
+}
+
+fn read_frontmost_app_name() -> Option<String> {
+    #[cfg(target_os = "macos")]
+    {
+        let front = std::process::Command::new("/usr/bin/lsappinfo")
+            .arg("front")
+            .output()
+            .ok()?;
+        let asn = String::from_utf8_lossy(&front.stdout).trim().to_string();
+        if !front.status.success() || asn.is_empty() || asn == "NULL" {
+            return None;
+        }
+        let info = std::process::Command::new("/usr/bin/lsappinfo")
+            .args(["info", "-only", "bundleid,name,executablepath", &asn])
+            .output()
+            .ok()?;
+        info.status
+            .success()
+            .then(|| parse_lsappinfo_display_name(&String::from_utf8_lossy(&info.stdout)))
+            .flatten()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
+}
+
+async fn query_frontmost_app_name() -> Option<String> {
+    let task = tauri::async_runtime::spawn_blocking(read_frontmost_app_name);
+    match tokio::time::timeout(FRONTMOST_APP_TIMEOUT, task).await {
+        Ok(Ok(name)) => name,
+        _ => None,
+    }
+}
 
 /// The last {raw transcript, produced output} pair, kept briefly so a follow-up
 /// correction can edit the previous result instead of transcribing fresh (see
@@ -1348,6 +1426,7 @@ impl ShortcutAction for TranscribeAction {
 
         tauri::async_runtime::spawn(async move {
             let _guard = FinishGuard(ah.clone());
+            let front_app_name = query_frontmost_app_name().await;
             debug!(
                 "Starting async transcription task for binding: {}",
                 binding_id
@@ -1492,6 +1571,7 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     processed.post_processed_text.clone(),
                                     processed.post_process_prompt.clone(),
+                                    front_app_name.clone(),
                                 ) {
                                     Ok(_) => history_saved = true,
                                     Err(err) => error!("Failed to save history entry: {}", err),
@@ -1613,6 +1693,7 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     None,
                                     None,
+                                    front_app_name,
                                 ) {
                                     error!("Failed to save failed history entry: {}", save_err);
                                 }
@@ -1991,5 +2072,28 @@ mod tests {
         assert!(!should_use_streaming_overlay(OverlayStyle::Live, false));
         assert!(!should_use_streaming_overlay(OverlayStyle::Minimal, true));
         assert!(!should_use_streaming_overlay(OverlayStyle::None, true));
+    }
+
+    #[test]
+    fn parses_frontmost_app_display_name_and_skips_self() {
+        let mail_raw = "\"CFBundleIdentifier\"=\"com.apple.mail\"\n\"LSDisplayName\"=\"Mail\"\n\"CFBundleExecutablePath\"=\"/System/Applications/Mail.app/Contents/MacOS/Mail\"\n";
+        assert_eq!(
+            super::parse_lsappinfo_display_name(mail_raw).as_deref(),
+            Some("Mail")
+        );
+
+        let fallback_raw =
+            "\"CFBundleExecutablePath\"=\"/Applications/Cursor.app/Contents/MacOS/Cursor\"\n";
+        assert_eq!(
+            super::parse_lsappinfo_display_name(fallback_raw).as_deref(),
+            Some("Cursor")
+        );
+
+        let self_raw = "\"CFBundleIdentifier\"=\"com.cocoresearch.cocovoice\"\n\"LSDisplayName\"=\"Coco Voice\"\n";
+        assert_eq!(super::parse_lsappinfo_display_name(self_raw), None);
+        assert_eq!(
+            super::parse_lsappinfo_display_name("\"LSDisplayName\"=NULL\n"),
+            None
+        );
     }
 }

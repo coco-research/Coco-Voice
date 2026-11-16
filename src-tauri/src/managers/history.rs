@@ -31,6 +31,7 @@ static MIGRATIONS: &[M] = &[
     M::up("ALTER TABLE transcription_history ADD COLUMN post_processed_text TEXT;"),
     M::up("ALTER TABLE transcription_history ADD COLUMN post_process_prompt TEXT;"),
     M::up("ALTER TABLE transcription_history ADD COLUMN post_process_requested BOOLEAN NOT NULL DEFAULT 0;"),
+    M::up("ALTER TABLE transcription_history ADD COLUMN app_name TEXT;"),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -63,6 +64,7 @@ pub struct HistoryEntry {
     pub post_processed_text: Option<String>,
     pub post_process_prompt: Option<String>,
     pub post_process_requested: bool,
+    pub app_name: Option<String>,
 }
 
 pub struct HistoryManager {
@@ -207,6 +209,7 @@ impl HistoryManager {
             post_processed_text: row.get("post_processed_text")?,
             post_process_prompt: row.get("post_process_prompt")?,
             post_process_requested: row.get("post_process_requested")?,
+            app_name: row.get("app_name")?,
         })
     }
 
@@ -223,9 +226,13 @@ impl HistoryManager {
         post_process_requested: bool,
         post_processed_text: Option<String>,
         post_process_prompt: Option<String>,
+        app_name: Option<String>,
     ) -> Result<HistoryEntry> {
         let timestamp = Utc::now().timestamp();
         let title = self.format_timestamp_title(timestamp);
+        let app_name = app_name
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
 
         let conn = self.get_connection()?;
         conn.execute(
@@ -237,8 +244,9 @@ impl HistoryManager {
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                post_process_requested,
+                app_name
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 &file_name,
                 timestamp,
@@ -248,6 +256,7 @@ impl HistoryManager {
                 &post_processed_text,
                 &post_process_prompt,
                 post_process_requested,
+                &app_name,
             ],
         )?;
 
@@ -261,6 +270,7 @@ impl HistoryManager {
             post_processed_text,
             post_process_prompt,
             post_process_requested,
+            app_name,
         };
 
         debug!("Saved history entry with id {}", entry.id);
@@ -308,7 +318,7 @@ impl HistoryManager {
 
         let entry = conn
             .query_row(
-                "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name
                  FROM transcription_history WHERE id = ?1",
                 params![id],
                 Self::map_history_entry,
@@ -459,7 +469,7 @@ impl HistoryManager {
             (Some(cursor_id), Some(lim)) => {
                 let fetch_count = (lim + 1) as i64;
                 let mut stmt = conn.prepare(
-                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name
                      FROM transcription_history
                      WHERE id < ?1
                      ORDER BY id DESC
@@ -473,7 +483,7 @@ impl HistoryManager {
             (None, Some(lim)) => {
                 let fetch_count = (lim + 1) as i64;
                 let mut stmt = conn.prepare(
-                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name
                      FROM transcription_history
                      ORDER BY id DESC
                      LIMIT ?1",
@@ -485,7 +495,7 @@ impl HistoryManager {
             }
             (_, None) => {
                 let mut stmt = conn.prepare(
-                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name
                      FROM transcription_history
                      ORDER BY id DESC",
                 )?;
@@ -516,7 +526,8 @@ impl HistoryManager {
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
+                post_process_requested,
+                app_name
              FROM transcription_history
              ORDER BY timestamp DESC
              LIMIT 1",
@@ -543,7 +554,8 @@ impl HistoryManager {
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
+                post_process_requested,
+                app_name
              FROM transcription_history
              WHERE transcription_text != ''
              ORDER BY timestamp DESC
@@ -597,7 +609,8 @@ impl HistoryManager {
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
+                post_process_requested,
+                app_name
              FROM transcription_history
              WHERE id = ?1",
         )?;
@@ -666,7 +679,8 @@ mod tests {
                 transcription_text TEXT NOT NULL,
                 post_processed_text TEXT,
                 post_process_prompt TEXT,
-                post_process_requested BOOLEAN NOT NULL DEFAULT 0
+                post_process_requested BOOLEAN NOT NULL DEFAULT 0,
+                app_name TEXT
             );",
         )
         .expect("create transcription_history table");
@@ -752,7 +766,7 @@ mod tests {
         let conn = Connection::open(&db_path).expect("reopen history db");
         let mut stmt = conn
             .prepare(
-                "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name
                  FROM transcription_history
                  ORDER BY id DESC",
             )
@@ -774,5 +788,47 @@ mod tests {
             .expect("entry exists");
         assert_eq!(latest.timestamp, 200);
         assert_eq!(latest.transcription_text, "second");
+    }
+
+    #[test]
+    fn old_history_db_migrates_with_null_app_name_and_stores_new_app_name() {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let db_path = dir.path().join("history.db");
+
+        {
+            let mut conn = Connection::open(&db_path).expect("open legacy history db");
+            let old_migrations = super::Migrations::new(super::MIGRATIONS[..4].to_vec());
+            old_migrations
+                .to_latest(&mut conn)
+                .expect("apply v4 migrations");
+            insert_entry(&conn, 100, "legacy take", None);
+        }
+
+        let mut conn = Connection::open(&db_path).expect("reopen for v5 migration");
+        let latest_migrations = super::Migrations::new(super::MIGRATIONS.to_vec());
+        latest_migrations.validate().expect("valid migrations");
+        latest_migrations
+            .to_latest(&mut conn)
+            .expect("migrate old db to v5");
+
+        let legacy = HistoryManager::get_latest_entry_with_conn(&conn)
+            .expect("query legacy row")
+            .expect("legacy row exists");
+        assert_eq!(legacy.transcription_text, "legacy take");
+        assert_eq!(legacy.app_name, None);
+
+        conn.execute(
+            "INSERT INTO transcription_history (
+                file_name, timestamp, saved, title, transcription_text, post_process_requested, app_name
+            ) VALUES (?1, ?2, 0, ?3, ?4, 1, ?5)",
+            params!["coco-voice-200.wav", 200_i64, "Recording 200", "new take", "Mail"],
+        )
+        .expect("insert take with app_name");
+
+        let newest = HistoryManager::get_latest_entry_with_conn(&conn)
+            .expect("query newest row")
+            .expect("newest row exists");
+        assert_eq!(newest.transcription_text, "new take");
+        assert_eq!(newest.app_name.as_deref(), Some("Mail"));
     }
 }
