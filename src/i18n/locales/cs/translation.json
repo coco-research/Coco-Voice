@@ -865,6 +865,22 @@
       "addWord": "Přidat",
       "removeWordAria": "Odebrat {{word}}",
       "dictationKeepsWorking": "Nahrávání schůzky nikdy nezastaví diktování. Vaše zkratka funguje dál."
+    },
+    "notes": {
+      "ready": "Poznámky připraveny",
+      "finishing": "Dokončování poznámek: {{seconds}} s",
+      "yourNotes": "Vaše poznámky",
+      "placeholder": "Zapisujte si body během schůzky...",
+      "heading": "Poznámky",
+      "subtitle": "Z vašich poznámek a přepisu",
+      "summary": "Shrnutí",
+      "decisions": "Rozhodnutí",
+      "actions": "Úkoly",
+      "yourNote": "vaše poznámka",
+      "oversized": "Při tvorbě poznámek bylo přeskočeno {{count}} příliš dlouhých úseků.",
+      "transcriptHeading": "Přepis",
+      "failed": "Poznámky se nepodařilo vytvořit. Přepis i vaše poznámky jsou v bezpečí.",
+      "retry": "Zkusit znovu"
     }
   }
 }

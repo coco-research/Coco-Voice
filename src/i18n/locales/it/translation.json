@@ -865,6 +865,22 @@
       "addWord": "Aggiungi",
       "removeWordAria": "Rimuovi {{word}}",
       "dictationKeepsWorking": "Registrare una riunione non interrompe mai la dettatura. La scorciatoia continua a funzionare."
+    },
+    "notes": {
+      "ready": "Note pronte",
+      "finishing": "Completamento note: {{seconds}} s",
+      "yourNotes": "Le tue note",
+      "placeholder": "Annota i punti chiave durante la riunione...",
+      "heading": "Note",
+      "subtitle": "Dalle tue note e dalla trascrizione",
+      "summary": "Riepilogo",
+      "decisions": "Decisioni",
+      "actions": "Azioni",
+      "yourNote": "tua nota",
+      "oversized": "Saltati {{count}} segmenti troppo lunghi durante la creazione delle note.",
+      "transcriptHeading": "Trascrizione",
+      "failed": "Impossibile creare le note. La trascrizione e le tue note sono al sicuro.",
+      "retry": "Riprova"
     }
   }
 }

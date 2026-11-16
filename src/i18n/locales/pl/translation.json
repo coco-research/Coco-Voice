@@ -865,6 +865,22 @@
       "addWord": "Dodaj",
       "removeWordAria": "Usuń {{word}}",
       "dictationKeepsWorking": "Nagrywanie spotkania nigdy nie zatrzymuje dyktowania. Twój skrót nadal działa."
+    },
+    "notes": {
+      "ready": "Notatki gotowe",
+      "finishing": "Kończenie notatek: {{seconds}} s",
+      "yourNotes": "Twoje notatki",
+      "placeholder": "Zapisuj najważniejsze punkty podczas spotkania...",
+      "heading": "Notatki",
+      "subtitle": "Z Twoich notatek i transkrypcji",
+      "summary": "Podsumowanie",
+      "decisions": "Decyzje",
+      "actions": "Zadania",
+      "yourNote": "twoja notatka",
+      "oversized": "Pominięto {{count}} zbyt długich segmentów podczas tworzenia notatek.",
+      "transcriptHeading": "Transkrypcja",
+      "failed": "Nie udało się utworzyć notatek. Transkrypcja i Twoje notatki są bezpieczne.",
+      "retry": "Spróbuj ponownie"
     }
   }
 }

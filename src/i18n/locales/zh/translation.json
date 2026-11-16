@@ -865,6 +865,22 @@
       "addWord": "添加",
       "removeWordAria": "移除 {{word}}",
       "dictationKeepsWorking": "录制会议绝不会中断听写。你的快捷键始终可用。"
+    },
+    "notes": {
+      "ready": "笔记已就绪",
+      "finishing": "正在完成笔记：{{seconds}} 秒",
+      "yourNotes": "你的笔记",
+      "placeholder": "在会议中记下重点...",
+      "heading": "笔记",
+      "subtitle": "根据你的笔记与转录整理",
+      "summary": "摘要",
+      "decisions": "决议",
+      "actions": "行动项",
+      "yourNote": "你的笔记",
+      "oversized": "生成笔记时跳过了 {{count}} 个过长片段。",
+      "transcriptHeading": "转录",
+      "failed": "无法生成笔记。你的转录与笔记均已安全保留。",
+      "retry": "重试"
     }
   }
 }

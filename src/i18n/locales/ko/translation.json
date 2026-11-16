@@ -865,6 +865,22 @@
       "addWord": "추가",
       "removeWordAria": "{{word}} 제거",
       "dictationKeepsWorking": "회의를 녹음해도 받아쓰기는 멈추지 않습니다. 단축키가 계속 작동합니다."
+    },
+    "notes": {
+      "ready": "노트 준비됨",
+      "finishing": "노트 마무리 중: {{seconds}}초",
+      "yourNotes": "내 메모",
+      "placeholder": "회의 중 핵심 내용을 적어 두세요...",
+      "heading": "노트",
+      "subtitle": "내 메모와 전사 내용 기반",
+      "summary": "요약",
+      "decisions": "결정 사항",
+      "actions": "실행 항목",
+      "yourNote": "내 메모",
+      "oversized": "노트 생성 중 너무 긴 구간 {{count}}개를 건너뛰었습니다.",
+      "transcriptHeading": "전사 내용",
+      "failed": "노트를 만들지 못했습니다. 전사 내용과 메모는 안전합니다.",
+      "retry": "다시 시도"
     }
   }
 }

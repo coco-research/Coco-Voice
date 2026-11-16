@@ -865,6 +865,22 @@
       "addWord": "新增",
       "removeWordAria": "移除 {{word}}",
       "dictationKeepsWorking": "錄製會議絕不會中斷聽寫。你的快捷鍵持續有效。"
+    },
+    "notes": {
+      "ready": "筆記已就緒",
+      "finishing": "正在完成筆記：{{seconds}} 秒",
+      "yourNotes": "你的筆記",
+      "placeholder": "在會議中記下重點...",
+      "heading": "筆記",
+      "subtitle": "根據你的筆記與逐字稿整理",
+      "summary": "摘要",
+      "decisions": "決議",
+      "actions": "行動項目",
+      "yourNote": "你的筆記",
+      "oversized": "建立筆記時略過了 {{count}} 個過長片段。",
+      "transcriptHeading": "逐字稿",
+      "failed": "無法產生筆記。你的逐字稿與筆記均已安全保留。",
+      "retry": "重試"
     }
   }
 }

@@ -865,6 +865,22 @@
       "addWord": "Ekle",
       "removeWordAria": "{{word}} öğesini kaldır",
       "dictationKeepsWorking": "Toplantı kaydetmek dikteyi asla durdurmaz. Kısayolunuz çalışmaya devam eder."
+    },
+    "notes": {
+      "ready": "Notlar hazır",
+      "finishing": "Notlar tamamlanıyor: {{seconds}} sn",
+      "yourNotes": "Notlarınız",
+      "placeholder": "Toplantı sırasında önemli noktaları not alın...",
+      "heading": "Notlar",
+      "subtitle": "Notlarınızdan ve dökümden",
+      "summary": "Özet",
+      "decisions": "Kararlar",
+      "actions": "Eylem maddeleri",
+      "yourNote": "notunuz",
+      "oversized": "Notlar oluşturulurken çok uzun {{count}} bölüm atlandı.",
+      "transcriptHeading": "Döküm",
+      "failed": "Notlar oluşturulamadı. Dökümünüz ve notlarınız güvende.",
+      "retry": "Yeniden dene"
     }
   }
 }

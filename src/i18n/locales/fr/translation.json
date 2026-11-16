@@ -865,6 +865,22 @@
       "addWord": "Ajouter",
       "removeWordAria": "Supprimer {{word}}",
       "dictationKeepsWorking": "Enregistrer une réunion n’arrête jamais la dictée. Votre raccourci continue de fonctionner."
+    },
+    "notes": {
+      "ready": "Notes prêtes",
+      "finishing": "Finalisation des notes : {{seconds}} s",
+      "yourNotes": "Vos notes",
+      "placeholder": "Notez les points clés pendant la réunion...",
+      "heading": "Notes",
+      "subtitle": "À partir de vos notes et de la transcription",
+      "summary": "Résumé",
+      "decisions": "Décisions",
+      "actions": "Actions",
+      "yourNote": "votre note",
+      "oversized": "{{count}} segment(s) trop long(s) ignoré(s) lors de la création des notes.",
+      "transcriptHeading": "Transcription",
+      "failed": "Les notes n'ont pas pu être créées. Votre transcription et vos notes sont intactes.",
+      "retry": "Réessayer"
     }
   }
 }

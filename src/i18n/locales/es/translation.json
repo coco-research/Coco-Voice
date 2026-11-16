@@ -865,6 +865,22 @@
       "addWord": "Añadir",
       "removeWordAria": "Quitar {{word}}",
       "dictationKeepsWorking": "Grabar una reunión nunca detiene el dictado. Tu atajo sigue funcionando."
+    },
+    "notes": {
+      "ready": "Notas listas",
+      "finishing": "Finalizando notas: {{seconds}} s",
+      "yourNotes": "Tus notas",
+      "placeholder": "Anota puntos clave durante la reunión...",
+      "heading": "Notas",
+      "subtitle": "De tus notas y la transcripción",
+      "summary": "Resumen",
+      "decisions": "Decisiones",
+      "actions": "Acciones",
+      "yourNote": "tu nota",
+      "oversized": "Se omitieron {{count}} segmentos demasiado largos al crear las notas.",
+      "transcriptHeading": "Transcripción",
+      "failed": "No se pudieron crear las notas. Tu transcripción y tus notas están a salvo.",
+      "retry": "Reintentar"
     }
   }
 }

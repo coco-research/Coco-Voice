@@ -865,6 +865,22 @@
       "addWord": "Toevoegen",
       "removeWordAria": "Verwijder {{word}}",
       "dictationKeepsWorking": "Een vergadering opnemen stopt dicteren nooit. Je sneltoets blijft werken."
+    },
+    "notes": {
+      "ready": "Notities klaar",
+      "finishing": "Notities afronden: {{seconds}} s",
+      "yourNotes": "Jouw notities",
+      "placeholder": "Noteer belangrijke punten tijdens de vergadering...",
+      "heading": "Notities",
+      "subtitle": "Uit jouw notities en het transcript",
+      "summary": "Samenvatting",
+      "decisions": "Besluiten",
+      "actions": "Actiepunten",
+      "yourNote": "jouw notitie",
+      "oversized": "{{count}} te lang(e) segment(en) overgeslagen bij het maken van notities.",
+      "transcriptHeading": "Transcript",
+      "failed": "Notities konden niet worden gemaakt. Je transcript en notities zijn veilig.",
+      "retry": "Opnieuw proberen"
     }
   }
 }

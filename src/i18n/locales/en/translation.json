@@ -865,6 +865,22 @@
       "addWord": "Add",
       "removeWordAria": "Remove {{word}}",
       "dictationKeepsWorking": "Recording a meeting never stops dictation. Your shortcut keeps working."
+    },
+    "notes": {
+      "ready": "Notes ready",
+      "finishing": "Finishing notes: {{seconds}} s",
+      "yourNotes": "Your notes",
+      "placeholder": "Jot down key points during the meeting...",
+      "heading": "Notes",
+      "subtitle": "From your notes and the transcript",
+      "summary": "Summary",
+      "decisions": "Decisions",
+      "actions": "Action items",
+      "yourNote": "your note",
+      "oversized": "Skipped {{count}} oversized segment(s) when making notes.",
+      "transcriptHeading": "Transcript",
+      "failed": "Notes couldn't be made. Your transcript and notes are safe.",
+      "retry": "Retry"
     }
   }
 }

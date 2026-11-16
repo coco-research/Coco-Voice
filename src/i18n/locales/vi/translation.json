@@ -865,6 +865,22 @@
       "addWord": "Thêm",
       "removeWordAria": "Xóa {{word}}",
       "dictationKeepsWorking": "Ghi âm cuộc họp không bao giờ dừng đọc chính tả. Phím tắt của bạn vẫn hoạt động."
+    },
+    "notes": {
+      "ready": "Ghi chú đã sẵn sàng",
+      "finishing": "Đang hoàn tất ghi chú: {{seconds}} giây",
+      "yourNotes": "Ghi chú của bạn",
+      "placeholder": "Ghi lại các ý chính trong cuộc họp...",
+      "heading": "Ghi chú",
+      "subtitle": "Từ ghi chú của bạn và bản chép lời",
+      "summary": "Tóm tắt",
+      "decisions": "Quyết định",
+      "actions": "Việc cần làm",
+      "yourNote": "ghi chú của bạn",
+      "oversized": "Đã bỏ qua {{count}} đoạn quá dài khi tạo ghi chú.",
+      "transcriptHeading": "Bản chép lời",
+      "failed": "Không thể tạo ghi chú. Bản chép lời và ghi chú của bạn vẫn an toàn.",
+      "retry": "Thử lại"
     }
   }
 }

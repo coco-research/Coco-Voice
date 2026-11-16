@@ -865,6 +865,22 @@
       "addWord": "Hinzufügen",
       "removeWordAria": "{{word}} entfernen",
       "dictationKeepsWorking": "Eine Besprechungsaufnahme stoppt das Diktieren nie. Ihr Kurzbefehl funktioniert weiter."
+    },
+    "notes": {
+      "ready": "Notizen bereit",
+      "finishing": "Notizen werden fertiggestellt: {{seconds}} s",
+      "yourNotes": "Deine Notizen",
+      "placeholder": "Wichtige Punkte während des Meetings notieren...",
+      "heading": "Notizen",
+      "subtitle": "Aus deinen Notizen und dem Transkript",
+      "summary": "Zusammenfassung",
+      "decisions": "Entscheidungen",
+      "actions": "Aufgaben",
+      "yourNote": "deine Notiz",
+      "oversized": "{{count}} überlange(s) Segment(e) beim Erstellen der Notizen übersprungen.",
+      "transcriptHeading": "Transkript",
+      "failed": "Notizen konnten nicht erstellt werden. Transkript und Notizen sind sicher.",
+      "retry": "Erneut versuchen"
     }
   }
 }

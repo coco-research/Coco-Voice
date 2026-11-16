@@ -865,6 +865,22 @@
       "addWord": "Lägg till",
       "removeWordAria": "Ta bort {{word}}",
       "dictationKeepsWorking": "Att spela in ett möte stoppar aldrig diktering. Din genväg fortsätter fungera."
+    },
+    "notes": {
+      "ready": "Anteckningar klara",
+      "finishing": "Slutför anteckningar: {{seconds}} s",
+      "yourNotes": "Dina anteckningar",
+      "placeholder": "Skriv ner viktiga punkter under mötet...",
+      "heading": "Anteckningar",
+      "subtitle": "Från dina anteckningar och transkriptet",
+      "summary": "Sammanfattning",
+      "decisions": "Beslut",
+      "actions": "Åtgärder",
+      "yourNote": "din anteckning",
+      "oversized": "Hoppade över {{count}} för långt/långa segment när anteckningar skapades.",
+      "transcriptHeading": "Transkript",
+      "failed": "Anteckningar kunde inte skapas. Ditt transkript och dina anteckningar är säkra.",
+      "retry": "Försök igen"
     }
   }
 }

@@ -865,6 +865,22 @@
       "addWord": "追加",
       "removeWordAria": "{{word}} を削除",
       "dictationKeepsWorking": "会議を録音しても音声入力は止まりません。ショートカットはそのまま使えます。"
+    },
+    "notes": {
+      "ready": "ノート作成完了",
+      "finishing": "ノートを作成中: {{seconds}} 秒",
+      "yourNotes": "あなたのメモ",
+      "placeholder": "会議中の要点をメモ...",
+      "heading": "ノート",
+      "subtitle": "メモと文字起こしから作成",
+      "summary": "要約",
+      "decisions": "決定事項",
+      "actions": "アクション項目",
+      "yourNote": "あなたのメモ",
+      "oversized": "ノート作成時に長すぎるセグメント {{count}} 件をスキップしました。",
+      "transcriptHeading": "文字起こし",
+      "failed": "ノートを作成できませんでした。文字起こしとメモは安全に保存されています。",
+      "retry": "再試行"
     }
   }
 }

@@ -865,6 +865,22 @@
       "addWord": "הוספה",
       "removeWordAria": "הסרת {{word}}",
       "dictationKeepsWorking": "הקלטת פגישה לעולם לא עוצרת הכתבה. הקיצור שלך ממשיך לעבוד."
+    },
+    "notes": {
+      "ready": "ההערות מוכנות",
+      "finishing": "מסיים הערות: {{seconds}} שנ׳",
+      "yourNotes": "ההערות שלך",
+      "placeholder": "רשום נקודות חשובות במהלך הפגישה...",
+      "heading": "הערות",
+      "subtitle": "מההערות שלך ומהתמלול",
+      "summary": "סיכום",
+      "decisions": "החלטות",
+      "actions": "משימות",
+      "yourNote": "ההערה שלך",
+      "oversized": "דולגו {{count}} מקטעים ארוכים מדי בעת יצירת ההערות.",
+      "transcriptHeading": "תמלול",
+      "failed": "לא ניתן היה ליצור הערות. התמלול וההערות שלך בטוחים.",
+      "retry": "נסה שוב"
     }
   }
 }
