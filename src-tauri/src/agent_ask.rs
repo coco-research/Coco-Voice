@@ -12,6 +12,16 @@ use std::path::{Path, PathBuf};
 
 const APP_IDENTIFIER: &str = "com.cocoresearch.cocovoice";
 const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
+const MAX_QUESTION_CHARS: usize = 200;
+
+pub fn sanitize_question(raw: &str) -> String {
+    raw.chars()
+        .filter(|c| !c.is_control())
+        .take(MAX_QUESTION_CHARS)
+        .collect::<String>()
+        .trim()
+        .to_string()
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentsCanAskPolicy {
@@ -76,14 +86,14 @@ impl AgentAskQueue {
     }
 
     pub fn enqueue(&mut self, agent_name: &str, question: &str) -> Result<u64, &'static str> {
-        let clean_q = question.trim();
+        let clean_q = sanitize_question(question);
         if clean_q.is_empty() {
             return Err("refused: empty_question");
         }
         let clean_agent = if agent_name.trim().is_empty() { "Agent" } else { agent_name.trim() };
         let id = self.next_id;
         self.next_id += 1;
-        self.pending.push_back(AgentQuestion { id, agent_name: clean_agent.to_string(), question: clean_q.to_string() });
+        self.pending.push_back(AgentQuestion { id, agent_name: clean_agent.to_string(), question: clean_q });
         Ok(id)
     }
 
@@ -165,14 +175,7 @@ pub fn run_stdio(override_dir: Option<&Path>) -> i32 {
     };
     let stdin = io::stdin();
     let mut stdout = io::stdout().lock();
-    let mut fixture_answers: VecDeque<String> = fs::read_to_string(data_dir.join("voice_answers.json"))
-        .ok()
-        .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
-        .unwrap_or_default()
-        .into();
-    match serve_stdio_with_voice(stdin.lock(), &mut stdout, &data_dir, |_agent, _q| {
-        fixture_answers.pop_front().ok_or("refused: no_voice_answer_captured")
-    }) {
+    match serve_stdio_production(stdin.lock(), &mut stdout, &data_dir) {
         Ok(()) => 0,
         Err(err) => {
             eprintln!("coco-voice ask_user mcp: {err}");
@@ -181,7 +184,23 @@ pub fn run_stdio(override_dir: Option<&Path>) -> i32 {
     }
 }
 
-pub fn serve_stdio_with_voice<R, W, F>(r: R, w: &mut W, dir: &Path, mut voice_fn: F) -> io::Result<()>
+/// Production stdio server: never reads answers from any file on disk. Without a
+/// live GUI voice-capture bridge attached, `ask_user` fails closed.
+pub fn serve_stdio_production<R: BufRead, W: Write>(r: R, w: &mut W, dir: &Path) -> io::Result<()> {
+    serve_stdio_core(r, w, dir, |_agent, _q| Err("refused: voice_capture_not_wired"))
+}
+
+#[cfg(test)]
+pub fn serve_stdio_with_voice<R, W, F>(r: R, w: &mut W, dir: &Path, voice_fn: F) -> io::Result<()>
+where
+    R: BufRead,
+    W: Write,
+    F: FnMut(&str, &str) -> Result<String, &'static str>,
+{
+    serve_stdio_core(r, w, dir, voice_fn)
+}
+
+fn serve_stdio_core<R, W, F>(r: R, w: &mut W, dir: &Path, mut voice_fn: F) -> io::Result<()>
 where
     R: BufRead,
     W: Write,
@@ -359,5 +378,19 @@ mod tests {
         assert_eq!(body["asking_pill"]["Asking"]["waiting_badge"], json!("? 1 more question waiting"));
         assert_eq!(body["sent_pill"]["AnswerSent"]["label"], json!("✓ Answer sent to Local Editor"));
         assert_eq!(body["next_pill"]["Asking"]["label"], json!("? Local Editor asks: \"Run tests now?\" · hold fn to answer"));
+
+        // 3. Production path never reads voice_answers.json from disk (Must 1) and caps/strips question control chars (Nice 4).
+        fs::write(p.join("voice_answers.json"), r#"["yes"]"#).unwrap();
+        let mut prod_out = Vec::new();
+        let spoof_req = json!({"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"ask_user","arguments":{"question":"May I deploy?"}}}).to_string();
+        serve_stdio_production(Cursor::new(spoof_req), &mut prod_out, p).unwrap();
+        let prod_reply: Value = serde_json::from_str(String::from_utf8(prod_out).unwrap().trim()).unwrap();
+        assert_eq!(prod_reply["result"]["isError"], json!(true));
+        assert_eq!(prod_reply["result"]["content"][0]["text"], json!("refused: voice_capture_not_wired"));
+
+        let noisy_q = format!("Line1\n\x07Line2 {}", "x".repeat(250));
+        let sanitized = sanitize_question(&noisy_q);
+        assert!(sanitized.chars().count() <= MAX_QUESTION_CHARS);
+        assert!(!sanitized.contains('\n') && !sanitized.contains('\x07'));
     }
 }
