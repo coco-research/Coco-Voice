@@ -1,5 +1,4 @@
 //! Dev-only headless runner for the meetings engine (never shipped in app bundles).
-// ponytail: ceiling = single-process CLI runner over local WAV/transcript fixtures; upgrade path = live IPC harness.
 
 use std::path::{Path, PathBuf};
 
@@ -63,6 +62,15 @@ enum Cmd {
     Import {
         path: PathBuf,
     },
+    PauseAt {
+        at: String,
+        verb: Option<String>,
+        resume_at: Option<String>,
+    },
+    AddAudio {
+        #[arg(long)]
+        consent: bool,
+    },
 }
 
 pub fn parse_duration_ms(raw: &str) -> Result<i64> {
@@ -113,15 +121,7 @@ fn ingest_wav(
     use coco_voice_lib::managers::meetings::MeetingChannel;
 
     let skip = ((start_ms.max(0) as usize) * 16).min(usize::MAX);
-    let raw = read_wav_samples(wav)?;
-    let mut padded: Vec<f32> = raw.into_iter().skip(skip).collect();
-    for (i, sample) in padded.iter_mut().enumerate() {
-        let ms = start_ms + (i as i64 * 1_000) / 16_000;
-        if pause.is_some_and(|(p, r)| ms >= p && ms < r) {
-            *sample = 0.0;
-        }
-    }
-    padded.resize(padded.len() + 16_000, 0.0);
+    let raw: Vec<f32> = read_wav_samples(wav)?.into_iter().skip(skip).collect();
 
     let dir = root.join("meetings").join(id.to_string());
     std::fs::create_dir_all(&dir)?;
@@ -131,11 +131,36 @@ fn ingest_wav(
         "system.wav"
     };
     let mut writer = AppendWav::create(&dir.join(name))?;
-    let pcm: Vec<i16> = padded
-        .iter()
-        .map(|s| (s.clamp(-1.0, 1.0) * 32767.0) as i16)
-        .collect();
-    store.append_pcm(id, &mut writer, &pcm)?;
+    let silero = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/models/silero_vad_v4.onnx");
+    let mut chunker = ChannelChunker::silero(ch_key, &silero)?;
+    let mut chunks = Vec::new();
+    let mut was_paused = false;
+    let mut cur = 0usize;
+    while cur < raw.len() {
+        let end = (cur + 480).min(raw.len());
+        let ms = start_ms + (cur as i64 * 1_000) / 16_000;
+        let in_pause = pause.is_some_and(|(p, r)| ms >= p && ms < r);
+        if in_pause && !was_paused {
+            chunks.extend(chunker.finish());
+        }
+        was_paused = in_pause;
+        let slice = &raw[cur..end];
+        if in_pause {
+            chunker.skip_paused(slice.len());
+        } else {
+            let pcm: Vec<i16> = slice
+                .iter()
+                .map(|s| (s.clamp(-1.0, 1.0) * 32767.0) as i16)
+                .collect();
+            store.append_pcm(id, &mut writer, &pcm)?;
+            chunks.extend(chunker.push(slice));
+        }
+        cur = end;
+    }
+    if !was_paused {
+        chunks.extend(chunker.push(&vec![0.0_f32; 16_000]));
+        chunks.extend(chunker.finish());
+    }
     writer.flush()?;
 
     let raw_txt = std::fs::read_to_string(wav.with_extension("txt")).unwrap_or_default();
@@ -144,10 +169,6 @@ fn ingest_wav(
         .map(str::trim)
         .filter(|l| !l.is_empty())
         .collect();
-    let silero = Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/models/silero_vad_v4.onnx");
-    let mut chunker = ChannelChunker::silero(ch_key, &silero)?;
-    let mut chunks = chunker.push(&padded);
-    chunks.extend(chunker.finish());
     let ch = MeetingChannel::from_label(ch_key).ok_or_else(|| anyhow!("channel"))?;
     for (idx, c) in chunks.iter().enumerate() {
         let fallback = format!(
@@ -285,9 +306,17 @@ fn run_engine(cli: Cli) -> Result<serde_json::Value> {
     let tmp = tempfile::tempdir()?;
     let root = cli.data_dir.as_deref().unwrap_or_else(|| tmp.path());
     let store = MeetingsStore::open(root)?;
-    let pause = match (&cli.pause_at, &cli.resume_at) {
-        (Some(p), Some(r)) => Some((parse_duration_ms(p)?, parse_duration_ms(r)?)),
-        (Some(p), None) => Some((parse_duration_ms(p)?, i64::MAX)),
+    let pause = match (&cli.pause_at, &cli.resume_at, &cli.command) {
+        (_, _, Some(Cmd::PauseAt { at, resume_at, .. })) => Some((
+            parse_duration_ms(at)?,
+            resume_at
+                .as_deref()
+                .map(parse_duration_ms)
+                .transpose()?
+                .unwrap_or(i64::MAX),
+        )),
+        (Some(p), Some(r), _) => Some((parse_duration_ms(p)?, parse_duration_ms(r)?)),
+        (Some(p), None, _) => Some((parse_duration_ms(p)?, i64::MAX)),
         _ => None,
     };
 
@@ -307,9 +336,10 @@ fn run_engine(cli: Cli) -> Result<serde_json::Value> {
         .map(String::from)
         .collect();
 
+    let is_append = matches!(cli.command, Some(Cmd::AddAudio { .. }));
     let id = if let Some(mid) = cli.meeting_id {
         mid
-    } else if cli.me.is_some() || cli.others.is_some() || cli.transcript.is_some() {
+    } else if !is_append && (cli.me.is_some() || cli.others.is_some() || cli.transcript.is_some()) {
         let ctrl = MeetingController::new(Box::new(NoopRecorders));
         if !cli.no_consent && ctrl.open_consent().state != MeetingState::ConsentOpen {
             bail!("consent gate failed");
@@ -342,7 +372,7 @@ fn run_engine(cli: Cli) -> Result<serde_json::Value> {
     };
 
     match cli.command {
-        None => {
+        None | Some(Cmd::PauseAt { .. }) => {
             let segs: Vec<_> = store
                 .segments(id)?
                 .into_iter()
@@ -452,6 +482,36 @@ fn run_engine(cli: Cli) -> Result<serde_json::Value> {
                 }
             }
             Ok(json!({"imported": n}))
+        }
+        Some(Cmd::AddAudio { consent }) => {
+            use coco_voice_lib::audio_toolkit::read_wav_samples;
+            use coco_voice_lib::meeting_append::append_audio_to_meeting;
+
+            let me_pcm = cli
+                .me
+                .as_deref()
+                .map(read_wav_samples)
+                .transpose()?
+                .unwrap_or_default();
+            let oth_pcm = cli
+                .others
+                .as_deref()
+                .map(read_wav_samples)
+                .transpose()?
+                .unwrap_or_default();
+            let silero =
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("resources/models/silero_vad_v4.onnx");
+            let out = append_audio_to_meeting(
+                root,
+                id,
+                consent && !cli.no_consent,
+                &me_pcm,
+                &oth_pcm,
+                Some(&silero),
+                &|samples| Ok(format!("[appended {} samples]", samples.len())),
+            )
+            .map_err(|e| anyhow!("{e:?}"))?;
+            Ok(serde_json::to_value(out)?)
         }
     }
 }
