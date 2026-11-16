@@ -177,7 +177,7 @@
             "description": "De sneltoets om de huidige opname te annuleren."
           },
           "transcribe_with_post_process": {
-            "name": "Sneltoets voor naverwerking",
+            "name": "Sneltoets voor opschonen",
             "description": "Optioneel: Een specifieke sneltoets die altijd AI-naverwerking toepast op je transcriptie."
           },
           "correction": {
@@ -199,7 +199,7 @@
         "auto": "Automatisch"
       },
       "pushToTalk": {
-        "label": "Push-to-talk",
+        "label": "Ingedrukt houden om te spreken",
         "description": "Ingedrukt houden om op te nemen, loslaten om te stoppen"
       }
     },
@@ -380,12 +380,12 @@
         "title": "Sneltoets"
       },
       "correction": {
-        "title": "Iteratieve correctie",
+        "title": "Gesproken correcties",
         "toggleLabel": "Correcties inspreken",
         "toggleDescription": "Voegt een aparte sneltoets toe die je indrukt om je laatste dictaat te vervangen door een ingesproken correctie. Het start nooit automatisch door trefwoorden. Druk op de toegewezen toets, spreek de correctie in, en de vorige uitvoer wordt ter plaatse bewerkt."
       },
       "api": {
-        "title": "API (OpenAI-compatibel)",
+        "title": "Opschoonmodel",
         "provider": {
           "title": "Provider",
           "description": "Selecteer een OpenAI-compatibele provider."
@@ -424,7 +424,7 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Instructies",
         "selectedPrompt": {
           "title": "Geselecteerde prompt",
           "description": "Selecteer een sjabloon voor het verfijnen van transcripties of maak een nieuwe aan. Gebruik ${output} in de prompttekst om naar de gemaakte transcriptie te verwijzen."

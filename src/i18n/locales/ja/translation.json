@@ -195,7 +195,7 @@
             "description": "現在の録音をキャンセルするためのキーボードショートカット。"
           },
           "transcribe_with_post_process": {
-            "name": "後処理のショートカット",
+            "name": "整形ショートカット",
             "description": "文字起こしに常に AI 後処理を適用するキーボードショートカット。 (任意)"
           },
           "correction": {
@@ -217,7 +217,7 @@
         "auto": "自動"
       },
       "pushToTalk": {
-        "label": "プッシュツートーク",
+        "label": "押している間だけ話す",
         "description": "押し続けて録音、離して停止"
       }
     },
@@ -380,12 +380,12 @@
         "title": "ショートカット"
       },
       "correction": {
-        "title": "反復訂正",
+        "title": "声で言い直す",
         "toggleLabel": "訂正を話す",
         "toggleDescription": "直前の音声入力を、話した訂正で置き換えるための専用ショートカットを追加します。キーワードでは自動的に起動しません。割り当てたキーを押し、修正を話すと、直前の出力がその場で編集されます。"
       },
       "api": {
-        "title": "API (OpenAI 互換)",
+        "title": "整形モデル",
         "provider": {
           "title": "プロバイダー",
           "description": "OpenAI 互換のプロバイダーを選択。"
@@ -424,7 +424,7 @@
         }
       },
       "prompts": {
-        "title": "プロンプト",
+        "title": "指示文",
         "selectedPrompt": {
           "title": "選択したプロンプト",
           "description": "文字起こしを改善するテンプレートを選択するか、新しく作成します。プロンプトテキスト内で ${output} を使用して、キャプチャした文字起こしを参照します。"

@@ -195,7 +195,7 @@
             "description": "Klávesová zkratka pro zrušení aktuálního nahrávání."
           },
           "transcribe_with_post_process": {
-            "name": "Klávesa pro následné zpracování",
+            "name": "Zkratka pro úpravu textu",
             "description": "Volitelné: Vyhrazená klávesová zkratka, která vždy použije AI následné zpracování na váš přepis."
           },
           "correction": {
@@ -217,7 +217,7 @@
         "auto": "Auto"
       },
       "pushToTalk": {
-        "label": "Stisk a mluv",
+        "label": "Podržet a mluvit",
         "description": "Podržte pro nahrávání, uvolněte pro zastavení"
       }
     },
@@ -380,12 +380,12 @@
         "title": "Klávesová zkratka"
       },
       "correction": {
-        "title": "Iterativní oprava",
+        "title": "Hlasové opravy",
         "toggleLabel": "Vyslovovat opravy",
         "toggleDescription": "Přidá samostatnou klávesovou zkratku, kterou stisknete, abyste nahradili svůj poslední diktát vyslovenou opravou. Nikdy se nespustí automaticky podle klíčových slov. Stiskněte přiřazenou klávesu, vyslovte opravu a předchozí výstup se upraví na místě."
       },
       "api": {
-        "title": "API (kompatibilní s OpenAI)",
+        "title": "Model pro úpravu textu",
         "provider": {
           "title": "Poskytovatel",
           "description": "Vyberte poskytovatele kompatibilního s OpenAI."
@@ -424,7 +424,7 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Pokyny",
         "selectedPrompt": {
           "title": "Vybraný prompt",
           "description": "Vyberte šablonu pro zpřesnění přepisu nebo vytvořte novou. V textu promptu použijte ${output} pro vložení zachyceného přepisu."

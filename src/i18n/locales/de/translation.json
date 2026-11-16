@@ -195,7 +195,7 @@
             "description": "Das Tastenkürzel zum Abbrechen der aktuellen Aufnahme."
           },
           "transcribe_with_post_process": {
-            "name": "Nachbearbeitungs-Tastenkürzel",
+            "name": "Kurzbefehl zum Bereinigen",
             "description": "Optional: Ein dediziertes Tastenkürzel, das immer die KI-Nachbearbeitung auf deine Transkription anwendet."
           },
           "correction": {
@@ -217,7 +217,7 @@
         "auto": "Auto"
       },
       "pushToTalk": {
-        "label": "Push-to-Talk",
+        "label": "Gedrückt halten zum Sprechen",
         "description": "Gedrückt halten zum Aufnehmen, loslassen zum Stoppen"
       }
     },
@@ -377,15 +377,15 @@
     },
     "postProcessing": {
       "hotkey": {
-        "title": "Tastenkürzel"
+        "title": "Kurzbefehl"
       },
       "correction": {
-        "title": "Iterative Korrektur",
+        "title": "Gesprochene Korrekturen",
         "toggleLabel": "Korrekturen sprechen",
         "toggleDescription": "Fügt ein eigenes Tastenkürzel hinzu, mit dem du deine letzte Diktieraufnahme durch eine gesprochene Korrektur ersetzt. Es wird nie automatisch durch Schlüsselwörter ausgelöst. Drücke die zugewiesene Taste, sprich die Korrektur, und deine vorherige Ausgabe wird direkt bearbeitet."
       },
       "api": {
-        "title": "API (OpenAI-kompatibel)",
+        "title": "Bereinigungsmodell",
         "provider": {
           "title": "Anbieter",
           "description": "Wähle einen OpenAI-kompatiblen Anbieter."
@@ -424,7 +424,7 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Anweisungen",
         "selectedPrompt": {
           "title": "Ausgewählter Prompt",
           "description": "Wähle eine Vorlage zur Verfeinerung von Transkriptionen oder erstelle eine neue. Verwende ${output} im Prompt-Text, um auf das erfasste Transkript zu verweisen."

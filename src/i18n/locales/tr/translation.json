@@ -195,7 +195,7 @@
             "description": "Mevcut kaydı iptal etmek için klavye kısayolu."
           },
           "transcribe_with_post_process": {
-            "name": "Son İşlem Kısayolu",
+            "name": "Düzeltme kısayolu",
             "description": "İsteğe bağlı: Transkripsiyonunuza her zaman AI son işleme uygulayan özel bir kısayol tuşu."
           },
           "correction": {
@@ -217,7 +217,7 @@
         "auto": "Otomatik"
       },
       "pushToTalk": {
-        "label": "Bas Konuş",
+        "label": "Konuşmak için basılı tut",
         "description": "Kaydetmek için basılı tutun, durdurmak için bırakın"
       }
     },
@@ -377,15 +377,15 @@
     },
     "postProcessing": {
       "hotkey": {
-        "title": "Kısayol Tuşu"
+        "title": "Kısayol"
       },
       "correction": {
-        "title": "Yinelemeli düzeltme",
+        "title": "Sesli düzeltmeler",
         "toggleLabel": "Düzeltme söyle",
         "toggleDescription": "Son diktenizi sesli bir düzeltmeyle değiştirmek için bastığınız açık bir kısayol ekler. Anahtar sözcüklerle asla kendiliğinden tetiklenmez. Atanan tuşa basın, düzeltmeyi söyleyin; önceki çıktı yerinde düzenlenir."
       },
       "api": {
-        "title": "API (OpenAI Uyumlu)",
+        "title": "Düzeltme modeli",
         "provider": {
           "title": "Sağlayıcı",
           "description": "OpenAI uyumlu bir sağlayıcı seçin."
@@ -424,7 +424,7 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Yönergeler",
         "selectedPrompt": {
           "title": "Seçili Prompt",
           "description": "Transkripsiyonları iyileştirmek için bir şablon seçin veya yeni bir tane oluşturun. Yakalanan transkripte referans vermek için prompt metni içinde ${output} kullanın."

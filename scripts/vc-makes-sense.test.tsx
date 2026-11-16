@@ -27,6 +27,8 @@ const { AdvancedSettings } =
   await import("../src/components/settings/advanced/AdvancedSettings");
 const { DebugSettings } =
   await import("../src/components/settings/debug/DebugSettings");
+const { GeneralSettings } =
+  await import("../src/components/settings/general/GeneralSettings");
 const { PostProcessingSettings } =
   await import("../src/components/settings/post-processing/PostProcessingSettings");
 
@@ -144,6 +146,41 @@ describe("V-C6 (E17): Update checks and paste timing in normal settings", () => 
       expect(gw.length).toBeGreaterThan(0);
       expect(gw).not.toContain("Cmd+Shift+D");
       expect(gw.toLowerCase()).not.toContain("debug");
+    }
+  });
+});
+
+describe("V-C3 (E14): Plain labels on General and Clean up screens", () => {
+  test("replaces technical jargon on General and Clean up across all 22 locales", () => {
+    expect(en.settings.general.pushToTalk.label).toBe("Hold to talk");
+    expect(
+      en.settings.general.shortcut.bindings.transcribe_with_post_process.name,
+    ).toBe("Clean-up shortcut");
+    expect(en.settings.postProcessing.hotkey.title).toBe("Shortcut");
+    expect(en.settings.postProcessing.correction.title).toBe("Spoken fixes");
+    expect(en.settings.postProcessing.api.title).toBe("Clean-up model");
+    expect(en.settings.postProcessing.prompts.title).toBe("Instructions");
+
+    const generalHtml = renderWithSettings(<GeneralSettings />);
+    expect(generalHtml).toContain(">Hold to talk<");
+    expect(generalHtml).not.toContain("Push To Talk");
+
+    const cleanupHtml = renderWithSettings(<PostProcessingSettings />);
+    expect(cleanupHtml).toContain(">Shortcut<");
+    expect(cleanupHtml).toContain(">Spoken fixes<");
+    expect(cleanupHtml).toContain(">Clean-up model<");
+    expect(cleanupHtml).toContain(">Instructions<");
+    expect(cleanupHtml).not.toContain("Iterative Correction");
+    expect(cleanupHtml).not.toContain("OpenAI Compatible");
+
+    for (const loc of readdirSync(localesDir).sort()) {
+      const text = readFileSync(
+        join(localesDir, loc, "translation.json"),
+        "utf8",
+      );
+      expect(text).not.toContain("API (OpenAI Compatible)");
+      expect(text).not.toContain("Iterative Correction");
+      expect(text).not.toContain("Push To Talk");
     }
   });
 });

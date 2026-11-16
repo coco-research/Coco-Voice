@@ -195,7 +195,7 @@
             "description": "Skrót klawiaturowy do anulowania bieżącego nagrywania."
           },
           "transcribe_with_post_process": {
-            "name": "Skrót postprocessingu",
+            "name": "Skrót korekty",
             "description": "Opcjonalnie: Dedykowany skrót klawiszowy, który zawsze stosuje postprocessing AI do transkrypcji."
           },
           "correction": {
@@ -217,7 +217,7 @@
         "auto": "Auto"
       },
       "pushToTalk": {
-        "label": "Push To Talk",
+        "label": "Przytrzymaj, aby mówić",
         "description": "Przytrzymaj, aby nagrywać, puść, aby zatrzymać"
       }
     },
@@ -377,15 +377,15 @@
     },
     "postProcessing": {
       "hotkey": {
-        "title": "Skrót klawiszowy"
+        "title": "Skrót"
       },
       "correction": {
-        "title": "Korekta iteracyjna",
+        "title": "Poprawki głosowe",
         "toggleLabel": "Dyktuj poprawki",
         "toggleDescription": "Dodaje jawny skrót, który naciskasz, aby zastąpić ostatnie dyktowanie wypowiedzią z poprawką. Nigdy nie uruchamia się automatycznie od słów kluczowych. Naciśnij przypisany klawisz, podyktuj poprawkę, a poprzedni tekst zostanie zmieniony w miejscu."
       },
       "api": {
-        "title": "API (zgodne z OpenAI)",
+        "title": "Model korekty",
         "provider": {
           "title": "Dostawca",
           "description": "Wybierz dostawcę zgodnego z OpenAI."
@@ -424,7 +424,7 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Instrukcje",
         "selectedPrompt": {
           "title": "Wybrany prompt",
           "description": "Wybierz szablon do ulepszania transkrypcji lub utwórz nowy. Użyj ${output} w treści, aby odwołać się do przechwyconej transkrypcji."

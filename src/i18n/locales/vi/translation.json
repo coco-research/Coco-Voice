@@ -195,7 +195,7 @@
             "description": "Phím tắt để hủy bản ghi hiện tại."
           },
           "transcribe_with_post_process": {
-            "name": "Phím tắt xử lý sau",
+            "name": "Phím tắt làm sạch",
             "description": "Tùy chọn: Phím tắt chuyên dụng luôn áp dụng xử lý sau bằng AI cho bản chuyển đổi của bạn."
           },
           "correction": {
@@ -217,7 +217,7 @@
         "auto": "Tự động"
       },
       "pushToTalk": {
-        "label": "Nhấn để nói",
+        "label": "Giữ để nói",
         "description": "Giữ để ghi âm, thả để dừng"
       }
     },
@@ -380,12 +380,12 @@
         "title": "Phím tắt"
       },
       "correction": {
-        "title": "Chỉnh sửa lặp",
+        "title": "Sửa bằng giọng nói",
         "toggleLabel": "Nói chỉnh sửa",
         "toggleDescription": "Thêm một phím tắt rõ ràng mà bạn nhấn để thay thế lần đọc chính tả gần nhất bằng một chỉnh sửa được nói. Nó không bao giờ tự kích hoạt từ từ khóa. Nhấn phím đã gán, nói phần sửa, và kết quả trước đó được sửa tại chỗ."
       },
       "api": {
-        "title": "API (Tương thích OpenAI)",
+        "title": "Mô hình làm sạch",
         "provider": {
           "title": "Nhà cung cấp",
           "description": "Chọn một nhà cung cấp tương thích OpenAI."
@@ -424,7 +424,7 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Hướng dẫn",
         "selectedPrompt": {
           "title": "Prompt đã chọn",
           "description": "Chọn một mẫu để tinh chỉnh bản ghi hoặc tạo mới. Sử dụng ${output} trong văn bản prompt để tham chiếu bản ghi đã chụp."

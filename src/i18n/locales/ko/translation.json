@@ -177,7 +177,7 @@
             "description": "현재 녹음을 취소하는 키보드 단축키입니다."
           },
           "transcribe_with_post_process": {
-            "name": "후처리 단축키",
+            "name": "다듬기 단축키",
             "description": "선택 사항: 항상 AI 후처리를 적용하는 전용 단축키입니다."
           },
           "correction": {
@@ -199,7 +199,7 @@
         "auto": "자동"
       },
       "pushToTalk": {
-        "label": "녹음 중 단축키 홀딩",
+        "label": "누르고 말하기",
         "description": "누르고 있으면 녹음, 놓으면 정지"
       }
     },
@@ -380,12 +380,12 @@
         "title": "단축키"
       },
       "correction": {
-        "title": "반복 교정",
+        "title": "말로 고치기",
         "toggleLabel": "교정 말하기",
         "toggleDescription": "마지막 받아쓰기를 말한 교정으로 바꾸기 위해 누르는 전용 단축키를 추가합니다. 키워드로는 절대 자동 실행되지 않습니다. 지정한 키를 누르고 수정을 말하면 이전 출력이 그 자리에서 편집됩니다."
       },
       "api": {
-        "title": "API (OpenAI 호환)",
+        "title": "다듬기 모델",
         "provider": {
           "title": "제공자",
           "description": "OpenAI 호환 제공자를 선택하세요."
@@ -424,7 +424,7 @@
         }
       },
       "prompts": {
-        "title": "프롬프트",
+        "title": "지시문",
         "selectedPrompt": {
           "title": "선택된 프롬프트",
           "description": "텍스트 변환을 개선하기 위한 템플릿을 선택하거나 새로 만드세요. 프롬프트 텍스트 내에서 ${output}를 사용하여 캡처된 텍스트를 참조하세요."

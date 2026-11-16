@@ -195,7 +195,7 @@
             "description": "La scorciatoia da tastiera per annullare la registrazione in corso."
           },
           "transcribe_with_post_process": {
-            "name": "Tasto di post-elaborazione",
+            "name": "Scorciatoia di revisione",
             "description": "Facoltativo: Un tasto di scelta rapida dedicato che applica sempre la post-elaborazione IA alla trascrizione."
           },
           "correction": {
@@ -217,7 +217,7 @@
         "auto": "Auto"
       },
       "pushToTalk": {
-        "label": "Premi per Parlare",
+        "label": "Tieni premuto per parlare",
         "description": "Tieni premuto per parlare, rilascia per interrompere"
       }
     },
@@ -377,15 +377,15 @@
     },
     "postProcessing": {
       "hotkey": {
-        "title": "Tasto di scelta rapida"
+        "title": "Scorciatoia"
       },
       "correction": {
-        "title": "Correzione iterativa",
+        "title": "Correzioni vocali",
         "toggleLabel": "Detta correzioni",
         "toggleDescription": "Aggiunge una scorciatoia esplicita da premere per sostituire l'ultima dettatura con una correzione parlata. Non si attiva mai automaticamente da parole chiave. Premere il tasto assegnato, dettare la correzione: l'output precedente viene modificato sul posto."
       },
       "api": {
-        "title": "API (Compatibile con OpenAI)",
+        "title": "Modello di revisione",
         "provider": {
           "title": "Provider",
           "description": "Seleziona un provider compatibile con OpenAI."
@@ -424,7 +424,7 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Istruzioni",
         "selectedPrompt": {
           "title": "Prompt Selezionato",
           "description": "Seleziona un template per migliorare le trascrizioni o creane uno nuovo. Usa ${output} nel prompt per fare riferimento alla trascrizione."

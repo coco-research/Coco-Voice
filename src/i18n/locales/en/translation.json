@@ -177,7 +177,7 @@
             "description": "The keyboard shortcut to cancel the current recording."
           },
           "transcribe_with_post_process": {
-            "name": "Post-Processing Hotkey",
+            "name": "Clean-up shortcut",
             "description": "Optional: A dedicated hotkey that always applies AI post-processing to your transcription."
           },
           "correction": {
@@ -199,7 +199,7 @@
         "auto": "Auto"
       },
       "pushToTalk": {
-        "label": "Push To Talk",
+        "label": "Hold to talk",
         "description": "Hold to record, release to stop"
       }
     },
@@ -377,15 +377,15 @@
     },
     "postProcessing": {
       "hotkey": {
-        "title": "Hotkey"
+        "title": "Shortcut"
       },
       "correction": {
-        "title": "Iterative Correction",
+        "title": "Spoken fixes",
         "toggleLabel": "Speak Corrections",
         "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
       },
       "api": {
-        "title": "API (OpenAI Compatible)",
+        "title": "Clean-up model",
         "provider": {
           "title": "Provider",
           "description": "Select an OpenAI-compatible provider."
@@ -424,7 +424,7 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Instructions",
         "selectedPrompt": {
           "title": "Selected Prompt",
           "description": "Select a template for refining transcriptions or create a new one. Use ${output} inside the prompt text to reference the captured transcript."

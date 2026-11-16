@@ -177,7 +177,7 @@
             "description": "Kortkommandot för att avbryta den aktuella inspelningen."
           },
           "transcribe_with_post_process": {
-            "name": "Snabbkommando för efterbearbetning",
+            "name": "Genväg för rensning",
             "description": "Valfritt: En dedikerad snabbknapp som alltid tillämpar AI-efterbearbetning på din transkription."
           },
           "correction": {
@@ -199,7 +199,7 @@
         "auto": "Auto"
       },
       "pushToTalk": {
-        "label": "Tryck för att tala",
+        "label": "Håll nere för att prata",
         "description": "Håll ned för att spela in, släpp för att stoppa"
       }
     },
@@ -377,15 +377,15 @@
     },
     "postProcessing": {
       "hotkey": {
-        "title": "Snabbkommando"
+        "title": "Genväg"
       },
       "correction": {
-        "title": "Iterativ rättelse",
+        "title": "Röständringar",
         "toggleLabel": "Säg rättelser",
         "toggleDescription": "Lägger till ett särskilt kortkommando som du trycker på för att ersätta din senaste diktering med en talad rättelse. Det startar aldrig automatiskt av nyckelord. Tryck på den tilldelade tangenten, säg rättelsen, så redigeras den föregående texten på plats."
       },
       "api": {
-        "title": "API (OpenAI-kompatibelt)",
+        "title": "Rensningsmodell",
         "provider": {
           "title": "Leverantör",
           "description": "Välj en OpenAI-kompatibel leverantör."
@@ -424,7 +424,7 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Instruktioner",
         "selectedPrompt": {
           "title": "Vald prompt",
           "description": "Välj en mall för att förfina transkriptioner eller skapa en ny. Använd ${output} inuti prompttexten för att referera till den fångade transkriptionen."
