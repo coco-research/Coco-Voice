@@ -22,6 +22,8 @@ pub mod meeting_controller;
 #[cfg(feature = "meetings")]
 mod meeting_feed;
 #[cfg(feature = "meetings")]
+pub mod meeting_language;
+#[cfg(feature = "meetings")]
 pub mod meeting_notes;
 #[cfg(feature = "meetings")]
 mod meeting_notes_job;

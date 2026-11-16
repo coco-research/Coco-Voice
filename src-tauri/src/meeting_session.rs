@@ -256,31 +256,38 @@ impl MeetingSession {
     }
 
     fn model_plan(&self) -> Result<String, MeetingRefusal> {
-        let (selected, downloaded) = if let Some(models) = &self.test_models {
-            models.clone()
-        } else {
-            let app = self
-                .app
-                .as_ref()
-                .ok_or(MeetingRefusal::SystemAudioUnavailable)?;
-            let selected = crate::settings::get_settings(app).selected_model;
-            let downloaded = app
-                .try_state::<Arc<ModelManager>>()
-                .map(|models| {
-                    models
-                        .get_available_models()
-                        .into_iter()
-                        .filter(|model| model.is_downloaded)
-                        .map(|model| model.id)
-                        .collect()
-                })
-                .unwrap_or_default();
-            (selected, downloaded)
-        };
-        plan_meeting_model(&selected, &downloaded).map_err(|err| match err {
-            MeetingStartRefusal::OnlyVoxtral { model_id } => {
-                MeetingRefusal::NoLongAudioModel { model_id }
-            }
+        if let Some((selected, downloaded)) = &self.test_models {
+            return plan_meeting_model(selected, downloaded).map_err(|err| match err {
+                MeetingStartRefusal::OnlyVoxtral { model_id } => {
+                    MeetingRefusal::NoLongAudioModel { model_id }
+                }
+            });
+        }
+        let app = self
+            .app
+            .as_ref()
+            .ok_or(MeetingRefusal::SystemAudioUnavailable)?;
+        let settings = crate::settings::get_settings(app);
+        let override_lang = app
+            .try_state::<Arc<TranscriptionManager>>()
+            .map(|tm| tm.resolved_meeting_language());
+        let available = app
+            .try_state::<Arc<ModelManager>>()
+            .map(|models| models.get_available_models())
+            .unwrap_or_default();
+        crate::meeting_language::plan_meeting_language(
+            override_lang.as_deref(),
+            &settings.meeting_language,
+            &settings.selected_model,
+            &available,
+        )
+        .map(|plan| plan.model_id)
+        .map_err(|err| match err {
+            crate::meeting_language::MeetingLanguageRefusal::NoLongAudioModel { model_id }
+            | crate::meeting_language::MeetingLanguageRefusal::NoInstalledModelForLanguage {
+                model_id,
+                ..
+            } => MeetingRefusal::NoLongAudioModel { model_id },
         })
     }
 

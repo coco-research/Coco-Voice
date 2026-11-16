@@ -533,6 +533,10 @@ pub struct AppSettings {
     #[cfg(feature = "meetings")]
     #[serde(default)]
     pub meeting_audio_retention_secs: Option<i64>,
+    /// Language used for meeting transcription (`"auto"` by default, independent of dictation).
+    #[cfg(feature = "meetings")]
+    #[serde(default = "default_meeting_language")]
+    pub meeting_language: String,
 }
 
 fn default_model() -> String {
@@ -616,6 +620,11 @@ pub(crate) fn default_meetings_enabled() -> bool {
 #[cfg(feature = "meetings")]
 pub(crate) fn default_delete_audio_after_notes() -> bool {
     true
+}
+
+#[cfg(feature = "meetings")]
+pub(crate) fn default_meeting_language() -> String {
+    "auto".to_string()
 }
 
 /// Meetings UI shows only when the setting is on and `os` is macOS 14.4 or newer.
@@ -1245,6 +1254,8 @@ pub fn get_default_settings() -> AppSettings {
         notes_markdown_folder: None,
         #[cfg(feature = "meetings")]
         meeting_audio_retention_secs: None,
+        #[cfg(feature = "meetings")]
+        meeting_language: default_meeting_language(),
     }
 }
 
