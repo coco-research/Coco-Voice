@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "请选择一个转录模型以开始使用",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "兼容的模型",
+    "downloadModelsTitle": "可下载的模型",
+    "showAllModels": "显示全部 {{total}} 个模型",
+    "showFewerModels": "收起部分模型",
     "recommended": "推荐",
     "customModelDescription": "非官方支持",
     "modelCard": {
@@ -96,7 +96,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "无法选择模型"
     },
     "permissions": {
       "title": "需要权限",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "正在转录...",
-    "processing": "处理中...",
+    "processing": "整理中...",
     "polishing": "润色中..."
   },
   "whatsNew": {

@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "Pour commencer, choisissez un modèle de transcription",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Modèles compatibles",
+    "downloadModelsTitle": "Disponibles au téléchargement",
+    "showAllModels": "Afficher les {{total}} modèles",
+    "showFewerModels": "Afficher moins de modèles",
     "recommended": "Recommandé",
     "customModelDescription": "Non officiellement pris en charge",
     "modelCard": {
@@ -96,7 +96,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Impossible de sélectionner le modèle"
     },
     "permissions": {
       "title": "Autorisations requises",
@@ -132,12 +132,12 @@
     "extractingGeneric": "Extraction...",
     "downloading": "Téléchargement {{percentage}}%",
     "downloadingMultiple": "Téléchargement de {{count}} modèles...",
-    "modelReady": "Modèle Prêt",
+    "modelReady": "Modèle prêt",
     "loading": "Chargement de {{modelName}}...",
     "loadingGeneric": "Chargement...",
-    "modelError": "Erreur du Modèle",
-    "modelUnloaded": "Modèle Déchargé",
-    "noModelDownloadRequired": "Aucun Modèle - Téléchargement Requis",
+    "modelError": "Erreur du modèle",
+    "modelUnloaded": "Modèle déchargé",
+    "noModelDownloadRequired": "Aucun modèle — téléchargement requis",
     "deleteModel": "Supprimer {{modelName}}",
     "downloadSpeed": "{{speed}} Mo/s",
     "capabilities": {
@@ -658,7 +658,7 @@
   },
   "accessibility": {
     "permissionsDescription": "Coco Voice a besoin des autorisations d'accessibilité pour taper le texte transcrit.",
-    "openSettings": "Ouvrir les Préférences Système"
+    "openSettings": "Ouvrir les réglages système"
   },
   "errors": {
     "loadDirectory": "Erreur lors du chargement du répertoire : {{error}}",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "Transcription...",
-    "processing": "Traitement...",
+    "processing": "Nettoyage...",
     "polishing": "Réécriture..."
   },
   "whatsNew": {

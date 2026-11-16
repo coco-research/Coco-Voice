@@ -1,9 +1,9 @@
 {
   "tray": {
     "settings": "Settings...",
-    "checkUpdates": "Check for Updates...",
-    "copyLastTranscript": "Copy Last Transcript",
-    "unloadModel": "Unload Model",
+    "checkUpdates": "Check for updates...",
+    "copyLastTranscript": "Copy last transcript",
+    "unloadModel": "Unload model",
     "model": "Model",
     "quit": "Quit",
     "cancel": "Cancel"
@@ -19,8 +19,8 @@
   },
   "onboarding": {
     "subtitle": "To get started, choose a transcription model",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
+    "existingModelsTitle": "Compatible models",
+    "downloadModelsTitle": "Available to download",
     "showAllModels": "Show all {{total}} models",
     "showFewerModels": "Show fewer models",
     "recommended": "Recommended",
@@ -99,17 +99,17 @@
       "selectModel": "Failed to select model"
     },
     "permissions": {
-      "title": "Permissions Required",
+      "title": "Permissions needed",
       "description": "Coco Voice needs a couple of permissions to work properly.",
       "microphone": {
-        "title": "Microphone Access",
+        "title": "Microphone access",
         "description": "Required to hear your voice for transcription."
       },
       "accessibility": {
-        "title": "Accessibility Access",
+        "title": "Accessibility access",
         "description": "Required to type transcribed text into your applications."
       },
-      "grant": "Grant Permission",
+      "grant": "Allow access",
       "granted": "Granted",
       "waiting": "Waiting...",
       "allGranted": "All set!",
@@ -134,12 +134,12 @@
     "extractingGeneric": "Extracting...",
     "downloading": "Downloading {{percentage}}%",
     "downloadingMultiple": "Downloading {{count}} models...",
-    "modelReady": "Model Ready",
+    "modelReady": "Model ready",
     "loading": "Loading {{modelName}}...",
     "loadingGeneric": "Loading...",
-    "modelError": "Model Error",
-    "modelUnloaded": "Model Unloaded",
-    "noModelDownloadRequired": "No Model - Download Required",
+    "modelError": "Model error",
+    "modelUnloaded": "Model unloaded",
+    "noModelDownloadRequired": "No model — download needed",
     "deleteModel": "Delete {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
     "cancel": "Cancel",
@@ -633,7 +633,7 @@
     "checkingUpdates": "Checking for updates...",
     "updateAvailableShort": "Update available",
     "upToDate": "Up to date",
-    "updateCheckingDisabled": "Update Checking Disabled",
+    "updateCheckingDisabled": "Update checks off",
     "downloading": "Downloading... {{progress}}%",
     "installing": "Installing...",
     "preparing": "Preparing...",
@@ -661,7 +661,7 @@
   },
   "accessibility": {
     "permissionsDescription": "Coco Voice needs accessibility permissions to type transcribed text.",
-    "openSettings": "Open System Settings"
+    "openSettings": "Open system settings"
   },
   "errors": {
     "loadDirectory": "Error loading directory: {{error}}",
@@ -707,7 +707,7 @@
   },
   "overlay": {
     "transcribing": "Transcribing...",
-    "processing": "Processing...",
+    "processing": "Cleaning up...",
     "polishing": "Polishing..."
   },
   "cleanupStatus": {

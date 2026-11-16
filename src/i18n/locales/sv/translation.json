@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "För att komma igång, välj en transkriptionsmodell",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Kompatibla modeller",
+    "downloadModelsTitle": "Tillgängliga för nedladdning",
+    "showAllModels": "Visa alla {{total}} modeller",
+    "showFewerModels": "Visa färre modeller",
     "recommended": "Rekommenderat",
     "customModelDescription": "Stöds inte officiellt",
     "modelCard": {
@@ -96,7 +96,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Kunde inte välja modell"
     },
     "permissions": {
       "title": "Behörigheter krävs",
@@ -137,7 +137,7 @@
     "loadingGeneric": "Laddar...",
     "modelError": "Modellfel",
     "modelUnloaded": "Modell avlastad",
-    "noModelDownloadRequired": "Ingen modell - Nedladdning krävs",
+    "noModelDownloadRequired": "Ingen modell — nedladdning krävs",
     "deleteModel": "Ta bort {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
     "cancel": "Avbryt",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "Transkriberar...",
-    "processing": "Bearbetar...",
+    "processing": "Rensar upp...",
     "polishing": "Redigerar..."
   },
   "whatsNew": {

@@ -99,17 +99,17 @@
       "selectModel": "Impossibile selezionare il modello"
     },
     "permissions": {
-      "title": "Permessi Richiesti",
+      "title": "Permessi necessari",
       "description": "Coco Voice ha bisogno di alcuni permessi per funzionare correttamente.",
       "microphone": {
-        "title": "Accesso al Microfono",
+        "title": "Accesso al microfono",
         "description": "Necessario per sentire la tua voce per la trascrizione."
       },
       "accessibility": {
-        "title": "Accesso all'Accessibilità",
+        "title": "Accesso all'accessibilità",
         "description": "Necessario per digitare il testo trascritto nelle tue applicazioni."
       },
-      "grant": "Concedi Permesso",
+      "grant": "Consenti accesso",
       "granted": "Concesso",
       "waiting": "In attesa...",
       "allGranted": "Tutto pronto!",
@@ -132,12 +132,12 @@
     "extractingGeneric": "Estrazione...",
     "downloading": "Download {{percentage}}%",
     "downloadingMultiple": "Download di {{count}} modelli...",
-    "modelReady": "Modello Pronto",
+    "modelReady": "Modello pronto",
     "loading": "Caricamento di {{modelName}}...",
     "loadingGeneric": "Caricamento...",
-    "modelError": "Errore del Modello",
-    "modelUnloaded": "Modello Disattivato",
-    "noModelDownloadRequired": "Nessun Modello - Download Richiesto",
+    "modelError": "Errore del modello",
+    "modelUnloaded": "Modello disattivato",
+    "noModelDownloadRequired": "Nessun modello — download necessario",
     "deleteModel": "Elimina {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
     "capabilities": {
@@ -633,7 +633,7 @@
     "checkingUpdates": "Controllo aggiornamenti...",
     "updateAvailableShort": "Aggiornamento disponibile",
     "upToDate": "Aggiornato",
-    "updateCheckingDisabled": "Controllo Aggiornamenti Disabilitato",
+    "updateCheckingDisabled": "Controllo aggiornamenti disattivato",
     "downloading": "Download... {{progress}}%",
     "installing": "Installazione...",
     "preparing": "Preparazione...",
@@ -658,7 +658,7 @@
   },
   "accessibility": {
     "permissionsDescription": "Coco Voice ha bisogno dei permessi di accessibilità per digitare il testo trascritto.",
-    "openSettings": "Apri Impostazioni di Sistema"
+    "openSettings": "Apri impostazioni di sistema"
   },
   "errors": {
     "loadDirectory": "Errore di caricamento cartella: {{error}}",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "Trascrizione...",
-    "processing": "Elaborazione...",
+    "processing": "Pulizia...",
     "polishing": "Revisione..."
   },
   "whatsNew": {

@@ -1,7 +1,7 @@
 {
   "tray": {
     "settings": "Ayarlar...",
-    "checkUpdates": "Güncellemeleri Kontrol Et...",
+    "checkUpdates": "Güncellemeleri kontrol et...",
     "copyLastTranscript": "Son transkripti kopyala",
     "unloadModel": "Modeli boşalt",
     "model": "Model",
@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "Başlamak için bir transkripsiyon modeli seçin",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Uyumlu modeller",
+    "downloadModelsTitle": "İndirilebilir modeller",
+    "showAllModels": "Tüm {{total}} modeli göster",
+    "showFewerModels": "Daha az model göster",
     "recommended": "Önerilen",
     "customModelDescription": "Resmi olarak desteklenmiyor",
     "modelCard": {
@@ -96,20 +96,20 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Model seçilemedi"
     },
     "permissions": {
-      "title": "İzinler Gerekli",
+      "title": "İzinler gerekli",
       "description": "Coco Voice'nin düzgün çalışabilmesi için birkaç izne ihtiyacı var.",
       "microphone": {
-        "title": "Mikrofon Erişimi",
+        "title": "Mikrofon erişimi",
         "description": "Sesinizi transkripsiyon için alabilmek için gereklidir."
       },
       "accessibility": {
-        "title": "Erişilebilirlik Erişimi",
+        "title": "Erişilebilirlik erişimi",
         "description": "Transkribe edilen metni uygulamalarınıza yazabilmek için gereklidir."
       },
-      "grant": "İzin Ver",
+      "grant": "İzin ver",
       "granted": "Verildi",
       "waiting": "Bekleniyor...",
       "allGranted": "Her şey hazır!",
@@ -131,12 +131,12 @@
     "extractingGeneric": "Çıkarılıyor...",
     "downloading": "%{{percentage}} indiriliyor",
     "downloadingMultiple": "{{count}} model indiriliyor...",
-    "modelReady": "Model Hazır",
+    "modelReady": "Model hazır",
     "loading": "{{modelName}} yükleniyor...",
     "loadingGeneric": "Yükleniyor...",
-    "modelError": "Model Hatası",
-    "modelUnloaded": "Model Boşaltıldı",
-    "noModelDownloadRequired": "Model Yok – İndirme Gerekli",
+    "modelError": "Model hatası",
+    "modelUnloaded": "Model boşaltıldı",
+    "noModelDownloadRequired": "Model yok — indirme gerekli",
     "deleteModel": "{{modelName}} Sil",
     "switching": "Değiştiriliyor...",
     "downloadSpeed": "{{speed}} MB/s",
@@ -633,7 +633,7 @@
     "checkingUpdates": "Güncellemeler kontrol ediliyor...",
     "updateAvailableShort": "Güncelleme mevcut",
     "upToDate": "Güncel",
-    "updateCheckingDisabled": "Güncelleme Kontrolü Devre Dışı",
+    "updateCheckingDisabled": "Güncelleme kontrolü kapalı",
     "downloading": "İndiriliyor... %{{progress}}",
     "installing": "Yükleniyor...",
     "preparing": "Hazırlanıyor...",
@@ -658,7 +658,7 @@
   },
   "accessibility": {
     "permissionsDescription": "Coco Voice, transkribe edilen metni yazabilmek için erişilebilirlik izinlerine ihtiyaç duyar.",
-    "openSettings": "Sistem Ayarlarını Aç"
+    "openSettings": "Sistem ayarlarını aç"
   },
   "errors": {
     "loadDirectory": "Dizin yüklenirken hata oluştu: {{error}}",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "Transkribe ediliyor...",
-    "processing": "İşleniyor...",
+    "processing": "Düzenleniyor...",
     "polishing": "Düzenleniyor..."
   },
   "whatsNew": {

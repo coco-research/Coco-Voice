@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "Для початку оберіть модель транскрипції",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Сумісні моделі",
+    "downloadModelsTitle": "Доступні для завантаження",
+    "showAllModels": "Показати всі {{total}} моделей",
+    "showFewerModels": "Показати менше моделей",
     "recommended": "Рекомендовано",
     "customModelDescription": "Офіційно не підтримується",
     "modelCard": {
@@ -96,7 +96,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Не вдалося вибрати модель"
     },
     "permissions": {
       "title": "Потрібні дозволи",
@@ -658,7 +658,7 @@
   },
   "accessibility": {
     "permissionsDescription": "Coco Voice потребує дозволи доступності для введення транскрибованого тексту.",
-    "openSettings": "Відкрити Системні налаштування"
+    "openSettings": "Відкрити системні налаштування"
   },
   "errors": {
     "loadDirectory": "Помилка завантаження папки: {{error}}",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "Обробка...",
-    "processing": "Постобробка...",
+    "processing": "Очищення...",
     "polishing": "Редагую..."
   },
   "whatsNew": {

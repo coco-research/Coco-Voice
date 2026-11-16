@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "Wähle ein Transkriptionsmodell, um loszulegen",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Kompatible Modelle",
+    "downloadModelsTitle": "Zum Herunterladen verfügbar",
+    "showAllModels": "Alle {{total}} Modelle anzeigen",
+    "showFewerModels": "Weniger Modelle anzeigen",
     "recommended": "Empfohlen",
     "customModelDescription": "Nicht offiziell unterstützt",
     "modelCard": {
@@ -96,7 +96,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Modell konnte nicht ausgewählt werden"
     },
     "permissions": {
       "title": "Berechtigungen erforderlich",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "Transkribiere...",
-    "processing": "Verarbeite...",
+    "processing": "Bereinige...",
     "polishing": "Überarbeite..."
   },
   "whatsNew": {

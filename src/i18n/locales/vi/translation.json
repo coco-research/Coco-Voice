@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "Để bắt đầu, hãy chọn một mô hình chuyển đổi giọng nói",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Mô hình tương thích",
+    "downloadModelsTitle": "Có sẵn để tải xuống",
+    "showAllModels": "Hiện tất cả {{total}} mô hình",
+    "showFewerModels": "Hiện ít mô hình hơn",
     "recommended": "Đề xuất",
     "customModelDescription": "Không được hỗ trợ chính thức",
     "modelCard": {
@@ -96,17 +96,17 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Không thể chọn mô hình"
     },
     "permissions": {
       "title": "Cần cấp quyền",
       "description": "Coco Voice cần một số quyền để hoạt động bình thường.",
       "microphone": {
-        "title": "Quyền truy cập Micrô",
+        "title": "Quyền truy cập micrô",
         "description": "Cần thiết để nghe giọng nói của bạn để chuyển đổi."
       },
       "accessibility": {
-        "title": "Quyền truy cập Trợ năng",
+        "title": "Quyền truy cập trợ năng",
         "description": "Cần thiết để nhập văn bản đã chuyển đổi vào các ứng dụng của bạn."
       },
       "grant": "Cấp quyền",
@@ -132,12 +132,12 @@
     "extractingGeneric": "Đang giải nén...",
     "downloading": "Đang tải xuống {{percentage}}%",
     "downloadingMultiple": "Đang tải xuống {{count}} mô hình...",
-    "modelReady": "Mô Hình Sẵn Sàng",
+    "modelReady": "Mô hình sẵn sàng",
     "loading": "Đang tải {{modelName}}...",
     "loadingGeneric": "Đang tải...",
-    "modelError": "Lỗi Mô Hình",
-    "modelUnloaded": "Mô Hình Đã Gỡ",
-    "noModelDownloadRequired": "Chưa Có Mô Hình - Cần Tải Xuống",
+    "modelError": "Lỗi mô hình",
+    "modelUnloaded": "Mô hình đã gỡ",
+    "noModelDownloadRequired": "Chưa có mô hình — cần tải xuống",
     "deleteModel": "Xóa {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
     "capabilities": {
@@ -658,7 +658,7 @@
   },
   "accessibility": {
     "permissionsDescription": "Coco Voice cần quyền truy cập để gõ văn bản đã chuyển đổi.",
-    "openSettings": "Mở Cài đặt Hệ thống"
+    "openSettings": "Mở cài đặt hệ thống"
   },
   "errors": {
     "loadDirectory": "Lỗi khi tải thư mục: {{error}}",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "Đang chuyển đổi...",
-    "processing": "Đang xử lý...",
+    "processing": "Đang làm gọn...",
     "polishing": "Đang sửa..."
   },
   "whatsNew": {

@@ -707,7 +707,7 @@
   },
   "overlay": {
     "transcribing": "ट्रान्सक्राइब गरिँदैछ...",
-    "processing": "प्रशोधन गरिँदैछ...",
+    "processing": "मिलाइँदैछ...",
     "polishing": "सम्पादन..."
   },
   "cleanupStatus": {

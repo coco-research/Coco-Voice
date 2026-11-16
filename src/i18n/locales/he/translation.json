@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "כדי להתחיל, בחר מודל תמלול",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "מודלים תואמים",
+    "downloadModelsTitle": "זמינים להורדה",
+    "showAllModels": "הצג את כל {{total}} המודלים",
+    "showFewerModels": "הצג פחות מודלים",
     "recommended": "מומלץ",
     "customModelDescription": "לא נתמך באופן רשמי",
     "modelCard": {
@@ -96,7 +96,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "בחירת המודל נכשלה"
     },
     "permissions": {
       "title": "נדרשות הרשאות",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "מתמלל...",
-    "processing": "מעבד...",
+    "processing": "מנקה...",
     "polishing": "עורך..."
   },
   "whatsNew": {

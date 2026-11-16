@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "시작하려면 음성 인식 모델을 선택하세요",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "호환 모델",
+    "downloadModelsTitle": "다운로드 가능",
+    "showAllModels": "모델 {{total}}개 모두 보기",
+    "showFewerModels": "간략히 보기",
     "recommended": "추천",
     "customModelDescription": "공식 지원되지 않음",
     "modelCard": {
@@ -96,7 +96,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "모델을 선택하지 못했습니다"
     },
     "permissions": {
       "title": "권한 필요",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "텍스트로 변환 중...",
-    "processing": "처리 중...",
+    "processing": "다듬는 중...",
     "polishing": "다듬는 중..."
   },
   "whatsNew": {

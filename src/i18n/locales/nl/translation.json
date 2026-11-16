@@ -139,7 +139,7 @@
     "loadingGeneric": "Laden...",
     "modelError": "Modelfout",
     "modelUnloaded": "Model ontladen",
-    "noModelDownloadRequired": "Geen model - Download vereist",
+    "noModelDownloadRequired": "Geen model — download vereist",
     "deleteModel": "{{modelName}} verwijderen",
     "downloadSpeed": "{{speed}} MB/s",
     "cancel": "Annuleren",
@@ -707,7 +707,7 @@
   },
   "overlay": {
     "transcribing": "Transcriberen...",
-    "processing": "Verwerken...",
+    "processing": "Opschonen...",
     "polishing": "Redigeren..."
   },
   "cleanupStatus": {

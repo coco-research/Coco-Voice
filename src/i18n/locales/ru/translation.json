@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "Для начала выберите модель транскрипции",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Совместимые модели",
+    "downloadModelsTitle": "Доступно для загрузки",
+    "showAllModels": "Показать все модели ({{total}})",
+    "showFewerModels": "Показать меньше моделей",
     "recommended": "Рекомендуется",
     "customModelDescription": "Официально не поддерживается",
     "modelCard": {
@@ -96,7 +96,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Не удалось выбрать модель"
     },
     "permissions": {
       "title": "Требуются разрешения",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "Расшифровка...",
-    "processing": "Обработка...",
+    "processing": "Очистка...",
     "polishing": "Правка..."
   },
   "whatsNew": {

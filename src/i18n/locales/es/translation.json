@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "Para comenzar, elige un modelo de transcripción",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Modelos compatibles",
+    "downloadModelsTitle": "Disponibles para descargar",
+    "showAllModels": "Mostrar los {{total}} modelos",
+    "showFewerModels": "Mostrar menos modelos",
     "recommended": "Recomendado",
     "customModelDescription": "Sin soporte oficial",
     "modelCard": {
@@ -96,20 +96,20 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "No se pudo seleccionar el modelo"
     },
     "permissions": {
-      "title": "Permisos Requeridos",
+      "title": "Permisos necesarios",
       "description": "Coco Voice necesita algunos permisos para funcionar correctamente.",
       "microphone": {
-        "title": "Acceso al Micrófono",
+        "title": "Acceso al micrófono",
         "description": "Necesario para escuchar tu voz para la transcripción."
       },
       "accessibility": {
-        "title": "Acceso de Accesibilidad",
+        "title": "Acceso de accesibilidad",
         "description": "Necesario para escribir el texto transcrito en tus aplicaciones."
       },
-      "grant": "Conceder Permiso",
+      "grant": "Permitir acceso",
       "granted": "Concedido",
       "waiting": "Esperando...",
       "allGranted": "¡Todo listo!",
@@ -132,12 +132,12 @@
     "extractingGeneric": "Extrayendo...",
     "downloading": "Descargando {{percentage}}%",
     "downloadingMultiple": "Descargando {{count}} modelos...",
-    "modelReady": "Modelo Listo",
+    "modelReady": "Modelo listo",
     "loading": "Cargando {{modelName}}...",
     "loadingGeneric": "Cargando...",
-    "modelError": "Error del Modelo",
-    "modelUnloaded": "Modelo Descargado",
-    "noModelDownloadRequired": "Sin Modelo - Descarga Requerida",
+    "modelError": "Error del modelo",
+    "modelUnloaded": "Modelo descargado",
+    "noModelDownloadRequired": "Sin modelo — descarga necesaria",
     "deleteModel": "Eliminar {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
     "capabilities": {
@@ -633,7 +633,7 @@
     "checkingUpdates": "Buscando actualizaciones...",
     "updateAvailableShort": "Actualización disponible",
     "upToDate": "Actualizado",
-    "updateCheckingDisabled": "Búsqueda de Actualizaciones Deshabilitada",
+    "updateCheckingDisabled": "Búsqueda de actualizaciones desactivada",
     "downloading": "Descargando... {{progress}}%",
     "installing": "Instalando...",
     "preparing": "Preparando...",
@@ -658,7 +658,7 @@
   },
   "accessibility": {
     "permissionsDescription": "Coco Voice necesita permisos de accesibilidad para escribir texto transcrito.",
-    "openSettings": "Abrir Ajustes del Sistema"
+    "openSettings": "Abrir ajustes del sistema"
   },
   "errors": {
     "loadDirectory": "Error al cargar el directorio: {{error}}",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "Transcribiendo...",
-    "processing": "Procesando...",
+    "processing": "Limpiando...",
     "polishing": "Editando..."
   },
   "whatsNew": {

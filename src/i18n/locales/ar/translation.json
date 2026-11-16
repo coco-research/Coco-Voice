@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "للبدء، اختر نموذج التفريغ الصوتي",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "النماذج المتوافقة",
+    "downloadModelsTitle": "متاح للتنزيل",
+    "showAllModels": "عرض كل النماذج ({{total}})",
+    "showFewerModels": "عرض نماذج أقل",
     "recommended": "موصى به",
     "customModelDescription": "غير مدعوم رسميًا",
     "modelCard": {
@@ -96,7 +96,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "تعذر اختيار النموذج"
     },
     "permissions": {
       "title": "الأذونات المطلوبة",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "...جاري التفريغ",
-    "processing": "...جاري المعالجة",
+    "processing": "...جاري التنقيح",
     "polishing": "...جاري التحرير"
   },
   "whatsNew": {

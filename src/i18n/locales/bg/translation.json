@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "За да започнете, изберете модел за транскрипция",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Съвместими модели",
+    "downloadModelsTitle": "Налични за изтегляне",
+    "showAllModels": "Покажи всички {{total}} модела",
+    "showFewerModels": "Покажи по-малко модели",
     "recommended": "Препоръчан",
     "customModelDescription": "Не се поддържа официално",
     "modelCard": {
@@ -96,7 +96,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Неуспешен избор на модел"
     },
     "permissions": {
       "title": "Необходими разрешения",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "Транскрибиране...",
-    "processing": "Обработка...",
+    "processing": "Изчистване...",
     "polishing": "Редакция..."
   },
   "whatsNew": {

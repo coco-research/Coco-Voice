@@ -1,7 +1,7 @@
 {
   "tray": {
     "settings": "Configurações...",
-    "checkUpdates": "Verificar Atualizações...",
+    "checkUpdates": "Verificar atualizações...",
     "copyLastTranscript": "Copiar última transcrição",
     "unloadModel": "Descarregar modelo",
     "model": "Modelo",
@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "Para começar, escolha um modelo de transcrição",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Modelos compatíveis",
+    "downloadModelsTitle": "Disponíveis para baixar",
+    "showAllModels": "Mostrar todos os {{total}} modelos",
+    "showFewerModels": "Mostrar menos modelos",
     "recommended": "Recomendado",
     "customModelDescription": "Não suportado oficialmente",
     "modelCard": {
@@ -96,20 +96,20 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Não foi possível selecionar o modelo"
     },
     "permissions": {
-      "title": "Permissões Necessárias",
+      "title": "Permissões necessárias",
       "description": "O Coco Voice precisa de algumas permissões para funcionar corretamente.",
       "microphone": {
-        "title": "Acesso ao Microfone",
+        "title": "Acesso ao microfone",
         "description": "Necessário para ouvir sua voz para transcrição."
       },
       "accessibility": {
-        "title": "Acesso à Acessibilidade",
+        "title": "Acesso à acessibilidade",
         "description": "Necessário para digitar o texto transcrito em seus aplicativos."
       },
-      "grant": "Conceder Permissão",
+      "grant": "Permitir acesso",
       "granted": "Concedido",
       "waiting": "Aguardando...",
       "allGranted": "Tudo pronto!",
@@ -131,12 +131,12 @@
     "extractingGeneric": "Extraindo...",
     "downloading": "Baixando {{percentage}}%",
     "downloadingMultiple": "Baixando {{count}} modelos...",
-    "modelReady": "Modelo Pronto",
+    "modelReady": "Modelo pronto",
     "loading": "Carregando {{modelName}}...",
     "loadingGeneric": "Carregando...",
-    "modelError": "Erro no Modelo",
-    "modelUnloaded": "Modelo Descarregado",
-    "noModelDownloadRequired": "Sem Modelo - Download Necessário",
+    "modelError": "Erro no modelo",
+    "modelUnloaded": "Modelo descarregado",
+    "noModelDownloadRequired": "Sem modelo — download necessário",
     "deleteModel": "Excluir {{modelName}}",
     "switching": "Alternando...",
     "downloadSpeed": "{{speed}} MB/s",
@@ -633,7 +633,7 @@
     "checkingUpdates": "Verificando atualizações...",
     "updateAvailableShort": "Atualização disponível",
     "upToDate": "Atualizado",
-    "updateCheckingDisabled": "Verificação de Atualização Desabilitada",
+    "updateCheckingDisabled": "Verificação de atualizações desativada",
     "downloading": "Baixando... {{progress}}%",
     "installing": "Instalando...",
     "preparing": "Preparando...",
@@ -658,7 +658,7 @@
   },
   "accessibility": {
     "permissionsDescription": "O Coco Voice precisa de permissões de acessibilidade para digitar o texto transcrito.",
-    "openSettings": "Abrir Configurações do Sistema"
+    "openSettings": "Abrir configurações do sistema"
   },
   "errors": {
     "loadDirectory": "Erro ao carregar diretório: {{error}}",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "Transcrevendo...",
-    "processing": "Processando...",
+    "processing": "Limpando...",
     "polishing": "Revisando..."
   },
   "whatsNew": {

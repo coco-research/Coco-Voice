@@ -19,10 +19,10 @@
   },
   "onboarding": {
     "subtitle": "Pro začátek vyberte model pro přepis",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Kompatibilní modely",
+    "downloadModelsTitle": "Dostupné ke stažení",
+    "showAllModels": "Zobrazit všech {{total}} modelů",
+    "showFewerModels": "Zobrazit méně modelů",
     "recommended": "Doporučeno",
     "customModelDescription": "Oficiálně nepodporováno",
     "modelCard": {
@@ -96,7 +96,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Nepodařilo se vybrat model"
     },
     "permissions": {
       "title": "Vyžadována oprávnění",
@@ -658,7 +658,7 @@
   },
   "accessibility": {
     "permissionsDescription": "Coco Voice potřebuje oprávnění usnadnění přístupu, aby mohlo psát přepsaný text.",
-    "openSettings": "Otevřít Nastavení systému"
+    "openSettings": "Otevřít nastavení systému"
   },
   "errors": {
     "loadDirectory": "Chyba při načítání adresáře: {{error}}",
@@ -704,7 +704,7 @@
   },
   "overlay": {
     "transcribing": "Přepisuji...",
-    "processing": "Zpracovávám...",
+    "processing": "Čistím...",
     "polishing": "Upravuji..."
   },
   "whatsNew": {
