@@ -30,6 +30,8 @@ mod meeting_notes_pieces;
 #[cfg(feature = "meetings")]
 pub mod meeting_notes_runner;
 #[cfg(feature = "meetings")]
+pub mod meeting_notes_v42;
+#[cfg(feature = "meetings")]
 pub mod meeting_retention;
 #[cfg(feature = "meetings")]
 mod meeting_session;
