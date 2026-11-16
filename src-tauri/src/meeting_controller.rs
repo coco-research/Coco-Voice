@@ -151,6 +151,15 @@ pub struct NoopRecorders;
 
 impl MeetingRecorders for NoopRecorders {}
 
+/// Triggered once off the UI thread after an explicit Stop finalises tracks.
+pub trait NotesTrigger: Send + Sync {
+    fn run_after_stop(&self, _meeting_id: i64) {}
+}
+
+struct NoopNotesTrigger;
+
+impl NotesTrigger for NoopNotesTrigger {}
+
 struct MeetingInner {
     state: MeetingState,
     started_at: Option<Instant>,
@@ -192,10 +201,18 @@ pub struct MeetingController {
     /// One start or stop at a time. Held from the tap through the pill show.
     start_gate: Mutex<()>,
     recorders: Box<dyn MeetingRecorders>,
+    notes_trigger: Arc<dyn NotesTrigger>,
 }
 
 impl MeetingController {
     pub fn new(recorders: Box<dyn MeetingRecorders>) -> Self {
+        Self::with_notes_trigger(recorders, Arc::new(NoopNotesTrigger))
+    }
+
+    pub fn with_notes_trigger(
+        recorders: Box<dyn MeetingRecorders>,
+        notes_trigger: Arc<dyn NotesTrigger>,
+    ) -> Self {
         Self {
             inner: Mutex::new(MeetingInner {
                 state: MeetingState::Idle,
@@ -206,6 +223,7 @@ impl MeetingController {
             }),
             start_gate: Mutex::new(()),
             recorders,
+            notes_trigger,
         }
     }
 
@@ -355,15 +373,23 @@ impl MeetingController {
             None => Vec::new(),
         };
 
-        let mut inner = self.lock();
-        if inner.state == MeetingState::Stopping {
-            inner.state = MeetingState::Idle;
-            inner.started_at = None;
-            if !warnings.is_empty() {
-                inner.warnings = warnings;
+        let status = {
+            let mut inner = self.lock();
+            if inner.state == MeetingState::Stopping {
+                inner.state = MeetingState::Idle;
+                inner.started_at = None;
+                if !warnings.is_empty() {
+                    inner.warnings = warnings;
+                }
+            }
+            inner.status()
+        };
+        if matches!(reason, MeetingEnd::Stopped) {
+            if let Some(id) = meeting_id {
+                self.notes_trigger.run_after_stop(id);
             }
         }
-        inner.status()
+        status
     }
 }
 

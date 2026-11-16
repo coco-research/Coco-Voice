@@ -22,6 +22,8 @@ mod meeting_feed;
 #[cfg(feature = "meetings")]
 mod meeting_notes;
 #[cfg(feature = "meetings")]
+mod meeting_notes_job;
+#[cfg(feature = "meetings")]
 mod meeting_notes_merge;
 #[cfg(feature = "meetings")]
 mod meeting_notes_pieces;
@@ -225,9 +227,14 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     app_handle.manage(tray::CurrentTrayIconState::new());
     #[cfg(feature = "meetings")]
     {
-        app_handle.manage(Arc::new(meeting_controller::MeetingController::new(
-            Box::new(meeting_session::MeetingSession::new(app_handle.clone())),
-        )));
+        let notes_runner = meeting_notes_job::NotesJobRunner::for_app(app_handle.clone());
+        app_handle.manage(Arc::clone(&notes_runner));
+        app_handle.manage(Arc::new(
+            meeting_controller::MeetingController::with_notes_trigger(
+                Box::new(meeting_session::MeetingSession::new(app_handle.clone())),
+                Arc::new(meeting_notes_job::SharedNotesTrigger(notes_runner)),
+            ),
+        ));
         // Open runs unfinished-row recovery. A later meeting start opens the
         // same file again; the update is a no-op once no row is still recording.
         if let Err(err) = managers::meetings::MeetingsStore::open_app(app_handle) {
@@ -590,6 +597,9 @@ fn meetings_command_names() -> &'static [&'static str] {
             "stop_meeting",
             "meeting_status",
             "meeting_segments",
+            "meeting_notes_snapshot",
+            "save_meeting_notepad",
+            "retry_meeting_notes",
         ]
     }
     #[cfg(not(feature = "meetings"))]
@@ -611,7 +621,10 @@ macro_rules! collect_app_commands {
             meeting_controller::cancel_meeting_consent,
             meeting_controller::stop_meeting,
             meeting_controller::meeting_status,
-            meeting_controller::meeting_segments
+            meeting_controller::meeting_segments,
+            meeting_notes_job::meeting_notes_snapshot,
+            meeting_notes_job::save_meeting_notepad,
+            meeting_notes_job::retry_meeting_notes
         ]
     };
 }

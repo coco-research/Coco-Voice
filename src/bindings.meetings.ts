@@ -100,11 +100,67 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async meetingNotesSnapshot(
+    meetingId: number,
+  ): Promise<Result<MeetingNotesSnapshot, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("meeting_notes_snapshot", { meetingId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async saveMeetingNotepad(
+    meetingId: number,
+    text: string,
+  ): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("save_meeting_notepad", { meetingId, text }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async retryMeetingNotes(
+    meetingId: number,
+  ): Promise<Result<MeetingNotesSnapshot, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("retry_meeting_notes", { meetingId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
 };
 
 /** user-defined types **/
 
 export type MeetingChannel = "me" | "others";
+export type MeetingNoteLineView = {
+  kind: string;
+  text: string;
+  owner: string | null;
+  start_ms: number | null;
+  from_notepad: boolean;
+};
+export type MeetingNotesSnapshot = {
+  meeting_id: number;
+  state: NotesStateKind;
+  progress_label: string | null;
+  elapsed_secs: number;
+  notepad_text: string;
+  lines: MeetingNoteLineView[];
+  oversized_count: number;
+};
 export type MeetingOffer = {
   bundleId: string;
   app: string;
@@ -134,6 +190,7 @@ export type MeetingStatus = {
   warnings: MeetingWarning[];
 };
 export type MeetingWarning = "system_audio_silent" | "mic_fell_back_to_default";
+export type NotesStateKind = "idle" | "running" | "ready" | "failed";
 
 /** tauri-specta globals **/
 

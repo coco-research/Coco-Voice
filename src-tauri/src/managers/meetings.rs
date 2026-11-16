@@ -400,6 +400,37 @@ impl MeetingsStore {
         Ok(conn.last_insert_rowid())
     }
 
+    /// Replace all notepad lines for `meeting_id` in one transaction.
+    pub fn replace_notepad(&self, meeting_id: i64, points: &[String]) -> Result<()> {
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        tx.execute(
+            "DELETE FROM meeting_notepad WHERE meeting_id = ?1",
+            params![meeting_id],
+        )?;
+        for (idx, point) in points.iter().enumerate() {
+            let trimmed = point.trim();
+            if !trimmed.is_empty() {
+                tx.execute(
+                    "INSERT INTO meeting_notepad (meeting_id, at_ms, text) VALUES (?1, ?2, ?3)",
+                    params![meeting_id, idx as i64, trimmed],
+                )?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Mark `meeting_id` as `notes_ready` once cited notes are saved.
+    pub fn mark_notes_ready(&self, meeting_id: i64) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute(
+            "UPDATE meetings SET status = 'notes_ready' WHERE id = ?1",
+            params![meeting_id],
+        )?;
+        Ok(())
+    }
+
     /// Notepad points of `meeting_id` as `(at_ms, text)`, ordered by `at_ms`
     /// ascending and then by row id ascending.
     pub fn notepad(&self, meeting_id: i64) -> Result<Vec<(i64, String)>> {
