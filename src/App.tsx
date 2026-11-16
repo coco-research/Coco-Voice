@@ -300,7 +300,12 @@ function App() {
     const unlistenHistory = events.historyUpdatePayload.listen((event) => {
       // Only a new entry is a finished take; edits and deletes are not.
       if (event.payload.action !== "added") return;
-      if (!statusSeenThisTake) {
+      const current = useSettingsStore.getState().lastCleanupStatus;
+      const takeWasCleaned = Boolean(event.payload.entry.post_processed_text);
+      if (
+        !statusSeenThisTake &&
+        (takeWasCleaned || current?.reason !== "local_model_not_downloaded")
+      ) {
         useSettingsStore.getState().setLastCleanupStatus(null);
       }
       statusSeenThisTake = false;

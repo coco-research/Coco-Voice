@@ -349,12 +349,24 @@ fn provider_configured(settings: &AppSettings, provider_id: &str) -> Result<(), 
     Ok(())
 }
 
+static LOCAL_MODEL_MISSING_NOTIFIED: AtomicBool = AtomicBool::new(false);
+
+fn should_emit_skip_notice(reason: &SkipReason, missing_model_notified: &AtomicBool) -> bool {
+    if *reason == SkipReason::LocalModelNotDownloaded {
+        return !missing_model_notified.swap(true, Ordering::SeqCst);
+    }
+    true
+}
+
 /// Logs why cleanup was skipped and tells the UI. Returns whether the UI was told.
 fn skip_cleanup(app: &AppHandle, reason: &SkipReason) -> bool {
     info!("Post-processing skipped: {reason}");
     let Some(status) = CleanupStatus::status_for_skip(reason) else {
         return false;
     };
+    if !should_emit_skip_notice(reason, &LOCAL_MODEL_MISSING_NOTIFIED) {
+        return false;
+    }
     let _ = status.emit(app);
     true
 }
@@ -916,6 +928,7 @@ async fn post_process_with_local_llm(
 
     match generated {
         Ok(result) => {
+            LOCAL_MODEL_MISSING_NOTIFIED.store(false, Ordering::SeqCst);
             debug!(
                 "Local LLM post-processing succeeded. Output length: {} chars",
                 result.len()
@@ -1728,8 +1741,9 @@ mod tests {
     use super::{
         build_post_process_messages, complete_unless_cancelled, next_cleanup_preview, non_blank,
         note_cancel_if_generation_moved, provider_configured, refine_base_for_correction,
-        should_hold_overlay, should_post_process_take, should_use_streaming_overlay,
-        store_refine_buffer, streams_cleanup_progress, SkipReason, CLEANUP_PROGRESS_MIN_GAP_MS,
+        should_emit_skip_notice, should_hold_overlay, should_post_process_take,
+        should_use_streaming_overlay, store_refine_buffer, streams_cleanup_progress, SkipReason,
+        CLEANUP_PROGRESS_MIN_GAP_MS,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -2007,5 +2021,35 @@ mod tests {
         assert!(!should_post_process_take(false, false));
         assert!(should_post_process_take(true, false));
         assert!(should_post_process_take(true, true));
+    }
+
+    #[test]
+    fn missing_local_model_skips_without_downloading_and_notifies_once() {
+        let settings = crate::settings::get_default_settings();
+        let download_calls = std::cell::Cell::new(0usize);
+        let notified = AtomicBool::new(false);
+        let mut emitted = Vec::new();
+        for _ in 0..3 {
+            let decision = super::resolve_cleanup(&settings.post_process_provider_id, |pid| {
+                provider_configured(&settings, pid)?;
+                if pid == super::LOCAL_LLM_PROVIDER_ID {
+                    return Err(SkipReason::LocalModelNotDownloaded);
+                }
+                download_calls.set(download_calls.get() + 1);
+                Ok(())
+            });
+            assert_eq!(
+                decision,
+                super::CleanupDecision::Skip {
+                    reason: SkipReason::LocalModelNotDownloaded
+                }
+            );
+            emitted.push(should_emit_skip_notice(
+                &SkipReason::LocalModelNotDownloaded,
+                &notified,
+            ));
+        }
+        assert_eq!(download_calls.get(), 0);
+        assert_eq!(emitted, vec![true, false, false]);
     }
 }
