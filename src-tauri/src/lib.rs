@@ -24,6 +24,8 @@ mod meeting_feed;
 #[cfg(feature = "meetings")]
 pub mod meeting_history_ops;
 #[cfg(feature = "meetings")]
+pub mod meeting_import;
+#[cfg(feature = "meetings")]
 pub mod meeting_language;
 #[cfg(feature = "meetings")]
 pub mod meeting_notes;
