@@ -181,7 +181,7 @@
             "description": "可選：專用快捷鍵，使用時一律對轉錄結果套用 AI 後處理"
           },
           "correction": {
-            "name": "說出更正",
+            "name": "語音改錯快捷鍵",
             "description": "用來說出更正、以取代上一次聽寫的鍵盤快捷鍵。指定一個按鍵即可啟用。"
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "語音改錯",
-        "toggleLabel": "說出更正",
+        "toggleLabel": "語音改錯",
         "toggleDescription": "新增一個明確的快捷鍵，按下後以口述更正取代上一次聽寫。絕不會因關鍵字而自動觸發。按下已指定的按鍵、說出修改，先前的輸出會就地編輯。"
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "指令",
         "selectedPrompt": {
-          "title": "已選提示詞",
+          "title": "整理風格",
           "description": "選擇用於最佳化轉錄的範本或建立新範本。在提示詞文字中使用 ${output} 來引用轉錄結果"
         },
         "noPrompts": "沒有可用的提示詞",
         "selectPrompt": "選擇提示詞",
-        "createNew": "建立新提示詞",
-        "promptLabel": "提示詞名稱",
+        "createNew": "新增風格",
+        "promptLabel": "名稱",
         "promptLabelPlaceholder": "輸入提示詞名稱",
-        "promptInstructions": "提示詞指令",
+        "promptInstructions": "說明",
         "promptInstructionsPlaceholder": "撰寫轉錄後要執行的指令。範例：改善以下文字的語法和清晰度: ${output}",
         "promptTip": "提示：使用 <code>${output}</code> 將轉錄文字插入到您的提示詞中",
         "updatePrompt": "更新提示詞",

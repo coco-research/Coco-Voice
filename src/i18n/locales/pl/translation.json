@@ -199,7 +199,7 @@
             "description": "Opcjonalnie: Dedykowany skrót klawiszowy, który zawsze stosuje postprocessing AI do transkrypcji."
           },
           "correction": {
-            "name": "Dyktowanie poprawki",
+            "name": "Skrót poprawek głosowych",
             "description": "Skrót klawiszowy do podyktowania poprawki, która zastępuje ostatnie dyktowanie. Przypisz klawisz, aby ją włączyć."
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "Poprawki głosowe",
-        "toggleLabel": "Dyktuj poprawki",
+        "toggleLabel": "Poprawki głosowe",
         "toggleDescription": "Dodaje jawny skrót, który naciskasz, aby zastąpić ostatnie dyktowanie wypowiedzią z poprawką. Nigdy nie uruchamia się automatycznie od słów kluczowych. Naciśnij przypisany klawisz, podyktuj poprawkę, a poprzedni tekst zostanie zmieniony w miejscu."
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "Instrukcje",
         "selectedPrompt": {
-          "title": "Wybrany prompt",
+          "title": "Styl czyszczenia",
           "description": "Wybierz szablon do ulepszania transkrypcji lub utwórz nowy. Użyj ${output} w treści, aby odwołać się do przechwyconej transkrypcji."
         },
         "noPrompts": "Brak dostępnych promptów",
         "selectPrompt": "Wybierz prompt",
-        "createNew": "Utwórz nowy prompt",
-        "promptLabel": "Etykieta promptu",
+        "createNew": "Nowy styl",
+        "promptLabel": "Nazwa",
         "promptLabelPlaceholder": "Wpisz nazwę promptu",
-        "promptInstructions": "Instrukcje promptu",
+        "promptInstructions": "Instrukcje",
         "promptInstructionsPlaceholder": "Wpisz instrukcje do wykonania po transkrypcji. Przykład: Popraw gramatykę i jasność dla następującego tekstu: ${output}",
         "promptTip": "Wskazówka: użyj <code>${output}</code>, aby wstawić transkrybowany tekst do promptu.",
         "updatePrompt": "Zaktualizuj prompt",

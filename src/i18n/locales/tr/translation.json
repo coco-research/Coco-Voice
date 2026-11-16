@@ -199,7 +199,7 @@
             "description": "İsteğe bağlı: Transkripsiyonunuza her zaman AI son işleme uygulayan özel bir kısayol tuşu."
           },
           "correction": {
-            "name": "Düzeltme söyle",
+            "name": "Sesli düzeltme kısayolu",
             "description": "Son diktenizi değiştiren bir düzeltme söylemek için klavye kısayolu. Etkinleştirmek için bir tuş atayın."
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "Sesli düzeltmeler",
-        "toggleLabel": "Düzeltme söyle",
+        "toggleLabel": "Sesli düzeltmeler",
         "toggleDescription": "Son diktenizi sesli bir düzeltmeyle değiştirmek için bastığınız açık bir kısayol ekler. Anahtar sözcüklerle asla kendiliğinden tetiklenmez. Atanan tuşa basın, düzeltmeyi söyleyin; önceki çıktı yerinde düzenlenir."
       },
       "api": {
@@ -407,7 +407,7 @@
           "placeholder": "https://api.openai.com/v1"
         },
         "apiKey": {
-          "title": "API Anahtarı",
+          "title": "API anahtarı",
           "description": "Seçili sağlayıcı için API anahtarı.",
           "placeholder": "sk-..."
         },
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "Yönergeler",
         "selectedPrompt": {
-          "title": "Seçili Prompt",
+          "title": "Düzenleme stili",
           "description": "Transkripsiyonları iyileştirmek için bir şablon seçin veya yeni bir tane oluşturun. Yakalanan transkripte referans vermek için prompt metni içinde ${output} kullanın."
         },
         "noPrompts": "Kullanılabilir prompt yok",
         "selectPrompt": "Prompt Seç",
-        "createNew": "Yeni Prompt Oluştur",
-        "promptLabel": "Prompt Etiketi",
+        "createNew": "Yeni stil",
+        "promptLabel": "Ad",
         "promptLabelPlaceholder": "Prompt adı girin",
-        "promptInstructions": "Prompt Talimatları",
+        "promptInstructions": "Talimatlar",
         "promptInstructionsPlaceholder": "Transkripsiyondan sonra çalıştırılacak talimatları yazın. Örnek: Aşağıdaki metnin dilbilgisini ve açıklığını iyileştir: ${output}",
         "promptTip": "İpucu: Transkribe edilen metni promptunuza eklemek için <code>${output}</code> kullanın.",
         "updatePrompt": "Promptu Güncelle",

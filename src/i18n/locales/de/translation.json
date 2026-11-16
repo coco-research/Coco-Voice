@@ -199,7 +199,7 @@
             "description": "Optional: Ein dediziertes Tastenkürzel, das immer die KI-Nachbearbeitung auf deine Transkription anwendet."
           },
           "correction": {
-            "name": "Korrektur sprechen",
+            "name": "Tastenkürzel für gesprochene Korrekturen",
             "description": "Das Tastenkürzel, um eine Korrektur zu sprechen, die deine letzte Diktieraufnahme ersetzt. Weise eine Taste zu, um es zu aktivieren."
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "Gesprochene Korrekturen",
-        "toggleLabel": "Korrekturen sprechen",
+        "toggleLabel": "Gesprochene Korrekturen",
         "toggleDescription": "Fügt ein eigenes Tastenkürzel hinzu, mit dem du deine letzte Diktieraufnahme durch eine gesprochene Korrektur ersetzt. Es wird nie automatisch durch Schlüsselwörter ausgelöst. Drücke die zugewiesene Taste, sprich die Korrektur, und deine vorherige Ausgabe wird direkt bearbeitet."
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "Anweisungen",
         "selectedPrompt": {
-          "title": "Ausgewählter Prompt",
+          "title": "Bereinigungsstil",
           "description": "Wähle eine Vorlage zur Verfeinerung von Transkriptionen oder erstelle eine neue. Verwende ${output} im Prompt-Text, um auf das erfasste Transkript zu verweisen."
         },
         "noPrompts": "Keine Prompts verfügbar",
         "selectPrompt": "Prompt auswählen",
-        "createNew": "Neuen Prompt erstellen",
-        "promptLabel": "Prompt-Name",
+        "createNew": "Neuer Stil",
+        "promptLabel": "Name",
         "promptLabelPlaceholder": "Prompt-Namen eingeben",
-        "promptInstructions": "Prompt-Anweisungen",
+        "promptInstructions": "Anweisungen",
         "promptInstructionsPlaceholder": "Schreibe die Anweisungen, die nach der Transkription ausgeführt werden sollen. Beispiel: Verbessere Grammatik und Klarheit für folgenden Text: ${output}",
         "promptTip": "Tipp: Verwende <code>${output}</code>, um den transkribierten Text in deinen Prompt einzufügen.",
         "updatePrompt": "Prompt aktualisieren",

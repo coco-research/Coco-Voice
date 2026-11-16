@@ -181,7 +181,7 @@
             "description": "Opcional: Uma tecla de atalho dedicada que sempre aplica pós-processamento com IA à sua transcrição."
           },
           "correction": {
-            "name": "Falar correção",
+            "name": "Atalho de correções por voz",
             "description": "O atalho de teclado para falar uma correção que substitui seu último ditado. Atribua uma tecla para ativá-lo."
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "Correções por voz",
-        "toggleLabel": "Falar correções",
+        "toggleLabel": "Correções por voz",
         "toggleDescription": "Adiciona um atalho explícito que você pressiona para substituir seu último ditado por uma correção falada. Ele nunca é acionado automaticamente por palavras-chave. Pressione a tecla atribuída, fale a correção, e o texto anterior é editado no lugar."
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "Instruções",
         "selectedPrompt": {
-          "title": "Prompt Selecionado",
+          "title": "Estilo de limpeza",
           "description": "Selecione um modelo para refinar transcrições ou crie um novo. Use ${output} dentro do texto do prompt para referenciar a transcrição capturada."
         },
         "noPrompts": "Nenhum prompt disponível",
         "selectPrompt": "Selecionar um prompt",
-        "createNew": "Criar Novo Prompt",
-        "promptLabel": "Rótulo do Prompt",
+        "createNew": "Novo estilo",
+        "promptLabel": "Nome",
         "promptLabelPlaceholder": "Digite o nome do prompt",
-        "promptInstructions": "Instruções do Prompt",
+        "promptInstructions": "Instruções",
         "promptInstructionsPlaceholder": "Escreva as instruções para executar após a transcrição. Exemplo: Melhore a gramática e clareza do seguinte texto: ${output}",
         "promptTip": "Dica: Use <code>${output}</code> para inserir o texto transcrito no seu prompt.",
         "updatePrompt": "Atualizar Prompt",

@@ -181,7 +181,7 @@
             "description": "선택 사항: 항상 AI 후처리를 적용하는 전용 단축키입니다."
           },
           "correction": {
-            "name": "교정 말하기",
+            "name": "말로 고치기 단축키",
             "description": "마지막 받아쓰기를 대체하는 교정을 말하기 위한 키보드 단축키입니다. 사용하려면 키를 지정하세요."
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "말로 고치기",
-        "toggleLabel": "교정 말하기",
+        "toggleLabel": "말로 고치기",
         "toggleDescription": "마지막 받아쓰기를 말한 교정으로 바꾸기 위해 누르는 전용 단축키를 추가합니다. 키워드로는 절대 자동 실행되지 않습니다. 지정한 키를 누르고 수정을 말하면 이전 출력이 그 자리에서 편집됩니다."
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "지시문",
         "selectedPrompt": {
-          "title": "선택된 프롬프트",
+          "title": "다듬기 스타일",
           "description": "텍스트 변환을 개선하기 위한 템플릿을 선택하거나 새로 만드세요. 프롬프트 텍스트 내에서 ${output}를 사용하여 캡처된 텍스트를 참조하세요."
         },
         "noPrompts": "사용 가능한 프롬프트 없음",
         "selectPrompt": "프롬프트 선택",
-        "createNew": "새 프롬프트 만들기",
-        "promptLabel": "프롬프트 레이블",
+        "createNew": "새 스타일",
+        "promptLabel": "이름",
         "promptLabelPlaceholder": "프롬프트 이름 입력",
-        "promptInstructions": "프롬프트 지시사항",
+        "promptInstructions": "지침",
         "promptInstructionsPlaceholder": "텍스트 변환 후 실행할 지시사항을 작성하세요. 예: 다음 텍스트의 문법과 명확성을 개선하세요: ${output}",
         "promptTip": "팁: 프롬프트에서 변환된 텍스트를 삽입하려면 <code>${output}</code>을 사용하세요.",
         "updatePrompt": "프롬프트 업데이트",

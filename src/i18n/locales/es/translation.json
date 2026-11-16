@@ -199,7 +199,7 @@
             "description": "Opcional: Una tecla de acceso rápido dedicada que siempre aplica post procesamiento con IA a tu transcripción."
           },
           "correction": {
-            "name": "Decir corrección",
+            "name": "Atajo para correcciones habladas",
             "description": "El atajo de teclado para decir una corrección que reemplaza tu último dictado. Asigna una tecla para activarlo."
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "Correcciones habladas",
-        "toggleLabel": "Decir correcciones",
+        "toggleLabel": "Correcciones habladas",
         "toggleDescription": "Añade un atajo explícito que pulsas para reemplazar tu último dictado con una corrección hablada. Nunca se activa solo por palabras clave. Pulsa la tecla asignada, di la corrección y el texto anterior se edita en el mismo lugar."
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "Instrucciones",
         "selectedPrompt": {
-          "title": "Prompt Seleccionado",
+          "title": "Estilo de limpieza",
           "description": "Selecciona una plantilla para refinar las transcripciones o crea una nueva. Usa ${output} dentro del texto del prompt para hacer referencia a la transcripción capturada."
         },
         "noPrompts": "No hay prompts disponibles",
         "selectPrompt": "Seleccionar un prompt",
-        "createNew": "Crear Nuevo Prompt",
-        "promptLabel": "Etiqueta del Prompt",
+        "createNew": "Nuevo estilo",
+        "promptLabel": "Nombre",
         "promptLabelPlaceholder": "Ingresa el nombre del prompt",
-        "promptInstructions": "Instrucciones del Prompt",
+        "promptInstructions": "Instrucciones",
         "promptInstructionsPlaceholder": "Escribe las instrucciones para ejecutar después de la transcripción. Ejemplo: Mejora la gramática y claridad del siguiente texto: ${output}",
         "promptTip": "Consejo: Usa <code>${output}</code> para insertar el texto transcrito en tu prompt.",
         "updatePrompt": "Actualizar Prompt",

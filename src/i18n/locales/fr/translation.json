@@ -199,7 +199,7 @@
             "description": "Facultatif : Un raccourci dédié qui applique toujours le post-traitement IA à votre transcription."
           },
           "correction": {
-            "name": "Dicter une correction",
+            "name": "Raccourci des corrections vocales",
             "description": "Le raccourci clavier pour dicter une correction qui remplace votre dernière dictée. Attribuez une touche pour l'activer."
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "Corrections vocales",
-        "toggleLabel": "Dicter des corrections",
+        "toggleLabel": "Corrections vocales",
         "toggleDescription": "Ajoute un raccourci explicite sur lequel vous appuyez pour remplacer votre dernière dictée par une correction parlée. Il ne se déclenche jamais automatiquement à partir de mots-clés. Appuyez sur la touche attribuée, dictez la correction, et le texte précédent est modifié sur place."
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "Instructions",
         "selectedPrompt": {
-          "title": "Prompt sélectionné",
+          "title": "Style de nettoyage",
           "description": "Sélectionnez un modèle pour affiner les transcriptions ou créez-en un nouveau. Utilisez ${output} dans le texte du prompt pour référencer la transcription capturée."
         },
         "noPrompts": "Aucun prompt disponible",
         "selectPrompt": "Sélectionner un prompt",
-        "createNew": "Créer un nouveau prompt",
-        "promptLabel": "Libellé du prompt",
+        "createNew": "Nouveau style",
+        "promptLabel": "Nom",
         "promptLabelPlaceholder": "Entrez le nom du prompt",
-        "promptInstructions": "Instructions du prompt",
+        "promptInstructions": "Instructions",
         "promptInstructionsPlaceholder": "Écrivez les instructions à exécuter après la transcription. Exemple : Améliorer la grammaire et la clarté du texte suivant : ${output}",
         "promptTip": "Astuce : Utilisez <code>${output}</code> pour insérer le texte transcrit dans votre prompt.",
         "updatePrompt": "Mettre à jour le prompt",

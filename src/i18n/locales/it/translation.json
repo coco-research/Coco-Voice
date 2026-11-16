@@ -199,7 +199,7 @@
             "description": "Facoltativo: Un tasto di scelta rapida dedicato che applica sempre la post-elaborazione IA alla trascrizione."
           },
           "correction": {
-            "name": "Detta correzione",
+            "name": "Scorciatoia per correzioni vocali",
             "description": "La scorciatoia da tastiera per dettare una correzione che sostituisce l'ultima dettatura. Assegna un tasto per attivarla."
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "Correzioni vocali",
-        "toggleLabel": "Detta correzioni",
+        "toggleLabel": "Correzioni vocali",
         "toggleDescription": "Aggiunge una scorciatoia esplicita da premere per sostituire l'ultima dettatura con una correzione parlata. Non si attiva mai automaticamente da parole chiave. Premere il tasto assegnato, dettare la correzione: l'output precedente viene modificato sul posto."
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "Istruzioni",
         "selectedPrompt": {
-          "title": "Prompt Selezionato",
+          "title": "Stile di pulizia",
           "description": "Seleziona un template per migliorare le trascrizioni o creane uno nuovo. Usa ${output} nel prompt per fare riferimento alla trascrizione."
         },
         "noPrompts": "Nessun prompt disponibile",
         "selectPrompt": "Scegli un prompt",
-        "createNew": "Crea un nuovo prompt",
-        "promptLabel": "Etichetta del Prompt",
+        "createNew": "Nuovo stile",
+        "promptLabel": "Nome",
         "promptLabelPlaceholder": "Inserisci il nome del prompt",
-        "promptInstructions": "Istruzioni del Prompt",
+        "promptInstructions": "Istruzioni",
         "promptInstructionsPlaceholder": "Scrivi le istruzioni da eseguire dopo la trascrizione. Esempio: Migliora la grammatica e la chiarezza per il seguente testo: ${output}",
         "promptTip": "Suggerimento: Usa <code>${output}</code> per inserire il testo trascritto nel tuo prompt.",
         "updatePrompt": "Aggiorna Prompt",

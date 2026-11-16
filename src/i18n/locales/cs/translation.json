@@ -199,7 +199,7 @@
             "description": "Volitelné: Vyhrazená klávesová zkratka, která vždy použije AI následné zpracování na váš přepis."
           },
           "correction": {
-            "name": "Vyslovit opravu",
+            "name": "Zkratka pro hlasové opravy",
             "description": "Klávesová zkratka pro vyslovení opravy, která nahradí váš poslední diktát. Přiřaďte klávesu, abyste ji zapnuli."
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "Hlasové opravy",
-        "toggleLabel": "Vyslovovat opravy",
+        "toggleLabel": "Hlasové opravy",
         "toggleDescription": "Přidá samostatnou klávesovou zkratku, kterou stisknete, abyste nahradili svůj poslední diktát vyslovenou opravou. Nikdy se nespustí automaticky podle klíčových slov. Stiskněte přiřazenou klávesu, vyslovte opravu a předchozí výstup se upraví na místě."
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "Pokyny",
         "selectedPrompt": {
-          "title": "Vybraný prompt",
+          "title": "Styl úprav",
           "description": "Vyberte šablonu pro zpřesnění přepisu nebo vytvořte novou. V textu promptu použijte ${output} pro vložení zachyceného přepisu."
         },
         "noPrompts": "Nejsou k dispozici žádné prompty",
         "selectPrompt": "Vyberte prompt",
-        "createNew": "Vytvořit nový prompt",
-        "promptLabel": "Název promptu",
+        "createNew": "Nový styl",
+        "promptLabel": "Název",
         "promptLabelPlaceholder": "Zadejte název promptu",
-        "promptInstructions": "Instrukce promptu",
+        "promptInstructions": "Pokyny",
         "promptInstructionsPlaceholder": "Napište instrukce, které se mají spustit po přepisu. Příklad: Zlepšete gramatiku a srozumitelnost následujícího textu: ${output}",
         "promptTip": "Tip: Použijte <code>${output}</code> pro vložení přepsaného textu do promptu.",
         "updatePrompt": "Aktualizovat prompt",

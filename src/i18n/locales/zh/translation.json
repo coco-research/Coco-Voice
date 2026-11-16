@@ -199,7 +199,7 @@
             "description": "可选：一个专用快捷键，始终对您的转录应用 AI 后处理。"
           },
           "correction": {
-            "name": "说出更正",
+            "name": "语音改错快捷键",
             "description": "用于说出更正以替换上一次听写的键盘快捷键。分配一个按键即可启用。"
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "语音改错",
-        "toggleLabel": "说出更正",
+        "toggleLabel": "语音改错",
         "toggleDescription": "添加一个显式快捷键，按下后用口述更正替换上一次听写。它绝不会因关键词而自动触发。按下已分配的按键，说出修改，先前的输出会就地编辑。"
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "指令",
         "selectedPrompt": {
-          "title": "已选提示词",
+          "title": "整理风格",
           "description": "选择用于优化转录的模板或创建新模板。在提示词文本中使用 ${output} 来引用捕获的转录。"
         },
         "noPrompts": "没有可用的提示词",
         "selectPrompt": "选择提示词",
-        "createNew": "创建新提示词",
-        "promptLabel": "提示词名称",
+        "createNew": "新建风格",
+        "promptLabel": "名称",
         "promptLabelPlaceholder": "输入提示词名称",
-        "promptInstructions": "提示词指令",
+        "promptInstructions": "说明",
         "promptInstructionsPlaceholder": "编写转录后要执行的指令。示例：改进以下文本的语法和清晰度: ${output}",
         "promptTip": "提示：使用 <code>${output}</code> 将转录文本插入到您的提示词中。",
         "updatePrompt": "更新提示词",

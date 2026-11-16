@@ -181,7 +181,7 @@
             "description": "Optional: A dedicated hotkey that always applies AI post-processing to your transcription."
           },
           "correction": {
-            "name": "Speak Correction",
+            "name": "Spoken fixes shortcut",
             "description": "The keyboard shortcut to speak a correction that replaces your last dictation. Assign a key to enable it."
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "Spoken fixes",
-        "toggleLabel": "Speak Corrections",
+        "toggleLabel": "Spoken fixes",
         "toggleDescription": "Adds an explicit hotkey you press to replace your last dictation with a spoken correction. It never triggers automatically from keywords — press the assigned key, speak the fix, and your previous output is edited in place."
       },
       "api": {
@@ -407,7 +407,7 @@
           "placeholder": "https://api.openai.com/v1"
         },
         "apiKey": {
-          "title": "API Key",
+          "title": "API key",
           "description": "API key for the selected provider.",
           "placeholder": "sk-..."
         },
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "Instructions",
         "selectedPrompt": {
-          "title": "Selected Prompt",
+          "title": "Clean-up style",
           "description": "Select a template for refining transcriptions or create a new one. Use ${output} inside the prompt text to reference the captured transcript."
         },
         "noPrompts": "No prompts available",
         "selectPrompt": "Select a prompt",
-        "createNew": "Create New Prompt",
-        "promptLabel": "Prompt Label",
+        "createNew": "New style",
+        "promptLabel": "Name",
         "promptLabelPlaceholder": "Enter prompt name",
-        "promptInstructions": "Prompt Instructions",
+        "promptInstructions": "Instructions",
         "promptInstructionsPlaceholder": "Write the instructions to run after transcription. Example: Improve grammar and clarity for the following text: ${output}",
         "promptTip": "Tip: Use <code>${output}</code> to insert the transcribed text in your prompt.",
         "updatePrompt": "Update Prompt",

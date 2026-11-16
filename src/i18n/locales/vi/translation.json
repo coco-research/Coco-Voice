@@ -199,7 +199,7 @@
             "description": "Tùy chọn: Phím tắt chuyên dụng luôn áp dụng xử lý sau bằng AI cho bản chuyển đổi của bạn."
           },
           "correction": {
-            "name": "Nói chỉnh sửa",
+            "name": "Phím tắt sửa bằng giọng nói",
             "description": "Phím tắt để nói một chỉnh sửa thay thế lần đọc chính tả gần nhất của bạn. Gán một phím để bật tính năng này."
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "Sửa bằng giọng nói",
-        "toggleLabel": "Nói chỉnh sửa",
+        "toggleLabel": "Sửa bằng giọng nói",
         "toggleDescription": "Thêm một phím tắt rõ ràng mà bạn nhấn để thay thế lần đọc chính tả gần nhất bằng một chỉnh sửa được nói. Nó không bao giờ tự kích hoạt từ từ khóa. Nhấn phím đã gán, nói phần sửa, và kết quả trước đó được sửa tại chỗ."
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "Hướng dẫn",
         "selectedPrompt": {
-          "title": "Prompt đã chọn",
+          "title": "Kiểu làm gọn",
           "description": "Chọn một mẫu để tinh chỉnh bản ghi hoặc tạo mới. Sử dụng ${output} trong văn bản prompt để tham chiếu bản ghi đã chụp."
         },
         "noPrompts": "Không có prompt nào",
         "selectPrompt": "Chọn một prompt",
-        "createNew": "Tạo Prompt mới",
-        "promptLabel": "Nhãn Prompt",
+        "createNew": "Kiểu mới",
+        "promptLabel": "Tên",
         "promptLabelPlaceholder": "Nhập tên prompt",
-        "promptInstructions": "Hướng dẫn Prompt",
+        "promptInstructions": "Hướng dẫn",
         "promptInstructionsPlaceholder": "Viết hướng dẫn để chạy sau khi chuyển đổi. Ví dụ: Cải thiện ngữ pháp và độ rõ ràng cho văn bản sau: ${output}",
         "promptTip": "Mẹo: Sử dụng <code>${output}</code> để chèn văn bản đã chuyển đổi vào prompt của bạn.",
         "updatePrompt": "Cập nhật Prompt",

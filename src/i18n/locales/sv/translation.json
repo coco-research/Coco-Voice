@@ -181,7 +181,7 @@
             "description": "Valfritt: En dedikerad snabbknapp som alltid tillämpar AI-efterbearbetning på din transkription."
           },
           "correction": {
-            "name": "Säg en rättelse",
+            "name": "Kortkommando för röständringar",
             "description": "Kortkommandot för att säga en rättelse som ersätter din senaste diktering. Tilldela en tangent för att aktivera det."
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "Röständringar",
-        "toggleLabel": "Säg rättelser",
+        "toggleLabel": "Röständringar",
         "toggleDescription": "Lägger till ett särskilt kortkommando som du trycker på för att ersätta din senaste diktering med en talad rättelse. Det startar aldrig automatiskt av nyckelord. Tryck på den tilldelade tangenten, säg rättelsen, så redigeras den föregående texten på plats."
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "Instruktioner",
         "selectedPrompt": {
-          "title": "Vald prompt",
+          "title": "Upprensningsstil",
           "description": "Välj en mall för att förfina transkriptioner eller skapa en ny. Använd ${output} inuti prompttexten för att referera till den fångade transkriptionen."
         },
         "noPrompts": "Inga prompter tillgängliga",
         "selectPrompt": "Välj en prompt",
-        "createNew": "Skapa ny prompt",
-        "promptLabel": "Prompt-etikett",
+        "createNew": "Ny stil",
+        "promptLabel": "Namn",
         "promptLabelPlaceholder": "Ange namn på prompt",
-        "promptInstructions": "Prompt-instruktioner",
+        "promptInstructions": "Instruktioner",
         "promptInstructionsPlaceholder": "Skriv instruktionerna som ska köras efter transkription. Exempel: Förbättra grammatik och tydlighet för följande text: ${output}",
         "promptTip": "Tips: Använd <code>${output}</code> för att infoga den transkriberade texten i din prompt.",
         "updatePrompt": "Uppdatera prompt",

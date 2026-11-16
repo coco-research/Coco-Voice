@@ -181,7 +181,7 @@
             "description": "Optioneel: Een specifieke sneltoets die altijd AI-naverwerking toepast op je transcriptie."
           },
           "correction": {
-            "name": "Correctie inspreken",
+            "name": "Sneltoets voor gesproken correcties",
             "description": "De sneltoets om een correctie in te spreken die je laatste dictaat vervangt. Wijs een toets toe om dit in te schakelen."
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "Gesproken correcties",
-        "toggleLabel": "Correcties inspreken",
+        "toggleLabel": "Gesproken correcties",
         "toggleDescription": "Voegt een aparte sneltoets toe die je indrukt om je laatste dictaat te vervangen door een ingesproken correctie. Het start nooit automatisch door trefwoorden. Druk op de toegewezen toets, spreek de correctie in, en de vorige uitvoer wordt ter plaatse bewerkt."
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "Instructies",
         "selectedPrompt": {
-          "title": "Geselecteerde prompt",
+          "title": "Opschoonstijl",
           "description": "Selecteer een sjabloon voor het verfijnen van transcripties of maak een nieuwe aan. Gebruik ${output} in de prompttekst om naar de gemaakte transcriptie te verwijzen."
         },
         "noPrompts": "Geen prompts beschikbaar",
         "selectPrompt": "Selecteer een prompt",
-        "createNew": "Nieuwe prompt maken",
-        "promptLabel": "Promptnaam",
+        "createNew": "Nieuwe stijl",
+        "promptLabel": "Naam",
         "promptLabelPlaceholder": "Voer promptnaam in",
-        "promptInstructions": "Prompt-instructies",
+        "promptInstructions": "Instructies",
         "promptInstructionsPlaceholder": "Schrijf de instructies die na de transcriptie moeten worden uitgevoerd. Voorbeeld: Verbeter de grammatica en helderheid van de volgende tekst: ${output}",
         "promptTip": "Tip: Gebruik <code>${output}</code> om de getranscribeerde tekst in je prompt in te voegen.",
         "updatePrompt": "Prompt bijwerken",

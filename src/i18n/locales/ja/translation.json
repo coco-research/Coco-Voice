@@ -199,7 +199,7 @@
             "description": "文字起こしに常に AI 後処理を適用するキーボードショートカット。 (任意)"
           },
           "correction": {
-            "name": "訂正を話す",
+            "name": "声で言い直すショートカット",
             "description": "直前の音声入力を置き換える訂正を話すためのキーボードショートカットです。有効にするにはキーを割り当ててください。"
           }
         },
@@ -389,7 +389,7 @@
       },
       "correction": {
         "title": "声で言い直す",
-        "toggleLabel": "訂正を話す",
+        "toggleLabel": "声で言い直す",
         "toggleDescription": "直前の音声入力を、話した訂正で置き換えるための専用ショートカットを追加します。キーワードでは自動的に起動しません。割り当てたキーを押し、修正を話すと、直前の出力がその場で編集されます。"
       },
       "api": {
@@ -434,15 +434,15 @@
       "prompts": {
         "title": "指示文",
         "selectedPrompt": {
-          "title": "選択したプロンプト",
+          "title": "整形スタイル",
           "description": "文字起こしを改善するテンプレートを選択するか、新しく作成します。プロンプトテキスト内で ${output} を使用して、キャプチャした文字起こしを参照します。"
         },
         "noPrompts": "プロンプトがありません",
         "selectPrompt": "プロンプトを選択",
-        "createNew": "新しいプロンプトを作成",
-        "promptLabel": "プロンプト名",
+        "createNew": "新しいスタイル",
+        "promptLabel": "名前",
         "promptLabelPlaceholder": "プロンプト名を入力",
-        "promptInstructions": "プロンプトの指示",
+        "promptInstructions": "指示内容",
         "promptInstructionsPlaceholder": "文字起こし後に実行する指示を記述します。例: 以下のテキストの文法と明瞭さを改善してください: ${output}",
         "promptTip": "ヒント: <code>${output}</code> を使用して、文字起こしテキストをプロンプトに挿入します。",
         "updatePrompt": "プロンプトを更新",
