@@ -19,6 +19,8 @@ mod managers;
 mod meeting_controller;
 #[cfg(feature = "meetings")]
 mod meetings;
+#[cfg(feature = "meetings")]
+mod meeting_notes;
 #[cfg(all(feature = "meetings", target_os = "macos"))]
 pub mod meetings_tap;
 mod overlay;
