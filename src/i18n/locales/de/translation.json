@@ -919,6 +919,22 @@
       "confirmStep2Prompt": "Letzte Prüfung: Alle lokalen Besprechungen, Transkripte, Notizen und Audiodateien dauerhaft löschen?",
       "deleteTimerLabel": "Transkripte löschen nach",
       "deleteTimerOff": "Aus (behalten bis zum Löschen)"
+    },
+    "storage": {
+      "filesTitle": "Besprechungen · Dateien",
+      "saveMarkdownLabel": "Notizen als Markdown-Dateien speichern",
+      "saveMarkdownDescription": "Standardmäßig aus. Schreibt pro Besprechung eine .md-Datei in den gewählten Ordner.",
+      "folderLabel": "Ordner",
+      "chooseFolder": "Ordner wählen",
+      "syncRule": "Wird lokal auf diesem Mac geschrieben. Coco Voice lädt niemals Dateien hoch.",
+      "syncWarning": "Dieser Ordner synchronisiert mit {{service}}. Gespeicherte Dateien folgen Ihren {{service}}-Einstellungen.",
+      "languageTitle": "Besprechungssprache",
+      "autoDetect": "Automatisch erkennen",
+      "thisMeetingOverride": "Nur für diese Besprechung",
+      "pause": "Pause",
+      "resume": "Fortsetzen",
+      "pausedBadge": "Pausiert",
+      "pausedHint": "Pausiert: Es wird nichts aufgenommen. Weiterhin eine Besprechung."
     }
   }
 }
