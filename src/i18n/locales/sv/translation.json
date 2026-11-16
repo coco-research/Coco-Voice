@@ -27,7 +27,18 @@
     "perAppProfiles": "Profiler per app",
     "wordsAndCleanup": "Ord och putsning",
     "settings": "Inställningar",
-    "sectionPlaceholder": "Tillgängligt i det här avsnittet när det är aktiverat."
+    "sectionPlaceholder": "Tillgängligt i det här avsnittet när det är aktiverat.",
+    "startRecording": "Starta inspelning",
+    "seeAllMeetings": "Alla möten →",
+    "dictateHeading": "Diktera var som helst",
+    "holdToTalk": "håll in för att tala",
+    "changeShortcut": "Ändra genväg",
+    "seeAllDictations": "Alla dikteringar →",
+    "dictationSearchPlaceholder": "Ord du sa",
+    "dictationSearchAria": "Sök i dikteringar",
+    "cleanedUp": "Putsad",
+    "emptyDictationSearch": "Inga dikteringar matchar din sökning.",
+    "keptDays": "Sparas 30 dagar"
   },
   "onboarding": {
     "subtitle": "För att komma igång, välj en transkriptionsmodell",

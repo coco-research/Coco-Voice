@@ -27,7 +27,18 @@
     "perAppProfiles": "פרופילים לפי יישום",
     "wordsAndCleanup": "מילים וניקוי",
     "settings": "הגדרות",
-    "sectionPlaceholder": "זמין בסעיף זה לאחר הפעלה."
+    "sectionPlaceholder": "זמין בסעיף זה לאחר הפעלה.",
+    "startRecording": "התחל הקלטה",
+    "seeAllMeetings": "כל הפגישות ←",
+    "dictateHeading": "הכתב בכל מקום",
+    "holdToTalk": "החזק כדי לדבר",
+    "changeShortcut": "שנה קיצור",
+    "seeAllDictations": "כל ההכתבות ←",
+    "dictationSearchPlaceholder": "מילים שאמרת",
+    "dictationSearchAria": "חיפוש בהכתבות",
+    "cleanedUp": "נוקה",
+    "emptyDictationSearch": "אין הכתבות התואמות לחיפוש.",
+    "keptDays": "נשמר ל-30 יום"
   },
   "onboarding": {
     "subtitle": "כדי להתחיל, בחר מודל תמלול",

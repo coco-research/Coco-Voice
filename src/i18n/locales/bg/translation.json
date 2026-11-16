@@ -27,7 +27,18 @@
     "perAppProfiles": "Профили по приложения",
     "wordsAndCleanup": "Думи и изчистване",
     "settings": "Настройки",
-    "sectionPlaceholder": "Достъпно в тази секция след включване."
+    "sectionPlaceholder": "Достъпно в тази секция след включване.",
+    "startRecording": "Започни запис",
+    "seeAllMeetings": "Всички срещи →",
+    "dictateHeading": "Диктувайте навсякъде",
+    "holdToTalk": "задръжте за говорене",
+    "changeShortcut": "Промени комбинацията",
+    "seeAllDictations": "Всички диктовки →",
+    "dictationSearchPlaceholder": "Думите, които казахте",
+    "dictationSearchAria": "Търсене в диктовките",
+    "cleanedUp": "Изчистено",
+    "emptyDictationSearch": "Няма диктовки за това търсене.",
+    "keptDays": "Пази се 30 дни"
   },
   "onboarding": {
     "subtitle": "За да започнете, изберете модел за транскрипция",

@@ -27,7 +27,18 @@
     "perAppProfiles": "アプリ別プロファイル",
     "wordsAndCleanup": "単語と整形",
     "settings": "設定",
-    "sectionPlaceholder": "設定するとこのセクションから利用できます。"
+    "sectionPlaceholder": "設定するとこのセクションから利用できます。",
+    "startRecording": "録音を開始",
+    "seeAllMeetings": "すべての会議 →",
+    "dictateHeading": "どこでも音声入力",
+    "holdToTalk": "押しながら話す",
+    "changeShortcut": "ショートカットを変更",
+    "seeAllDictations": "すべての音声入力 →",
+    "dictationSearchPlaceholder": "話した言葉",
+    "dictationSearchAria": "音声入力を検索",
+    "cleanedUp": "整形済み",
+    "emptyDictationSearch": "一致する音声入力はありません。",
+    "keptDays": "30日間保持"
   },
   "onboarding": {
     "subtitle": "開始するには、文字起こしのモデルを選択してください",

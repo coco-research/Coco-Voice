@@ -27,7 +27,18 @@
     "perAppProfiles": "Profili per app",
     "wordsAndCleanup": "Parole e pulizia",
     "settings": "Impostazioni",
-    "sectionPlaceholder": "Disponibile in questa sezione quando attivo."
+    "sectionPlaceholder": "Disponibile in questa sezione quando attivo.",
+    "startRecording": "Avvia registrazione",
+    "seeAllMeetings": "Tutte le riunioni →",
+    "dictateHeading": "Detta ovunque",
+    "holdToTalk": "tieni premuto per parlare",
+    "changeShortcut": "Cambia scorciatoia",
+    "seeAllDictations": "Tutte le dettature →",
+    "dictationSearchPlaceholder": "Parole pronunciate",
+    "dictationSearchAria": "Cerca nelle dettature",
+    "cleanedUp": "Ripulito",
+    "emptyDictationSearch": "Nessuna dettatura corrisponde alla ricerca.",
+    "keptDays": "Conservato 30 giorni"
   },
   "onboarding": {
     "subtitle": "Per cominciare, scegli un modello di riconoscimento vocale",

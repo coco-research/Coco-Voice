@@ -27,7 +27,18 @@
     "perAppProfiles": "Profielen per app",
     "wordsAndCleanup": "Woorden en opschonen",
     "settings": "Instellingen",
-    "sectionPlaceholder": "Beschikbaar in deze sectie zodra ingeschakeld."
+    "sectionPlaceholder": "Beschikbaar in deze sectie zodra ingeschakeld.",
+    "startRecording": "Opname starten",
+    "seeAllMeetings": "Alle vergaderingen →",
+    "dictateHeading": "Dicteer overal",
+    "holdToTalk": "ingedrukt houden om te spreken",
+    "changeShortcut": "Sneltoets wijzigen",
+    "seeAllDictations": "Alle dictaten →",
+    "dictationSearchPlaceholder": "Gesproken woorden",
+    "dictationSearchAria": "Dictaten doorzoeken",
+    "cleanedUp": "Opgeschoond",
+    "emptyDictationSearch": "Geen dictaten komen overeen met je zoekopdracht.",
+    "keptDays": "30 dagen bewaard"
   },
   "onboarding": {
     "subtitle": "Kies een transcriptiemodel om aan de slag te gaan",

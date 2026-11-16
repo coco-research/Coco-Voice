@@ -27,7 +27,18 @@
     "perAppProfiles": "Profily podle aplikací",
     "wordsAndCleanup": "Slova a úpravy",
     "settings": "Nastavení",
-    "sectionPlaceholder": "Dostupné v této sekci po zapnutí."
+    "sectionPlaceholder": "Dostupné v této sekci po zapnutí.",
+    "startRecording": "Spustit nahrávání",
+    "seeAllMeetings": "Všechny schůzky →",
+    "dictateHeading": "Diktujte kdekoli",
+    "holdToTalk": "podržte pro mluvení",
+    "changeShortcut": "Změnit zkratku",
+    "seeAllDictations": "Všechna diktování →",
+    "dictationSearchPlaceholder": "Slova, která jste řekli",
+    "dictationSearchAria": "Hledat v diktování",
+    "cleanedUp": "Upraveno",
+    "emptyDictationSearch": "Žádné diktování neodpovídá hledání.",
+    "keptDays": "Uchováno 30 dní"
   },
   "onboarding": {
     "subtitle": "Pro začátek vyberte model pro přepis",

@@ -27,7 +27,18 @@
     "perAppProfiles": "App-Profile",
     "wordsAndCleanup": "Wörter und Bereinigung",
     "settings": "Einstellungen",
-    "sectionPlaceholder": "In diesem Bereich verfügbar, sobald aktiviert."
+    "sectionPlaceholder": "In diesem Bereich verfügbar, sobald aktiviert.",
+    "startRecording": "Aufnahme starten",
+    "seeAllMeetings": "Alle Meetings →",
+    "dictateHeading": "Überall diktieren",
+    "holdToTalk": "zum Sprechen halten",
+    "changeShortcut": "Kurzbefehl ändern",
+    "seeAllDictations": "Alle Diktate →",
+    "dictationSearchPlaceholder": "Gesprochene Wörter",
+    "dictationSearchAria": "Diktate durchsuchen",
+    "cleanedUp": "Bereinigt",
+    "emptyDictationSearch": "Keine Diktate entsprechen Ihrer Suche.",
+    "keptDays": "30 Tage gespeichert"
   },
   "onboarding": {
     "subtitle": "Wähle ein Transkriptionsmodell, um loszulegen",

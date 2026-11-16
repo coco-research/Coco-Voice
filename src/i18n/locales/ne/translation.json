@@ -27,7 +27,18 @@
     "perAppProfiles": "एप अनुसार प्रोफाइल",
     "wordsAndCleanup": "शब्द र सुधार",
     "settings": "सेटिङहरू",
-    "sectionPlaceholder": "सक्रिय भएपछि यस खण्डमा उपलब्ध हुन्छ।"
+    "sectionPlaceholder": "सक्रिय भएपछि यस खण्डमा उपलब्ध हुन्छ।",
+    "startRecording": "रेकर्डिङ सुरु गर्नुहोस्",
+    "seeAllMeetings": "सबै बैठकहरू →",
+    "dictateHeading": "जताततै बोलेर टाइप गर्नुहोस्",
+    "holdToTalk": "बोल्न थिचिरहनुहोस्",
+    "changeShortcut": "सर्टकट बदल्नुहोस्",
+    "seeAllDictations": "सबै डिक्टेसनहरू →",
+    "dictationSearchPlaceholder": "तपाईंले बोलेका शब्दहरू",
+    "dictationSearchAria": "डिक्टेसन खोज्नुहोस्",
+    "cleanedUp": "सुधारिएको",
+    "emptyDictationSearch": "खोजसँग मिल्ने कुनै डिक्टेसन छैन।",
+    "keptDays": "३० दिन राखिन्छ"
   },
   "onboarding": {
     "subtitle": "सुरु गर्न, एउटा ट्रान्सक्रिप्सन मोडेल छान्नुहोस्",

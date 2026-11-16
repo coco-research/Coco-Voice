@@ -27,7 +27,18 @@
     "perAppProfiles": "Uygulama profilleri",
     "wordsAndCleanup": "Sözcükler ve düzeltme",
     "settings": "Ayarlar",
-    "sectionPlaceholder": "Etkinleştirildiğinde bu bölümde kullanılabilir."
+    "sectionPlaceholder": "Etkinleştirildiğinde bu bölümde kullanılabilir.",
+    "startRecording": "Kaydı başlat",
+    "seeAllMeetings": "Tüm toplantılar →",
+    "dictateHeading": "Her yerde dikte edin",
+    "holdToTalk": "konuşmak için basılı tutun",
+    "changeShortcut": "Kısayolu değiştir",
+    "seeAllDictations": "Tüm dikteler →",
+    "dictationSearchPlaceholder": "Söylediğiniz sözcükler",
+    "dictationSearchAria": "Diktelerde ara",
+    "cleanedUp": "Düzeltildi",
+    "emptyDictationSearch": "Aramanızla eşleşen dikte yok.",
+    "keptDays": "30 gün saklanır"
   },
   "onboarding": {
     "subtitle": "Başlamak için bir transkripsiyon modeli seçin",

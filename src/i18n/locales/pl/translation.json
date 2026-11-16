@@ -27,7 +27,18 @@
     "perAppProfiles": "Profile dla aplikacji",
     "wordsAndCleanup": "Słowa i korekta",
     "settings": "Ustawienia",
-    "sectionPlaceholder": "Dostępne w tej sekcji po włączeniu."
+    "sectionPlaceholder": "Dostępne w tej sekcji po włączeniu.",
+    "startRecording": "Rozpocznij nagrywanie",
+    "seeAllMeetings": "Wszystkie spotkania →",
+    "dictateHeading": "Dyktuj w dowolnym miejscu",
+    "holdToTalk": "przytrzymaj, aby mówić",
+    "changeShortcut": "Zmień skrót",
+    "seeAllDictations": "Wszystkie dyktowania →",
+    "dictationSearchPlaceholder": "Wypowiedziane słowa",
+    "dictationSearchAria": "Szukaj w dyktowaniach",
+    "cleanedUp": "Poprawiono",
+    "emptyDictationSearch": "Brak dyktowań pasujących do wyszukiwania.",
+    "keptDays": "Przechowywane 30 dni"
   },
   "onboarding": {
     "subtitle": "Aby rozpocząć, wybierz model transkrypcji",

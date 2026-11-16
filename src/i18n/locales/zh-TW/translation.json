@@ -27,7 +27,18 @@
     "perAppProfiles": "各應用程式設定",
     "wordsAndCleanup": "詞彙與潤飾",
     "settings": "設定",
-    "sectionPlaceholder": "啟用後可在此分組中使用。"
+    "sectionPlaceholder": "啟用後可在此分組中使用。",
+    "startRecording": "開始錄製",
+    "seeAllMeetings": "所有會議 →",
+    "dictateHeading": "隨處聽寫",
+    "holdToTalk": "按住說話",
+    "changeShortcut": "變更快捷鍵",
+    "seeAllDictations": "所有聽寫 →",
+    "dictationSearchPlaceholder": "你說過的話",
+    "dictationSearchAria": "搜尋聽寫記錄",
+    "cleanedUp": "已潤飾",
+    "emptyDictationSearch": "沒有符合搜尋的聽寫記錄。",
+    "keptDays": "保留 30 天"
   },
   "onboarding": {
     "subtitle": "首先，請選擇一種模型",
