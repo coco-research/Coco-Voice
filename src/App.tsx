@@ -16,7 +16,12 @@ import "./App.css";
 import AccessibilityPermissions from "./components/AccessibilityPermissions";
 import Footer from "./components/footer";
 import Onboarding, { AccessibilityOnboarding } from "./components/onboarding";
-import { Sidebar, SidebarSection, SECTIONS_CONFIG } from "./components/Sidebar";
+import {
+  renderShellSection,
+  Sidebar,
+  type ShellSectionId as SidebarSection,
+} from "./components/layout/shellRoutes";
+import { AboutSettings, DebugSettings } from "./components/settings";
 import { useMeetingsUi } from "./components/meetings/gate";
 import { WhatsNewGate } from "./components/whats-new";
 import { useSettings } from "./hooks/useSettings";
@@ -25,12 +30,6 @@ import { commands, events } from "@/bindings";
 import { getLanguageDirection, initializeRTL } from "@/lib/utils/rtl";
 
 type OnboardingStep = "accessibility" | "model" | "done";
-
-const renderSettingsContent = (section: keyof typeof SECTIONS_CONFIG) => {
-  const ActiveComponent =
-    SECTIONS_CONFIG[section]?.component || SECTIONS_CONFIG.general.component;
-  return <ActiveComponent />;
-};
 
 function shortcutFailureBodyKey(
   cause: ShortcutRegistrationFailure["cause"],
@@ -54,12 +53,9 @@ function App() {
   // Track if this is a returning user who just needs to grant permissions
   // (vs a new user who needs full onboarding including model selection)
   const [isReturningUser, setIsReturningUser] = useState(false);
-  const [currentSection, setCurrentSection] =
-    useState<SidebarSection>("general");
+  const [currentSection, setCurrentSection] = useState<SidebarSection>("home");
   const { settings, updateSetting } = useSettings();
   const meetingsUi = useMeetingsUi();
-  const showMeetings =
-    meetingsUi !== null && meetingsUi.sidebarVisible(settings);
   const direction = getLanguageDirection(i18n.language);
   const refreshAudioDevices = useSettingsStore(
     (state) => state.refreshAudioDevices,
@@ -73,12 +69,6 @@ function App() {
   useEffect(() => {
     checkOnboardingStatus();
   }, []);
-
-  useEffect(() => {
-    if (currentSection === "meetings" && !showMeetings) {
-      setCurrentSection("general");
-    }
-  }, [currentSection, showMeetings]);
 
   // Initialize RTL direction when language changes
   useEffect(() => {
@@ -111,7 +101,7 @@ function App() {
           duration: Infinity,
           action: {
             label: t("errors.shortcutRegistrationOpenSettings"),
-            onClick: () => setCurrentSection("general"),
+            onClick: () => setCurrentSection("settings"),
           },
           cancel: {
             label: t("errors.shortcutRegistrationTryAgain"),
@@ -445,13 +435,11 @@ function App() {
             <div className="flex-1 overflow-y-auto">
               <div className="flex flex-col items-center p-4 gap-4">
                 <AccessibilityPermissions />
-                {currentSection === "meetings" && meetingsUi ? (
-                  <meetingsUi.MeetingsView />
-                ) : (
-                  renderSettingsContent(
-                    currentSection === "meetings" ? "general" : currentSection,
-                  )
-                )}
+                {renderShellSection(currentSection, meetingsUi, {
+                  about: <AboutSettings />,
+                  debug: <DebugSettings />,
+                  onNavigate: setCurrentSection,
+                })}
               </div>
             </div>
           </div>
