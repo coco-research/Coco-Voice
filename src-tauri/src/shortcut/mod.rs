@@ -1109,6 +1109,19 @@ pub fn update_corrections(
 
 #[tauri::command]
 #[specta::specta]
+pub fn update_saved_blocks(
+    app: AppHandle,
+    blocks: Vec<settings::SavedBlock>,
+) -> Result<(), String> {
+    if blocks.iter().any(|b| b.cue.trim().is_empty()) {
+        return Err("Saved block cue cannot be empty".to_string());
+    }
+    settings::update_settings(&app, |s| s.saved_blocks = blocks);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_word_correction_threshold_setting(
     app: AppHandle,
     threshold: f64,

@@ -432,6 +432,39 @@ pub(crate) fn remember_spelling_correction(
     true
 }
 
+/// Expands saved blocks stored locally on this Mac when the user speaks either
+/// the standalone `<cue>` (whole utterance) or `"insert <cue>"` inline.
+pub(crate) fn expand_saved_blocks(text: &str, blocks: &[crate::settings::SavedBlock]) -> String {
+    if blocks.is_empty() || text.trim().is_empty() {
+        return text.to_string();
+    }
+    let mut ordered: Vec<&crate::settings::SavedBlock> = blocks
+        .iter()
+        .filter(|b| !b.cue.trim().is_empty() && !b.content.is_empty())
+        .collect();
+    ordered.sort_by_key(|b| std::cmp::Reverse(b.cue.len()));
+
+    let norm_whole = build_match_key(text);
+    for block in &ordered {
+        let cue_key = build_match_key(&block.cue);
+        let insert_key = build_match_key(&format!("insert {}", block.cue));
+        if !cue_key.is_empty() && (norm_whole == cue_key || norm_whole == insert_key) {
+            return block.content.clone();
+        }
+    }
+
+    let mut result = text.to_string();
+    for block in &ordered {
+        let pat = format!(r"(?i)\binsert\s+{}\b[,.]?", regex::escape(block.cue.trim()));
+        if let Ok(re) = Regex::new(&pat) {
+            result = re
+                .replace_all(&result, regex::NoExpand(block.content.as_str()))
+                .to_string();
+        }
+    }
+    result
+}
+
 static MULTI_SPACE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s{2,}").unwrap());
 
 /// Collapses repeated words (3+ repetitions) to a single instance.
@@ -886,5 +919,37 @@ mod tests {
         let after_words = apply_custom_words(next_raw, &settings.custom_words, 0.18);
         let next_final = apply_corrections(&after_words, &settings.corrections);
         assert_eq!(next_final, "Kubernetes and ChargeBee are live");
+    }
+
+    #[test]
+    fn spoken_cue_inserts_saved_block_and_leaves_ordinary_mentions_intact() {
+        let blocks = vec![
+            crate::settings::SavedBlock {
+                id: "b1".into(),
+                cue: "calendar link".into(),
+                content: "https://cal.example.com/team".into(),
+            },
+            crate::settings::SavedBlock {
+                id: "b2".into(),
+                cue: "sign off".into(),
+                content: "Best,\nTeam".into(),
+            },
+        ];
+        assert_eq!(
+            expand_saved_blocks("Calendar link.", &blocks),
+            "https://cal.example.com/team"
+        );
+        assert_eq!(
+            expand_saved_blocks("Pick a slot here: insert calendar link.", &blocks),
+            "Pick a slot here: https://cal.example.com/team"
+        );
+        // Ordinary prose mentioning the words without "insert" is untouched.
+        assert_eq!(
+            expand_saved_blocks("Check the calendar link on page two.", &blocks),
+            "Check the calendar link on page two."
+        );
+        assert!(crate::settings::get_default_settings()
+            .saved_blocks
+            .is_empty());
     }
 }

@@ -110,6 +110,13 @@ pub struct CorrectionPair {
     pub to: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Type)]
+pub struct SavedBlock {
+    pub id: String,
+    pub cue: String,
+    pub content: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct PostProcessProvider {
     pub id: String,
@@ -425,6 +432,9 @@ pub struct AppSettings {
     /// by default; each pair is a case-insensitive, whole-word `from` → `to`.
     #[serde(default)]
     pub corrections: Vec<CorrectionPair>,
+    /// Reusable text blocks triggered by a spoken cue, stored strictly on this Mac.
+    #[serde(default)]
+    pub saved_blocks: Vec<SavedBlock>,
     #[serde(default)]
     pub model_unload_timeout: ModelUnloadTimeout,
     #[serde(default = "default_word_correction_threshold")]
@@ -1173,6 +1183,7 @@ pub fn get_default_settings() -> AppSettings {
         old_logs_cleared: false,
         custom_words: Vec::new(),
         corrections: Vec::new(),
+        saved_blocks: Vec::new(),
         model_unload_timeout: ModelUnloadTimeout::default(),
         word_correction_threshold: default_word_correction_threshold(),
         history_limit: default_history_limit(),

@@ -131,6 +131,7 @@ impl PasteNoticeGate {
 /// Successful pastes (`Some(Ok(_))`) and cancelled takes (`None`) emit nothing.
 /// Failed pastes (`Some(Err(failure))`) and panicked paste tasks emit once per
 /// `take_id` via `gate`.
+#[allow(clippy::too_many_arguments)]
 pub fn decide_paste_failure_notice(
     take_id: u64,
     outcome: Option<Result<bool, &PasteFailure>>,
