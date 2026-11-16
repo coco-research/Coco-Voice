@@ -15,6 +15,12 @@ mod llm_client;
 #[cfg(target_os = "macos")]
 mod local_llm;
 mod managers;
+#[cfg(feature = "meetings")]
+#[rustfmt::skip]
+pub mod meeting_speakers;
+#[cfg(feature = "meetings")]
+#[rustfmt::skip]
+pub mod meeting_speakers_engine;
 #[cfg(all(feature = "meetings", target_os = "macos"))]
 pub mod meetings_tap;
 mod overlay;

@@ -39,7 +39,21 @@ static MIGRATIONS: &[M] = &[M::up(
         start_ms INTEGER NOT NULL,
         end_ms INTEGER NOT NULL,
         channel TEXT NOT NULL,
+        speaker_label TEXT NOT NULL DEFAULT '',
         text TEXT NOT NULL
+    );
+    CREATE TABLE meeting_notes (
+        id INTEGER PRIMARY KEY,
+        meeting_id INTEGER NOT NULL,
+        section TEXT NOT NULL,
+        text TEXT NOT NULL,
+        speaker_label TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE meeting_speaker_names (
+        meeting_id INTEGER NOT NULL,
+        speaker_label TEXT NOT NULL,
+        custom_name TEXT NOT NULL,
+        PRIMARY KEY (meeting_id, speaker_label)
     );",
 )];
 
@@ -144,7 +158,7 @@ impl MeetingsStore {
         Ok(())
     }
 
-    fn connection(&self) -> Result<Connection> {
+    pub(crate) fn connection(&self) -> Result<Connection> {
         let conn = Connection::open(&self.db_path)?;
         conn.busy_timeout(Duration::from_secs(1))?;
         Ok(conn)
