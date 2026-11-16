@@ -3,9 +3,11 @@ import { useTranslation } from "react-i18next";
 import { useSettings } from "../../hooks/useSettings";
 import { HomeView } from "../home/HomeView";
 import { FoldersAndTemplatesView } from "../meetings/FoldersAndTemplatesView";
-import { MeetingsList } from "../meetings/MeetingsList";
+import { MeetingHistoryHub } from "../meetings/MeetingHistoryExtras";
 import { RecordMeetingPage } from "../meetings/RecordMeetingPage";
 import type { MeetingsUi } from "../meetings/gate";
+import { MeetingsFilesAndLanguage } from "../settings/MeetingsFilesAndLanguage";
+import { MeetingsRetention } from "../settings/MeetingsRetention";
 import { CustomWords } from "../settings/CustomWords";
 import { Corrections } from "../settings/Corrections";
 import { GeneralSettings } from "../settings/general/GeneralSettings";
@@ -122,7 +124,7 @@ export function renderShellSection(
   if (s === "meetings-history")
     return (
       <div data-route-domain="meetings" className="w-full">
-        <MeetingsList />
+        <MeetingHistoryHub />
       </div>
     );
   if (s === "meetings-folders")
@@ -156,6 +158,8 @@ export function renderShellSection(
       className="max-w-3xl w-full mx-auto space-y-6"
     >
       <GeneralSettings />
+      <MeetingsRetention />
+      <MeetingsFilesAndLanguage />
       <AdvancedSettings />
     </div>
   );

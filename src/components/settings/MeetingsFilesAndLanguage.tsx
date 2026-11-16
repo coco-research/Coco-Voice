@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { SUPPORTED_LANGUAGES } from "../../i18n";
+import { LANGUAGES } from "../../lib/constants/languages";
 import { SettingsGroup } from "../ui/SettingsGroup";
 import { ToggleSwitch } from "../ui/ToggleSwitch";
 
@@ -48,9 +48,9 @@ export const MeetingsFilesAndLanguageSection: React.FC<
 }) => {
   const { t } = useTranslation();
   const syncedService = detectSyncedFolderService(folderPath);
-  const langOptions = SUPPORTED_LANGUAGES.map((l) => (
-    <option key={l.code} value={l.code}>
-      {l.nativeName}
+  const langOptions = LANGUAGES.filter((l) => l.value !== "auto").map((l) => (
+    <option key={l.value} value={l.value}>
+      {l.label}
     </option>
   ));
 
