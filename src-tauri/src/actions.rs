@@ -205,6 +205,12 @@ fn should_use_streaming_overlay(style: OverlayStyle, is_streaming: bool) -> bool
     style == OverlayStyle::Live && is_streaming
 }
 
+/// Whether a dictation take runs clean-up: either the dedicated clean-up
+/// shortcut forced it, or "Clean every take" (`post_process_enabled`) is on.
+fn should_post_process_take(action_forces_post_process: bool, post_process_enabled: bool) -> bool {
+    action_forces_post_process || post_process_enabled
+}
+
 /// Whether the overlay stays up after the paste: only for a take whose status row
 /// is showing, so there must be an overlay to show it on.
 fn should_hold_overlay(status_emitted: bool, style: OverlayStyle) -> bool {
@@ -1325,7 +1331,8 @@ impl ShortcutAction for TranscribeAction {
         // the larger panel, but it still switches from listening to a working
         // spinner while the stream finalizes. Non-streaming paths use the
         // compact transcribing pill (None no-ops in show_*).
-        let style = get_settings(app).overlay_style;
+        let current_settings = get_settings(app);
+        let style = current_settings.overlay_style;
         // Capture this before finalizing the stream so every later working state
         // targets the same overlay that was shown for this transcription.
         let use_streaming_overlay = should_use_streaming_overlay(style, tm.is_streaming());
@@ -1342,7 +1349,8 @@ impl ShortcutAction for TranscribeAction {
         play_feedback_sound(app, SoundType::Stop);
 
         let binding_id = binding_id.to_string(); // Clone binding_id for the async task
-        let post_process = self.post_process;
+        let post_process =
+            should_post_process_take(self.post_process, current_settings.post_process_enabled);
         let correction = self.correction;
         let cancel_generation = rm.cancel_generation();
 
@@ -1720,8 +1728,8 @@ mod tests {
     use super::{
         build_post_process_messages, complete_unless_cancelled, next_cleanup_preview, non_blank,
         note_cancel_if_generation_moved, provider_configured, refine_base_for_correction,
-        should_hold_overlay, should_use_streaming_overlay, store_refine_buffer,
-        streams_cleanup_progress, SkipReason, CLEANUP_PROGRESS_MIN_GAP_MS,
+        should_hold_overlay, should_post_process_take, should_use_streaming_overlay,
+        store_refine_buffer, streams_cleanup_progress, SkipReason, CLEANUP_PROGRESS_MIN_GAP_MS,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -1991,5 +1999,13 @@ mod tests {
         assert!(!should_use_streaming_overlay(OverlayStyle::Live, false));
         assert!(!should_use_streaming_overlay(OverlayStyle::Minimal, true));
         assert!(!should_use_streaming_overlay(OverlayStyle::None, true));
+    }
+
+    #[test]
+    fn clean_every_take_runs_post_processing_on_standard_dictation_when_enabled() {
+        assert!(should_post_process_take(false, true));
+        assert!(!should_post_process_take(false, false));
+        assert!(should_post_process_take(true, false));
+        assert!(should_post_process_take(true, true));
     }
 }
