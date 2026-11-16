@@ -97,7 +97,7 @@ impl MeetingSession {
     }
 
     #[cfg(test)]
-    fn for_test(
+    pub(crate) fn for_test(
         root: PathBuf,
         selected: &str,
         downloaded: Vec<String>,

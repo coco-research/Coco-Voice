@@ -308,12 +308,14 @@ impl MeetingsStore {
         .map_err(|e| anyhow!("meeting {id}: {e}"))
     }
 
-    /// Every meeting, newest first.
+    /// Every non-trashed meeting, newest first.
     pub fn list_meetings(&self) -> Result<Vec<Meeting>> {
         let conn = self.connection()?;
         let mut stmt = conn.prepare(
-            "SELECT id, started_at, ended_at, title, status, model_id, saved
-             FROM meetings ORDER BY started_at DESC, id DESC",
+            "SELECT m.id, m.started_at, m.ended_at, m.title, m.status, m.model_id, m.saved
+             FROM meetings m
+             WHERE NOT EXISTS (SELECT 1 FROM meeting_trash t WHERE t.meeting_id = m.id)
+             ORDER BY m.started_at DESC, m.id DESC",
         )?;
         let rows = stmt.query_map([], meeting_from_row)?;
         let mut out = Vec::new();
@@ -323,7 +325,7 @@ impl MeetingsStore {
         Ok(out)
     }
 
-    /// Meetings with `query` in the title, any segment, or any note text or owner; blank lists all.
+    /// Non-trashed meetings with `query` in the title, any segment, or any note text or owner; blank lists all.
     pub fn search_meetings(&self, query: &str) -> Result<Vec<Meeting>> {
         let trimmed = query.trim();
         if trimmed.is_empty() {
@@ -333,13 +335,14 @@ impl MeetingsStore {
         let mut stmt = conn.prepare(
             "SELECT m.id, m.started_at, m.ended_at, m.title, m.status, m.model_id, m.saved
              FROM meetings m
-             WHERE m.title LIKE ?1 ESCAPE '\\'
+             WHERE NOT EXISTS (SELECT 1 FROM meeting_trash t WHERE t.meeting_id = m.id)
+               AND (m.title LIKE ?1 ESCAPE '\\'
                 OR EXISTS (SELECT 1 FROM meeting_segments s
                            WHERE s.meeting_id = m.id AND s.text LIKE ?1 ESCAPE '\\')
                 OR EXISTS (SELECT 1 FROM meeting_notes n
                            WHERE n.meeting_id = m.id
                              AND (n.text LIKE ?1 ESCAPE '\\'
-                                  OR n.owner LIKE ?1 ESCAPE '\\'))
+                                  OR n.owner LIKE ?1 ESCAPE '\\')))
              ORDER BY m.started_at DESC, m.id DESC",
         )?;
         let rows = stmt.query_map(params![like_pattern(trimmed)], meeting_from_row)?;
@@ -530,6 +533,10 @@ impl MeetingsStore {
             "DELETE FROM meeting_notepad WHERE meeting_id = ?1",
             params![id],
         )?;
+        tx.execute(
+            "DELETE FROM meeting_trash WHERE meeting_id = ?1",
+            params![id],
+        )?;
         if tx.execute("DELETE FROM meetings WHERE id = ?1", params![id])? == 0 {
             tx.rollback()?;
             return Err(anyhow!("meeting {id} not found"));
@@ -576,6 +583,12 @@ impl MeetingsStore {
         if !mode.eq_ignore_ascii_case("wal") {
             anyhow::bail!("meetings.db journal mode is {mode}, expected wal");
         }
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS meeting_trash (
+                meeting_id INTEGER PRIMARY KEY,
+                trashed_at INTEGER NOT NULL
+            );",
+        )?;
         self.recover_unfinished(&conn)?;
         Ok(())
     }
