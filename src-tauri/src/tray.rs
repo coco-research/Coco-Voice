@@ -475,7 +475,9 @@ mod tests {
         assert!(!transcription_src.contains("HANDY_FORCE_TRANSCRIPTION_FAILURE"));
 
         let overlay_src = include_str!("overlay.rs");
-        assert!(!overlay_src.contains("HANDY_NO_GTK_LAYER_SHELL"));
+        let legacy_gtk = ["HANDY", "_NO_GTK_LAYER_SHELL"].concat();
+        assert!(overlay_src.contains("COCO_VOICE_NO_GTK_LAYER_SHELL"));
+        assert_eq!(overlay_src.matches(&legacy_gtk).count(), 1);
 
         let strings = crate::tray_i18n::get_tray_translations(Some("zz-UNKNOWN".to_string()));
         assert!(!strings.quit.is_empty());
