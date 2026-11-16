@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useSettings } from "../../hooks/useSettings";
 import { HomeView } from "../home/HomeView";
 import { MeetingsList } from "../meetings/MeetingsList";
+import { RecordMeetingPage } from "../meetings/RecordMeetingPage";
 import type { MeetingsUi } from "../meetings/gate";
 import { CustomWords } from "../settings/CustomWords";
 import { Corrections } from "../settings/Corrections";
@@ -111,10 +112,10 @@ export function renderShellSection(
   },
 ): ReactNode {
   if (s === "home") return <HomeView onNavigate={ex?.onNavigate} />;
-  if (s === "meetings-record" && mUi)
+  if (s === "meetings-record")
     return (
       <div data-route-domain="meetings" className="w-full">
-        <mUi.MeetingsView />
+        {mUi ? <mUi.MeetingsView /> : <RecordMeetingPage />}
       </div>
     );
   if (s === "meetings-history")
