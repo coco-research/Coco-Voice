@@ -287,16 +287,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Індикатор запису",
+          "description": "Оберіть вигляд індикатора запису: Немає приховує його, Компактний показує малу капсулу, Наживо показує текст під час мовлення.",
           "options": {
             "none": "Немає",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Компактний",
+            "live": "Наживо"
           }
         },
         "position": {
-          "title": "Позиція оверлею",
+          "title": "Де показувати індикатор",
           "description": "Показувати візуальний оверлей під час запису та транскрипції. На Linux рекомендовано «Немає»",
           "options": {
             "bottom": "Внизу",
@@ -359,7 +359,7 @@
           "min10": "Через 10 хвилин",
           "min15": "Через 15 хвилин",
           "hour1": "Через 1 годину",
-          "sec15": "Через 15 секунд (Дебаг)"
+          "sec15": "Через 15 секунд (дебаг)"
         }
       },
       "customWords": {

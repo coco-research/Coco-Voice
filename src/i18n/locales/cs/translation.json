@@ -287,16 +287,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Indikátor nahrávání",
+          "description": "Zvolte podobu indikátoru nahrávání: Žádný jej skryje, Minimální zobrazí malou pilulku a Živý ukazuje přepis v reálném čase během řeči.",
           "options": {
             "none": "Žádné",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Kompaktní",
+            "live": "Živý"
           }
         },
         "position": {
-          "title": "Pozice překryvu",
+          "title": "Umístění indikátoru",
           "description": "Zobrazovat vizuální překryv během nahrávání a přepisu. Na Linuxu je doporučeno 'Žádné'.",
           "options": {
             "bottom": "Dole",
@@ -359,7 +359,7 @@
           "min10": "Po 10 minutách",
           "min15": "Po 15 minutách",
           "hour1": "Po 1 hodině",
-          "sec15": "Po 15 sekundách (Debug)"
+          "sec15": "Po 15 sekundách (debug)"
         }
       },
       "customWords": {

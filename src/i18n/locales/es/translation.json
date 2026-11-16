@@ -253,7 +253,7 @@
         "experimental": "Experimental"
       },
       "experimentalToggle": {
-        "label": "Funciones Experimentales",
+        "label": "Funciones experimentales",
         "description": "Habilitar funciones experimentales que aún están en desarrollo."
       },
       "lazyStreamClose": {
@@ -274,7 +274,7 @@
         }
       },
       "startHidden": {
-        "label": "Iniciar Oculto",
+        "label": "Iniciar oculto",
         "description": "Lanzar en la bandeja del sistema sin abrir la ventana."
       },
       "autostart": {
@@ -282,21 +282,21 @@
         "description": "Iniciar Coco Voice automáticamente cuando inicies sesión en tu computadora."
       },
       "showTrayIcon": {
-        "label": "Mostrar Icono de Bandeja",
+        "label": "Mostrar icono en la barra",
         "description": "Mostrar el icono de Coco Voice en la bandeja del sistema."
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Indicador de grabación",
+          "description": "Elige el indicador de grabación: Ninguno lo oculta, Compacto muestra una cápsula pequeña y En vivo muestra las palabras mientras hablas.",
           "options": {
             "none": "Ninguna",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Compacto",
+            "live": "En vivo"
           }
         },
         "position": {
-          "title": "Posición de Superposición",
+          "title": "Dónde aparece el indicador",
           "description": "Mostrar superposición de retroalimentación visual durante la grabación y transcripción. En Linux se recomienda 'Ninguna'.",
           "options": {
             "bottom": "Abajo",
@@ -349,7 +349,7 @@
         "description": "Traducir automáticamente el habla de otros idiomas al inglés durante la transcripción."
       },
       "modelUnload": {
-        "title": "Descargar Modelo",
+        "title": "Descargar modelo",
         "description": "Liberar automáticamente la memoria GPU/CPU cuando el modelo no se ha usado durante el tiempo especificado",
         "options": {
           "never": "Nunca",
@@ -359,7 +359,7 @@
           "min10": "Después de 10 minutos",
           "min15": "Después de 15 minutos",
           "hour1": "Después de 1 hora",
-          "sec15": "Después de 15 segundos (Depuración)"
+          "sec15": "Después de 15 segundos (depuración)"
         }
       },
       "customWords": {

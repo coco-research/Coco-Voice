@@ -253,7 +253,7 @@
         "experimental": "Sperimentale"
       },
       "experimentalToggle": {
-        "label": "Funzionalità Sperimentali",
+        "label": "Funzionalità sperimentali",
         "description": "Abilita le funzionalità sperimentali ancora in fase di sviluppo."
       },
       "lazyStreamClose": {
@@ -274,7 +274,7 @@
         }
       },
       "startHidden": {
-        "label": "Avvia in Background",
+        "label": "Avvia in background",
         "description": "Avvia l'applicazione in background senza aprire la finestra."
       },
       "autostart": {
@@ -287,7 +287,7 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
+          "title": "Indicatore di registrazione",
           "description": "Scegli l'overlay di registrazione: 'Nessuno' lo nasconde, 'Minimo' mostra una barra compatta, 'In tempo reale' mostra la trascrizione in tempo reale mentre parli (solo per modelli che supportano lo streaming — cerca il badge 'Streaming' nel selettore del modello). Su Linux si raccomanda l'opzione 'Nessuno'.",
           "options": {
             "none": "Nessuno",
@@ -296,7 +296,7 @@
           }
         },
         "position": {
-          "title": "Posizione della Sovrimpressione",
+          "title": "Posizione dell'indicatore",
           "description": "Mostra un feedback visivo in sovrimpressione durante la registrazione e la trascrizione. Su Linux si raccomanda 'Nessuna'.",
           "options": {
             "bottom": "In basso",
@@ -349,7 +349,7 @@
         "description": "Traduci automaticamente in inglese la voce in altre lingue durante la trascrizione."
       },
       "modelUnload": {
-        "title": "Disattiva Model",
+        "title": "Disattiva modello",
         "description": "Libera automaticamente la memoria della GPU/CPU quando il modello non viene utilizzato per un certo periodo",
         "options": {
           "never": "Mai",
@@ -359,7 +359,7 @@
           "min10": "Dopo 10 minuti",
           "min15": "Dopo 15 minuti",
           "hour1": "Dopo 1 ora",
-          "sec15": "Dopo 15 secondi (Debug)"
+          "sec15": "Dopo 15 secondi (debug)"
         }
       },
       "customWords": {

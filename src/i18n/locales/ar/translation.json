@@ -266,16 +266,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "شريط التسجيل",
+          "description": "اختر شكل شريط التسجيل: لا شيء يخفيه، ومصغّر يعرض كبسولة صغيرة، ومباشر يعرض النص أثناء التحدث (للنماذج التي تدعم البث المباشر فقط).",
           "options": {
             "none": "بلا",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "مصغّر",
+            "live": "مباشر"
           }
         },
         "position": {
-          "title": "موقع التراكب",
+          "title": "مكان ظهور الشريط",
           "description": "عرض تراكب الملاحظات المرئية أثناء التسجيل والتفريغ. على نظام Linux يوصى بـ 'بلا'.",
           "options": {
             "bottom": "أسفل",

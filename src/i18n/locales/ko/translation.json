@@ -287,16 +287,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "녹음 표시줄",
+          "description": "녹음 표시줄 스타일을 선택합니다: 없음은 숨기고, 작게는 작은 알약 모양을, 실시간은 말하는 동안 텍스트를 바로 표시합니다.",
           "options": {
             "none": "없음",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "작게",
+            "live": "실시간"
           }
         },
         "position": {
-          "title": "오버레이 위치",
+          "title": "녹음 표시줄 위치",
           "description": "녹음 및 전사 중 시각적 피드백 오버레이를 표시합니다. Linux에서는 '없음'을 권장합니다.",
           "options": {
             "bottom": "하단",

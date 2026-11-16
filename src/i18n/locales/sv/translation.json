@@ -287,16 +287,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Inspelningsindikator",
+          "description": "Välj inspelningsindikator: Ingen döljer den, Kompakt visar ett litet piller och Live visar texten medan du pratar.",
           "options": {
             "none": "Ingen",
-            "minimal": "Minimal",
+            "minimal": "Kompakt",
             "live": "Live"
           }
         },
         "position": {
-          "title": "Överlagringsposition",
+          "title": "Var indikatorn visas",
           "description": "Visa visuell återkoppling under inspelning och transkription. På Linux rekommenderas 'Ingen'.",
           "options": {
             "bottom": "Nederst",
@@ -359,7 +359,7 @@
           "min10": "Efter 10 minuter",
           "min15": "Efter 15 minuter",
           "hour1": "Efter 1 timme",
-          "sec15": "Efter 15 sekunder (Felsökning)"
+          "sec15": "Efter 15 sekunder (felsökning)"
         }
       },
       "customWords": {

@@ -287,16 +287,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "בועת הקלטה",
+          "description": "בחר את תצוגת בועת ההקלטה: ללא מסתיר אותה, מצומצם מציג בועה קטנה, וחי מציג את המילים בזמן הדיבור.",
           "options": {
             "none": "ללא",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "מצומצם",
+            "live": "חי"
           }
         },
         "position": {
-          "title": "מיקום שכבת המשוב",
+          "title": "מיקום בועת ההקלטה",
           "description": "הצג שכבת משוב חזותית בזמן הקלטה ותמלול. בלינוקס מומלץ לבחור 'ללא'.",
           "options": {
             "bottom": "למטה",

@@ -253,7 +253,7 @@
         "experimental": "Experimental"
       },
       "experimentalToggle": {
-        "label": "Recursos Experimentais",
+        "label": "Recursos experimentais",
         "description": "Ativar recursos experimentais que ainda estão em desenvolvimento."
       },
       "lazyStreamClose": {
@@ -274,7 +274,7 @@
         }
       },
       "startHidden": {
-        "label": "Iniciar Oculto",
+        "label": "Iniciar oculto",
         "description": "Iniciar na bandeja do sistema sem abrir a janela."
       },
       "autostart": {
@@ -287,16 +287,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Pílula de gravação",
+          "description": "Escolha a pílula de gravação: Nenhuma oculta, Compacta mostra uma cápsula pequena e Ao vivo mostra o texto enquanto você fala.",
           "options": {
             "none": "Nenhum",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Compacta",
+            "live": "Ao vivo"
           }
         },
         "position": {
-          "title": "Posição da Sobreposição",
+          "title": "Onde a pílula aparece",
           "description": "Exibir sobreposição de feedback visual durante gravação e transcrição. No Linux, 'Nenhum' é recomendado.",
           "options": {
             "bottom": "Inferior",
@@ -349,7 +349,7 @@
         "description": "Traduzir automaticamente fala de outros idiomas para inglês durante a transcrição."
       },
       "modelUnload": {
-        "title": "Descarregar Modelo",
+        "title": "Descarregar modelo",
         "description": "Liberar automaticamente memória GPU/CPU quando o modelo não for usado pelo tempo especificado",
         "options": {
           "never": "Nunca",
@@ -359,7 +359,7 @@
           "min10": "Após 10 minutos",
           "min15": "Após 15 minutos",
           "hour1": "Após 1 hora",
-          "sec15": "Após 15 segundos (Depuração)"
+          "sec15": "Após 15 segundos (depuração)"
         }
       },
       "customWords": {

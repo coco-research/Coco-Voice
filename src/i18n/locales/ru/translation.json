@@ -287,16 +287,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Индикатор записи",
+          "description": "Выберите вид индикатора записи: Нет скрывает его, Компактный показывает небольшую капсулу, Живой выводит текст по мере речи.",
           "options": {
             "none": "Нет",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Компактный",
+            "live": "Живой"
           }
         },
         "position": {
-          "title": "Позиция индикатора",
+          "title": "Где показывать индикатор",
           "description": "Отображение индикатора визуальной обратной связи во время записи и транскрипции. В Linux рекомендуется выбрать «Нет».",
           "options": {
             "bottom": "Снизу",

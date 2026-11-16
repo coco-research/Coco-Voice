@@ -253,7 +253,7 @@
         "experimental": "Eksperymentalne"
       },
       "experimentalToggle": {
-        "label": "Funkcje Eksperymentalne",
+        "label": "Funkcje eksperymentalne",
         "description": "Włącz funkcje eksperymentalne, które są jeszcze w fazie rozwoju."
       },
       "lazyStreamClose": {
@@ -287,16 +287,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Pigułka nagrywania",
+          "description": "Wybierz wygląd pigułki nagrywania: Brak ją ukrywa, Kompaktowa pokazuje małą kapsułkę, a Na żywo wyświetla tekst w trakcie mówienia.",
           "options": {
             "none": "Brak",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Kompaktowa",
+            "live": "Na żywo"
           }
         },
         "position": {
-          "title": "Pozycja nakładki",
+          "title": "Położenie pigułki",
           "description": "Wyświetlaj wizualną nakładkę podczas nagrywania i transkrypcji. Na Linuxie zalecane 'Brak'.",
           "options": {
             "bottom": "Dół",
@@ -359,7 +359,7 @@
           "min10": "Po 10 minutach",
           "min15": "Po 15 minutach",
           "hour1": "Po 1 godzinie",
-          "sec15": "Po 15 sekundach (Debug)"
+          "sec15": "Po 15 sekundach (debug)"
         }
       },
       "customWords": {

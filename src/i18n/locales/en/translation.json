@@ -253,7 +253,7 @@
         "experimental": "Experimental"
       },
       "experimentalToggle": {
-        "label": "Experimental Features",
+        "label": "Experimental features",
         "description": "Enable experimental features that are still in development."
       },
       "lazyStreamClose": {
@@ -274,7 +274,7 @@
         }
       },
       "startHidden": {
-        "label": "Start Hidden",
+        "label": "Start hidden",
         "description": "Launch to system tray without opening the window."
       },
       "autostart": {
@@ -282,21 +282,21 @@
         "description": "Automatically start Coco Voice when you log in to your computer."
       },
       "showTrayIcon": {
-        "label": "Show Tray Icon",
+        "label": "Show in the menu bar",
         "description": "Display the Coco Voice icon in the system tray."
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Recording pill",
+          "description": "Choose the recording pill: None hides it, Compact shows a small pill, and Live shows words as you speak (streaming models only). On Linux, None is recommended.",
           "options": {
             "none": "None",
-            "minimal": "Minimal",
+            "minimal": "Compact",
             "live": "Live"
           }
         },
         "position": {
-          "title": "Overlay Position",
+          "title": "Where the pill shows",
           "description": "Where the overlay appears on screen during recording and transcription.",
           "options": {
             "bottom": "Bottom",
@@ -349,7 +349,7 @@
         "description": "Automatically translate speech from other languages to English during transcription."
       },
       "modelUnload": {
-        "title": "Unload Model",
+        "title": "Unload model",
         "description": "Automatically free GPU/CPU memory when the model hasn't been used for the specified time",
         "options": {
           "never": "Never",
@@ -359,7 +359,7 @@
           "min10": "After 10 minutes",
           "min15": "After 15 minutes",
           "hour1": "After 1 hour",
-          "sec15": "After 15 seconds (Debug)"
+          "sec15": "After 15 seconds (debug)"
         }
       },
       "customWords": {

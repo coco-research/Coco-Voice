@@ -287,16 +287,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "錄音膠囊",
+          "description": "選擇錄音膠囊樣式：「無」會隱藏它，「精簡」顯示小膠囊，「即時」在說話時同步顯示文字（僅限串流模型）。",
           "options": {
             "none": "無",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "精簡",
+            "live": "即時"
           }
         },
         "position": {
-          "title": "懸浮窗位置",
+          "title": "膠囊顯示位置",
           "description": "在錄製和轉錄期間顯示視覺回饋懸浮窗。在 Linux 上建議選擇「無」",
           "options": {
             "bottom": "底部",

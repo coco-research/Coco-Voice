@@ -253,7 +253,7 @@
         "experimental": "Deneysel"
       },
       "experimentalToggle": {
-        "label": "Deneysel Özellikler",
+        "label": "Deneysel özellikler",
         "description": "Hala geliştirme aşamasında olan deneysel özellikleri etkinleştir."
       },
       "lazyStreamClose": {
@@ -274,7 +274,7 @@
         }
       },
       "startHidden": {
-        "label": "Gizli Başlat",
+        "label": "Gizli başlat",
         "description": "Pencereyi açmadan sistem tepsisinde başlatır."
       },
       "autostart": {
@@ -287,16 +287,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Kayıt göstergesi",
+          "description": "Kayıt göstergesini seçin: Yok gizler, Küçük kompakt bir kapsül gösterir, Canlı ise konuşurken metni anında gösterir.",
           "options": {
             "none": "Yok",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Küçük",
+            "live": "Canlı"
           }
         },
         "position": {
-          "title": "Overlay Konumu",
+          "title": "Göstergenin konumu",
           "description": "Kayıt ve transkripsiyon sırasında görsel geri bildirim kaplamasını gösterir. Linux'ta 'Yok' önerilir.",
           "options": {
             "bottom": "Alt",
@@ -349,7 +349,7 @@
         "description": "Transkripsiyon sırasında diğer dillerden İngilizceye otomatik olarak çevirir."
       },
       "modelUnload": {
-        "title": "Modeli Boşalt",
+        "title": "Modeli boşalt",
         "description": "Belirtilen süre boyunca kullanılmadığında modelin GPU/CPU belleğini otomatik olarak serbest bırakır.",
         "options": {
           "never": "Asla",
@@ -359,7 +359,7 @@
           "min10": "10 dakika sonra",
           "min15": "15 dakika sonra",
           "hour1": "1 saat sonra",
-          "sec15": "15 saniye sonra (Debug)"
+          "sec15": "15 saniye sonra (debug)"
         }
       },
       "customWords": {

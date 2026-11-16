@@ -287,7 +287,7 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
+          "title": "Opnamepil",
           "description": "Kies de opname-overlay: 'Geen' verbergt deze, 'Minimaal' toont een compacte balk, 'Live' toont de tekst in realtime tijdens het spreken (alleen voor streaming-modellen). Op Linux wordt 'Geen' aanbevolen.",
           "options": {
             "none": "Geen",
@@ -296,7 +296,7 @@
           }
         },
         "position": {
-          "title": "Overlay-positie",
+          "title": "Positie van opnamepil",
           "description": "Waar de overlay op het scherm verschijnt tijdens het opnemen en transcriberen.",
           "options": {
             "bottom": "Onderkant",
@@ -359,7 +359,7 @@
           "min10": "Na 10 minuten",
           "min15": "Na 15 minuten",
           "hour1": "Na 1 uur",
-          "sec15": "Na 15 seconden (Debug)"
+          "sec15": "Na 15 seconden (debug)"
         }
       },
       "customWords": {

@@ -287,16 +287,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Aufnahmeanzeige",
+          "description": "Wähle die Aufnahmeanzeige: Keine blendet sie aus, Kompakt zeigt eine kleine Kapsel, Live zeigt den Text während des Sprechens (nur bei Streaming-Modellen).",
           "options": {
             "none": "Keine",
-            "minimal": "Minimal",
+            "minimal": "Kompakt",
             "live": "Live"
           }
         },
         "position": {
-          "title": "Overlay-Position",
+          "title": "Position der Aufnahmeanzeige",
           "description": "Visuelles Feedback-Overlay während Aufnahme und Transkription anzeigen. Unter Linux wird 'Keine' empfohlen.",
           "options": {
             "bottom": "Unten",
