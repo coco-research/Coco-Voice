@@ -311,3 +311,280 @@ pub fn read_meeting_detail(store: &MeetingsStore, meeting_id: i64) -> Result<Mee
         notepad: store.notepad(meeting_id)?,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::sync::Arc;
+
+    use super::*;
+    use crate::audio_toolkit::read_wav_samples;
+    use crate::managers::meetings::test_lock;
+    use crate::managers::transcription::TranscriptionManager;
+    use crate::meeting_controller::MeetingEnd;
+    use crate::meeting_session::MeetingSession;
+    use crate::meetings::meeting_is_recording;
+
+    fn seed_finalised_meeting(root: &Path, title: &str, ended_at: i64) -> (MeetingsStore, i64) {
+        let store = MeetingsStore::open(root).unwrap();
+        let id = store.start_meeting(title, "turbo").unwrap();
+        store.finalise(id, false).unwrap();
+        open_conn(&store)
+            .unwrap()
+            .execute(
+                "UPDATE meetings SET started_at = ?1, ended_at = ?2 WHERE id = ?3",
+                params![ended_at - 600, ended_at, id],
+            )
+            .unwrap();
+        (store, id)
+    }
+
+    #[test]
+    fn trash_hides_and_restore_brings_back_and_purges_after_30_days() {
+        let dir = tempfile::tempdir().unwrap();
+        let now = 1_800_000_000;
+        let (store, id_a) = seed_finalised_meeting(dir.path(), "Monday standup", now);
+        let (_, id_b) = seed_finalised_meeting(dir.path(), "Product sync", now + 10);
+
+        trash_meeting_at(&store, id_a, now).unwrap();
+        let visible: Vec<i64> = store
+            .list_meetings()
+            .unwrap()
+            .into_iter()
+            .map(|m| m.id)
+            .collect();
+        assert_eq!(visible, vec![id_b]);
+        assert!(store.search_meetings("Monday").unwrap().is_empty());
+        assert_eq!(list_trashed_meetings(&store).unwrap().len(), 1);
+
+        restore_meeting(&store, id_a).unwrap();
+        assert_eq!(store.list_meetings().unwrap().len(), 2);
+        assert_eq!(store.search_meetings("Monday").unwrap().len(), 1);
+
+        trash_meeting_at(&store, id_a, now).unwrap();
+        assert_eq!(
+            purge_expired_trash(&store, now + 29 * SECS_PER_DAY).unwrap(),
+            0
+        );
+        assert_eq!(
+            purge_expired_trash(&store, now + 30 * SECS_PER_DAY).unwrap(),
+            1
+        );
+        assert!(store.meeting(id_a).is_err());
+    }
+
+    #[test]
+    fn span_delete_removes_segments_audio_range_and_citing_notes() {
+        let dir = tempfile::tempdir().unwrap();
+        let (store, id) = seed_finalised_meeting(dir.path(), "Salary check", 1_800_000_000);
+        let s1 = store
+            .insert_segment(id, 0, 1_000, MeetingChannel::Me, "Export Markdown")
+            .unwrap();
+        let s2 = store
+            .insert_segment(id, 1_000, 2_000, MeetingChannel::Me, "Private salary line")
+            .unwrap();
+        let s3 = store
+            .insert_segment(id, 2_000, 3_000, MeetingChannel::Others, "Ship Friday")
+            .unwrap();
+        store
+            .save_notes(
+                id,
+                &[
+                    StoredNote {
+                        kind: "summary".to_string(),
+                        text: "Export format agreed".to_string(),
+                        owner: None,
+                        citations: vec![s1],
+                    },
+                    StoredNote {
+                        kind: "other".to_string(),
+                        text: "Private salary note".to_string(),
+                        owner: None,
+                        citations: vec![s2],
+                    },
+                    StoredNote {
+                        kind: "decision".to_string(),
+                        text: "Ship on Friday".to_string(),
+                        owner: None,
+                        citations: vec![s3],
+                    },
+                ],
+            )
+            .unwrap();
+
+        let audio_dir = dir.path().join("meetings").join(id.to_string());
+        fs::create_dir_all(&audio_dir).unwrap();
+        let mic_path = audio_dir.join("mic.wav");
+        let mut wav = AppendWav::create(&mic_path).unwrap();
+        wav.append(&vec![12_000_i16; 48_000]).unwrap();
+        wav.flush().unwrap();
+        drop(wav);
+
+        let out = delete_transcript_span(&store, id, 1_000, 2_000).unwrap();
+        assert_eq!(out.removed_segments, 1);
+        assert_eq!(out.removed_notes, 1);
+        assert_eq!(out.wiped_audio_files, 1);
+
+        let remaining_segs = store.segments(id).unwrap();
+        let remaining_ids: HashSet<i64> = remaining_segs.iter().map(|s| s.id).collect();
+        assert_eq!(remaining_ids, HashSet::from([s1, s3]));
+        let remaining_notes = store.notes(id).unwrap();
+        assert_eq!(remaining_notes.len(), 2);
+        for note in &remaining_notes {
+            assert!(note.citations.iter().all(|cid| remaining_ids.contains(cid)));
+        }
+        let samples = read_wav_samples(&mic_path).unwrap();
+        assert!(samples[..16_000].iter().all(|v| v.abs() > 0.1));
+        assert!(samples[16_000..32_000].iter().all(|v| *v == 0.0));
+        assert!(samples[32_000..48_000].iter().all(|v| v.abs() > 0.1));
+    }
+
+    #[test]
+    fn transcript_timer_defaults_off_has_no_training_switch_and_expires_old_transcripts() {
+        let defaults = crate::settings::get_default_settings();
+        assert_eq!(defaults.transcript_delete_after_days, None);
+        let raw = serde_json::to_value(&defaults).unwrap();
+        let obj = raw.as_object().unwrap();
+        assert!(
+            obj.keys()
+                .all(|k| !k.to_ascii_lowercase().contains("train")),
+            "unexpected training key in settings: {:?}",
+            obj.keys().collect::<Vec<_>>()
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let now = 1_800_000_000;
+        let (store, old_id) =
+            seed_finalised_meeting(dir.path(), "Old sync", now - 10 * SECS_PER_DAY);
+        let (_, recent_id) =
+            seed_finalised_meeting(dir.path(), "Recent sync", now - 2 * SECS_PER_DAY);
+        let s_old = store
+            .insert_segment(old_id, 0, 1_000, MeetingChannel::Me, "Old words")
+            .unwrap();
+        store
+            .insert_segment(recent_id, 0, 1_000, MeetingChannel::Me, "New words")
+            .unwrap();
+        store
+            .save_notes(
+                old_id,
+                &[StoredNote {
+                    kind: "summary".to_string(),
+                    text: "Kept summary".to_string(),
+                    owner: None,
+                    citations: vec![s_old],
+                }],
+            )
+            .unwrap();
+
+        assert_eq!(apply_transcript_retention(&store, now, None).unwrap(), 0);
+        assert_eq!(store.segments(old_id).unwrap().len(), 1);
+        assert_eq!(apply_transcript_retention(&store, now, Some(7)).unwrap(), 1);
+        assert!(store.segments(old_id).unwrap().is_empty());
+        assert_eq!(store.notes(old_id).unwrap().len(), 1);
+        assert!(store.notes(old_id).unwrap()[0].citations.is_empty());
+        assert_eq!(store.segments(recent_id).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn search_one_transcript_scopes_to_single_meeting_and_escapes_wildcards() {
+        let dir = tempfile::tempdir().unwrap();
+        let (store, id_a) = seed_finalised_meeting(dir.path(), "A", 1_800_000_000);
+        let (_, id_b) = seed_finalised_meeting(dir.path(), "B", 1_800_000_100);
+        store
+            .insert_segment(id_a, 0, 1_000, MeetingChannel::Me, "100% ready for launch")
+            .unwrap();
+        store
+            .insert_segment(
+                id_a,
+                1_000,
+                2_000,
+                MeetingChannel::Others,
+                "1000 items queued",
+            )
+            .unwrap();
+        store
+            .insert_segment(
+                id_b,
+                0,
+                1_000,
+                MeetingChannel::Me,
+                "100% in another meeting",
+            )
+            .unwrap();
+
+        let hits = search_meeting_transcript(&store, id_a, "100%").unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].meeting_id, id_a);
+        assert!(hits[0].text.contains("100% ready"));
+    }
+
+    #[test]
+    fn reading_older_meeting_during_active_recording_leaves_sample_count_rising() {
+        let _guard = test_lock();
+        let dir = tempfile::tempdir().unwrap();
+        let (store, older_id) =
+            seed_finalised_meeting(dir.path(), "Design critique", 1_800_000_000);
+        let seg = store
+            .insert_segment(
+                older_id,
+                0,
+                1_000,
+                MeetingChannel::Others,
+                "Dana owns export",
+            )
+            .unwrap();
+        store
+            .save_notes(
+                older_id,
+                &[StoredNote {
+                    kind: "action".to_string(),
+                    text: "Dana owns the export flow".to_string(),
+                    owner: Some("Dana".to_string()),
+                    citations: vec![seg],
+                }],
+            )
+            .unwrap();
+
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .unwrap();
+        let model = "handy-computer/parakeet-tdt-0.6b-v3-gguf";
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.install_fake_engine(model);
+        let (t1, t2, t3) = (Arc::clone(&tm), Arc::clone(&tm), Arc::clone(&tm));
+        let session = MeetingSession::for_test(
+            dir.path().to_path_buf(),
+            model,
+            vec![model.to_string()],
+            Arc::new(move |audio| {
+                t1.transcribe_meeting_chunk(audio)
+                    .map_err(|e| e.to_string())
+            }),
+            Arc::new(move |m| t2.pin_meeting_model(m)),
+            Arc::new(move || t3.clear_meeting_pin()),
+        );
+        let active_id = session.start_for_test(true).unwrap();
+        let frame = vec![0.25_f32; 16_000];
+        session.push_me(&frame);
+        let mic_wav = dir
+            .path()
+            .join("meetings")
+            .join(active_id.to_string())
+            .join("mic.wav");
+        let count_before = read_wav_samples(&mic_wav).unwrap().len();
+
+        let older = read_meeting_detail(&store, older_id).unwrap();
+        assert_eq!(older.meeting.title, "Design critique");
+        assert_eq!(older.notes[0].text, "Dana owns the export flow");
+        assert!(meeting_is_recording());
+
+        session.push_me(&frame);
+        let count_after = read_wav_samples(&mic_wav).unwrap().len();
+        assert!(
+            count_after > count_before,
+            "{count_after} <= {count_before}"
+        );
+        session.end(MeetingEnd::Stopped);
+    }
+}
