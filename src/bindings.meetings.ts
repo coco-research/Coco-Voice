@@ -267,6 +267,7 @@ export type MeetingOffer = {
 };
 export type MeetingRefusal =
   | "already_recording"
+  | "consent_required"
   | { no_long_audio_model: { model_id: string } }
   | "system_audio_permission_denied"
   | "system_audio_usage_string_missing"

@@ -53,6 +53,8 @@ pub enum MeetingState {
 pub enum MeetingRefusal {
     /// One meeting at a time: a Start arrived while a meeting records.
     AlreadyRecording,
+    /// Consent must be opened and confirmed for each meeting before capture starts.
+    ConsentRequired,
     /// No downloaded speech model can do long audio (every one is Voxtral, or none).
     NoLongAudioModel {
         model_id: String,
@@ -268,6 +270,9 @@ impl MeetingController {
         if self.state().pill_visible() {
             return Err(MeetingRefusal::AlreadyRecording);
         }
+        if self.state() != MeetingState::ConsentOpen {
+            return Err(MeetingRefusal::ConsentRequired);
+        }
         let started = self.recorders.start()?;
         Ok(CapturePermit {
             _guard: guard,
@@ -286,12 +291,21 @@ impl MeetingController {
         inner.status()
     }
 
-    /// Start refuses while a meeting records. The dialog owns the consent step;
-    /// a start from Idle is allowed so the offer can open the dialog without
-    /// having to know the controller's state.
+    /// Start refuses while a meeting records or without an open per-meeting consent.
     pub fn confirm_start(&self) -> Result<MeetingStatus, MeetingRefusal> {
         let permit = self.start_capture()?;
         Ok(self.commit_capture(permit.started()))
+    }
+
+    /// Require an explicit consent flag in addition to `ConsentOpen` state.
+    pub fn confirm_start_with_consent(
+        &self,
+        consented: bool,
+    ) -> Result<MeetingStatus, MeetingRefusal> {
+        if !consented {
+            return Err(MeetingRefusal::ConsentRequired);
+        }
+        self.confirm_start()
     }
 
     pub fn cancel_consent(&self) -> MeetingStatus {

@@ -31,6 +31,16 @@ pub fn channel_label(channel: &str) -> Option<&'static str> {
     }
 }
 
+/// Bias raw meeting chunk text with the meeting-only custom word list (`V-M10`).
+pub fn bias_meeting_words(raw: &str, meeting_words: &[String], threshold: f64) -> String {
+    crate::managers::transcription::apply_words_unless_prompted(
+        raw.to_string(),
+        meeting_words,
+        threshold,
+        false,
+    )
+}
+
 fn ms(samples: u64) -> i64 {
     (samples * 1000 / SAMPLE_RATE) as i64
 }
@@ -1008,5 +1018,122 @@ mod tests {
         }
         .to_string()
         .contains(model_id)
+    }
+
+    #[test]
+    fn meeting_words_stay_apart_from_dictation_and_dictation_works_during_meeting() {
+        let _lock = test_lock();
+        let _reset = ResetMeeting;
+        let app = test_app();
+        update_settings(app.handle(), |s| {
+            s.custom_words = vec!["Priya".to_string()];
+            s.meeting_custom_words = vec!["Halvorsen".to_string()];
+        });
+
+        let tm = TranscriptionManager::new_for_test(app.handle().clone());
+        tm.install_fake_engine(PARAKEET);
+        tm.pin_meeting_model(PARAKEET);
+        assert!(crate::managers::meetings::meeting_is_active());
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let meeting_id = store.start_meeting("Roadmap", PARAKEET).unwrap();
+
+        tm.set_fake_raw_text_for_test(Some("we discussed halvorson with priyaa"));
+        let mut me = ChannelChunker::energy(CHANNEL_ME);
+        let first_chunk = collect(&mut me, &speech_silence_speech()).remove(0);
+        let committed = commit_chunk(&tm, &store, meeting_id, first_chunk).unwrap();
+        assert_eq!(committed, "we discussed Halvorsen with priyaa");
+
+        // Adding a meeting word mid-call biases the very next chunk.
+        update_settings(app.handle(), |s| {
+            s.meeting_custom_words.push("Parakeet".to_string());
+        });
+        tm.set_fake_raw_text_for_test(Some("we discussed parakit with priyaa"));
+        let second_chunk = collect(&mut me, &speech_silence_speech()).remove(0);
+        let committed_two = commit_chunk(&tm, &store, meeting_id, second_chunk).unwrap();
+        assert_eq!(committed_two, "we discussed Parakeet with priyaa");
+
+        // A dictation take during the active meeting uses only dictation custom_words.
+        let dictated = tm.transcribe_with_meeting_lock(vec![0.3; 1600]).unwrap();
+        assert_eq!(dictated, "we discussed parakit with Priya");
+    }
+
+    #[test]
+    fn consent_required_per_meeting_and_nothing_records_before_start() {
+        use crate::meeting_controller::{MeetingController, MeetingRefusal, NoopRecorders};
+        let ctrl = MeetingController::new(Box::new(NoopRecorders));
+        assert_eq!(ctrl.confirm_start(), Err(MeetingRefusal::ConsentRequired));
+        ctrl.open_consent();
+        assert_eq!(
+            ctrl.confirm_start_with_consent(false),
+            Err(MeetingRefusal::ConsentRequired)
+        );
+        assert!(ctrl.confirm_start_with_consent(true).is_ok());
+        ctrl.stop();
+        assert_eq!(ctrl.confirm_start(), Err(MeetingRefusal::ConsentRequired));
+    }
+
+    #[cfg(unix)]
+    fn current_rss_mb() -> u64 {
+        let out = std::process::Command::new("ps")
+            .args(["-o", "rss=", "-p", &std::process::id().to_string()])
+            .output()
+            .expect("ps rss");
+        String::from_utf8_lossy(&out.stdout)
+            .trim()
+            .parse::<u64>()
+            .unwrap_or(0)
+            / 1024
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn sixty_minute_synthetic_run_stays_within_g5_memory_budget() {
+        let _lock = test_lock();
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = store.start_meeting("Sixty minute run", PARAKEET).unwrap();
+        let mut me = ChannelChunker::energy(CHANNEL_ME);
+        let mut others = ChannelChunker::energy(CHANNEL_OTHERS);
+
+        let speech_sec = vec![0.4_f32; SAMPLE_RATE as usize];
+        let silence_sec = vec![0.0_f32; SAMPLE_RATE as usize];
+        let rss_before = current_rss_mb();
+        let mut peak_rss = rss_before;
+
+        // 60 minutes = 3,600 seconds per track (120 cycles of 20s speech + 10s silence).
+        for cycle in 0..120 {
+            for sec in 0..30 {
+                let buf = if sec < 20 { &speech_sec } else { &silence_sec };
+                for chunk in me.push(buf) {
+                    store
+                        .insert_segment(id, chunk.start_ms, chunk.end_ms, MeetingChannel::Me, "me")
+                        .unwrap();
+                }
+                for chunk in others.push(buf) {
+                    store
+                        .insert_segment(
+                            id,
+                            chunk.start_ms,
+                            chunk.end_ms,
+                            MeetingChannel::Others,
+                            "others",
+                        )
+                        .unwrap();
+                }
+            }
+            if cycle % 30 == 29 {
+                peak_rss = peak_rss.max(current_rss_mb());
+            }
+        }
+        peak_rss = peak_rss.max(current_rss_mb());
+        let rows = store.segments(id).unwrap();
+        assert_eq!(rows.len(), 240);
+        assert!(
+            peak_rss.saturating_sub(rss_before) < 128,
+            "60-min RSS delta {} MB exceeded G5 budget",
+            peak_rss.saturating_sub(rss_before)
+        );
     }
 }

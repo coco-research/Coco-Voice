@@ -24,6 +24,12 @@ struct Cli {
     pause_at: Option<String>,
     #[arg(long)]
     resume_at: Option<String>,
+    #[arg(long)]
+    start_at: Option<String>,
+    #[arg(long)]
+    words: Option<String>,
+    #[arg(long)]
+    no_consent: bool,
     #[command(subcommand)]
     command: Option<Cmd>,
 }
@@ -81,15 +87,21 @@ fn ingest_wav(
     id: i64,
     ch_key: &'static str,
     wav: &Path,
+    start_ms: i64,
     pause: Option<(i64, i64)>,
+    words: &[String],
 ) -> Result<()> {
     use coco_voice_lib::audio_toolkit::{audio::AppendWav, read_wav_samples};
-    use coco_voice_lib::managers::meeting_chunker::{ChannelChunker, CHANNEL_ME};
+    use coco_voice_lib::managers::meeting_chunker::{
+        bias_meeting_words, ChannelChunker, CHANNEL_ME,
+    };
     use coco_voice_lib::managers::meetings::MeetingChannel;
 
-    let mut padded = read_wav_samples(wav)?;
+    let skip = ((start_ms.max(0) as usize) * 16).min(usize::MAX);
+    let raw = read_wav_samples(wav)?;
+    let mut padded: Vec<f32> = raw.into_iter().skip(skip).collect();
     for (i, sample) in padded.iter_mut().enumerate() {
-        let ms = (i as i64 * 1_000) / 16_000;
+        let ms = start_ms + (i as i64 * 1_000) / 16_000;
         if pause.is_some_and(|(p, r)| ms >= p && ms < r) {
             *sample = 0.0;
         }
@@ -123,13 +135,18 @@ fn ingest_wav(
     chunks.extend(chunker.finish());
     let ch = MeetingChannel::from_label(ch_key).ok_or_else(|| anyhow!("channel"))?;
     for (idx, c) in chunks.iter().enumerate() {
-        let fallback = format!("[speech {}..{}ms]", c.start_ms, c.end_ms);
-        let text = lines
+        let fallback = format!(
+            "[speech {}..{}ms]",
+            start_ms + c.start_ms,
+            start_ms + c.end_ms
+        );
+        let base = lines
             .get(idx)
             .or_else(|| lines.last())
             .copied()
             .unwrap_or(&fallback);
-        store.insert_segment(id, c.start_ms, c.end_ms, ch, text)?;
+        let biased = bias_meeting_words(base, words, 0.38);
+        store.insert_segment(id, start_ms + c.start_ms, start_ms + c.end_ms, ch, &biased)?;
     }
     Ok(())
 }
@@ -179,18 +196,44 @@ fn run_engine(cli: Cli) -> Result<serde_json::Value> {
         _ => None,
     };
 
+    let start_ms = cli
+        .start_at
+        .as_deref()
+        .map(parse_duration_ms)
+        .transpose()?
+        .unwrap_or(0);
+    let words: Vec<String> = cli
+        .words
+        .as_deref()
+        .unwrap_or("")
+        .split(',')
+        .map(str::trim)
+        .filter(|w| !w.is_empty())
+        .map(String::from)
+        .collect();
+
     let id = if cli.me.is_some() || cli.others.is_some() || cli.transcript.is_some() {
         let ctrl = MeetingController::new(Box::new(NoopRecorders));
-        if ctrl.open_consent().state != MeetingState::ConsentOpen {
+        if !cli.no_consent && ctrl.open_consent().state != MeetingState::ConsentOpen {
             bail!("consent gate failed");
         }
-        ctrl.confirm_start().map_err(|e| anyhow!("{e:?}"))?;
+        ctrl.confirm_start_with_consent(!cli.no_consent)
+            .map_err(|e| anyhow!("{e:?}"))?;
         let mid = store.start_meeting("Headless run", "parakeet")?;
         if let Some(me) = &cli.me {
-            ingest_wav(&store, root, mid, CHANNEL_ME, me, pause)?;
+            ingest_wav(&store, root, mid, CHANNEL_ME, me, start_ms, pause, &words)?;
         }
         if let Some(others) = &cli.others {
-            ingest_wav(&store, root, mid, CHANNEL_OTHERS, others, pause)?;
+            ingest_wav(
+                &store,
+                root,
+                mid,
+                CHANNEL_OTHERS,
+                others,
+                start_ms,
+                pause,
+                &words,
+            )?;
         }
         if let Some(tr) = &cli.transcript {
             ingest_transcript(&store, mid, tr)?;
@@ -363,5 +406,38 @@ mod tests {
             out["tracks"]["others_segments"].as_u64().unwrap_or(0) >= 1,
             "{out}"
         );
+
+        std::fs::write(wavs[0].with_extension("txt"), "parakit with halvorson\n").expect("txt");
+        let denied = Cli::try_parse_from([
+            "meeting-run",
+            "--me",
+            wavs[0].to_str().expect("u8"),
+            "--no-consent",
+        ])
+        .expect("cli");
+        assert!(run_engine(denied).is_err());
+
+        let raw_run = Cli::try_parse_from([
+            "meeting-run",
+            "--me",
+            wavs[0].to_str().expect("u8"),
+            "--start-at",
+            "200ms",
+        ])
+        .expect("cli");
+        let raw_out = run_engine(raw_run).expect("raw");
+        assert!(raw_out["segments"][0]["start_ms"].as_i64().unwrap_or(0) >= 200);
+        assert_eq!(raw_out["segments"][0]["text"], "parakit with halvorson");
+
+        let biased_run = Cli::try_parse_from([
+            "meeting-run",
+            "--me",
+            wavs[0].to_str().expect("u8"),
+            "--words",
+            "Parakeet,Halvorsen",
+        ])
+        .expect("cli");
+        let biased_out = run_engine(biased_run).expect("biased");
+        assert_eq!(biased_out["segments"][0]["text"], "Parakeet with Halvorsen");
     }
 }

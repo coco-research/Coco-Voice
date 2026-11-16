@@ -341,6 +341,8 @@ pub struct TranscriptionManager<R: tauri::Runtime = tauri::Wry> {
     test_unload_timeout: Arc<Mutex<Option<ModelUnloadTimeout>>>,
     #[cfg(all(test, feature = "meetings"))]
     fake_seq: Arc<AtomicU64>,
+    #[cfg(all(test, feature = "meetings"))]
+    fake_raw_text: Arc<Mutex<Option<String>>>,
     /// Test-only: the next fake transcription fails after a stream takes the
     /// lease, simulating a real engine failure under a live stream.
     #[cfg(all(test, feature = "meetings"))]
@@ -379,6 +381,8 @@ impl<R: tauri::Runtime> Clone for TranscriptionManager<R> {
             #[cfg(all(test, feature = "meetings"))]
             fake_seq: Arc::clone(&self.fake_seq),
             #[cfg(all(test, feature = "meetings"))]
+            fake_raw_text: Arc::clone(&self.fake_raw_text),
+            #[cfg(all(test, feature = "meetings"))]
             fake_fails_under_lease: Arc::clone(&self.fake_fails_under_lease),
         }
     }
@@ -412,6 +416,8 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             test_unload_timeout: Arc::new(Mutex::new(None)),
             #[cfg(all(test, feature = "meetings"))]
             fake_seq: Arc::new(AtomicU64::new(0)),
+            #[cfg(all(test, feature = "meetings"))]
+            fake_raw_text: Arc::new(Mutex::new(None)),
             #[cfg(all(test, feature = "meetings"))]
             fake_fails_under_lease: Arc::new(AtomicBool::new(false)),
         };
@@ -464,6 +470,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             after_lease_check_hook: Arc::new(Mutex::new(None)),
             test_unload_timeout: Arc::new(Mutex::new(None)),
             fake_seq: Arc::new(AtomicU64::new(0)),
+            fake_raw_text: Arc::new(Mutex::new(None)),
             fake_fails_under_lease: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -543,6 +550,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         &self,
         _guard: MutexGuard<'_, ()>,
         audio: Vec<f32>,
+        is_meeting_chunk: bool,
         cancelled: &dyn Fn() -> bool,
     ) -> Result<String> {
         if self.availability() == EngineAvailability::LeasedToStream {
@@ -575,9 +583,9 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         // engine that runs this chunk is the one observed now, not before.
         #[cfg(test)]
         if self.engine_is_fake() {
-            return self.transcribe_fake(audio);
+            return self.transcribe_fake(audio, is_meeting_chunk);
         }
-        self.transcribe(audio)
+        self.transcribe_for_caller(audio, is_meeting_chunk)
     }
 
     /// Meeting chunks and dictation both enter here. The meeting path does not
@@ -593,7 +601,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             .meeting_lock
             .lock()
             .unwrap_or_else(|err| err.into_inner());
-        self.transcribe_holding_meeting_lock(guard, audio, &|| false)
+        self.transcribe_holding_meeting_lock(guard, audio, false, &|| false)
     }
 
     /// A dictation take queued behind a meeting chunk. Same body as
@@ -623,7 +631,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         if cancelled() {
             return Err(Self::meeting_wait_cancelled());
         }
-        self.transcribe_holding_meeting_lock(guard, audio, cancelled)
+        self.transcribe_holding_meeting_lock(guard, audio, false, cancelled)
     }
 
     /// A meeting chunk. Never calls `transcribe()` without the meeting lock.
@@ -638,7 +646,11 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         loop {
             // ponytail: the chunk audio is copied once per attempt; pass a
             // slice through if chunk copies ever show up in a profile.
-            match self.transcribe_with_meeting_lock(audio.clone()) {
+            let guard = self
+                .meeting_lock
+                .lock()
+                .unwrap_or_else(|err| err.into_inner());
+            match self.transcribe_holding_meeting_lock(guard, audio.clone(), true, &|| false) {
                 Err(err) if err.is::<EngineLeased>() => {
                     if !crate::managers::meetings::meeting_is_active() {
                         return Err(err.context(
@@ -741,7 +753,15 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
     }
 
     #[cfg(all(test, feature = "meetings"))]
-    fn transcribe_fake(&self, audio: Vec<f32>) -> Result<String> {
+    pub(crate) fn set_fake_raw_text_for_test(&self, text: Option<&str>) {
+        *self
+            .fake_raw_text
+            .lock()
+            .unwrap_or_else(|err| err.into_inner()) = text.map(String::from);
+    }
+
+    #[cfg(all(test, feature = "meetings"))]
+    fn transcribe_fake(&self, audio: Vec<f32>, is_meeting_chunk: bool) -> Result<String> {
         if self.fake_fails_under_lease.swap(false, Ordering::SeqCst) {
             self.active_engine_lease.store(1, Ordering::Release);
             let _ = self.lock_engine().take();
@@ -766,6 +786,24 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         *self.lock_engine() = Some(engine);
         let n = self.fake_seq.fetch_add(1, Ordering::SeqCst);
         let _ = audio;
+        let seeded = self
+            .fake_raw_text
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .clone();
+        if let Some(raw) = seeded {
+            let settings = get_settings(&self.app_handle);
+            return Ok(if is_meeting_chunk {
+                apply_words_unless_prompted(
+                    raw,
+                    &settings.meeting_custom_words,
+                    settings.word_correction_threshold,
+                    false,
+                )
+            } else {
+                post_process_transcription_text(raw, &settings, false)
+            });
+        }
         Ok(format!("chunk-{n}"))
     }
 
@@ -1642,6 +1680,10 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
     }
 
     pub fn transcribe(&self, audio: Vec<f32>) -> Result<String> {
+        self.transcribe_for_caller(audio, false)
+    }
+
+    fn transcribe_for_caller(&self, audio: Vec<f32>, is_meeting_chunk: bool) -> Result<String> {
         #[cfg(debug_assertions)]
         if std::env::var("HANDY_FORCE_TRANSCRIPTION_FAILURE").is_ok() {
             return Err(anyhow::anyhow!(
@@ -1769,14 +1811,10 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
                         // whisper run extension to a non-whisper arch is rejected
                         // with INVALID_ARG, so skip it there and let the fuzzy
                         // post-correction handle custom words instead.
-                        let family = if settings.custom_words.is_empty() || !model_is_whisper {
-                            None
-                        } else {
-                            Some(RunExtension::Whisper(WhisperRunOptions {
-                                initial_prompt: Some(settings.custom_words.join(", ")),
-                                ..Default::default()
-                            }))
-                        };
+                        let family = whisper_words_extension(
+                            active_words(&settings, is_meeting_chunk),
+                            model_is_whisper,
+                        );
 
                         let run_plan = transcribe_cpp_run_plan(
                             settings.translate_to_english,
@@ -1937,7 +1975,16 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         // family). We don't pass a prompt to non-whisper models (it requires the
         // whisper-kind run extension), so they still get fuzzy correction here,
         // same as the ONNX engines.
-        let filtered_result = post_process_transcription_text(result, &settings, model_is_whisper);
+        let filtered_result = if is_meeting_chunk {
+            apply_words_unless_prompted(
+                result,
+                active_words(&settings, true),
+                settings.word_correction_threshold,
+                model_is_whisper,
+            )
+        } else {
+            post_process_transcription_text(result, &settings, model_is_whisper)
+        };
 
         let et = std::time::Instant::now();
         let translation_note = if settings.translate_to_english {
@@ -2147,20 +2194,50 @@ fn transcribe_cpp_run_plan(
     }
 }
 
+fn active_words(settings: &AppSettings, is_meeting_chunk: bool) -> &[String] {
+    #[cfg(feature = "meetings")]
+    if is_meeting_chunk {
+        return &settings.meeting_custom_words;
+    }
+    let _ = is_meeting_chunk;
+    &settings.custom_words
+}
+
+fn whisper_words_extension(words: &[String], model_is_whisper: bool) -> Option<RunExtension> {
+    if words.is_empty() || !model_is_whisper {
+        None
+    } else {
+        Some(RunExtension::Whisper(WhisperRunOptions {
+            initial_prompt: Some(words.join(", ")),
+            ..Default::default()
+        }))
+    }
+}
+
+pub(crate) fn apply_words_unless_prompted(
+    raw: String,
+    words: &[String],
+    threshold: f64,
+    already_prompted: bool,
+) -> String {
+    if !words.is_empty() && !already_prompted {
+        apply_custom_words(&raw, words, threshold)
+    } else {
+        raw
+    }
+}
+
 fn post_process_transcription_text(
     raw: String,
     settings: &AppSettings,
     custom_words_already_prompted: bool,
 ) -> String {
-    let corrected = if !settings.custom_words.is_empty() && !custom_words_already_prompted {
-        apply_custom_words(
-            &raw,
-            &settings.custom_words,
-            settings.word_correction_threshold,
-        )
-    } else {
-        raw
-    };
+    let corrected = apply_words_unless_prompted(
+        raw,
+        &settings.custom_words,
+        settings.word_correction_threshold,
+        custom_words_already_prompted,
+    );
 
     filter_transcription_output(
         &corrected,

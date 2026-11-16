@@ -517,6 +517,10 @@ pub struct AppSettings {
     #[cfg(feature = "meetings")]
     #[serde(default = "default_delete_audio_after_notes")]
     pub delete_audio_after_notes: bool,
+    /// Custom words biasing meeting chunks only, kept separate from dictation `custom_words`.
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub meeting_custom_words: Vec<String>,
 }
 
 fn default_model() -> String {
@@ -1221,6 +1225,8 @@ pub fn get_default_settings() -> AppSettings {
         meetings_enabled: default_meetings_enabled(),
         #[cfg(feature = "meetings")]
         delete_audio_after_notes: default_delete_audio_after_notes(),
+        #[cfg(feature = "meetings")]
+        meeting_custom_words: Vec::new(),
     }
 }
 
