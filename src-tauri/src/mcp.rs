@@ -4,32 +4,31 @@
 // ponytail: ceiling = line-delimited stdio JSON-RPC; upgrade path = Content-Length framing.
 use crate::mcp_store::*;
 use serde_json::{json, Value};
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead, Read, Write};
 use std::path::{Path, PathBuf};
 
 const APP_IDENTIFIER: &str = "com.cocoresearch.cocovoice";
 const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
-const MAX_TEXT_BYTES: usize = 32_768;
+pub const MAX_LINE_BYTES: usize = 65_536;
+const MAX_TEXT_BYTES: usize = 65_536;
 
 pub fn resolve_data_dir(override_dir: Option<&Path>) -> Option<PathBuf> {
     if let Some(dir) = override_dir {
         return Some(dir.to_path_buf());
     }
-    if let Ok(env_dir) = std::env::var("COCO_VOICE_DATA_DIR") {
-        if !env_dir.trim().is_empty() {
-            return Some(PathBuf::from(env_dir.trim()));
-        }
+    if let Some(d) = std::env::var("COCO_VOICE_DATA_DIR")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+    {
+        return Some(PathBuf::from(d.trim()));
     }
     if let Some(dir) = crate::portable::data_dir() {
         return Some(dir.clone());
     }
     #[cfg(target_os = "macos")]
     {
-        std::env::var_os("HOME").map(|h| {
-            PathBuf::from(h)
-                .join("Library/Application Support")
-                .join(APP_IDENTIFIER)
-        })
+        let sub = format!("Library/Application Support/{APP_IDENTIFIER}");
+        std::env::var_os("HOME").map(|h| PathBuf::from(h).join(sub))
     }
     #[cfg(target_os = "windows")]
     {
@@ -60,18 +59,53 @@ pub fn run_stdio(override_dir: Option<&Path>) -> i32 {
     }
 }
 
-pub fn serve_stdio<R: BufRead, W: Write>(r: R, w: &mut W, dir: &Path) -> io::Result<()> {
-    let mut client = String::from("local-agent");
-    for line in r.lines() {
-        let line = line?;
-        if !line.trim().is_empty() {
-            if let Some(reply) = handle_json_line(line.trim(), dir, &mut client) {
-                writeln!(w, "{reply}")?;
-                w.flush()?;
+pub fn serve_stdio<R: BufRead, W: Write>(mut r: R, w: &mut W, dir: &Path) -> io::Result<()> {
+    let (mut client, mut buf) = (String::from("local-agent"), Vec::new());
+    loop {
+        buf.clear();
+        let n = (&mut r)
+            .take((MAX_LINE_BYTES + 1) as u64)
+            .read_until(b'\n', &mut buf)?;
+        if n == 0 {
+            break;
+        }
+        if n > MAX_LINE_BYTES {
+            if buf.last() != Some(&b'\n') {
+                drain_to_newline(&mut r)?;
             }
+            writeln!(w, "{}", rpc_err(Value::Null, -32600, "request too large"))?;
+            w.flush()?;
+            continue;
+        }
+        let Ok(raw) = std::str::from_utf8(&buf) else {
+            writeln!(w, "{}", rpc_err(Value::Null, -32700, "parse_error"))?;
+            w.flush()?;
+            continue;
+        };
+        if let Some(reply) = (!raw.trim().is_empty())
+            .then(|| handle_json_line(raw.trim(), dir, &mut client))
+            .flatten()
+        {
+            writeln!(w, "{reply}")?;
+            w.flush()?;
         }
     }
     Ok(())
+}
+
+fn drain_to_newline<R: BufRead>(r: &mut R) -> io::Result<()> {
+    loop {
+        let chunk = r.fill_buf()?;
+        if chunk.is_empty() {
+            return Ok(());
+        }
+        if let Some(i) = chunk.iter().position(|&b| b == b'\n') {
+            r.consume(i + 1);
+            return Ok(());
+        }
+        let len = chunk.len();
+        r.consume(len);
+    }
 }
 
 pub fn handle_json_line(line: &str, data_dir: &Path, client: &mut String) -> Option<String> {
@@ -96,13 +130,10 @@ pub fn handle_json_line(line: &str, data_dir: &Path, client: &mut String) -> Opt
                     *client = clean.trim().to_string();
                 }
             }
+            let info = json!({ "name": "coco-voice", "version": env!("CARGO_PKG_VERSION") });
             rpc_ok(
                 id,
-                json!({
-                    "protocolVersion": MCP_PROTOCOL_VERSION,
-                    "capabilities": { "tools": {} },
-                    "serverInfo": { "name": "coco-voice", "version": env!("CARGO_PKG_VERSION") }
-                }),
+                json!({ "protocolVersion": MCP_PROTOCOL_VERSION, "capabilities": { "tools": {} }, "serverInfo": info }),
             )
         }
         "ping" => rpc_ok(id, json!({})),
@@ -241,12 +272,20 @@ mod tests {
         serde_json::from_str(&handle_json_line(&req, dir, &mut client).unwrap()).unwrap()
     }
 
+    fn parse_lines(out: Vec<u8>) -> Vec<Value> {
+        let s = String::from_utf8(out).unwrap();
+        s.lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect()
+    }
+
     #[test]
     fn mcp_client_enforces_off_by_default_no_audio_live_deltas_past_notes_and_revocation() {
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path();
         seed_stores(p);
         let tc = |t: &str, a: Value| call(p, 9, "tools/call", json!({"name": t, "arguments": a}));
+        let is_err = |t: &str, a: Value| tc(t, a)["result"]["isError"] == json!(true);
         let listed = call(p, 1, "tools/list", json!({}));
         let names: Vec<&str> = listed["result"]["tools"]
             .as_array()
@@ -254,29 +293,19 @@ mod tests {
             .iter()
             .map(|t| t["name"].as_str().unwrap())
             .collect();
-        let want = [
-            "live_meeting_transcript",
-            "list_meetings",
-            "get_meeting",
-            "dictation_history",
-            "custom_words",
-        ];
-        assert_eq!(names, want);
+        assert_eq!(
+            names.join(","),
+            "live_meeting_transcript,list_meetings,get_meeting,dictation_history,custom_words"
+        );
         assert!(names
             .iter()
             .all(|n| !n.contains("audio") && !n.contains("wav")));
         let (prod, _) = include_str!("mcp.rs").split_once("#[cfg(test)]").unwrap();
-        assert!(
-            !prod.contains("TcpListener")
-                && !prod.contains("UdpSocket")
-                && !prod.contains("reqwest")
-        );
+        assert!(["TcpListener", "UdpSocket", "reqwest"]
+            .iter()
+            .all(|k| !prod.contains(k)));
         for tool in &names {
-            assert_eq!(
-                tc(tool, json!({"meeting_id": 1}))["result"]["isError"],
-                json!(true),
-                "{tool}"
-            );
+            assert!(is_err(tool, json!({"meeting_id": 1})), "{tool}");
         }
         assert!(recent_reads(p).is_empty());
 
@@ -300,56 +329,63 @@ mod tests {
         .join("\n");
         let mut out = Vec::new();
         serve_stdio(Cursor::new(stream), &mut out, p).unwrap();
-        let replies: Vec<Value> = String::from_utf8(out)
-            .unwrap()
-            .lines()
-            .map(|l| serde_json::from_str(l).unwrap())
-            .collect();
+        let replies = parse_lines(out);
         assert_eq!(replies.len(), 5);
-        let text_at = |i: usize| {
-            replies[i]["result"]["content"][0]["text"]
+        let txt = |v: &Value| {
+            v["result"]["content"][0]["text"]
                 .as_str()
                 .unwrap()
                 .to_string()
         };
 
-        let live1: Value = serde_json::from_str(&text_at(1)).unwrap();
+        let live1: Value = serde_json::from_str(&txt(&replies[1])).unwrap();
         let after = live1["next_after_segment_id"].as_i64().unwrap();
+        let ins =
+            "INSERT INTO meeting_segments VALUES (21, 2, 3000, 6000, 'me', 'Second live line')";
         Connection::open(p.join("meetings/meetings.db"))
             .unwrap()
-            .execute(
-                "INSERT INTO meeting_segments VALUES (21, 2, 3000, 6000, 'me', 'Second live line')",
-                [],
-            )
+            .execute(ins, [])
             .unwrap();
         let delta = tc(
             "live_meeting_transcript",
             json!({"after_segment_id": after}),
         );
-        let live2: Value =
-            serde_json::from_str(delta["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+        let live2: Value = serde_json::from_str(&txt(&delta)).unwrap();
         assert_eq!(live2["segments"].as_array().unwrap().len(), 1);
         assert_eq!(live2["segments"][0]["text"], json!("Second live line"));
 
-        let past_txt = text_at(2);
+        let past_txt = txt(&replies[2]);
         assert!(!past_txt.contains("mic.wav") && !past_txt.contains("RIFF"));
         let past: Value = serde_json::from_str(&past_txt).unwrap();
         assert_eq!(
             past["notes"][0]["text"],
             json!("Ship the homepage on Thursday")
         );
-        let dict_txt = text_at(3);
+        let dict_txt = txt(&replies[3]);
         assert!(dict_txt.contains("Clean dictated words") && !dict_txt.contains("take-secret.wav"));
-        assert!(text_at(4).contains("CocoVoice"));
-        assert_eq!(
-            tc("get_meeting", json!({"meeting_id": 2}))["result"]["isError"],
-            json!(true)
-        );
+        assert!(txt(&replies[4]).contains("CocoVoice"));
+        assert!(is_err("get_meeting", json!({"meeting_id": 2})));
 
         fs::write(&sf, r#"{"settings":{"agent_access_enabled":false}}"#).unwrap();
-        assert_eq!(
-            tc("list_meetings", json!({}))["result"]["isError"],
-            json!(true)
+        assert!(is_err("list_meetings", json!({})));
+    }
+
+    #[test]
+    fn oversized_stdio_line_returns_minus_32600_drains_and_serves_next_request() {
+        let dir = tempfile::tempdir().unwrap();
+        let big = format!(
+            "{{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"ping\",\"pad\":\"{}\"}}\n{{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"ping\"}}\n",
+            "x".repeat(70_000)
         );
+        let mut out = Vec::new();
+        serve_stdio(Cursor::new(big), &mut out, dir.path()).unwrap();
+        let rows = parse_lines(out);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["error"]["code"], json!(-32600));
+        assert_eq!(
+            (&rows[1]["id"], &rows[1]["result"]),
+            (&json!(8), &json!({}))
+        );
+        assert_eq!(MAX_TEXT_BYTES, 65_536);
     }
 }
