@@ -35,6 +35,8 @@ pub(crate) enum LocalLlmError {
     Other(String),
 }
 
+impl std::error::Error for LocalLlmError {}
+
 impl std::fmt::Display for LocalLlmError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -52,8 +54,9 @@ impl std::fmt::Display for LocalLlmError {
     }
 }
 
-/// Context window used for local post-processing. A prompt that does not fit
-/// in `N_CTX - max_tokens` is refused so the raw transcript is pasted.
+/// Context window used for dictation cleanup. A prompt that does not fit in
+/// `N_CTX - max_tokens` is refused so the raw transcript is pasted. Meeting
+/// notes pass their own, larger context through [`generate_text_in_ctx`].
 const N_CTX: u32 = 2048;
 
 /// How long a loaded model stays resident after the last cleanup request.
@@ -163,6 +166,34 @@ pub async fn generate_text(
     token_tx: Option<mpsc::Sender<String>>,
     cancel: Option<Arc<AtomicBool>>,
 ) -> Result<String, LocalLlmError> {
+    generate_text_in_ctx(
+        N_CTX,
+        model_path,
+        system_prompt,
+        user_content,
+        max_tokens,
+        token_tx,
+        cancel,
+    )
+    .await
+}
+
+/// [`generate_text`] with a caller-chosen context window `n_ctx` (meeting
+/// notes); dictation cleanup always goes through [`generate_text`] at [`N_CTX`].
+pub async fn generate_text_in_ctx(
+    n_ctx: u32,
+    model_path: &Path,
+    system_prompt: &str,
+    user_content: &str,
+    max_tokens: i32,
+    token_tx: Option<mpsc::Sender<String>>,
+    cancel: Option<Arc<AtomicBool>>,
+) -> Result<String, LocalLlmError> {
+    if n_ctx == 0 || n_ctx > i32::MAX as u32 {
+        return Err(LocalLlmError::Other(
+            "Local LLM context size is out of range".to_string(),
+        ));
+    }
     let model_path = model_path.to_path_buf();
     let system_prompt = system_prompt.to_string();
     let user_content = user_content.to_string();
@@ -171,6 +202,7 @@ pub async fn generate_text(
     // reuse it until the idle timeout. Dropping this task does not stop it; `cancel` does.
     tokio::task::spawn_blocking(move || {
         generate_text_blocking(
+            n_ctx,
             &model_path,
             &system_prompt,
             &user_content,
@@ -199,16 +231,16 @@ pub fn release_model() {
 ///
 /// A caller that passes `max_tokens >= N_CTX` used to collapse the prompt
 /// budget to one token via `saturating_sub`.
-fn clamped_max_gen(max_tokens: i32) -> usize {
+fn clamped_max_gen(max_tokens: i32, n_ctx: u32) -> usize {
     let requested = if max_tokens > 0 {
         max_tokens as usize
     } else {
         512
     };
-    let cap = (N_CTX as usize) / 2;
+    let cap = (n_ctx as usize) / 2;
     if requested > cap {
         warn!(
-            "Local LLM max_tokens {requested} would shrink the prompt below half of the {N_CTX} context; clamping to {cap}"
+            "Local LLM max_tokens {requested} would shrink the prompt below half of the {n_ctx} context; clamping to {cap}"
         );
         cap
     } else {
@@ -217,8 +249,8 @@ fn clamped_max_gen(max_tokens: i32) -> usize {
 }
 
 /// Prompt tokens left once `max_gen` (already clamped) is reserved for output.
-fn prompt_budget(max_gen: usize) -> usize {
-    (N_CTX as usize).saturating_sub(max_gen).max(1)
+fn prompt_budget(max_gen: usize, n_ctx: u32) -> usize {
+    (n_ctx as usize).saturating_sub(max_gen).max(1)
 }
 
 /// `true` when the chat template plus the transcript do not fit in `budget`.
@@ -305,6 +337,7 @@ pub(crate) fn strip_think_blocks(text: &str) -> String {
 }
 
 fn generate_text_blocking(
+    n_ctx: u32,
     model_path: &Path,
     system_prompt: &str,
     user_content: &str,
@@ -321,6 +354,7 @@ fn generate_text_blocking(
 
     let result = generate_with_model(
         &mut guard,
+        n_ctx,
         model_path,
         system_prompt,
         user_content,
@@ -337,8 +371,10 @@ fn generate_text_blocking(
     result
 }
 
+#[allow(clippy::too_many_arguments)] // `n_ctx` joined the six request fields.
 fn generate_with_model(
     cache_guard: &mut Option<CachedModel>,
+    n_ctx: u32,
     model_path: &Path,
     system_prompt: &str,
     user_content: &str,
@@ -346,8 +382,8 @@ fn generate_with_model(
     token_tx: Option<mpsc::Sender<String>>,
     cancel: Option<Arc<AtomicBool>>,
 ) -> Result<String, LocalLlmError> {
-    let max_gen = clamped_max_gen(max_tokens);
-    let prompt_budget = prompt_budget(max_gen);
+    let max_gen = clamped_max_gen(max_tokens, n_ctx);
+    let prompt_budget = prompt_budget(max_gen, n_ctx);
     let cancelled = || {
         cancel
             .as_ref()
@@ -402,7 +438,7 @@ fn generate_with_model(
         .expect("model is cached after the load branch")
         .model;
 
-    let ctx_params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(N_CTX));
+    let ctx_params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(n_ctx));
     let mut ctx = model
         .new_context(backend, ctx_params)
         .map_err(|e| LocalLlmError::Other(format!("Failed to create llama context: {}", e)))?;
@@ -442,7 +478,7 @@ fn generate_with_model(
         ));
     }
 
-    let mut batch = LlamaBatch::new(N_CTX as usize, 1);
+    let mut batch = LlamaBatch::new(n_ctx as usize, 1);
     let last_index = (tokens_list.len() - 1) as i32;
     for (i, token) in tokens_list.iter().enumerate() {
         let is_last = i as i32 == last_index;
@@ -469,7 +505,7 @@ fn generate_with_model(
     let mut sampler = LlamaSampler::greedy();
     let mut stream = token_tx.as_ref();
 
-    while tokens_generated < max_gen && n_past < N_CTX as i32 - 1 {
+    while tokens_generated < max_gen && n_past < n_ctx as i32 - 1 {
         if cancelled() {
             break;
         }
@@ -564,9 +600,23 @@ mod tests {
 
     #[test]
     fn clamps_requested_generation_to_half_the_context() {
-        assert_eq!(clamped_max_gen(N_CTX as i32), (N_CTX as usize) / 2);
-        assert_eq!(prompt_budget(clamped_max_gen(512)), N_CTX as usize - 512);
-        assert_eq!(clamped_max_gen(0), 512);
+        assert_eq!(clamped_max_gen(N_CTX as i32, N_CTX), (N_CTX as usize) / 2);
+        assert_eq!(
+            prompt_budget(clamped_max_gen(512, N_CTX), N_CTX),
+            N_CTX as usize - 512
+        );
+        assert_eq!(clamped_max_gen(0, N_CTX), 512);
+    }
+
+    #[test]
+    fn dictation_keeps_a_2048_context_and_notes_pass_their_own() {
+        // Dictation cleanup (`generate_text`) always runs at N_CTX.
+        assert_eq!(N_CTX, 2048);
+        assert_eq!(clamped_max_gen(4096, N_CTX), 1024);
+        assert_eq!(prompt_budget(clamped_max_gen(512, N_CTX), N_CTX), 1536);
+        // A larger context passed in (meeting notes) widens only that call.
+        assert_eq!(clamped_max_gen(1024, 8192), 1024);
+        assert_eq!(prompt_budget(clamped_max_gen(1024, 8192), 8192), 7168);
     }
 
     #[test]
