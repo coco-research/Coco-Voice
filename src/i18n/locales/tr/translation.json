@@ -587,6 +587,7 @@
       }
     },
     "online": {
+      "eyebrow": "Ayarlar",
       "title": "Çevrimiçi olanlar",
       "intro": "Konuşmanız bu Mac üzerinde metne dönüştürülür. Coco Voice’un bu sürümünün bağlanabileceği yerler ve her birinin aldığı bilgiler bunlardır.",
       "leavesLabel": "Mac’inizden çıkan:",

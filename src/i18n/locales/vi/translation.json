@@ -587,6 +587,7 @@
       }
     },
     "online": {
+      "eyebrow": "Cài đặt",
       "title": "Những gì kết nối mạng",
       "intro": "Giọng nói của bạn được chuyển thành văn bản ngay trên máy Mac này. Đây là những nơi phiên bản Coco Voice này có thể kết nối và dữ liệu mỗi nơi nhận được.",
       "leavesLabel": "Rời khỏi máy Mac của bạn:",

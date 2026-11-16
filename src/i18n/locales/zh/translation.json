@@ -587,6 +587,7 @@
       }
     },
     "online": {
+      "eyebrow": "设置",
       "title": "联网内容说明",
       "intro": "您的语音会在这台 Mac 上转换为文字。以下是此版本 Coco Voice 可能连接的地址，以及各处会收到的数据。",
       "leavesLabel": "离开您 Mac 的内容：",

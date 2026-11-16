@@ -587,6 +587,7 @@
       }
     },
     "online": {
+      "eyebrow": "Configuración",
       "title": "Qué se conecta a internet",
       "intro": "Tu voz se convierte en texto en este Mac. Estos son los destinos con los que esta versión de Coco Voice puede comunicarse y qué recibe cada uno.",
       "leavesLabel": "Sale de tu Mac:",

@@ -587,6 +587,7 @@
       }
     },
     "online": {
+      "eyebrow": "Paramètres",
       "title": "Ce qui va en ligne",
       "intro": "Votre parole est convertie en texte sur ce Mac. Voici les services que cette version de Coco Voice peut contacter et ce que chacun reçoit.",
       "leavesLabel": "Quitte votre Mac :",

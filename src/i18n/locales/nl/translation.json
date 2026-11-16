@@ -587,6 +587,7 @@
       }
     },
     "online": {
+      "eyebrow": "Instellingen",
       "title": "Wat online gaat",
       "intro": "Je spraak wordt op deze Mac omgezet in tekst. Dit zijn de plekken waarmee deze versie van Coco Voice verbinding kan maken en wat elke plek ontvangt.",
       "leavesLabel": "Verlaat je Mac:",

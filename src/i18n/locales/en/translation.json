@@ -587,6 +587,7 @@
       }
     },
     "online": {
+      "eyebrow": "Settings",
       "title": "What goes online",
       "intro": "Your speech is turned into text on this Mac. These are the places this version of Coco Voice can contact, and what each one gets.",
       "leavesLabel": "Leaves your Mac:",

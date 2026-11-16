@@ -587,6 +587,7 @@
       }
     },
     "online": {
+      "eyebrow": "設定",
       "title": "連線內容說明",
       "intro": "您的語音會在這台 Mac 上轉換為文字。以下是此版本 Coco Voice 可能連線的位置，以及各處會收到的內容。",
       "leavesLabel": "離開這台 Mac 的內容：",

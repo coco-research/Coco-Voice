@@ -587,6 +587,7 @@
       }
     },
     "online": {
+      "eyebrow": "Inställningar",
       "title": "Vad som går online",
       "intro": "Ditt tal omvandlas till text på den här Mac-datorn. Det här är platserna som den här versionen av Coco Voice kan kontakta och vad varje plats får.",
       "leavesLabel": "Lämnar din Mac:",

@@ -1,5 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { type } from "@tauri-apps/plugin-os";
 import { useSettings } from "../../../hooks/useSettings";
 
 export const ONLINE_EXCLUDED_WHEN = [
@@ -99,7 +100,7 @@ export const WhatGoesOnlineSection: React.FC<{
     >
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-logo-primary">
-          {t("tray.settings").replace(/\.+$/, "")}
+          {t("settings.online.eyebrow")}
         </p>
         <h2
           id="what-goes-online-heading"
@@ -204,6 +205,11 @@ export const WhatGoesOnlineSection: React.FC<{
 
 export const WhatGoesOnline: React.FC = () => {
   const { getSetting } = useSettings();
+  // ponytail: macOS-only copy; add Windows/Linux wording when those builds need it
+  const isMacOS = type() === "macos";
+  if (!isMacOS) {
+    return null;
+  }
   return (
     <WhatGoesOnlineSection
       updateChecksEnabled={getSetting("update_checks_enabled") ?? true}

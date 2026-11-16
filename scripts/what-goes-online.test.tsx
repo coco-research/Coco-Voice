@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
@@ -10,6 +12,7 @@ import {
   ONLINE_CUSTOM_HOST,
   ONLINE_EXCLUDED_WHEN,
   ONLINE_WHEN_BY_GROUP,
+  WhatGoesOnline,
   WhatGoesOnlineSection,
 } from "../src/components/settings/about/WhatGoesOnline";
 
@@ -48,7 +51,7 @@ export function partitionRuntimeAllowlist(
   };
 }
 
-function renderOnline(updateChecksEnabled = true): string {
+function makeTestI18n() {
   const inst = i18next.createInstance();
   void inst.use(initReactI18next).init({
     lng: "en",
@@ -56,11 +59,34 @@ function renderOnline(updateChecksEnabled = true): string {
     resources: { en: { translation: en } },
     interpolation: { escapeValue: false },
   });
+  return inst;
+}
+
+function renderOnline(updateChecksEnabled = true): string {
   return renderToStaticMarkup(
-    <I18nextProvider i18n={inst}>
+    <I18nextProvider i18n={makeTestI18n()}>
       <WhatGoesOnlineSection updateChecksEnabled={updateChecksEnabled} />
     </I18nextProvider>,
   ).replaceAll("&#x27;", "'");
+}
+
+function renderForOs(osType: string): string {
+  const g = globalThis as { window?: unknown };
+  const prev = Object.getOwnPropertyDescriptor(globalThis, "window");
+  g.window = { __TAURI_OS_PLUGIN_INTERNALS__: { os_type: osType } };
+  try {
+    return renderToStaticMarkup(
+      <I18nextProvider i18n={makeTestI18n()}>
+        <WhatGoesOnline />
+      </I18nextProvider>,
+    );
+  } finally {
+    if (prev) {
+      Object.defineProperty(globalThis, "window", prev);
+    } else {
+      delete g.window;
+    }
+  }
 }
 
 const hostsIn = (s: string) =>
@@ -134,10 +160,27 @@ describe("WhatGoesOnlineSection (C6 / V5)", () => {
       expect(inner).not.toContain("<p");
     }
     expect(cloud).not.toContain(ONLINE_CUSTOM_HOST);
+    expect(html).toContain(`>${en.settings.online.eyebrow}<`);
     expect(html).toContain("Custom clean-up (Ollama)");
     expect(html).toContain("Stays on this Mac");
     expect(html).toContain("Update checks on");
     expect(html).toContain(en.settings.online.onDeviceNote);
     expect(renderOnline(false)).toContain("Update checks off");
+
+    const localesDir = join(import.meta.dir, "../src/i18n/locales");
+    for (const loc of readdirSync(localesDir).sort()) {
+      const raw = JSON.parse(
+        readFileSync(join(localesDir, loc, "translation.json"), "utf8"),
+      ) as { settings?: { online?: { eyebrow?: string } } };
+      const eyebrow = raw.settings?.online?.eyebrow ?? "";
+      expect(eyebrow.length).toBeGreaterThan(0);
+      expect(eyebrow).not.toMatch(/[.…]/);
+    }
+  });
+
+  test("renders nothing when the OS is not macOS", () => {
+    expect(renderForOs("windows")).toBe("");
+    expect(renderForOs("linux")).toBe("");
+    expect(renderForOs("macos")).toContain('data-testid="what-goes-online"');
   });
 });

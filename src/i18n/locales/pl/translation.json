@@ -587,6 +587,7 @@
       }
     },
     "online": {
+      "eyebrow": "Ustawienia",
       "title": "Co łączy się z siecią",
       "intro": "Twoja mowa jest zamieniana na tekst na tym Macu. Oto miejsca, z którymi ta wersja Coco Voice może się łączyć, oraz dane, które każde z nich otrzymuje.",
       "leavesLabel": "Opuszcza Twojego Maca:",

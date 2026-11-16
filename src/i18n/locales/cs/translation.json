@@ -587,6 +587,7 @@
       }
     },
     "online": {
+      "eyebrow": "Nastavení",
       "title": "Co odchází online",
       "intro": "Vaše řeč se převádí na text na tomto Macu. Toto jsou místa, která může tato verze Coco Voice kontaktovat, a co každé z nich dostane.",
       "leavesLabel": "Opouští váš Mac:",
