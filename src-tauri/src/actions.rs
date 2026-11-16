@@ -26,14 +26,18 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
 use std::future::Future;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 use tauri::Manager;
 use tauri::{AppHandle, Emitter};
 use tauri_specta::Event;
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
+
+static PASTE_TAKE_SEQ: AtomicU64 = AtomicU64::new(1);
+static PASTE_NOTICE_GATE: Lazy<Mutex<crate::clipboard::PasteNoticeGate>> =
+    Lazy::new(|| Mutex::new(crate::clipboard::PasteNoticeGate::default()));
 
 /// How long the overlay stays up after paste when a cleanup status was sent, so the
 /// "not cleaned" row can be read.
@@ -1533,55 +1537,49 @@ impl ShortcutAction for TranscribeAction {
                                 })
                                 .await;
 
+                                let paste_take_id = PASTE_TAKE_SEQ.fetch_add(1, Ordering::Relaxed);
                                 let mut cancelled_before_paste = false;
-                                let mut show_notice = false;
-                                let mut paste_failed = false;
-                                let mut paste_lost = false;
-                                match pasted {
+                                let mut task_panicked = false;
+                                let outcome = match &pasted {
                                     Ok(Some(Ok(restored))) => {
                                         debug!(
                                             "Text pasted successfully in {:?}",
                                             paste_time.elapsed()
                                         );
-                                        // Restored means DontModify put the old clipboard
-                                        // back, so we cannot tell whether the paste landed.
-                                        show_notice = restored;
+                                        Some(Ok(*restored))
                                     }
                                     Ok(Some(Err(e))) => {
                                         error!("Failed to paste transcription: {}", e);
-                                        show_notice = true;
-                                        paste_failed = true;
+                                        Some(Err(e))
                                     }
                                     Ok(None) => {
                                         debug!("Transcription operation cancelled before paste");
                                         cancelled_before_paste = true;
+                                        None
                                     }
                                     Err(e) => {
-                                        // JoinError: the blocking paste task panicked or was
-                                        // cancelled, not a main-thread dispatch failure.
                                         error!("Paste task panicked or was cancelled: {e:?}");
-                                        // The keep-on-clipboard step never ran, so don't
-                                        // claim the clipboard holds the words.
-                                        show_notice = true;
-                                        paste_lost = true;
+                                        task_panicked = true;
+                                        None
                                     }
-                                }
-                                if show_notice {
-                                    let (on_clipboard, in_history) =
-                                        crate::clipboard::paste_word_locations(
-                                            clipboard_handling,
-                                            paste_failed,
-                                            history_saved,
-                                            history_limit,
-                                            retention,
-                                        );
-                                    let _ = ah.emit(
-                                        "paste-notice",
-                                        crate::clipboard::paste_notice(
-                                            on_clipboard && !paste_lost,
-                                            in_history,
-                                        ),
-                                    );
+                                };
+                                let notice = {
+                                    let mut gate = PASTE_NOTICE_GATE
+                                        .lock()
+                                        .unwrap_or_else(PoisonError::into_inner);
+                                    crate::clipboard::decide_paste_failure_notice(
+                                        paste_take_id,
+                                        outcome,
+                                        task_panicked,
+                                        clipboard_handling,
+                                        history_saved,
+                                        history_limit,
+                                        retention,
+                                        &mut gate,
+                                    )
+                                };
+                                if let Some(notice) = notice {
+                                    let _ = ah.emit("paste-notice", notice);
                                 }
                                 if cancelled_before_paste {
                                     utils::hide_recording_overlay(&ah);
