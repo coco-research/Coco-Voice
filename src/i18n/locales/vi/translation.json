@@ -445,9 +445,9 @@
         "promptInstructions": "Hướng dẫn",
         "promptInstructionsPlaceholder": "Viết hướng dẫn để chạy sau khi chuyển đổi. Ví dụ: Cải thiện ngữ pháp và độ rõ ràng cho văn bản sau: ${output}",
         "promptTip": "Mẹo: Sử dụng <code>${output}</code> để chèn văn bản đã chuyển đổi vào prompt của bạn.",
-        "updatePrompt": "Cập nhật Prompt",
-        "deletePrompt": "Xóa Prompt",
-        "createPrompt": "Tạo Prompt",
+        "updatePrompt": "Lưu thay đổi",
+        "deletePrompt": "Xóa",
+        "createPrompt": "Tạo",
         "cancel": "Hủy",
         "selectToEdit": "Chọn một prompt ở trên để xem và chỉnh sửa chi tiết.",
         "createFirst": "Nhấn 'Tạo Prompt mới' ở trên để tạo prompt xử lý sau đầu tiên của bạn."

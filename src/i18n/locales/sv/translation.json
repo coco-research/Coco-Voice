@@ -445,9 +445,9 @@
         "promptInstructions": "Instruktioner",
         "promptInstructionsPlaceholder": "Skriv instruktionerna som ska köras efter transkription. Exempel: Förbättra grammatik och tydlighet för följande text: ${output}",
         "promptTip": "Tips: Använd <code>${output}</code> för att infoga den transkriberade texten i din prompt.",
-        "updatePrompt": "Uppdatera prompt",
-        "deletePrompt": "Ta bort prompt",
-        "createPrompt": "Skapa prompt",
+        "updatePrompt": "Spara ändringar",
+        "deletePrompt": "Ta bort",
+        "createPrompt": "Skapa",
         "cancel": "Avbryt",
         "selectToEdit": "Välj en prompt ovan för att visa och redigera dess detaljer.",
         "createFirst": "Klicka på 'Skapa ny prompt' ovan för att skapa din första prompt för efterbearbetning."

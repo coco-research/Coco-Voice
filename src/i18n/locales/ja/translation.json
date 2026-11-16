@@ -445,9 +445,9 @@
         "promptInstructions": "指示内容",
         "promptInstructionsPlaceholder": "文字起こし後に実行する指示を記述します。例: 以下のテキストの文法と明瞭さを改善してください: ${output}",
         "promptTip": "ヒント: <code>${output}</code> を使用して、文字起こしテキストをプロンプトに挿入します。",
-        "updatePrompt": "プロンプトを更新",
-        "deletePrompt": "プロンプトを削除",
-        "createPrompt": "プロンプトを作成",
+        "updatePrompt": "変更を保存",
+        "deletePrompt": "削除",
+        "createPrompt": "作成",
         "cancel": "キャンセル",
         "selectToEdit": "上からプロンプトを選択して、詳細を表示・編集します。",
         "createFirst": "上の「新しいプロンプトを作成」をクリックして、最初の後処理プロンプトを作成してください。"

@@ -445,9 +445,9 @@
         "promptInstructions": "Pokyny",
         "promptInstructionsPlaceholder": "Napište instrukce, které se mají spustit po přepisu. Příklad: Zlepšete gramatiku a srozumitelnost následujícího textu: ${output}",
         "promptTip": "Tip: Použijte <code>${output}</code> pro vložení přepsaného textu do promptu.",
-        "updatePrompt": "Aktualizovat prompt",
-        "deletePrompt": "Smazat prompt",
-        "createPrompt": "Vytvořit prompt",
+        "updatePrompt": "Uložit změny",
+        "deletePrompt": "Smazat",
+        "createPrompt": "Vytvořit",
         "cancel": "Zrušit",
         "selectToEdit": "Vyberte výše prompt, abyste zobrazili a upravili jeho podrobnosti.",
         "createFirst": "Klikněte nahoře na 'Vytvořit nový prompt' a vytvořte svůj první prompt pro následné zpracování."

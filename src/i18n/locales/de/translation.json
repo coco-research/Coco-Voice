@@ -445,9 +445,9 @@
         "promptInstructions": "Anweisungen",
         "promptInstructionsPlaceholder": "Schreibe die Anweisungen, die nach der Transkription ausgeführt werden sollen. Beispiel: Verbessere Grammatik und Klarheit für folgenden Text: ${output}",
         "promptTip": "Tipp: Verwende <code>${output}</code>, um den transkribierten Text in deinen Prompt einzufügen.",
-        "updatePrompt": "Prompt aktualisieren",
-        "deletePrompt": "Prompt löschen",
-        "createPrompt": "Prompt erstellen",
+        "updatePrompt": "Änderungen speichern",
+        "deletePrompt": "Löschen",
+        "createPrompt": "Erstellen",
         "cancel": "Abbrechen",
         "selectToEdit": "Wähle oben einen Prompt aus, um dessen Details anzuzeigen und zu bearbeiten.",
         "createFirst": "Klicke oben auf 'Neuen Prompt erstellen', um deinen ersten Nachbearbeitungs-Prompt zu erstellen."

@@ -424,9 +424,9 @@
         "promptInstructions": "التعليمات",
         "promptInstructionsPlaceholder": ".اكتب التعليمات المراد تشغيلها بعد التفريغ الصوتي. مثال: قم بتحسين القواعد والوضوح للنص التالي: ${output}",
         "promptTip": "تلميح: استخدم <code>${output}</code> لإدراج النص المفرغ في مطالبتك.",
-        "updatePrompt": "تحديث المطالبة",
-        "deletePrompt": "حذف المطالبة",
-        "createPrompt": "إنشاء مطالبة",
+        "updatePrompt": "حفظ التغييرات",
+        "deletePrompt": "حذف",
+        "createPrompt": "إنشاء",
         "cancel": "إلغاء",
         "selectToEdit": ".اختر مطالبة أعلاه لعرض وتعديل تفاصيلها",
         "createFirst": ".انقر على 'إنشاء مطالبة جديدة' أعلاه لإنشاء أول مطالبة معالجة لاحقة لك"

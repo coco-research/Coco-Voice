@@ -445,9 +445,9 @@
         "promptInstructions": "Instruções",
         "promptInstructionsPlaceholder": "Escreva as instruções para executar após a transcrição. Exemplo: Melhore a gramática e clareza do seguinte texto: ${output}",
         "promptTip": "Dica: Use <code>${output}</code> para inserir o texto transcrito no seu prompt.",
-        "updatePrompt": "Atualizar Prompt",
-        "deletePrompt": "Excluir Prompt",
-        "createPrompt": "Criar Prompt",
+        "updatePrompt": "Salvar alterações",
+        "deletePrompt": "Excluir",
+        "createPrompt": "Criar",
         "cancel": "Cancelar",
         "selectToEdit": "Selecione um prompt acima para visualizar e editar seus detalhes.",
         "createFirst": "Clique em 'Criar Novo Prompt' acima para criar seu primeiro prompt de pós-processamento."

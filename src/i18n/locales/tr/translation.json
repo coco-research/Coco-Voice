@@ -445,9 +445,9 @@
         "promptInstructions": "Talimatlar",
         "promptInstructionsPlaceholder": "Transkripsiyondan sonra çalıştırılacak talimatları yazın. Örnek: Aşağıdaki metnin dilbilgisini ve açıklığını iyileştir: ${output}",
         "promptTip": "İpucu: Transkribe edilen metni promptunuza eklemek için <code>${output}</code> kullanın.",
-        "updatePrompt": "Promptu Güncelle",
-        "deletePrompt": "Promptu Sil",
-        "createPrompt": "Prompt Oluştur",
+        "updatePrompt": "Değişiklikleri kaydet",
+        "deletePrompt": "Sil",
+        "createPrompt": "Oluştur",
         "cancel": "İptal",
         "selectToEdit": "Ayrıntılarını görüntülemek ve düzenlemek için yukarıdan bir prompt seçin.",
         "createFirst": "İlk son işlem prompt'unuzu oluşturmak için yukarıdaki “Yeni Prompt Oluştur” seçeneğine tıklayın."

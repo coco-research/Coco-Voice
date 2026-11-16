@@ -435,22 +435,22 @@
         "title": "Instructions",
         "selectedPrompt": {
           "title": "Clean-up style",
-          "description": "Select a template for refining transcriptions or create a new one. Use ${output} inside the prompt text to reference the captured transcript."
+          "description": "Choose a style for cleaning up transcriptions or create a new one. Use ${output} inside the instructions to insert the transcribed text."
         },
-        "noPrompts": "No prompts available",
-        "selectPrompt": "Select a prompt",
+        "noPrompts": "No styles available",
+        "selectPrompt": "Choose a style",
         "createNew": "New style",
         "promptLabel": "Name",
-        "promptLabelPlaceholder": "Enter prompt name",
+        "promptLabelPlaceholder": "Enter a name",
         "promptInstructions": "Instructions",
         "promptInstructionsPlaceholder": "Write the instructions to run after transcription. Example: Improve grammar and clarity for the following text: ${output}",
-        "promptTip": "Tip: Use <code>${output}</code> to insert the transcribed text in your prompt.",
-        "updatePrompt": "Update Prompt",
-        "deletePrompt": "Delete Prompt",
-        "createPrompt": "Create Prompt",
+        "promptTip": "Tip: use <code>${output}</code> to insert the transcribed text.",
+        "updatePrompt": "Save changes",
+        "deletePrompt": "Delete",
+        "createPrompt": "Create",
         "cancel": "Cancel",
-        "selectToEdit": "Select a prompt above to view and edit its details.",
-        "createFirst": "Click 'Create New Prompt' above to create your first post-processing prompt."
+        "selectToEdit": "Choose a style above to view and edit its instructions.",
+        "createFirst": "Click 'New style' above to write your first clean-up instructions."
       }
     },
     "history": {

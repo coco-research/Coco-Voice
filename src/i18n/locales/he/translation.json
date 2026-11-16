@@ -445,9 +445,9 @@
         "promptInstructions": "הוראות",
         "promptInstructionsPlaceholder": "כתוב את ההוראות שירוצו אחרי התמלול. לדוגמה: שפר דקדוק ובהירות עבור הטקסט הבא: ${output}",
         "promptTip": "טיפ: השתמש ב-<code>${output}</code> כדי להכניס את הטקסט המתומלל לפרומפט שלך.",
-        "updatePrompt": "עדכן פרומפט",
-        "deletePrompt": "מחק פרומפט",
-        "createPrompt": "צור פרומפט",
+        "updatePrompt": "שמור שינויים",
+        "deletePrompt": "מחק",
+        "createPrompt": "צור",
         "cancel": "ביטול",
         "selectToEdit": "בחר פרומפט למעלה כדי לצפות בפרטים שלו ולערוך אותם.",
         "createFirst": "לחץ על 'צור פרומפט חדש' למעלה כדי ליצור את פרומפט העיבוד הראשון שלך."

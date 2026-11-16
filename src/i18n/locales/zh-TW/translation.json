@@ -445,9 +445,9 @@
         "promptInstructions": "說明",
         "promptInstructionsPlaceholder": "撰寫轉錄後要執行的指令。範例：改善以下文字的語法和清晰度: ${output}",
         "promptTip": "提示：使用 <code>${output}</code> 將轉錄文字插入到您的提示詞中",
-        "updatePrompt": "更新提示詞",
-        "deletePrompt": "刪除提示詞",
-        "createPrompt": "建立提示詞",
+        "updatePrompt": "儲存變更",
+        "deletePrompt": "刪除",
+        "createPrompt": "建立",
         "cancel": "取消",
         "selectToEdit": "選擇上方的提示詞以檢視和編輯其詳細資訊",
         "createFirst": "點選上方的「建立新提示詞」來建立您的第一個後處理提示詞"
