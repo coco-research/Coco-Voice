@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { FolderOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -12,37 +11,60 @@ import {
 } from "@/bindings";
 import { useOsType } from "@/hooks/useOsType";
 import { learnCorrectionsFromEdit } from "@/lib/utils/autoLearnCorrections";
-import { Button } from "../../ui/Button";
-import { displayTextFor, HistoryRow } from "./HistoryRow";
+import {
+  displayTextFor,
+  formatDictationTime,
+  HistoryRow,
+  selectDictationEntries,
+} from "./HistoryRow";
+
+export { displayTextFor, formatDictationTime, selectDictationEntries };
 
 const PAGE_SIZE = 30;
 
-interface OpenRecordingsButtonProps {
-  onClick: () => void;
-  label: string;
+export interface HistoryProps {
+  initialEntries?: readonly unknown[];
+  initialQuery?: string;
+  initialOpenMenuId?: number | null;
+  retentionText?: string;
+  nowTimestamp?: number;
 }
 
-const OpenRecordingsButton: React.FC<OpenRecordingsButtonProps> = ({
-  onClick,
-  label,
-}) => (
-  <Button
-    onClick={onClick}
-    variant="secondary"
-    size="sm"
-    className="flex items-center gap-2"
-    title={label}
-  >
-    <FolderOpen className="w-4 h-4" />
-    <span>{label}</span>
-  </Button>
-);
+export interface HistoryViewState {
+  entries: HistoryEntry[];
+  loading: boolean;
+  query: string;
+  openMenuId: number | null;
+  editingId: number | null;
+  editDraft: string;
+  savingEdit: boolean;
+}
 
-export const HistorySettings: React.FC = () => {
+export interface HistoryViewActions {
+  setQuery: (q: string) => void;
+  setOpenMenuId: (id: number | null) => void;
+  startEdit: (entry: HistoryEntry) => void;
+  setEditDraft: (draft: string) => void;
+  cancelEdit: () => void;
+  commitEdit: (id: number, draft: string) => Promise<void>;
+  toggleSaved: (id: number) => Promise<void>;
+  copyText: (text: string) => Promise<void>;
+  deleteEntry: (id: number) => Promise<void>;
+  retryEntry: (id: number) => Promise<void>;
+  openFolder: () => Promise<void>;
+  getAudioUrl: (fileName: string) => Promise<string | null>;
+}
+
+export const HistorySettings: React.FC<HistoryProps> = (props) => {
   const { t } = useTranslation();
   const osType = useOsType();
-  const [entries, setEntries] = useState<HistoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [entries, setEntries] = useState<HistoryEntry[]>(() =>
+    props.initialEntries
+      ? selectDictationEntries(props.initialEntries, "")
+      : [],
+  );
+  const [loading, setLoading] = useState(!props.initialEntries);
+  const [query, setQuery] = useState(props.initialQuery ?? "");
   const [hasMore, setHasMore] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const entriesRef = useRef<HistoryEntry[]>([]);
@@ -82,12 +104,13 @@ export const HistorySettings: React.FC = () => {
 
   // Initial load
   useEffect(() => {
-    loadPage();
-  }, [loadPage]);
+    if (props.initialEntries) return;
+    void loadPage();
+  }, [props.initialEntries, loadPage]);
 
   // Infinite scroll via IntersectionObserver
   useEffect(() => {
-    if (loading) return;
+    if (loading || props.initialEntries) return;
 
     const sentinel = sentinelRef.current;
     if (!sentinel || !hasMore) return;
@@ -95,10 +118,10 @@ export const HistorySettings: React.FC = () => {
     const observer = new IntersectionObserver(
       (observerEntries) => {
         const first = observerEntries[0];
-        if (first.isIntersecting) {
+        if (first?.isIntersecting) {
           const lastEntry = entriesRef.current[entriesRef.current.length - 1];
           if (lastEntry) {
-            loadPage(lastEntry.id);
+            void loadPage(lastEntry.id);
           }
         }
       },
@@ -107,10 +130,11 @@ export const HistorySettings: React.FC = () => {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [loading, hasMore, loadPage]);
+  }, [loading, hasMore, loadPage, props.initialEntries]);
 
   // Listen for new entries added from the transcription pipeline
   useEffect(() => {
+    if (props.initialEntries) return;
     const unlisten = events.historyUpdatePayload.listen((event) => {
       const payload: HistoryUpdatePayload = event.payload;
       if (payload.action === "added") {
@@ -120,14 +144,12 @@ export const HistorySettings: React.FC = () => {
           prev.map((e) => (e.id === payload.entry.id ? payload.entry : e)),
         );
       }
-      // "deleted" and "toggled" are handled by optimistic updates only,
-      // so we intentionally ignore them here to avoid double-mutation.
     });
 
     return () => {
-      unlisten.then((fn) => fn());
+      void unlisten.then((fn) => fn());
     };
-  }, []);
+  }, [props.initialEntries]);
 
   const toggleSaved = async (id: number) => {
     // Optimistic update
@@ -292,88 +314,173 @@ export const HistorySettings: React.FC = () => {
     }
   };
 
-  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(
+    props.initialOpenMenuId ?? null,
+  );
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
-  let content: React.ReactNode;
+  useEffect(() => {
+    if (openMenuId === null || typeof document === "undefined") return;
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setOpenMenuId(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [openMenuId]);
 
-  if (loading) {
+  const state: HistoryViewState = {
+    entries,
+    loading,
+    query,
+    openMenuId,
+    editingId,
+    editDraft,
+    savingEdit,
+  };
+  const actions: HistoryViewActions = {
+    setQuery,
+    setOpenMenuId,
+    startEdit: (entry) => {
+      setEditingId(entry.id);
+      setEditDraft(displayTextFor(entry));
+    },
+    setEditDraft,
+    cancelEdit: () => setEditingId(null),
+    commitEdit: async (id, draft) => {
+      setSavingEdit(true);
+      try {
+        await saveEditAndLearn(id, draft);
+        setEditingId(null);
+      } finally {
+        setSavingEdit(false);
+      }
+    },
+    toggleSaved,
+    copyText: copyToClipboard,
+    deleteEntry: deleteAudioEntry,
+    retryEntry: retryHistoryEntry,
+    openFolder: openRecordingsFolder,
+    getAudioUrl,
+  };
+
+  return (
+    <HistorySettingsSection
+      state={state}
+      actions={actions}
+      retentionText={props.retentionText}
+      nowTimestamp={props.nowTimestamp}
+      sentinelRef={sentinelRef}
+    />
+  );
+};
+
+export const HistorySettingsSection: React.FC<{
+  state: HistoryViewState;
+  actions: HistoryViewActions;
+  retentionText?: string;
+  nowTimestamp?: number;
+  sentinelRef?: React.RefObject<HTMLDivElement>;
+}> = ({ state, actions, retentionText, nowTimestamp, sentinelRef }) => {
+  const { t } = useTranslation();
+  const filtered = selectDictationEntries(state.entries, state.query);
+  const retentionLabel = retentionText ?? t("sidebar.keptDays");
+
+  let content: React.ReactNode;
+  if (state.loading) {
     content = (
-      <div className="px-4 py-3 text-center text-text/60">
+      <p className="mt-5 text-sm text-mid-gray">
         {t("settings.history.loading")}
-      </div>
+      </p>
     );
-  } else if (entries.length === 0) {
+  } else if (state.entries.length === 0) {
     content = (
-      <div className="px-4 py-3 text-center text-text/60">
+      <p className="mt-5 text-sm text-mid-gray">
         {t("settings.history.empty")}
-      </div>
+      </p>
+    );
+  } else if (filtered.length === 0) {
+    content = (
+      <p className="mt-5 text-sm text-mid-gray">
+        {t("sidebar.emptyDictationSearch")}
+      </p>
     );
   } else {
     content = (
       <>
-        <div className="divide-y divide-mid-gray/20">
-          {entries.map((entry) => (
+        <div className="mt-3 divide-y divide-mid-gray/20 border-b-[1.5px] border-text/80">
+          {filtered.map((entry) => (
             <HistoryRow
               key={entry.id}
               entry={entry}
-              menuOpen={openMenuId === entry.id}
-              editing={editingId === entry.id}
-              editDraft={editingId === entry.id ? editDraft : ""}
-              savingEdit={savingEdit}
+              nowTimestamp={nowTimestamp}
+              menuOpen={state.openMenuId === entry.id}
+              editing={state.editingId === entry.id}
+              editDraft={state.editingId === entry.id ? state.editDraft : ""}
+              savingEdit={state.savingEdit}
               onMenuToggle={() =>
-                setOpenMenuId((cur) => (cur === entry.id ? null : entry.id))
+                actions.setOpenMenuId(
+                  state.openMenuId === entry.id ? null : entry.id,
+                )
               }
-              onMenuClose={() => setOpenMenuId(null)}
-              onToggleSaved={() => void toggleSaved(entry.id)}
-              onCopyText={() => void copyToClipboard(displayTextFor(entry))}
-              onStartEdit={() => {
-                setEditingId(entry.id);
-                setEditDraft(displayTextFor(entry));
-              }}
-              onEditDraftChange={setEditDraft}
-              onCancelEdit={() => setEditingId(null)}
-              onCommitEdit={async () => {
-                setSavingEdit(true);
-                try {
-                  await saveEditAndLearn(entry.id, editDraft);
-                  setEditingId(null);
-                } finally {
-                  setSavingEdit(false);
-                }
-              }}
-              getAudioUrl={getAudioUrl}
-              deleteAudio={deleteAudioEntry}
-              retryTranscription={retryHistoryEntry}
+              onMenuClose={() => actions.setOpenMenuId(null)}
+              onToggleSaved={() => void actions.toggleSaved(entry.id)}
+              onCopyText={() => void actions.copyText(displayTextFor(entry))}
+              onStartEdit={() => actions.startEdit(entry)}
+              onEditDraftChange={actions.setEditDraft}
+              onCancelEdit={actions.cancelEdit}
+              onCommitEdit={() => actions.commitEdit(entry.id, state.editDraft)}
+              getAudioUrl={actions.getAudioUrl}
+              deleteAudio={actions.deleteEntry}
+              retryTranscription={actions.retryEntry}
             />
           ))}
         </div>
-        {/* Sentinel for infinite scroll */}
         <div ref={sentinelRef} className="h-1" />
       </>
     );
   }
 
   return (
-    <div className="max-w-3xl w-full mx-auto space-y-6">
-      <div className="space-y-2">
-        <div className="px-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xs font-medium text-mid-gray uppercase tracking-wide">
-              {t("settings.history.title")}
-            </h2>
-          </div>
-          <OpenRecordingsButton
-            onClick={openRecordingsFolder}
-            label={t("settings.history.openFolder")}
-          />
+    <div
+      data-testid="dictation-history-section"
+      className="max-w-3xl w-full mx-auto"
+    >
+      <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-logo-primary">
+        {t("sidebar.voiceSection")}
+      </p>
+      <header className="mt-1 flex items-baseline justify-between gap-3">
+        <h2 className="text-[22px] leading-[28px] font-semibold tracking-[-0.02em] text-text">
+          {t("sidebar.dictationHistory")}
+        </h2>
+        <div className="flex items-baseline gap-3">
+          <button
+            type="button"
+            onClick={() => void actions.openFolder()}
+            className="text-xs font-medium text-mid-gray hover:text-text hover:underline cursor-pointer"
+          >
+            {t("settings.history.openFolder")}
+          </button>
+          <span className="text-xs font-medium text-mid-gray">
+            {retentionLabel}
+          </span>
         </div>
-        <div className="bg-background border border-mid-gray/20 rounded-lg overflow-visible">
-          {content}
-        </div>
-      </div>
+      </header>
+      <label className="mt-3 block">
+        <span className="block text-xs font-medium text-mid-gray">
+          {t("meetings.list.searchLabel")}
+        </span>
+        <input
+          type="search"
+          value={state.query}
+          onChange={(e) => actions.setQuery(e.target.value)}
+          placeholder={t("sidebar.dictationSearchPlaceholder")}
+          aria-label={t("sidebar.dictationSearchAria")}
+          className="mt-1 w-full rounded-[10px] border border-mid-gray/40 bg-background px-3 py-1.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-logo-primary"
+        />
+      </label>
+      {content}
     </div>
   );
 };
