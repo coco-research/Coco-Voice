@@ -17,6 +17,8 @@ mod local_llm;
 mod managers;
 #[cfg(feature = "meetings")]
 mod meeting_controller;
+#[cfg(all(feature = "meetings", target_os = "macos"))]
+pub mod meetings_tap;
 mod overlay;
 pub mod portable;
 mod settings;
