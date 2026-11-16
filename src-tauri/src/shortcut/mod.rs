@@ -1268,6 +1268,18 @@ pub fn change_post_process_enabled_setting(app: AppHandle, enabled: bool) -> Res
 
 #[tauri::command]
 #[specta::specta]
+pub fn change_filler_word_removal_enabled_setting(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    settings::update_settings(&app, |s| {
+        s.filler_word_removal_enabled = enabled;
+    });
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_iterative_correction_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     // Hotkey register/unregister reads settings and must run after the lock drops.
     let binding = settings::update_settings(&app, |s| {

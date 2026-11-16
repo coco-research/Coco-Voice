@@ -1,4 +1,4 @@
-use crate::audio_toolkit::{apply_custom_words, filter_transcription_output};
+use crate::audio_toolkit::{apply_custom_words, filter_transcription_output_with_options};
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::model::{EngineType, ModelManager};
 use crate::settings::{
@@ -1157,9 +1157,14 @@ impl TranscriptionManager {
         };
 
         let settings = get_settings(&self.app_handle);
+        let active_model = self
+            .get_current_model()
+            .unwrap_or_else(|| settings.selected_model.clone());
+        let validated_language =
+            effective_language_for_model(&settings, self.model_manager.as_ref(), &active_model);
         // Streaming models do not receive a decode prompt, so custom words
         // always go through the shared fuzzy post-correction path.
-        let filtered = post_process_transcription_text(raw, &settings, false);
+        let filtered = post_process_transcription_text(raw, &settings, &validated_language, false);
 
         self.maybe_unload_immediately("streaming transcription");
         Ok(Some(filtered))
@@ -1265,6 +1270,7 @@ impl TranscriptionManager {
         // with INVALID_ARG, so the whisper extension must be gated on the
         // arch, not on the feature (see #1601).
         let mut model_is_whisper = false;
+        let mut model_supports_translate = false;
 
         // Perform transcription with the appropriate engine.
         // We use catch_unwind to prevent engine panics from poisoning the mutex,
@@ -1292,7 +1298,6 @@ impl TranscriptionManager {
             // ModelManager copy. The whisper run extension is kind-tagged, so
             // non-whisper archs (parakeet, voxtral, …) reject it with
             // INVALID_ARG; attach it — and translate — only where supported.
-            let mut model_supports_translate = false;
             let mut model_languages: Vec<String> = Vec::new();
             if let LoadedEngine::TranscribeCpp(session) = &engine {
                 let model = session.model();
@@ -1487,7 +1492,13 @@ impl TranscriptionManager {
         // family). We don't pass a prompt to non-whisper models (it requires the
         // whisper-kind run extension), so they still get fuzzy correction here,
         // same as the ONNX engines.
-        let filtered_result = post_process_transcription_text(result, &settings, model_is_whisper);
+        let output_language = filler_output_language(
+            &validated_language,
+            settings.translate_to_english,
+            model_supports_translate,
+        );
+        let filtered_result =
+            post_process_transcription_text(result, &settings, output_language, model_is_whisper);
 
         let et = std::time::Instant::now();
         let translation_note = if settings.translate_to_english {
@@ -1697,9 +1708,22 @@ fn transcribe_cpp_run_plan(
     }
 }
 
+fn filler_output_language<'a>(
+    validated_language: &'a str,
+    translate_to_english: bool,
+    model_supports_translate: bool,
+) -> &'a str {
+    if translate_to_english && model_supports_translate && validated_language != "en" {
+        "en"
+    } else {
+        validated_language
+    }
+}
+
 fn post_process_transcription_text(
     raw: String,
     settings: &AppSettings,
+    spoken_language: &str,
     custom_words_already_prompted: bool,
 ) -> String {
     let corrected = if !settings.custom_words.is_empty() && !custom_words_already_prompted {
@@ -1712,10 +1736,11 @@ fn post_process_transcription_text(
         raw
     };
 
-    filter_transcription_output(
+    filter_transcription_output_with_options(
         &corrected,
-        &settings.app_language,
+        spoken_language,
         &settings.custom_filler_words,
+        settings.filler_word_removal_enabled,
     )
 }
 
@@ -2073,6 +2098,68 @@ mod tests {
         assert!(matches!(plan.task, Task::Transcribe));
         assert_eq!(plan.language.as_deref(), Some("es"));
         assert_eq!(plan.target_language, None);
+    }
+
+    #[test]
+    fn filler_removal_follows_spoken_language_not_app_ui_locale_and_can_turn_off() {
+        let mut settings = crate::settings::get_default_settings();
+        settings.app_language = "en".to_string();
+        settings.selected_language = "pt-BR".to_string();
+
+        // English UI + Portuguese speech must preserve Portuguese "um" ("a/an")
+        // while dropping Portuguese filler "ahm".
+        let pt_out = post_process_transcription_text(
+            "um gato ahm bonito".to_string(),
+            &settings,
+            &settings.selected_language,
+            false,
+        );
+        assert_eq!(pt_out, "um gato bonito");
+
+        // French and German fillers follow spoken language even when UI is "en".
+        assert_eq!(
+            post_process_transcription_text(
+                "euh bonjour tout le monde".to_string(),
+                &settings,
+                "fr",
+                false
+            ),
+            "bonjour tout le monde"
+        );
+        assert_eq!(
+            post_process_transcription_text(
+                "ähm guten Tag äh zusammen".to_string(),
+                &settings,
+                "de",
+                false
+            ),
+            "guten Tag zusammen"
+        );
+
+        // When translated to English on a translate-capable model, English fillers apply.
+        let translated_lang = filler_output_language("es", true, true);
+        assert_eq!(translated_lang, "en");
+        assert_eq!(
+            post_process_transcription_text(
+                "um this was translated uh cleanly".to_string(),
+                &settings,
+                translated_lang,
+                false
+            ),
+            "this was translated cleanly"
+        );
+
+        // Turning filler-word removal off leaves fillers intact across languages.
+        settings.filler_word_removal_enabled = false;
+        assert_eq!(
+            post_process_transcription_text(
+                "um I think uh this stays intact".to_string(),
+                &settings,
+                "en",
+                false
+            ),
+            "um I think uh this stays intact"
+        );
     }
 }
 
