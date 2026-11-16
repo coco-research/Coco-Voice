@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import type { HistoryEntry } from "@/bindings";
+import { commands, type HistoryEntry } from "@/bindings";
+import { learnCorrectionsFromEdit } from "@/lib/utils/autoLearnCorrections";
 import { OUTLINED_BTN_SM } from "../../meetings/MeetingsList";
 
 const QUOTE = '"';
@@ -82,6 +83,113 @@ export function selectDictationEntries(
           .includes(q),
       )
     : takes;
+}
+
+export function createHistoryCommandHandlers(opts: {
+  getEntries: () => HistoryEntry[];
+  setEntries: (fn: (prev: HistoryEntry[]) => HistoryEntry[]) => void;
+  reload?: () => void;
+  t?: (key: string, params?: Record<string, unknown>) => string;
+}) {
+  const tr = opts.t ?? ((k: string) => k);
+
+  const toggleSaved = async (id: number) => {
+    opts.setEntries((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, saved: !e.saved } : e)),
+    );
+    try {
+      const result = await commands.toggleHistoryEntrySaved(id);
+      if (result.status !== "ok") {
+        opts.setEntries((prev) =>
+          prev.map((e) => (e.id === id ? { ...e, saved: !e.saved } : e)),
+        );
+      }
+    } catch {
+      opts.setEntries((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, saved: !e.saved } : e)),
+      );
+    }
+  };
+
+  const deleteAudioEntry = async (id: number) => {
+    opts.setEntries((prev) => prev.filter((e) => e.id !== id));
+    try {
+      const result = await commands.deleteHistoryEntry(id);
+      if (result.status !== "ok") opts.reload?.();
+    } catch {
+      opts.reload?.();
+    }
+  };
+
+  const retryHistoryEntry = async (id: number) => {
+    const result = await commands.retryHistoryEntryTranscription(id);
+    if (result.status !== "ok") throw new Error(String(result.error));
+  };
+
+  const saveEditAndLearn = async (id: number, newText: string) => {
+    const entry = opts.getEntries().find((e) => e.id === id);
+    const original = entry ? displayTextFor(entry) : "";
+    const usedPost = Boolean(entry?.post_processed_text?.trim());
+    const trimmed = newText.trim();
+    if (!trimmed || trimmed === original.trim()) return;
+    const applyText = (e: HistoryEntry, text: string): HistoryEntry =>
+      usedPost
+        ? { ...e, post_processed_text: text }
+        : { ...e, transcription_text: text };
+
+    opts.setEntries((prev) =>
+      prev.map((e) => (e.id === id ? applyText(e, trimmed) : e)),
+    );
+    try {
+      const res = await commands.updateHistoryEntryText(id, trimmed);
+      if (res.status !== "ok") {
+        opts.setEntries((prev) =>
+          prev.map((e) => (e.id === id ? applyText(e, original) : e)),
+        );
+        toast.error(tr("settings.history.editError"));
+        return;
+      }
+    } catch {
+      opts.setEntries((prev) =>
+        prev.map((e) => (e.id === id ? applyText(e, original) : e)),
+      );
+      toast.error(tr("settings.history.editError"));
+      return;
+    }
+    try {
+      const settingsRes = await commands.getAppSettings();
+      if (settingsRes.status !== "ok") return;
+      const existing = settingsRes.data.corrections ?? [];
+      const learned = learnCorrectionsFromEdit(original, trimmed, existing);
+      if (learned.length === 0) return;
+      const upd = await commands.updateCorrections([...existing, ...learned]);
+      if (upd.status === "ok") {
+        toast.success(
+          learned.length === 1
+            ? tr("settings.history.learnedOne", {
+                from: learned[0].from,
+                to: learned[0].to,
+              })
+            : tr("settings.history.learnedMany", { count: learned.length }),
+        );
+      }
+    } catch {
+      // Ignore correction persistence errors after transcript edit succeeded.
+    }
+  };
+
+  const openRecordingsFolder = async () => {
+    const result = await commands.openRecordingsFolder();
+    if (result.status !== "ok") throw new Error(String(result.error));
+  };
+
+  return {
+    toggleSaved,
+    deleteAudioEntry,
+    retryHistoryEntry,
+    saveEditAndLearn,
+    openRecordingsFolder,
+  };
 }
 
 export interface HistoryRowProps {
