@@ -15,7 +15,19 @@
     "history": "السجل",
     "debug": "تصحيح الأخطاء",
     "about": "حول",
-    "models": "النماذج"
+    "models": "النماذج",
+    "home": "الرئيسية",
+    "recordMeeting": "تسجيل اجتماع",
+    "meetingHistory": "سجل الاجتماعات",
+    "askMeetings": "اسأل اجتماعاتك",
+    "foldersAndTemplates": "المجلدات والقوالب",
+    "agentAccess": "وصول الوكيل",
+    "voiceSection": "الصوت",
+    "dictationHistory": "سجل الإملاء",
+    "perAppProfiles": "ملفات تعريف التطبيقات",
+    "wordsAndCleanup": "الكلمات والتنقيح",
+    "settings": "الإعدادات",
+    "sectionPlaceholder": "يتوفر في هذا القسم عند التفعيل."
   },
   "onboarding": {
     "subtitle": "للبدء، اختر نموذج التفريغ الصوتي",

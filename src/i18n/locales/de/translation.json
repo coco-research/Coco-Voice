@@ -15,7 +15,19 @@
     "postProcessing": "Bereinigen",
     "history": "Verlauf",
     "debug": "Debug",
-    "about": "Info"
+    "about": "Info",
+    "home": "Start",
+    "recordMeeting": "Meeting aufnehmen",
+    "meetingHistory": "Meeting-Verlauf",
+    "askMeetings": "Meetings fragen",
+    "foldersAndTemplates": "Ordner und Vorlagen",
+    "agentAccess": "Agentenzugriff",
+    "voiceSection": "Sprache",
+    "dictationHistory": "Diktatverlauf",
+    "perAppProfiles": "App-Profile",
+    "wordsAndCleanup": "Wörter und Bereinigung",
+    "settings": "Einstellungen",
+    "sectionPlaceholder": "In diesem Bereich verfügbar, sobald aktiviert."
   },
   "onboarding": {
     "subtitle": "Wähle ein Transkriptionsmodell, um loszulegen",

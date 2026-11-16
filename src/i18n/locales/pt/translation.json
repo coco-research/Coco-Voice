@@ -15,7 +15,19 @@
     "postProcessing": "Limpeza",
     "history": "Histórico",
     "debug": "Depuração",
-    "about": "Sobre"
+    "about": "Sobre",
+    "home": "Início",
+    "recordMeeting": "Gravar uma reunião",
+    "meetingHistory": "Histórico de reuniões",
+    "askMeetings": "Pergunte às suas reuniões",
+    "foldersAndTemplates": "Pastas e modelos",
+    "agentAccess": "Acesso do agente",
+    "voiceSection": "Voz",
+    "dictationHistory": "Histórico de ditado",
+    "perAppProfiles": "Perfis por aplicativo",
+    "wordsAndCleanup": "Palavras e revisão",
+    "settings": "Configurações",
+    "sectionPlaceholder": "Disponível nesta seção quando ativado."
   },
   "onboarding": {
     "subtitle": "Para começar, escolha um modelo de transcrição",

@@ -15,7 +15,19 @@
     "postProcessing": "Làm sạch",
     "history": "Lịch sử",
     "debug": "Gỡ lỗi",
-    "about": "Giới thiệu"
+    "about": "Giới thiệu",
+    "home": "Trang chủ",
+    "recordMeeting": "Ghi âm cuộc họp",
+    "meetingHistory": "Lịch sử cuộc họp",
+    "askMeetings": "Hỏi các cuộc họp",
+    "foldersAndTemplates": "Thư mục và mẫu",
+    "agentAccess": "Quyền truy cập tác nhân",
+    "voiceSection": "Giọng nói",
+    "dictationHistory": "Lịch sử đọc chính tả",
+    "perAppProfiles": "Hồ sơ theo ứng dụng",
+    "wordsAndCleanup": "Từ vựng và làm sạch",
+    "settings": "Cài đặt",
+    "sectionPlaceholder": "Khả dụng trong mục này khi được bật."
   },
   "onboarding": {
     "subtitle": "Để bắt đầu, hãy chọn một mô hình chuyển đổi giọng nói",

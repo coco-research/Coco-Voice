@@ -15,7 +15,19 @@
     "postProcessing": "润色",
     "history": "历史记录",
     "debug": "调试",
-    "about": "关于"
+    "about": "关于",
+    "home": "首页",
+    "recordMeeting": "录制会议",
+    "meetingHistory": "会议记录",
+    "askMeetings": "询问会议内容",
+    "foldersAndTemplates": "文件夹与模板",
+    "agentAccess": "智能体访问",
+    "voiceSection": "语音",
+    "dictationHistory": "听写记录",
+    "perAppProfiles": "分应用配置",
+    "wordsAndCleanup": "词库与润色",
+    "settings": "设置",
+    "sectionPlaceholder": "启用后可在此分组中使用。"
   },
   "onboarding": {
     "subtitle": "请选择一个转录模型以开始使用",

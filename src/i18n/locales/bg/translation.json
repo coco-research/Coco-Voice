@@ -15,7 +15,19 @@
     "postProcessing": "Изчистване",
     "history": "История",
     "debug": "Отстраняване",
-    "about": "За приложението"
+    "about": "За приложението",
+    "home": "Начало",
+    "recordMeeting": "Запиши среща",
+    "meetingHistory": "История на срещите",
+    "askMeetings": "Попитай срещите си",
+    "foldersAndTemplates": "Папки и шаблони",
+    "agentAccess": "Достъп за агенти",
+    "voiceSection": "Глас",
+    "dictationHistory": "История на диктовките",
+    "perAppProfiles": "Профили по приложения",
+    "wordsAndCleanup": "Думи и изчистване",
+    "settings": "Настройки",
+    "sectionPlaceholder": "Достъпно в тази секция след включване."
   },
   "onboarding": {
     "subtitle": "За да започнете, изберете модел за транскрипция",

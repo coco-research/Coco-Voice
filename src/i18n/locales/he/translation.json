@@ -15,7 +15,19 @@
     "postProcessing": "ליטוש טקסט",
     "history": "היסטוריה",
     "debug": "ניפוי שגיאות",
-    "about": "אודות"
+    "about": "אודות",
+    "home": "בית",
+    "recordMeeting": "הקלטת פגישה",
+    "meetingHistory": "היסטוריית פגישות",
+    "askMeetings": "שאל את הפגישות שלך",
+    "foldersAndTemplates": "תיקיות ותבניות",
+    "agentAccess": "גישת סוכן",
+    "voiceSection": "קול",
+    "dictationHistory": "היסטוריית הכתבה",
+    "perAppProfiles": "פרופילים לפי יישום",
+    "wordsAndCleanup": "מילים וניקוי",
+    "settings": "הגדרות",
+    "sectionPlaceholder": "זמין בסעיף זה לאחר הפעלה."
   },
   "onboarding": {
     "subtitle": "כדי להתחיל, בחר מודל תמלול",

@@ -15,7 +15,19 @@
     "postProcessing": "Korekta",
     "history": "Historia",
     "debug": "Debugowanie",
-    "about": "O programie"
+    "about": "O programie",
+    "home": "Start",
+    "recordMeeting": "Nagraj spotkanie",
+    "meetingHistory": "Historia spotkań",
+    "askMeetings": "Zapytaj swoje spotkania",
+    "foldersAndTemplates": "Foldery i szablony",
+    "agentAccess": "Dostęp agenta",
+    "voiceSection": "Głos",
+    "dictationHistory": "Historia dyktowania",
+    "perAppProfiles": "Profile dla aplikacji",
+    "wordsAndCleanup": "Słowa i korekta",
+    "settings": "Ustawienia",
+    "sectionPlaceholder": "Dostępne w tej sekcji po włączeniu."
   },
   "onboarding": {
     "subtitle": "Aby rozpocząć, wybierz model transkrypcji",

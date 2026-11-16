@@ -15,7 +15,19 @@
     "postProcessing": "다듬기",
     "history": "히스토리",
     "debug": "디버그",
-    "about": "정보"
+    "about": "정보",
+    "home": "홈",
+    "recordMeeting": "회의 녹음",
+    "meetingHistory": "회의 기록",
+    "askMeetings": "회의에 질문하기",
+    "foldersAndTemplates": "폴더 및 템플릿",
+    "agentAccess": "에이전트 접근",
+    "voiceSection": "음성",
+    "dictationHistory": "받아쓰기 기록",
+    "perAppProfiles": "앱별 프로필",
+    "wordsAndCleanup": "단어 및 다듬기",
+    "settings": "설정",
+    "sectionPlaceholder": "설정하면 이 섹션에서 사용할 수 있습니다."
   },
   "onboarding": {
     "subtitle": "시작하려면 음성 인식 모델을 선택하세요",

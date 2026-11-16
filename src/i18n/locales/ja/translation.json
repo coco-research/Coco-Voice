@@ -15,7 +15,19 @@
     "postProcessing": "整形",
     "history": "履歴",
     "debug": "デバッグ",
-    "about": "概要"
+    "about": "概要",
+    "home": "ホーム",
+    "recordMeeting": "会議を録音",
+    "meetingHistory": "会議の履歴",
+    "askMeetings": "会議に質問",
+    "foldersAndTemplates": "フォルダとテンプレート",
+    "agentAccess": "エージェント連携",
+    "voiceSection": "音声入力",
+    "dictationHistory": "音声入力の履歴",
+    "perAppProfiles": "アプリ別プロファイル",
+    "wordsAndCleanup": "単語と整形",
+    "settings": "設定",
+    "sectionPlaceholder": "設定するとこのセクションから利用できます。"
   },
   "onboarding": {
     "subtitle": "開始するには、文字起こしのモデルを選択してください",
