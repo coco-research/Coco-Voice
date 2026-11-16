@@ -1,6 +1,7 @@
 import React, { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../hooks/useSettings";
+import { HomeView } from "../home/HomeView";
 import { MeetingsList } from "../meetings/MeetingsList";
 import type { MeetingsUi } from "../meetings/gate";
 import { CustomWords } from "../settings/CustomWords";
@@ -49,7 +50,6 @@ export type ShellRouteSpec = (typeof SHELL_ROUTES)[number] | typeof DEBUG_ROUTE;
 export type ShellSectionId = ShellRouteSpec["id"];
 
 const PH: Partial<Record<ShellSectionId, [string, string, RouteDomain]>> = {
-  home: ["sidebar.home", "sidebar.home", "home"],
   "meetings-record": ["meetings.sidebar", "sidebar.recordMeeting", "meetings"],
   "meetings-ask": ["meetings.sidebar", "sidebar.askMeetings", "meetings"],
   "meetings-folders": [
@@ -110,6 +110,7 @@ export function renderShellSection(
     onNavigate?: (s: ShellSectionId) => void;
   },
 ): ReactNode {
+  if (s === "home") return <HomeView onNavigate={ex?.onNavigate} />;
   if (s === "meetings-record" && mUi)
     return (
       <div data-route-domain="meetings" className="w-full">
