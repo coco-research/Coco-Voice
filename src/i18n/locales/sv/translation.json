@@ -190,7 +190,15 @@
       "streaming": "Visar transkription i realtid medan du talar"
     },
     "legacy": "Äldre",
-    "licence": "Licens: {{licence}}"
+    "licence": "Licens: {{licence}}",
+    "downloadFailed": {
+      "network": "Nedladdningen misslyckades: kontrollera din internetanslutning.",
+      "diskSpace": "Nedladdningen misslyckades: inte tillräckligt med diskutrymme.",
+      "checksum": "Nedladdningen misslyckades: filen klarade inte integritetskontrollen.",
+      "other": "Nedladdningen misslyckades.",
+      "retry": "Försök igen",
+      "skip": "Hoppa över tills vidare"
+    }
   },
   "settings": {
     "modelSettings": {

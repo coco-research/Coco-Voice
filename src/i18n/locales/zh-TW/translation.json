@@ -190,7 +190,15 @@
       "streaming": "在您說話時即時顯示轉錄"
     },
     "legacy": "舊版",
-    "licence": "授權：{{licence}}"
+    "licence": "授權：{{licence}}",
+    "downloadFailed": {
+      "network": "下載失敗：請檢查網路連線。",
+      "diskSpace": "下載失敗：磁碟空間不足。",
+      "checksum": "下載失敗：檔案未通過完整性檢查。",
+      "other": "下載失敗。",
+      "retry": "再試一次",
+      "skip": "暫時略過"
+    }
   },
   "settings": {
     "modelSettings": {

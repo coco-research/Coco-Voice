@@ -190,7 +190,15 @@
     "cancel": "Annulla",
     "cancelDownload": "Annulla download",
     "legacy": "Obsoleto",
-    "licence": "Licenza: {{licence}}"
+    "licence": "Licenza: {{licence}}",
+    "downloadFailed": {
+      "network": "Download non riuscito: controlla la connessione a internet.",
+      "diskSpace": "Download non riuscito: spazio su disco insufficiente.",
+      "checksum": "Download non riuscito: il file non ha superato il controllo di integrità.",
+      "other": "Download non riuscito.",
+      "retry": "Riprova",
+      "skip": "Salta per ora"
+    }
   },
   "settings": {
     "modelSettings": {

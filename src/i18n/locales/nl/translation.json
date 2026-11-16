@@ -190,6 +190,14 @@
       "translation": "Kan vertalen naar het Engels",
       "translate": "Vertalen",
       "streaming": "Toont live transcriptie tijdens het spreken"
+    },
+    "downloadFailed": {
+      "network": "Download mislukt: controleer je internetverbinding.",
+      "diskSpace": "Download mislukt: niet genoeg schijfruimte.",
+      "checksum": "Download mislukt: het bestand heeft de integriteitscontrole niet doorstaan.",
+      "other": "Download mislukt.",
+      "retry": "Opnieuw proberen",
+      "skip": "Nu overslaan"
     }
   },
   "settings": {

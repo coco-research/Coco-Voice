@@ -190,7 +190,15 @@
       "streaming": "말하는 동안 실시간으로 음성 인식 결과를 표시"
     },
     "legacy": "레거시",
-    "licence": "라이선스: {{licence}}"
+    "licence": "라이선스: {{licence}}",
+    "downloadFailed": {
+      "network": "다운로드 실패: 인터넷 연결을 확인하세요.",
+      "diskSpace": "다운로드 실패: 디스크 공간이 부족합니다.",
+      "checksum": "다운로드 실패: 파일이 무결성 검사를 통과하지 못했습니다.",
+      "other": "다운로드 실패.",
+      "retry": "다시 시도",
+      "skip": "지금은 건너뛰기"
+    }
   },
   "settings": {
     "modelSettings": {

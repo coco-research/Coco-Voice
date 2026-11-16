@@ -190,7 +190,15 @@
     "cancel": "キャンセル",
     "cancelDownload": "ダウンロードをキャンセル",
     "legacy": "旧式",
-    "licence": "ライセンス: {{licence}}"
+    "licence": "ライセンス: {{licence}}",
+    "downloadFailed": {
+      "network": "ダウンロードに失敗しました：インターネット接続を確認してください。",
+      "diskSpace": "ダウンロードに失敗しました：ディスクの空き容量が不足しています。",
+      "checksum": "ダウンロードに失敗しました：ファイルが整合性チェックに合格しませんでした。",
+      "other": "ダウンロードに失敗しました。",
+      "retry": "もう一度試す",
+      "skip": "今はスキップ"
+    }
   },
   "settings": {
     "modelSettings": {

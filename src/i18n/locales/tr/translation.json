@@ -190,7 +190,15 @@
     "cancel": "İptal",
     "cancelDownload": "İndirmeyi iptal et",
     "legacy": "Eski",
-    "licence": "Lisans: {{licence}}"
+    "licence": "Lisans: {{licence}}",
+    "downloadFailed": {
+      "network": "İndirme başarısız: internet bağlantınızı kontrol edin.",
+      "diskSpace": "İndirme başarısız: yeterli disk alanı yok.",
+      "checksum": "İndirme başarısız: dosya bütünlük denetiminden geçemedi.",
+      "other": "İndirme başarısız.",
+      "retry": "Yeniden dene",
+      "skip": "Şimdilik atla"
+    }
   },
   "settings": {
     "modelSettings": {

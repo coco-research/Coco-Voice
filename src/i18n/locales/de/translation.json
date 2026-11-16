@@ -190,7 +190,15 @@
     "cancel": "Abbrechen",
     "cancelDownload": "Download abbrechen",
     "legacy": "Veraltet",
-    "licence": "Lizenz: {{licence}}"
+    "licence": "Lizenz: {{licence}}",
+    "downloadFailed": {
+      "network": "Download fehlgeschlagen: Prüfe deine Internetverbindung.",
+      "diskSpace": "Download fehlgeschlagen: Nicht genug Speicherplatz.",
+      "checksum": "Download fehlgeschlagen: Die Datei hat die Integritätsprüfung nicht bestanden.",
+      "other": "Download fehlgeschlagen.",
+      "retry": "Erneut versuchen",
+      "skip": "Vorerst überspringen"
+    }
   },
   "settings": {
     "modelSettings": {
