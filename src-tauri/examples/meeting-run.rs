@@ -298,7 +298,7 @@ impl coco_voice_lib::meeting_notes_runner::NotesGenerator for ExtractiveDevNotes
 #[cfg(feature = "meetings")]
 fn run_engine(cli: Cli) -> Result<serde_json::Value> {
     use coco_voice_lib::managers::meeting_chunker::{channel_label, CHANNEL_ME, CHANNEL_OTHERS};
-    use coco_voice_lib::managers::meetings::{MeetingChannel, MeetingsStore};
+    use coco_voice_lib::managers::meetings::MeetingsStore;
     use coco_voice_lib::meeting_controller::{MeetingController, MeetingState, NoopRecorders};
     use coco_voice_lib::meeting_notes_v42::{catch_up_window, run_notes_with_quality};
     use serde_json::json;
@@ -462,26 +462,26 @@ fn run_engine(cli: Cli) -> Result<serde_json::Value> {
             Ok(json!({"todos": todos}))
         }
         Some(Cmd::Import { path }) => {
-            let mut n = 0usize;
-            for entry in std::fs::read_dir(&path)? {
-                let p = entry?.path();
-                if p.extension().is_some_and(|e| e == "md" || e == "txt") {
-                    let t = p.file_stem().and_then(|s| s.to_str()).unwrap_or("Imported");
-                    if store.search_meetings(t)?.iter().all(|m| m.title != t) {
-                        let mid = store.start_meeting(t, "imported")?;
-                        store.insert_segment(
-                            mid,
-                            0,
-                            0,
-                            MeetingChannel::Others,
-                            &std::fs::read_to_string(&p)?,
-                        )?;
-                        store.finalise(mid, false)?;
-                        n += 1;
-                    }
+            use coco_voice_lib::meeting_import::{
+                import_notes_path, imported_raw_text, list_meetings_in_named_folder,
+            };
+
+            let summary = import_notes_path(&store, &path, None)?;
+            let in_folder = list_meetings_in_named_folder(&store, &summary.folder)?;
+            let mut texts = Vec::with_capacity(summary.meeting_ids.len());
+            for &mid in &summary.meeting_ids {
+                if let Some(raw) = imported_raw_text(&store, mid)? {
+                    texts.push(raw);
                 }
             }
-            Ok(json!({"imported": n}))
+            Ok(json!({
+                "folder": summary.folder,
+                "imported": summary.imported_count,
+                "skipped": summary.skipped_count,
+                "folder_count": in_folder.len(),
+                "meeting_ids": summary.meeting_ids,
+                "texts": texts,
+            }))
         }
         Some(Cmd::AddAudio { consent }) => {
             use coco_voice_lib::audio_toolkit::read_wav_samples;

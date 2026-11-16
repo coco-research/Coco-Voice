@@ -5,7 +5,6 @@
 //! and deduplicates by SHA-256 so re-importing the same path adds nothing.
 
 #![cfg(feature = "meetings")]
-#![allow(dead_code, unused_imports)]
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -278,5 +277,255 @@ fn parse_export(raw_text: &str, fallback_title: &str, fallback_ts: i64) -> Parse
         ended_at,
         notes,
         segments,
+    }
+}
+
+/// Import one `.md`/`.markdown`/`.txt` file or a directory of exports into `target_folder`
+/// (`"Imported"` when `None`). Re-running on already-imported files is a no-op.
+pub fn import_notes_path(
+    store: &MeetingsStore,
+    path: &Path,
+    target_folder: Option<&str>,
+) -> Result<ImportSummary> {
+    if !path.exists() {
+        bail!("import path does not exist: {}", path.display());
+    }
+    let folder = target_folder
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(DEFAULT_IMPORT_FOLDER)
+        .to_string();
+    let mut files: Vec<(String, PathBuf)> = Vec::new();
+    if path.is_file() {
+        if !is_supported_note_file(path) {
+            bail!("unsupported import file extension: {}", path.display());
+        }
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("note.md")
+            .to_string();
+        files.push((name, path.to_path_buf()));
+    } else if path.is_dir() {
+        collect_note_files(path, path, &mut files)?;
+    } else {
+        bail!("import path must be a regular file or directory");
+    }
+
+    let folder_id = if files.is_empty() {
+        None
+    } else {
+        Some(ensure_folder_id(store, &folder)?)
+    };
+    let mut conn = open_conn(store)?;
+    let now = Utc::now().timestamp();
+    let (mut imported_count, mut skipped_count, mut meeting_ids) = (0usize, 0usize, Vec::new());
+
+    for (rel_key, file_path) in files {
+        let bytes =
+            fs::read(&file_path).with_context(|| format!("read {}", file_path.display()))?;
+        let raw_text = String::from_utf8(bytes.clone())
+            .with_context(|| format!("{} is not valid UTF-8", file_path.display()))?;
+        let hash = source_hash(&rel_key, &bytes);
+        let exists: Option<i64> = conn
+            .query_row(
+                "SELECT meeting_id FROM meeting_imports WHERE source_hash = ?1",
+                params![&hash],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if exists.is_some() {
+            skipped_count += 1;
+            continue;
+        }
+
+        let fallback = file_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Imported note");
+        let parsed = parse_export(&raw_text, fallback, now);
+        let status = if parsed.notes.is_empty() {
+            "transcript_ready"
+        } else {
+            "notes_ready"
+        };
+
+        let tx = conn.transaction()?;
+        tx.execute(
+            "INSERT INTO meetings (started_at, ended_at, title, status, model_id, saved, folder_id)
+             VALUES (?1, ?2, ?3, ?4, 'imported', 1, ?5)",
+            params![
+                parsed.started_at,
+                parsed.ended_at.or(Some(parsed.started_at)),
+                &parsed.title,
+                status,
+                folder_id,
+            ],
+        )?;
+        let id = tx.last_insert_rowid();
+        for (pos, n) in parsed.notes.iter().enumerate() {
+            tx.execute(
+                "INSERT INTO meeting_notes (meeting_id, kind, text, owner, citations, position)
+                 VALUES (?1, ?2, ?3, ?4, '[]', ?5)",
+                params![id, &n.kind, &n.text, n.owner.as_deref(), pos as i64],
+            )?;
+        }
+        for (start_ms, ch, text) in &parsed.segments {
+            tx.execute(
+                "INSERT INTO meeting_segments (meeting_id, start_ms, end_ms, channel, text)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![id, start_ms, start_ms + 1000, ch.as_str(), text],
+            )?;
+        }
+        tx.execute(
+            "INSERT INTO meeting_imports (source_hash, meeting_id, source_relpath, raw_text, imported_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![&hash, id, &rel_key, &raw_text, now],
+        )?;
+        tx.commit()?;
+        imported_count += 1;
+        meeting_ids.push(id);
+    }
+
+    Ok(ImportSummary {
+        folder,
+        imported_count,
+        skipped_count,
+        meeting_ids,
+    })
+}
+
+/// Return meetings assigned to flat folder `folder`, newest first.
+pub fn list_meetings_in_named_folder(store: &MeetingsStore, folder: &str) -> Result<Vec<Meeting>> {
+    let _ = open_conn(store)?;
+    let Some(found) = store.list_folders()?.into_iter().find(|f| f.name == folder) else {
+        return Ok(Vec::new());
+    };
+    store.list_meetings_in_folder(FolderFilter::Folder(found.id))
+}
+
+/// Exact original source text stored for an imported meeting.
+pub fn imported_raw_text(store: &MeetingsStore, meeting_id: i64) -> Result<Option<String>> {
+    Ok(open_conn(store)?
+        .query_row(
+            "SELECT raw_text FROM meeting_imports WHERE meeting_id = ?1",
+            params![meeting_id],
+            |r| r.get(0),
+        )
+        .optional()?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::managers::meetings_export::{meeting_markdown, ExportSegment};
+
+    #[test]
+    fn import_folder_places_exports_in_imported_matches_text_and_is_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let exports = dir.path().join("sample-exports");
+        fs::create_dir_all(&exports).unwrap();
+
+        let md_export = [
+            "# Weekly sync",
+            "",
+            "2023-11-14 22:13 UTC to 22:43 UTC",
+            "",
+            "## Summary",
+            "Look at the draft before Friday.",
+            "",
+            "## Decisions",
+            "- Ship on Friday",
+            "",
+            "## Action items",
+            "- Send the deck (owner: Priya)",
+            "",
+            "## Transcript",
+            "[00:05] Me: I will send the deck",
+            "[01:05] Others: Thanks",
+            "",
+        ]
+        .join("\n");
+        let third_party_md = [
+            "---",
+            "title: Customer onboarding",
+            "date: 2024-03-10",
+            "---",
+            "## Key takeaways",
+            "- Smooth setup flow; see https://example.invalid/spec (not fetched)",
+            "## Next steps",
+            "- [ ] Share checklist",
+        ]
+        .join("\n");
+        let plain_txt = "Retrospective notes\n- Keep builds fast\n- Zero network calls\n";
+
+        fs::write(exports.join("01-weekly.md"), &md_export).unwrap();
+        fs::write(exports.join("02-onboarding.markdown"), &third_party_md).unwrap();
+        fs::write(exports.join("03-retro.txt"), plain_txt).unwrap();
+        fs::write(exports.join("ignore.png"), b"\x89PNG\r\n").unwrap();
+
+        let first = import_notes_path(&store, &exports, None).unwrap();
+        assert_eq!(first.folder, "Imported");
+        assert_eq!((first.imported_count, first.skipped_count), (3, 0));
+        assert_eq!(
+            list_meetings_in_named_folder(&store, "Imported")
+                .unwrap()
+                .len(),
+            3
+        );
+
+        let id0 = first.meeting_ids[0];
+        assert_eq!(
+            imported_raw_text(&store, id0).unwrap().as_deref(),
+            Some(md_export.as_str())
+        );
+        assert_eq!(
+            imported_raw_text(&store, first.meeting_ids[1])
+                .unwrap()
+                .as_deref(),
+            Some(third_party_md.as_str())
+        );
+        assert_eq!(
+            imported_raw_text(&store, first.meeting_ids[2])
+                .unwrap()
+                .as_deref(),
+            Some(plain_txt)
+        );
+
+        let m0 = store.meeting(id0).unwrap();
+        let n0 = store.notes(id0).unwrap();
+        let s0: Vec<ExportSegment> = store
+            .segments(id0)
+            .unwrap()
+            .into_iter()
+            .map(|s| ExportSegment {
+                id: s.id,
+                start_ms: s.start_ms,
+                channel: if s.channel == "me" {
+                    "mic".into()
+                } else {
+                    "system".into()
+                },
+                text: s.text,
+            })
+            .collect();
+        assert_eq!(meeting_markdown(&m0, &n0, &s0), md_export);
+        assert_eq!(store.search_meetings("Priya").unwrap().len(), 1);
+
+        let second = import_notes_path(&store, &exports, None).unwrap();
+        assert_eq!((second.imported_count, second.skipped_count), (0, 3));
+        assert_eq!(store.meeting_count().unwrap(), 3);
+    }
+
+    #[test]
+    fn import_refuses_missing_path_and_unsupported_extension() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        assert!(import_notes_path(&store, &dir.path().join("missing.md"), None).is_err());
+        let bad = dir.path().join("archive.zip");
+        fs::write(&bad, b"PK\x03\x04").unwrap();
+        assert!(import_notes_path(&store, &bad, None).is_err());
+        assert_eq!(store.meeting_count().unwrap(), 0);
     }
 }
