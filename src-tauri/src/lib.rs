@@ -15,6 +15,7 @@ mod llm_client;
 #[cfg(target_os = "macos")]
 mod local_llm;
 mod managers;
+pub mod mcp;
 pub mod mcp_store;
 #[cfg(all(feature = "meetings", target_os = "macos"))]
 pub mod meetings_tap;
@@ -587,6 +588,10 @@ pub fn run(cli_args: CliArgs) {
 
     // Detect portable mode before anything else
     portable::init();
+
+    if let Some(cli::CliCommand::Mcp { data_dir }) = &cli_args.command {
+        std::process::exit(mcp::run_stdio(data_dir.as_deref()));
+    }
 
     // Parse console logging directives from RUST_LOG, falling back to info-level logging
     // when the variable is unset
