@@ -15,7 +15,19 @@
     "postProcessing": "Úprava textu",
     "history": "Historie",
     "debug": "Ladění",
-    "about": "O aplikaci"
+    "about": "O aplikaci",
+    "home": "Domů",
+    "recordMeeting": "Nahrát schůzku",
+    "meetingHistory": "Historie schůzek",
+    "askMeetings": "Zeptat se schůzek",
+    "foldersAndTemplates": "Složky a šablony",
+    "agentAccess": "Přístup agenta",
+    "voiceSection": "Hlas",
+    "dictationHistory": "Historie diktování",
+    "perAppProfiles": "Profily podle aplikací",
+    "wordsAndCleanup": "Slova a úpravy",
+    "settings": "Nastavení",
+    "sectionPlaceholder": "Dostupné v této sekci po zapnutí."
   },
   "onboarding": {
     "subtitle": "Pro začátek vyberte model pro přepis",

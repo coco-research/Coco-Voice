@@ -15,7 +15,19 @@
     "postProcessing": "Revisione",
     "history": "Cronologia",
     "debug": "Debug",
-    "about": "Informazioni"
+    "about": "Informazioni",
+    "home": "Home",
+    "recordMeeting": "Registra una riunione",
+    "meetingHistory": "Cronologia riunioni",
+    "askMeetings": "Chiedi alle tue riunioni",
+    "foldersAndTemplates": "Cartelle e modelli",
+    "agentAccess": "Accesso agente",
+    "voiceSection": "Voce",
+    "dictationHistory": "Cronologia dettatura",
+    "perAppProfiles": "Profili per app",
+    "wordsAndCleanup": "Parole e pulizia",
+    "settings": "Impostazioni",
+    "sectionPlaceholder": "Disponibile in questa sezione quando attivo."
   },
   "onboarding": {
     "subtitle": "Per cominciare, scegli un modello di riconoscimento vocale",

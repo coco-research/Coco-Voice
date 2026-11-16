@@ -15,7 +15,19 @@
     "postProcessing": "潤飾",
     "history": "歷史紀錄",
     "debug": "偵錯",
-    "about": "關於"
+    "about": "關於",
+    "home": "首頁",
+    "recordMeeting": "錄製會議",
+    "meetingHistory": "會議記錄",
+    "askMeetings": "詢問會議內容",
+    "foldersAndTemplates": "資料夾與範本",
+    "agentAccess": "代理程式存取",
+    "voiceSection": "語音",
+    "dictationHistory": "聽寫記錄",
+    "perAppProfiles": "各應用程式設定",
+    "wordsAndCleanup": "詞彙與潤飾",
+    "settings": "設定",
+    "sectionPlaceholder": "啟用後可在此分組中使用。"
   },
   "onboarding": {
     "subtitle": "首先，請選擇一種模型",

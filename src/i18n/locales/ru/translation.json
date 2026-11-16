@@ -15,7 +15,19 @@
     "postProcessing": "Очистка текста",
     "history": "История",
     "debug": "Отладка",
-    "about": "О программе"
+    "about": "О программе",
+    "home": "Главная",
+    "recordMeeting": "Записать встречу",
+    "meetingHistory": "История встреч",
+    "askMeetings": "Спросить по встречам",
+    "foldersAndTemplates": "Папки и шаблоны",
+    "agentAccess": "Доступ агента",
+    "voiceSection": "Голос",
+    "dictationHistory": "История диктовки",
+    "perAppProfiles": "Профили для приложений",
+    "wordsAndCleanup": "Слова и очистка",
+    "settings": "Настройки",
+    "sectionPlaceholder": "Доступно в этом разделе после включения."
   },
   "onboarding": {
     "subtitle": "Для начала выберите модель транскрипции",

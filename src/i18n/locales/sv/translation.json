@@ -15,7 +15,19 @@
     "postProcessing": "Rensning",
     "history": "Historik",
     "debug": "Felsökning",
-    "about": "Om"
+    "about": "Om",
+    "home": "Hem",
+    "recordMeeting": "Spela in ett möte",
+    "meetingHistory": "Möteshistorik",
+    "askMeetings": "Fråga dina möten",
+    "foldersAndTemplates": "Mappar och mallar",
+    "agentAccess": "Agentåtkomst",
+    "voiceSection": "Röst",
+    "dictationHistory": "Dikteringshistorik",
+    "perAppProfiles": "Profiler per app",
+    "wordsAndCleanup": "Ord och putsning",
+    "settings": "Inställningar",
+    "sectionPlaceholder": "Tillgängligt i det här avsnittet när det är aktiverat."
   },
   "onboarding": {
     "subtitle": "För att komma igång, välj en transkriptionsmodell",

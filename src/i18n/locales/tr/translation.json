@@ -15,7 +15,19 @@
     "postProcessing": "Düzeltme",
     "history": "Geçmiş",
     "debug": "Hata Ayıklama",
-    "about": "Hakkında"
+    "about": "Hakkında",
+    "home": "Ana Sayfa",
+    "recordMeeting": "Toplantı kaydet",
+    "meetingHistory": "Toplantı geçmişi",
+    "askMeetings": "Toplantılarına sor",
+    "foldersAndTemplates": "Klasörler ve şablonlar",
+    "agentAccess": "Aracı erişimi",
+    "voiceSection": "Ses",
+    "dictationHistory": "Dikte geçmişi",
+    "perAppProfiles": "Uygulama profilleri",
+    "wordsAndCleanup": "Sözcükler ve düzeltme",
+    "settings": "Ayarlar",
+    "sectionPlaceholder": "Etkinleştirildiğinde bu bölümde kullanılabilir."
   },
   "onboarding": {
     "subtitle": "Başlamak için bir transkripsiyon modeli seçin",

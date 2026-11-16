@@ -15,7 +15,19 @@
     "postProcessing": "Nettoyage",
     "history": "Historique",
     "debug": "Débogage",
-    "about": "À propos"
+    "about": "À propos",
+    "home": "Accueil",
+    "recordMeeting": "Enregistrer une réunion",
+    "meetingHistory": "Historique des réunions",
+    "askMeetings": "Interroger vos réunions",
+    "foldersAndTemplates": "Dossiers et modèles",
+    "agentAccess": "Accès agent",
+    "voiceSection": "Voix",
+    "dictationHistory": "Historique de dictée",
+    "perAppProfiles": "Profils par application",
+    "wordsAndCleanup": "Mots et nettoyage",
+    "settings": "Paramètres",
+    "sectionPlaceholder": "Disponible dans cette section une fois activé."
   },
   "onboarding": {
     "subtitle": "Pour commencer, choisissez un modèle de transcription",

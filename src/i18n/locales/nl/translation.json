@@ -15,7 +15,19 @@
     "postProcessing": "Opschonen",
     "history": "Geschiedenis",
     "debug": "Probleemoplossing",
-    "about": "Over Coco Voice"
+    "about": "Over Coco Voice",
+    "home": "Start",
+    "recordMeeting": "Vergadering opnemen",
+    "meetingHistory": "Vergadergeschiedenis",
+    "askMeetings": "Vraag je vergaderingen",
+    "foldersAndTemplates": "Mappen en sjablonen",
+    "agentAccess": "Agenttoegang",
+    "voiceSection": "Spraak",
+    "dictationHistory": "Dicteergeschiedenis",
+    "perAppProfiles": "Profielen per app",
+    "wordsAndCleanup": "Woorden en opschonen",
+    "settings": "Instellingen",
+    "sectionPlaceholder": "Beschikbaar in deze sectie zodra ingeschakeld."
   },
   "onboarding": {
     "subtitle": "Kies een transcriptiemodel om aan de slag te gaan",

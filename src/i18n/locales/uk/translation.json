@@ -15,7 +15,19 @@
     "postProcessing": "Очищення",
     "history": "Історія",
     "debug": "Дебаг",
-    "about": "Інфо"
+    "about": "Інфо",
+    "home": "Головна",
+    "recordMeeting": "Записати зустріч",
+    "meetingHistory": "Історія зустрічей",
+    "askMeetings": "Запитати за зустрічами",
+    "foldersAndTemplates": "Папки та шаблони",
+    "agentAccess": "Доступ агента",
+    "voiceSection": "Голос",
+    "dictationHistory": "Історія диктування",
+    "perAppProfiles": "Профілі для програм",
+    "wordsAndCleanup": "Слова та очищення",
+    "settings": "Налаштування",
+    "sectionPlaceholder": "Доступно в цьому розділі після увімкнення."
   },
   "onboarding": {
     "subtitle": "Для початку оберіть модель транскрипції",

@@ -15,7 +15,19 @@
     "postProcessing": "क्लिन-अप",
     "history": "हिस्ट्री",
     "debug": "डिबग",
-    "about": "बारेमा"
+    "about": "बारेमा",
+    "home": "गृह",
+    "recordMeeting": "बैठक रेकर्ड गर्नुहोस्",
+    "meetingHistory": "बैठक इतिहास",
+    "askMeetings": "आफ्ना बैठकहरूलाई सोध्नुहोस्",
+    "foldersAndTemplates": "फोल्डर र टेम्प्लेटहरू",
+    "agentAccess": "एजेन्ट पहुँच",
+    "voiceSection": "आवाज",
+    "dictationHistory": "डिक्टेसन इतिहास",
+    "perAppProfiles": "एप अनुसार प्रोफाइल",
+    "wordsAndCleanup": "शब्द र सुधार",
+    "settings": "सेटिङहरू",
+    "sectionPlaceholder": "सक्रिय भएपछि यस खण्डमा उपलब्ध हुन्छ।"
   },
   "onboarding": {
     "subtitle": "सुरु गर्न, एउटा ट्रान्सक्रिप्सन मोडेल छान्नुहोस्",

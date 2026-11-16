@@ -15,7 +15,19 @@
     "postProcessing": "Clean up",
     "history": "History",
     "debug": "Debug",
-    "about": "About"
+    "about": "About",
+    "home": "Home",
+    "recordMeeting": "Record a meeting",
+    "meetingHistory": "Meeting history",
+    "askMeetings": "Ask your meetings",
+    "foldersAndTemplates": "Folders and templates",
+    "agentAccess": "Agent access",
+    "voiceSection": "Voice",
+    "dictationHistory": "Dictation history",
+    "perAppProfiles": "Per-app profiles",
+    "wordsAndCleanup": "Words and clean-up",
+    "settings": "Settings",
+    "sectionPlaceholder": "Available in this section when configured."
   },
   "onboarding": {
     "subtitle": "To get started, choose a transcription model",
