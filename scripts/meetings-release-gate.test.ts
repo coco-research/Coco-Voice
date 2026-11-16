@@ -29,9 +29,19 @@ function featureLists(text: string): string[] {
   return lists;
 }
 
+// The system-audio usage key lives only in the meetings plist; release builds must not pull it in.
+const meetingsPlistRefs = [
+  "tauri.meetings.conf",
+  "Info.meetings.plist",
+  "infoPlist",
+];
+
 function enablesMeetings(text: string): string[] {
   const hits: string[] = [];
   if (text.includes("VITE_MEETINGS")) hits.push("sets VITE_MEETINGS");
+  for (const ref of meetingsPlistRefs) {
+    if (text.includes(ref)) hits.push(`references ${ref}`);
+  }
   for (const list of featureLists(text)) {
     const names = list.split(",").map((name) => name.trim());
     if (names.includes("meetings")) hits.push(list);
@@ -65,4 +75,40 @@ test("release_workflows_do_not_enable_meetings", () => {
   }
 
   expect(hits).toEqual([]);
+});
+
+const systemAudioKey = "NSAudioCaptureUsageDescription";
+
+function plistString(plist: string, key: string): string | undefined {
+  const match = plist.match(
+    new RegExp(`<key>${key}</key>\\s*<string>([^<]*)</string>`),
+  );
+  return match?.[1];
+}
+
+test("default_info_plist_has_no_system_audio_key", () => {
+  const plist = readFileSync(join(root, "src-tauri/Info.plist"), "utf8");
+  expect(plist).not.toContain(systemAudioKey);
+  expect(plistString(plist, "NSMicrophoneUsageDescription")).toBeTruthy();
+
+  const config = JSON.parse(
+    readFileSync(join(root, "src-tauri/tauri.conf.json"), "utf8"),
+  );
+  expect(config.bundle?.macOS?.infoPlist).toBeUndefined();
+});
+
+test("meetings_config_adds_system_audio_key", () => {
+  const config = JSON.parse(
+    readFileSync(join(root, "src-tauri/tauri.meetings.conf.json"), "utf8"),
+  );
+  expect(config.bundle.macOS.infoPlist).toBe("Info.meetings.plist");
+
+  const plist = readFileSync(
+    join(root, "src-tauri/Info.meetings.plist"),
+    "utf8",
+  );
+  expect(plistString(plist, systemAudioKey)?.trim()).toBeTruthy();
+  expect(
+    plistString(plist, "NSMicrophoneUsageDescription")?.trim(),
+  ).toBeTruthy();
 });
