@@ -7,7 +7,7 @@ use crate::settings::{AppSettings, ClipboardHandling, PasteMethod};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum AccessibilityOnboardingState {
     Granted,
