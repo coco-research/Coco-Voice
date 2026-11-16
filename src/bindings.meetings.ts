@@ -140,11 +140,72 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async listMeetings(): Promise<Result<MeetingListItem[], string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("list_meetings"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async searchMeetings(
+    query: string,
+  ): Promise<Result<MeetingListItem[], string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("search_meetings", { query }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async exportMeetingMarkdown(
+    id: number,
+    destPath: string,
+  ): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("export_meeting_markdown", { id, destPath }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async deleteMeeting(
+    id: number,
+  ): Promise<Result<MeetingDeleteResult, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("delete_meeting", { id }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
 };
 
 /** user-defined types **/
 
 export type MeetingChannel = "me" | "others";
+export type MeetingDeleteResult = {
+  audio_left: boolean;
+};
+export type MeetingListItem = {
+  id: number;
+  title: string;
+  started_at: number;
+  ended_at: number | null;
+  notes_ready: boolean;
+};
 export type MeetingNoteLineView = {
   kind: string;
   text: string;

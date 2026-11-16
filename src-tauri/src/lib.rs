@@ -30,6 +30,8 @@ mod meeting_notes_pieces;
 #[cfg(feature = "meetings")]
 mod meeting_notes_runner;
 #[cfg(feature = "meetings")]
+mod meetings_list;
+#[cfg(feature = "meetings")]
 mod meeting_session;
 #[cfg(feature = "meetings")]
 mod meetings;
@@ -600,6 +602,10 @@ fn meetings_command_names() -> &'static [&'static str] {
             "meeting_notes_snapshot",
             "save_meeting_notepad",
             "retry_meeting_notes",
+            "list_meetings",
+            "search_meetings",
+            "export_meeting_markdown",
+            "delete_meeting",
         ]
     }
     #[cfg(not(feature = "meetings"))]
@@ -624,7 +630,11 @@ macro_rules! collect_app_commands {
             meeting_controller::meeting_segments,
             meeting_notes_job::meeting_notes_snapshot,
             meeting_notes_job::save_meeting_notepad,
-            meeting_notes_job::retry_meeting_notes
+            meeting_notes_job::retry_meeting_notes,
+            meetings_list::list_meetings,
+            meetings_list::search_meetings,
+            meetings_list::export_meeting_markdown,
+            meetings_list::delete_meeting
         ]
     };
 }
