@@ -16,6 +16,8 @@ mod llm_client;
 mod local_llm;
 mod managers;
 #[cfg(feature = "meetings")]
+pub mod meeting_ask;
+#[cfg(feature = "meetings")]
 pub mod meeting_ask_index;
 #[cfg(all(feature = "meetings", target_os = "macos"))]
 pub mod meetings_tap;
