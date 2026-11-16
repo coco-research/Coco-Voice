@@ -513,6 +513,10 @@ pub struct AppSettings {
     #[cfg(feature = "meetings")]
     #[serde(default = "default_meetings_enabled")]
     pub meetings_enabled: bool,
+    /// Remove a meeting's audio folder once notes save succeeds. On by default.
+    #[cfg(feature = "meetings")]
+    #[serde(default = "default_delete_audio_after_notes")]
+    pub delete_audio_after_notes: bool,
 }
 
 fn default_model() -> String {
@@ -591,6 +595,11 @@ fn default_overlay_style() -> OverlayStyle {
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn default_meetings_enabled() -> bool {
     false
+}
+
+#[cfg(feature = "meetings")]
+pub(crate) fn default_delete_audio_after_notes() -> bool {
+    true
 }
 
 /// Meetings UI shows only when the setting is on and `os` is macOS 14.4 or newer.
@@ -1210,6 +1219,8 @@ pub fn get_default_settings() -> AppSettings {
         overlay_style: default_overlay_style(),
         #[cfg(feature = "meetings")]
         meetings_enabled: default_meetings_enabled(),
+        #[cfg(feature = "meetings")]
+        delete_audio_after_notes: default_delete_audio_after_notes(),
     }
 }
 

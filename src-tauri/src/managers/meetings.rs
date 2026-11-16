@@ -431,6 +431,24 @@ impl MeetingsStore {
         Ok(())
     }
 
+    /// Remove only `{meetings dir}/<id>` audio files while keeping database rows.
+    pub fn delete_meeting_audio(&self, id: i64) -> Result<()> {
+        let meetings_dir = self
+            .db_path
+            .parent()
+            .ok_or_else(|| anyhow!("no meetings dir for {}", self.db_path.display()))?;
+        let name = id.to_string();
+        let dir = meetings_dir.join(&name);
+        if dir.file_name().and_then(|n| n.to_str()) != Some(name.as_str()) {
+            return Err(anyhow!("refusing to delete {}", dir.display()));
+        }
+        match fs::remove_dir_all(&dir) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(anyhow!("remove {}: {e}", dir.display())),
+        }
+    }
+
     /// Notepad points of `meeting_id` as `(at_ms, text)`, ordered by `at_ms`
     /// ascending and then by row id ascending.
     pub fn notepad(&self, meeting_id: i64) -> Result<Vec<(i64, String)>> {

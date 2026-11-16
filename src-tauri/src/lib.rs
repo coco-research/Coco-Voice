@@ -30,11 +30,13 @@ mod meeting_notes_pieces;
 #[cfg(feature = "meetings")]
 mod meeting_notes_runner;
 #[cfg(feature = "meetings")]
-mod meetings_list;
+mod meeting_retention;
 #[cfg(feature = "meetings")]
 mod meeting_session;
 #[cfg(feature = "meetings")]
 mod meetings;
+#[cfg(feature = "meetings")]
+mod meetings_list;
 #[cfg(all(feature = "meetings", target_os = "macos"))]
 pub mod meetings_tap;
 mod overlay;
@@ -606,6 +608,9 @@ fn meetings_command_names() -> &'static [&'static str] {
             "search_meetings",
             "export_meeting_markdown",
             "delete_meeting",
+            "meeting_retention_state",
+            "change_delete_audio_after_notes_setting",
+            "delete_all_meetings",
         ]
     }
     #[cfg(not(feature = "meetings"))]
@@ -634,7 +639,10 @@ macro_rules! collect_app_commands {
             meetings_list::list_meetings,
             meetings_list::search_meetings,
             meetings_list::export_meeting_markdown,
-            meetings_list::delete_meeting
+            meetings_list::delete_meeting,
+            meeting_retention::meeting_retention_state,
+            meeting_retention::change_delete_audio_after_notes_setting,
+            meeting_retention::delete_all_meetings
         ]
     };
 }

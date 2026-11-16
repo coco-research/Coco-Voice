@@ -155,13 +155,22 @@ impl NotesJobRunner {
         let store_app = app.clone();
         let gen_app = app.clone();
         let emit_app = app.clone();
+        let retain_app = app;
         Self::new(
             Arc::new(move || MeetingsStore::open_app(&store_app)),
             Arc::new(move || app_notes_generator(&gen_app)),
             Arc::new(move |snap| {
                 let _ = emit_app.emit(NOTES_STATE_EVENT, snap);
             }),
-            Arc::new(|_, _| {}),
+            Arc::new(move |store, meeting_id| {
+                let retain_off =
+                    !crate::settings::get_settings(&retain_app).delete_audio_after_notes;
+                crate::meeting_retention::maybe_remove_audio_after_notes(
+                    store,
+                    meeting_id,
+                    !retain_off,
+                );
+            }),
         )
     }
 

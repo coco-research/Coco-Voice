@@ -191,10 +191,43 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async meetingRetentionState(): Promise<MeetingRetentionState> {
+    return await TAURI_INVOKE("meeting_retention_state");
+  },
+  async changeDeleteAudioAfterNotesSetting(
+    enabled: boolean,
+  ): Promise<Result<MeetingRetentionState, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("change_delete_audio_after_notes_setting", {
+          enabled,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async deleteAllMeetings(): Promise<Result<DeleteAllMeetingsResult, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("delete_all_meetings"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
 };
 
 /** user-defined types **/
 
+export type DeleteAllMeetingsResult = {
+  deleted_count: number;
+  audio_left_count: number;
+};
 export type MeetingChannel = "me" | "others";
 export type MeetingDeleteResult = {
   audio_left: boolean;
@@ -205,6 +238,9 @@ export type MeetingListItem = {
   started_at: number;
   ended_at: number | null;
   notes_ready: boolean;
+};
+export type MeetingRetentionState = {
+  delete_audio_after_notes: boolean;
 };
 export type MeetingNoteLineView = {
   kind: string;
