@@ -238,30 +238,37 @@ pub fn apply_repo_symbols(text: &str, symbols: &[String], threshold: f64) -> Str
         let mut hit: Option<(usize, &String)> = None;
         for n in (1..=5).rev() {
             if i + n <= words.len() {
-                let first_k = norm_key(words[i]);
-                let last_k = norm_key(words[i + n - 1]);
                 let cand: String = words[i..i + n].iter().map(|w| norm_key(w)).collect();
-                if cand.len() < 4 || first_k.is_empty() || last_k.is_empty() {
-                    continue;
-                }
                 if let Some((_, sym)) = sym_keys.iter().find(|(k, _)| *k == cand) {
                     hit = Some((n, *sym));
                     break;
                 }
-                let mut best: Option<(f64, &String)> = None;
-                for (k, sym) in &sym_keys {
-                    if n > 1 && (!k.starts_with(&first_k[..1]) || !k.ends_with(&last_k[last_k.len() - 1..])) {
+            }
+        }
+        if hit.is_none() {
+            for n in (1..=4).rev() {
+                if i + n <= words.len() {
+                    let first_k = norm_key(words[i]);
+                    let last_k = norm_key(words[i + n - 1]);
+                    let cand: String = words[i..i + n].iter().map(|w| norm_key(w)).collect();
+                    if cand.len() < 4 || first_k.len() < 2 || last_k.len() < 2 {
                         continue;
                     }
-                    let max_len = cand.len().max(k.len()) as f64;
-                    let score = levenshtein(&cand, k) as f64 / max_len;
-                    if score <= threshold && best.as_ref().is_none_or(|(b, _)| score < *b) {
-                        best = Some((score, *sym));
+                    let mut best: Option<(f64, &String)> = None;
+                    for (k, sym) in &sym_keys {
+                        if !k.starts_with(&first_k[..2]) || !k.ends_with(&last_k[last_k.len() - 2..]) {
+                            continue;
+                        }
+                        let max_len = cand.len().max(k.len()) as f64;
+                        let score = levenshtein(&cand, k) as f64 / max_len;
+                        if score <= threshold && best.as_ref().is_none_or(|(b, _)| score < *b) {
+                            best = Some((score, *sym));
+                        }
                     }
-                }
-                if let Some((_, sym)) = best {
-                    hit = Some((n, sym));
-                    break;
+                    if let Some((_, sym)) = best {
+                        hit = Some((n, sym));
+                        break;
+                    }
                 }
             }
         }
