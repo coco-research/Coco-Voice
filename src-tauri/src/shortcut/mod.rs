@@ -639,15 +639,19 @@ pub fn change_keyboard_implementation_setting(
     })
 }
 
+fn keyboard_implementation_name(implementation: KeyboardImplementation) -> &'static str {
+    match implementation {
+        KeyboardImplementation::Tauri => "tauri",
+        KeyboardImplementation::CocoVoiceKeys => "coco_voice_keys",
+    }
+}
+
 /// Get the current keyboard implementation
 #[tauri::command]
 #[specta::specta]
 pub fn get_keyboard_implementation(app: AppHandle) -> String {
     let settings = settings::get_settings(&app);
-    match settings.keyboard_implementation {
-        KeyboardImplementation::Tauri => "tauri".to_string(),
-        KeyboardImplementation::CocoVoiceKeys => "coco_keys".to_string(),
-    }
+    keyboard_implementation_name(settings.keyboard_implementation).to_string()
 }
 
 // ============================================================================
@@ -669,8 +673,8 @@ fn validate_shortcut_for_implementation(
 fn parse_keyboard_implementation(s: &str) -> KeyboardImplementation {
     match s {
         "tauri" => KeyboardImplementation::Tauri,
-        // "handy_keys" is a legacy alias for backward compat
-        "coco_keys" | "handy_keys" => KeyboardImplementation::CocoVoiceKeys,
+        // "coco_keys" and "handy_keys" are legacy aliases for backward compat
+        "coco_voice_keys" | "coco_keys" | "handy_keys" => KeyboardImplementation::CocoVoiceKeys,
         other => {
             warn!(
                 "Invalid keyboard implementation '{}', defaulting to tauri",
@@ -1714,6 +1718,34 @@ mod tests {
         );
         assert!(result.is_ok());
         assert_eq!(*calls.borrow(), ["new"]);
+    }
+
+    #[test]
+    fn keyboard_implementation_reports_coco_voice_keys_and_accepts_legacy_aliases() {
+        assert_eq!(
+            keyboard_implementation_name(KeyboardImplementation::CocoVoiceKeys),
+            "coco_voice_keys"
+        );
+        assert_eq!(
+            keyboard_implementation_name(KeyboardImplementation::Tauri),
+            "tauri"
+        );
+        assert_eq!(
+            parse_keyboard_implementation("coco_voice_keys"),
+            KeyboardImplementation::CocoVoiceKeys
+        );
+        assert_eq!(
+            parse_keyboard_implementation("coco_keys"),
+            KeyboardImplementation::CocoVoiceKeys
+        );
+        assert_eq!(
+            parse_keyboard_implementation("handy_keys"),
+            KeyboardImplementation::CocoVoiceKeys
+        );
+        assert_eq!(
+            parse_keyboard_implementation("tauri"),
+            KeyboardImplementation::Tauri
+        );
     }
 }
 

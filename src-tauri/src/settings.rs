@@ -2787,4 +2787,24 @@ mod tests {
             Some(DEFAULT_POST_PROCESS_PROMPT_ID)
         );
     }
+
+    #[test]
+    fn stored_coco_keys_loads_as_coco_voice_keys() {
+        let parsed: KeyboardImplementation = serde_json::from_value(serde_json::json!("coco_keys"))
+            .expect("legacy coco_keys alias must deserialize");
+        assert_eq!(parsed, KeyboardImplementation::CocoVoiceKeys);
+
+        let settings: AppSettings = serde_json::from_value(serde_json::json!({
+            "keyboard_implementation": "coco_keys"
+        }))
+        .expect("stored settings with coco_keys must load");
+        assert_eq!(
+            settings.keyboard_implementation,
+            KeyboardImplementation::CocoVoiceKeys
+        );
+        assert_eq!(
+            serde_json::to_value(settings.keyboard_implementation).unwrap(),
+            serde_json::json!("coco_voice_keys")
+        );
+    }
 }
