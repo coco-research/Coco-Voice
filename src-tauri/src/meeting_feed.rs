@@ -39,6 +39,7 @@ pub(crate) struct Feed {
     pub(crate) me: Mutex<ChannelChunker>,
     pub(crate) others: Mutex<ChannelChunker>,
     pub(crate) tx: Mutex<Option<Sender<Job>>>,
+    pub(crate) paused: AtomicBool,
     pub(crate) write_failed: AtomicBool,
     pub(crate) heard: AtomicBool,
     pub(crate) warnings: Mutex<Vec<MeetingWarning>>,
@@ -46,7 +47,25 @@ pub(crate) struct Feed {
 }
 
 impl Feed {
+    pub(crate) fn is_paused(&self) -> bool {
+        self.paused.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn set_paused(&self, paused: bool) {
+        let was_paused = self.paused.swap(paused, Ordering::AcqRel);
+        if !was_paused && paused {
+            self.finish_chunkers();
+        }
+    }
+
     pub(crate) fn push_others(&self, samples: &[f32]) {
+        if self.is_paused() {
+            self.others
+                .lock()
+                .unwrap_or_else(poison)
+                .skip_paused(samples.len());
+            return;
+        }
         if samples.iter().any(|sample| *sample != 0.0) {
             self.heard.store(true, Ordering::Relaxed);
         }
@@ -57,6 +76,13 @@ impl Feed {
     }
 
     pub(crate) fn push_chunker(&self, chunker: &Mutex<ChannelChunker>, samples: &[f32]) {
+        if self.is_paused() {
+            chunker
+                .lock()
+                .unwrap_or_else(poison)
+                .skip_paused(samples.len());
+            return;
+        }
         let done = chunker.lock().unwrap_or_else(poison).push(samples);
         for chunk in done {
             self.enqueue(chunk);

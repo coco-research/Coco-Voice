@@ -44,6 +44,7 @@ pub enum MeetingState {
     Idle,
     ConsentOpen,
     Recording,
+    Paused,
     Stopping,
 }
 
@@ -74,9 +75,9 @@ pub enum MeetingEnd {
 }
 
 impl MeetingState {
-    /// The pill and its Stop stay up while a meeting records or flushes.
+    /// The pill and its Stop stay up while a meeting records, pauses, or flushes.
     pub fn pill_visible(self) -> bool {
-        matches!(self, Self::Recording | Self::Stopping)
+        matches!(self, Self::Recording | Self::Paused | Self::Stopping)
     }
 }
 
@@ -137,6 +138,12 @@ pub trait MeetingRecorders: Send + Sync {
         })
     }
 
+    /// Pause recording on both tracks while keeping the meeting open.
+    fn pause(&self, _meeting_id: i64) {}
+
+    /// Resume recording into the same meeting.
+    fn resume(&self, _meeting_id: i64) {}
+
     /// Flush and finalise both tracks. Returns the warnings still in force.
     fn stop(&self, _meeting_id: i64, _reason: MeetingEnd) -> Vec<MeetingWarning> {
         Vec::new()
@@ -165,19 +172,30 @@ impl NotesTrigger for NoopNotesTrigger {}
 struct MeetingInner {
     state: MeetingState,
     started_at: Option<Instant>,
+    paused_elapsed: Duration,
     meeting_id: Option<i64>,
     mic_name: Option<String>,
     warnings: Vec<MeetingWarning>,
 }
 
 impl MeetingInner {
+    fn elapsed(&self) -> Duration {
+        self.paused_elapsed
+            + self
+                .started_at
+                .map(|started| started.elapsed())
+                .unwrap_or(Duration::ZERO)
+    }
+
     fn status(&self) -> MeetingStatus {
+        let elapsed_secs = if matches!(self.state, MeetingState::Recording | MeetingState::Paused) {
+            self.elapsed().as_secs()
+        } else {
+            0
+        };
         MeetingStatus {
             state: self.state,
-            elapsed_secs: self
-                .started_at
-                .map(|started| started.elapsed().as_secs())
-                .unwrap_or(0),
+            elapsed_secs,
             meeting_id: self.meeting_id,
             mic_name: self.mic_name.clone(),
             warnings: self.warnings.clone(),
@@ -219,6 +237,7 @@ impl MeetingController {
             inner: Mutex::new(MeetingInner {
                 state: MeetingState::Idle,
                 started_at: None,
+                paused_elapsed: Duration::ZERO,
                 meeting_id: None,
                 mic_name: None,
                 warnings: Vec::new(),
@@ -255,6 +274,7 @@ impl MeetingController {
             inner.mic_name = None;
             inner.warnings.clear();
             inner.started_at = None;
+            inner.paused_elapsed = Duration::ZERO;
         }
         inner.status()
     }
@@ -287,6 +307,7 @@ impl MeetingController {
         inner.mic_name = started.mic_name.clone();
         inner.warnings = started.warnings.clone();
         inner.started_at = Some(Instant::now());
+        inner.paused_elapsed = Duration::ZERO;
         inner.state = MeetingState::Recording;
         inner.status()
     }
@@ -318,6 +339,42 @@ impl MeetingController {
         inner.status()
     }
 
+    /// Pause capture without ending the meeting. Elapsed time freezes and no
+    /// samples are recorded until [`resume`](Self::resume).
+    pub fn pause(&self) -> MeetingStatus {
+        let id = {
+            let mut inner = self.lock();
+            if inner.state != MeetingState::Recording {
+                return inner.status();
+            }
+            inner.paused_elapsed = inner.elapsed();
+            inner.started_at = None;
+            inner.state = MeetingState::Paused;
+            inner.meeting_id
+        };
+        if let Some(id) = id {
+            self.recorders.pause(id);
+        }
+        self.lock().status()
+    }
+
+    /// Resume capture into the same meeting.
+    pub fn resume(&self) -> MeetingStatus {
+        let id = {
+            let mut inner = self.lock();
+            if inner.state != MeetingState::Paused {
+                return inner.status();
+            }
+            inner.started_at = Some(Instant::now());
+            inner.state = MeetingState::Recording;
+            inner.meeting_id
+        };
+        if let Some(id) = id {
+            self.recorders.resume(id);
+        }
+        self.lock().status()
+    }
+
     /// The pill's Stop, or the tray action that ends a meeting.
     pub fn stop(&self) -> MeetingStatus {
         self.finish(MeetingEnd::Stopped)
@@ -339,10 +396,7 @@ impl MeetingController {
             let inner = self.lock();
             (
                 inner.meeting_id,
-                inner
-                    .started_at
-                    .map(|started| started.elapsed().as_secs())
-                    .unwrap_or(0),
+                inner.elapsed().as_secs(),
                 inner.state == MeetingState::Recording,
             )
         };
@@ -371,10 +425,10 @@ impl MeetingController {
             .unwrap_or_else(PoisonError::into_inner);
         let meeting_id = {
             let mut inner = self.lock();
-            // Only Recording moves on: a Stop or sleep that lands while another
-            // finish is flushing must not flush the same meeting twice.
+            // Recording or Paused moves on: a Stop or sleep that lands while
+            // another finish is flushing must not flush the same meeting twice.
             match inner.state {
-                MeetingState::Recording => {
+                MeetingState::Recording | MeetingState::Paused => {
                     inner.state = MeetingState::Stopping;
                     inner.meeting_id
                 }
@@ -392,6 +446,7 @@ impl MeetingController {
             if inner.state == MeetingState::Stopping {
                 inner.state = MeetingState::Idle;
                 inner.started_at = None;
+                inner.paused_elapsed = Duration::ZERO;
                 if !warnings.is_empty() {
                     inner.warnings = warnings;
                 }

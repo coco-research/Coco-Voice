@@ -125,11 +125,50 @@ impl MeetingSession {
     #[cfg(test)]
     pub fn push_me(&self, samples: &[f32]) {
         if let Some(active) = self.active.lock().unwrap_or_else(poison).as_ref() {
+            if active.feed.is_paused() {
+                active.feed.push_chunker(&active.feed.me, samples);
+                return;
+            }
             if !write_optional(&active.feed.me_wav, &active.feed.write_failed, samples) {
                 return;
             }
             active.feed.push_chunker(&active.feed.me, samples);
         }
+    }
+
+    #[cfg(test)]
+    pub fn pause_for_test(&self) {
+        let id = self
+            .active
+            .lock()
+            .unwrap_or_else(poison)
+            .as_ref()
+            .map(|active| active.id);
+        if let Some(id) = id {
+            self.pause_id(id);
+        }
+    }
+
+    #[cfg(test)]
+    pub fn resume_for_test(&self) {
+        let id = self
+            .active
+            .lock()
+            .unwrap_or_else(poison)
+            .as_ref()
+            .map(|active| active.id);
+        if let Some(id) = id {
+            self.resume_id(id);
+        }
+    }
+
+    #[cfg(test)]
+    pub fn active_id_for_test(&self) -> Option<i64> {
+        self.active
+            .lock()
+            .unwrap_or_else(poison)
+            .as_ref()
+            .map(|active| active.id)
     }
 
     #[cfg(test)]
@@ -280,6 +319,42 @@ impl MeetingSession {
         crate::portable::app_data_dir(app).map_err(refuse_io)
     }
 
+    fn pause_id(&self, id: i64) {
+        let slot = self.active.lock().unwrap_or_else(poison);
+        let Some(active) = slot.as_ref() else {
+            return;
+        };
+        if active.id != id {
+            return;
+        }
+        if let Some(mic) = active.mic.as_ref() {
+            mic.set_user_paused(true);
+        }
+        active.feed.set_paused(true);
+        flush_one(&active.feed.system_wav, &active.feed.write_failed);
+        let mut me_wav = active.feed.me_wav.lock().unwrap_or_else(poison);
+        if let Some(wav) = me_wav.as_mut() {
+            if let Err(err) = wav.flush() {
+                active.feed.write_failed.store(true, Ordering::Relaxed);
+                log::error!("meeting wav flush on pause failed: {err}");
+            }
+        }
+    }
+
+    fn resume_id(&self, id: i64) {
+        let slot = self.active.lock().unwrap_or_else(poison);
+        let Some(active) = slot.as_ref() else {
+            return;
+        };
+        if active.id != id {
+            return;
+        }
+        active.feed.set_paused(false);
+        if let Some(mic) = active.mic.as_ref() {
+            mic.set_user_paused(false);
+        }
+    }
+
     fn stop_id(&self, id: i64, reason: MeetingEnd) -> Vec<MeetingWarning> {
         let active = {
             let mut slot = self.active.lock().unwrap_or_else(poison);
@@ -328,6 +403,14 @@ impl MeetingSession {
 impl MeetingRecorders for MeetingSession {
     fn start(&self) -> Result<StartedMeeting, MeetingRefusal> {
         self.begin(true)
+    }
+
+    fn pause(&self, meeting_id: i64) {
+        self.pause_id(meeting_id);
+    }
+
+    fn resume(&self, meeting_id: i64) {
+        self.resume_id(meeting_id);
     }
 
     fn stop(&self, meeting_id: i64, reason: MeetingEnd) -> Vec<MeetingWarning> {
@@ -550,6 +633,7 @@ impl MeetingSession {
             me: Mutex::new(me_chunker),
             others: Mutex::new(others_chunker),
             tx: Mutex::new(Some(tx)),
+            paused: AtomicBool::new(false),
             write_failed: AtomicBool::new(false),
             heard: AtomicBool::new(false),
             warnings: Mutex::new(Vec::new()),
@@ -774,5 +858,74 @@ mod tests {
         let row = store.meeting(id).unwrap();
         assert_eq!(row.status, "transcript_ready");
         assert!(row.ended_at.is_some());
+    }
+
+    #[test]
+    fn meeting_session_pause_keeps_sample_count_unchanged_and_one_meeting_id() {
+        let harness = harness();
+        let id = harness.session.start_for_test(true).unwrap();
+        let speech = vec![0.35_f32; 4_800];
+        let silence = vec![0.0_f32; 8_160];
+        harness.session.push_me(&speech);
+        harness.session.push_me(&silence);
+        harness.session.push_others(&speech);
+        harness.session.push_others(&silence);
+
+        harness.session.pause_for_test();
+        let me_before = read_wav_samples(&track(harness.dir.path(), id, "mic.wav")).unwrap();
+        let sys_before = read_wav_samples(&track(harness.dir.path(), id, "system.wav")).unwrap();
+        assert_eq!(me_before.len(), speech.len() + silence.len());
+        assert_eq!(sys_before.len(), speech.len() + silence.len());
+
+        // Loud audio pushed during pause writes zero samples and emits zero segments.
+        let paused_burst = vec![0.45_f32; 16_000];
+        harness.session.push_me(&paused_burst);
+        harness.session.push_others(&paused_burst);
+        let me_during = read_wav_samples(&track(harness.dir.path(), id, "mic.wav")).unwrap();
+        let sys_during = read_wav_samples(&track(harness.dir.path(), id, "system.wav")).unwrap();
+        assert_eq!(me_during.len(), me_before.len());
+        assert_eq!(sys_during.len(), sys_before.len());
+
+        harness.session.resume_for_test();
+        assert_eq!(harness.session.active_id_for_test(), Some(id));
+        harness.session.push_me(&speech);
+        harness.session.push_me(&silence);
+        harness
+            .session
+            .end(crate::meeting_controller::MeetingEnd::Stopped);
+
+        let store = MeetingsStore::open(harness.dir.path()).unwrap();
+        assert_eq!(store.meeting_count().unwrap(), 1);
+        let me_after = read_wav_samples(&track(harness.dir.path(), id, "mic.wav")).unwrap();
+        assert_eq!(
+            me_after.len(),
+            me_before.len() + speech.len() + silence.len()
+        );
+        let segs = store.segments(id).unwrap();
+        assert!(
+            segs.iter()
+                .all(|seg| seg.end_ms <= 810 || seg.start_ms >= 1810),
+            "unexpected segment inside pause window: {segs:?}"
+        );
+    }
+
+    #[test]
+    fn meeting_session_pause_controller_preserves_meeting_id_and_stops_cleanly() {
+        use crate::meeting_controller::{MeetingController, MeetingState};
+
+        let controller = MeetingController::default();
+        let started = controller.confirm_start().unwrap();
+        assert_eq!(started.state, MeetingState::Recording);
+        let paused = controller.pause();
+        assert_eq!(paused.state, MeetingState::Paused);
+        assert_eq!(paused.meeting_id, started.meeting_id);
+        assert!(controller.pill_visible());
+        let resumed = controller.resume();
+        assert_eq!(resumed.state, MeetingState::Recording);
+        assert_eq!(resumed.meeting_id, started.meeting_id);
+        let paused_again = controller.pause();
+        assert_eq!(paused_again.state, MeetingState::Paused);
+        let stopped = controller.stop();
+        assert_eq!(stopped.state, MeetingState::Idle);
     }
 }

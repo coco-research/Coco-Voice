@@ -292,7 +292,12 @@ export type MeetingSegmentView = {
   end_ms: number;
   text: string;
 };
-export type MeetingState = "idle" | "consent_open" | "recording" | "stopping";
+export type MeetingState =
+  | "idle"
+  | "consent_open"
+  | "recording"
+  | "paused"
+  | "stopping";
 export type MeetingStatus = {
   state: MeetingState;
   elapsed_secs: number;

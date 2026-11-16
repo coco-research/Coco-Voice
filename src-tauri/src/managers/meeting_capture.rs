@@ -302,6 +302,7 @@ pub struct MeetingMic {
     /// The input actually opened. Set when the stream starts.
     mic_name: Mutex<Option<String>>,
     fell_back: AtomicBool,
+    user_paused: Arc<AtomicBool>,
     write_failed: Arc<AtomicBool>,
     on_samples: Arc<Mutex<Option<Arc<dyn Fn(&[f32]) + Send + Sync>>>>,
 }
@@ -348,9 +349,14 @@ impl MeetingMic {
             held: AtomicBool::new(false),
             mic_name: Mutex::new(None),
             fell_back: AtomicBool::new(false),
+            user_paused: Arc::new(AtomicBool::new(false)),
             write_failed: Arc::new(AtomicBool::new(false)),
             on_samples: Arc::new(Mutex::new(None)),
         })
+    }
+
+    pub(crate) fn set_user_paused(&self, paused: bool) {
+        self.user_paused.store(paused, Ordering::Release);
     }
 
     /// Samples that were written to mic.wav. The meeting session feeds its chunker.
@@ -503,11 +509,22 @@ impl MeetingMic {
         self.fell_back.store(choice.fell_back, Ordering::Relaxed);
         let track = Arc::clone(&self.track);
         let error = Arc::clone(&self.error);
+        let user_paused = Arc::clone(&self.user_paused);
         let failed = Arc::clone(&self.write_failed);
         let on_samples = Arc::clone(&self.on_samples);
         let mut recorder = AudioRecorder::new()
             .map_err(|e| anyhow!("Failed to create the meeting recorder: {e}"))?
             .with_audio_callback(move |frame: &[f32]| {
+                if user_paused.load(Ordering::Acquire) {
+                    if let Some(hook) = on_samples
+                        .lock()
+                        .unwrap_or_else(|err| err.into_inner())
+                        .clone()
+                    {
+                        hook(frame);
+                    }
+                    return;
+                }
                 // Runs on the recorder's consumer thread, not the cpal callback.
                 // Never panic: a poisoned lock is recovered. The first write
                 // error pauses the track and records why, so `is_paused()` and

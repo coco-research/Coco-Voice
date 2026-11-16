@@ -16,8 +16,7 @@ const FRAME_SAMPLES: usize = 480;
 const HANGOVER_FRAMES: usize = 15;
 const MAX_CHUNK_SAMPLES: usize = 16_000 * 30;
 const SAMPLE_RATE: u64 = 16_000;
-/// Speech if a frame's peak is at least this. Tests use it in place of Silero.
-#[cfg(test)]
+/// Speech if a frame's peak is at least this. Tests and weight-free runs use it in place of Silero.
 const ENERGY_THRESHOLD: f32 = 0.2;
 
 pub const CHANNEL_ME: &str = "me";
@@ -80,11 +79,9 @@ impl FrameSpeech for SileroSpeech {
     }
 }
 
-/// Peak-energy stand-in for Silero. Meeting tests have no VAD weights.
-#[cfg(test)]
+/// Peak-energy stand-in when Silero weights are not loaded.
 struct EnergySpeech;
 
-#[cfg(test)]
 impl FrameSpeech for EnergySpeech {
     fn is_speech_frame(&mut self, frame: &[f32]) -> bool {
         frame.iter().any(|sample| sample.abs() >= ENERGY_THRESHOLD)
@@ -129,10 +126,22 @@ impl ChannelChunker {
         Ok(Self::new(channel, Box::new(SileroSpeech::new(model_path)?)))
     }
 
-    /// Peak-energy cuts for meeting tests without VAD weights.
-    #[cfg(test)]
+    /// Peak-energy cuts for tests and weight-free runners.
     pub(crate) fn energy(channel: &'static str) -> Self {
         Self::new(channel, Box::new(EnergySpeech))
+    }
+
+    /// Start the chunker clock at `offset_ms` so appended audio continues on the
+    /// same meeting timeline after existing segments.
+    pub(crate) fn with_offset_ms(mut self, offset_ms: i64) -> Self {
+        self.seen = (offset_ms.max(0) as u64) * SAMPLE_RATE / 1000;
+        self
+    }
+
+    /// Advance the meeting timeline across a user pause without buffering or
+    /// running VAD on paused frames.
+    pub fn skip_paused(&mut self, sample_count: usize) {
+        self.seen += sample_count as u64;
     }
 
     pub fn push(&mut self, samples: &[f32]) -> Vec<FinishedChunk> {
