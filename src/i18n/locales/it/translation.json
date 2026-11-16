@@ -131,7 +131,15 @@
       },
       "accessibility": {
         "title": "Accesso all'accessibilità",
-        "description": "Necessario per digitare il testo trascritto nelle tue applicazioni."
+        "description": "Necessario per digitare il testo trascritto nelle tue applicazioni.",
+        "stale": {
+          "description": "macOS indica Coco Voice come consentito, ma la voce non è aggiornata (succede spesso dopo un aggiornamento), quindi incollare non funzionerà. Per risolvere:",
+          "step1": "Apri Impostazioni di Sistema > Privacy e sicurezza > Accessibilità.",
+          "step2": "Seleziona Coco Voice e rimuovilo con il pulsante meno (-).",
+          "step3": "Aggiungi di nuovo Coco Voice con il pulsante più (+) e attivalo.",
+          "checkAgain": "Controlla di nuovo",
+          "continueWithoutTyping": "Continue without typing"
+        }
       },
       "grant": "Consenti accesso",
       "granted": "Concesso",
@@ -141,6 +149,12 @@
         "checkFailed": "Impossibile verificare i permessi. Riprova.",
         "requestFailed": "Impossibile richiedere il permesso. Riprova."
       }
+    },
+    "tryIt": {
+      "title": "Try it",
+      "prompt": "Hold {{shortcut}} and say: \"Monday, scratch that, Tuesday\"",
+      "cleanedResult": "Tuesday.",
+      "done": "Done"
     }
   },
   "modelSelector": {

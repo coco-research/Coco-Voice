@@ -131,7 +131,15 @@
       },
       "accessibility": {
         "title": "Accessibility access",
-        "description": "Required to type transcribed text into your applications."
+        "description": "Required to type transcribed text into your applications.",
+        "stale": {
+          "description": "macOS lists Coco Voice as allowed, but the entry is out of date (this often happens after an update), so pasting won't work. To fix it:",
+          "step1": "Open System Settings > Privacy & Security > Accessibility.",
+          "step2": "Select Coco Voice and remove it with the minus (-) button.",
+          "step3": "Add Coco Voice again with the plus (+) button and turn it on.",
+          "checkAgain": "Check again",
+          "continueWithoutTyping": "Continue without typing"
+        }
       },
       "grant": "Allow access",
       "granted": "Granted",
@@ -141,6 +149,12 @@
         "checkFailed": "Failed to check permissions. Please try again.",
         "requestFailed": "Failed to request permission. Please try again."
       }
+    },
+    "tryIt": {
+      "title": "Try it",
+      "prompt": "Hold {{shortcut}} and say: \"Monday, scratch that, Tuesday\"",
+      "cleanedResult": "Tuesday.",
+      "done": "Done"
     }
   },
   "modelSelector": {

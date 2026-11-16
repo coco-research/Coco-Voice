@@ -131,7 +131,15 @@
       },
       "accessibility": {
         "title": "Acceso de accesibilidad",
-        "description": "Necesario para escribir el texto transcrito en tus aplicaciones."
+        "description": "Necesario para escribir el texto transcrito en tus aplicaciones.",
+        "stale": {
+          "description": "macOS muestra Coco Voice como permitido, pero la entrada está desactualizada (suele pasar tras una actualización), así que pegar no funcionará. Para solucionarlo:",
+          "step1": "Abre Ajustes del Sistema > Privacidad y seguridad > Accesibilidad.",
+          "step2": "Selecciona Coco Voice y elimínalo con el botón menos (-).",
+          "step3": "Vuelve a añadir Coco Voice con el botón más (+) y actívalo.",
+          "checkAgain": "Comprobar de nuevo",
+          "continueWithoutTyping": "Continue without typing"
+        }
       },
       "grant": "Permitir acceso",
       "granted": "Concedido",
@@ -141,6 +149,12 @@
         "checkFailed": "Error al verificar permisos. Por favor, inténtalo de nuevo.",
         "requestFailed": "Error al solicitar permiso. Por favor, inténtalo de nuevo."
       }
+    },
+    "tryIt": {
+      "title": "Try it",
+      "prompt": "Hold {{shortcut}} and say: \"Monday, scratch that, Tuesday\"",
+      "cleanedResult": "Tuesday.",
+      "done": "Done"
     }
   },
   "modelSelector": {

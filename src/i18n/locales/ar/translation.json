@@ -131,7 +131,15 @@
       },
       "accessibility": {
         "title": "إمكانية الوصول",
-        "description": ".مطلوب لكتابة النص المفرغ في تطبيقاتك"
+        "description": ".مطلوب لكتابة النص المفرغ في تطبيقاتك",
+        "stale": {
+          "description": "يعرض macOS أن Coco Voice مسموح له، لكن الإدخال قديم (يحدث هذا غالبًا بعد التحديث)، لذا لن يعمل اللصق. لإصلاح ذلك:",
+          "step1": "افتح إعدادات النظام > الخصوصية والأمان > إمكانية الوصول.",
+          "step2": "حدد Coco Voice وأزله باستخدام زر الطرح (-).",
+          "step3": "أضف Coco Voice مرة أخرى باستخدام زر الإضافة (+) وفعّله.",
+          "checkAgain": "تحقق مرة أخرى",
+          "continueWithoutTyping": "Continue without typing"
+        }
       },
       "grant": "منح الإذن",
       "granted": "تم المنح",
@@ -141,6 +149,12 @@
         "checkFailed": "فشل التحقق من الأذونات. يرجير المحاولة مرة أخرى.",
         "requestFailed": "فشل طلب الإذن. يرجى المحاولة مرة أخرى."
       }
+    },
+    "tryIt": {
+      "title": "Try it",
+      "prompt": "Hold {{shortcut}} and say: \"Monday, scratch that, Tuesday\"",
+      "cleanedResult": "Tuesday.",
+      "done": "Done"
     }
   },
   "modelSelector": {
