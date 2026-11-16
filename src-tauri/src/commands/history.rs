@@ -130,11 +130,12 @@ pub async fn retry_history_entry_transcription(
 #[tauri::command]
 #[specta::specta]
 pub async fn update_history_entry_text(
-    _app: AppHandle,
+    app: AppHandle,
     history_manager: State<'_, Arc<HistoryManager>>,
     id: i64,
     text: String,
 ) -> Result<(), String> {
+    use tauri::Emitter;
     let entry = history_manager
         .get_entry_by_id(id)
         .await
@@ -146,11 +147,16 @@ pub async fn update_history_entry_text(
         .as_deref()
         .map(|s| !s.trim().is_empty())
         .unwrap_or(false);
+    let previous_display = if has_post_processed {
+        entry.post_processed_text.clone().unwrap_or_default()
+    } else {
+        entry.transcription_text.clone()
+    };
 
     let (transcription_text, post_processed_text) = if has_post_processed {
-        (entry.transcription_text, Some(text))
+        (entry.transcription_text, Some(text.clone()))
     } else {
-        (text, entry.post_processed_text)
+        (text.clone(), entry.post_processed_text)
     };
 
     history_manager
@@ -160,8 +166,43 @@ pub async fn update_history_entry_text(
             post_processed_text,
             entry.post_process_prompt,
         )
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    let settings = crate::settings::get_settings(&app);
+    let suggestions = crate::audio_toolkit::suggest_spelling_corrections(
+        &previous_display,
+        &text,
+        &settings.custom_words,
+        &settings.corrections,
+    );
+    if !suggestions.is_empty() {
+        let _ = app.emit("spelling-correction-suggested", &suggestions);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn suggest_corrections_from_edit(
+    app: AppHandle,
+    original: String,
+    edited: String,
+) -> Vec<crate::settings::CorrectionPair> {
+    let s = crate::settings::get_settings(&app);
+    crate::audio_toolkit::suggest_spelling_corrections(
+        &original,
+        &edited,
+        &s.custom_words,
+        &s.corrections,
+    )
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn remember_spelling_fix(app: AppHandle, from: String, to: String) -> Result<bool, String> {
+    Ok(crate::settings::update_settings(&app, |s| {
+        crate::audio_toolkit::remember_spelling_correction(s, &from, &to)
+    }))
 }
 
 #[tauri::command]

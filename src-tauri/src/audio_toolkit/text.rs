@@ -287,6 +287,151 @@ pub fn apply_corrections(text: &str, corrections: &[crate::settings::CorrectionP
     result
 }
 
+fn clean_spelling_token(tok: &str) -> &str {
+    tok.trim_matches(|c: char| !c.is_alphanumeric() && !matches!(c, '\'' | '-' | '&'))
+}
+
+fn is_common_stopword(w: &str) -> bool {
+    const STOPS: &[&str] = &[
+        "a", "an", "the", "in", "on", "at", "to", "for", "of", "and", "or", "is", "are", "was",
+        "were", "it", "this", "that",
+    ];
+    STOPS.contains(&w.to_ascii_lowercase().as_str())
+}
+
+/// Extracts spelling-fix offers from a post-paste / history user edit (`original` -> `edited`),
+/// filtering out punctuation-only tweaks, sentence-start capitalization, stopword swaps,
+/// unrelated semantic edits, and pairs already in `existing_corrections`.
+pub(crate) fn suggest_spelling_corrections(
+    original: &str,
+    edited: &str,
+    _existing_custom_words: &[String],
+    existing_corrections: &[crate::settings::CorrectionPair],
+) -> Vec<crate::settings::CorrectionPair> {
+    fn tokenize(s: &str) -> Vec<&str> {
+        s.split_whitespace()
+            .map(clean_spelling_token)
+            .filter(|t| !t.is_empty())
+            .collect()
+    }
+    let (orig, edit) = (tokenize(original), tokenize(edited));
+    if orig.is_empty() || edit.is_empty() || orig == edit {
+        return Vec::new();
+    }
+
+    let (m, n) = (orig.len(), edit.len());
+    let mut dp = vec![vec![0usize; n + 1]; m + 1];
+    for i in (0..m).rev() {
+        for j in (0..n).rev() {
+            dp[i][j] = if orig[i].eq_ignore_ascii_case(edit[j]) {
+                1 + dp[i + 1][j + 1]
+            } else {
+                dp[i + 1][j].max(dp[i][j + 1])
+            };
+        }
+    }
+
+    let (mut anchors, mut i, mut j) = (Vec::new(), 0, 0);
+    while i < m && j < n {
+        if orig[i] == edit[j]
+            || (orig[i].eq_ignore_ascii_case(edit[j]) && dp[i][j] == 1 + dp[i + 1][j + 1])
+        {
+            anchors.push((i, j));
+            i += 1;
+            j += 1;
+        } else if dp[i + 1][j] >= dp[i][j + 1] {
+            i += 1;
+        } else {
+            j += 1;
+        }
+    }
+    anchors.push((m, n));
+
+    let mut out: Vec<crate::settings::CorrectionPair> = Vec::new();
+    let mut push_new = |from: &str, to: &str| {
+        if !existing_corrections
+            .iter()
+            .chain(out.iter())
+            .any(|p| p.from.eq_ignore_ascii_case(from))
+        {
+            out.push(crate::settings::CorrectionPair {
+                from: from.to_string(),
+                to: to.to_string(),
+            });
+        }
+    };
+
+    let (mut prev_i, mut prev_j) = (0usize, 0usize);
+    for (ai, aj) in anchors {
+        if ai < m && aj < n && orig[ai] != edit[aj] {
+            let (from, to) = (orig[ai], edit[aj]);
+            let start_cap = ai == 0
+                && from.eq_ignore_ascii_case(to)
+                && !to.chars().skip(1).any(|c| c.is_uppercase());
+            if !start_cap {
+                push_new(from, to);
+            }
+        }
+        let (o_span, e_span) = (&orig[prev_i..ai], &edit[prev_j..aj]);
+        if (1..=2).contains(&o_span.len()) && (1..=2).contains(&e_span.len()) {
+            let (from, to) = (o_span.join(" "), e_span.join(" "));
+            let (k_from, k_to) = (build_match_key(&from), build_match_key(&to));
+            let ratio =
+                levenshtein(&k_from, &k_to) as f64 / k_from.len().max(k_to.len()).max(1) as f64;
+            let stop_swap = o_span.len() == 1
+                && e_span.len() == 1
+                && is_common_stopword(&from)
+                && is_common_stopword(&to);
+            if !k_from.is_empty()
+                && !k_to.is_empty()
+                && from != to
+                && !stop_swap
+                && (k_from == k_to || (soundex(&k_from, &k_to) && ratio <= 0.55) || ratio <= 0.45)
+            {
+                push_new(&from, &to);
+            }
+        }
+        prev_i = ai + 1;
+        prev_j = aj + 1;
+    }
+    out
+}
+
+/// Persists an accepted spelling fix into local `settings` (`corrections` + `custom_words`)
+/// so future takes apply it automatically.
+pub(crate) fn remember_spelling_correction(
+    settings: &mut crate::settings::AppSettings,
+    from: &str,
+    to: &str,
+) -> bool {
+    let (from, to) = (from.trim(), to.trim());
+    if from.is_empty() || to.is_empty() || from == to {
+        return false;
+    }
+    if let Some(existing) = settings
+        .corrections
+        .iter_mut()
+        .find(|p| p.from.eq_ignore_ascii_case(from))
+    {
+        existing.to = to.to_string();
+    } else {
+        settings.corrections.push(crate::settings::CorrectionPair {
+            from: from.to_string(),
+            to: to.to_string(),
+        });
+    }
+    if !from.contains(' ')
+        && !to.contains(' ')
+        && !settings
+            .custom_words
+            .iter()
+            .any(|w| w.eq_ignore_ascii_case(to))
+    {
+        settings.custom_words.push(to.to_string());
+    }
+    true
+}
+
 static MULTI_SPACE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s{2,}").unwrap());
 
 /// Collapses repeated words (3+ repetitions) to a single instance.
@@ -697,5 +842,49 @@ mod tests {
             apply_corrections("hello world", &corrections),
             "hello world"
         );
+    }
+
+    #[test]
+    fn post_paste_correction_offers_spelling_fix_and_applies_on_next_take() {
+        let mut settings = crate::settings::get_default_settings();
+        let offers = suggest_spelling_corrections(
+            "Deploy it to kubernettis with Charge B.",
+            "Deploy it to Kubernetes with ChargeBee!",
+            &settings.custom_words,
+            &settings.corrections,
+        );
+        assert_eq!(offers.len(), 2);
+        assert_eq!(
+            (offers[0].from.as_str(), offers[0].to.as_str()),
+            ("kubernettis", "Kubernetes")
+        );
+        assert_eq!(
+            (offers[1].from.as_str(), offers[1].to.as_str()),
+            ("Charge B", "ChargeBee")
+        );
+
+        // Punctuation-only edits, sentence-start capitals, and unrelated word swaps make no offer.
+        assert!(suggest_spelling_corrections("hello world", "Hello world!", &[], &[]).is_empty());
+        assert!(
+            suggest_spelling_corrections("ship on Monday", "ship on Friday", &[], &[]).is_empty()
+        );
+
+        for o in &offers {
+            assert!(remember_spelling_correction(&mut settings, &o.from, &o.to));
+        }
+        // Already-remembered pair is not re-offered.
+        assert!(suggest_spelling_corrections(
+            "Deploy it to kubernettis",
+            "Deploy it to Kubernetes",
+            &settings.custom_words,
+            &settings.corrections,
+        )
+        .is_empty());
+
+        // Subsequent take automatically applies both custom_words and corrections.
+        let next_raw = "kubernettis and charge b are live";
+        let after_words = apply_custom_words(next_raw, &settings.custom_words, 0.18);
+        let next_final = apply_corrections(&after_words, &settings.corrections);
+        assert_eq!(next_final, "Kubernetes and ChargeBee are live");
     }
 }
