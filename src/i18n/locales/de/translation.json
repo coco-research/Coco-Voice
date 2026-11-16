@@ -1010,5 +1010,17 @@
       "copyCommand": "Kopieren",
       "recentReadsHeading": "Letzte Lesezugriffe"
     }
+  },
+  "homeNotices": {
+    "staleAccessibility": "Die Bedienungshilfen-Berechtigung funktioniert nach dem Update nicht mehr.",
+    "fixThreeSteps": "Beheben (3 Schritte)",
+    "shortcutUnset": "Ihr Kurzbefehl ist noch nicht eingerichtet.",
+    "chooseShortcut": "Kurzbefehl wählen",
+    "typingOff": "Direktes Tippen ist aus. Diktate landen in der Zwischenablage.",
+    "turnTypingOn": "Tippen einschalten",
+    "cleanupModelMissing": "Bereinigung übersprungen: lokales Modell nicht heruntergeladen.",
+    "openModels": "Modelle öffnen",
+    "updateReady": "Update bereit: {{version}}",
+    "restartNow": "Jetzt neu starten"
   }
 }

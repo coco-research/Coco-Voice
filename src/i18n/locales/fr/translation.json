@@ -1010,5 +1010,17 @@
       "copyCommand": "Copier",
       "recentReadsHeading": "Lectures récentes"
     }
+  },
+  "homeNotices": {
+    "staleAccessibility": "L’accès Accessibilité ne fonctionne plus après la mise à jour.",
+    "fixThreeSteps": "Réparer (3 étapes)",
+    "shortcutUnset": "Votre raccourci n’est pas configuré.",
+    "chooseShortcut": "Choisir un raccourci",
+    "typingOff": "La saisie est désactivée. Les dictées vont dans le presse-papiers.",
+    "turnTypingOn": "Activer la saisie",
+    "cleanupModelMissing": "Nettoyage ignoré : modèle local non téléchargé.",
+    "openModels": "Ouvrir Modèles",
+    "updateReady": "Mise à jour prête : {{version}}",
+    "restartNow": "Redémarrer maintenant"
   }
 }
