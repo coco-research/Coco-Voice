@@ -827,6 +827,23 @@
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
       "notNow": "Not now"
+    },
+    "view": {
+      "title": "Meeting, {{time}}",
+      "channels": "Me and Others",
+      "channel": {
+        "me": "Me",
+        "others": "Others"
+      },
+      "recording": "Recording",
+      "finished": "Finished",
+      "stop": "Stop",
+      "autoScrolling": "Auto-scrolling",
+      "scrollPaused": "Scroll paused",
+      "mic": "Me: {{name}}",
+      "noMeeting": "No meeting is open. Start notes from the menu bar.",
+      "loadFailed": "Could not load the saved lines.",
+      "stopFailed": "Could not stop the meeting."
     }
   }
 }
