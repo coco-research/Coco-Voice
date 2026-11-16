@@ -1366,6 +1366,7 @@ impl ShortcutAction for TranscribeAction {
             should_post_process_take(self.post_process, current_settings.post_process_enabled);
         let correction = self.correction;
         let cancel_generation = rm.cancel_generation();
+        let active_app = crate::app_profiles::read_active_app();
 
         tauri::async_runtime::spawn(async move {
             let _guard = FinishGuard(ah.clone());
@@ -1513,6 +1514,7 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     processed.post_processed_text.clone(),
                                     processed.post_process_prompt.clone(),
+                                    active_app.as_ref().map(|a| a.app_name.clone()),
                                 ) {
                                     Ok(_) => history_saved = true,
                                     Err(err) => error!("Failed to save history entry: {}", err),
@@ -1634,6 +1636,7 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     None,
                                     None,
+                                    active_app.as_ref().map(|a| a.app_name.clone()),
                                 ) {
                                     error!("Failed to save failed history entry: {}", save_err);
                                 }
