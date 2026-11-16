@@ -751,7 +751,14 @@
   "overlay": {
     "transcribing": "正在轉錄...",
     "processing": "整理中...",
-    "polishing": "潤色中..."
+    "polishing": "潤色中...",
+    "pillStates": {
+      "listening": "Listening",
+      "working": "Working",
+      "sentToApp": "Sent to {{app}}",
+      "onClipboard": "On the clipboard",
+      "wordsKeptPressPaste": "Words kept · press ⌘V"
+    }
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} 新功能"

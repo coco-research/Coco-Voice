@@ -751,7 +751,14 @@
   "overlay": {
     "transcribing": "텍스트로 변환 중...",
     "processing": "다듬는 중...",
-    "polishing": "다듬는 중..."
+    "polishing": "다듬는 중...",
+    "pillStates": {
+      "listening": "Listening",
+      "working": "Working",
+      "sentToApp": "Sent to {{app}}",
+      "onClipboard": "On the clipboard",
+      "wordsKeptPressPaste": "Words kept · press ⌘V"
+    }
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}}의 새 소식"

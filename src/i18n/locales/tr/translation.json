@@ -751,7 +751,14 @@
   "overlay": {
     "transcribing": "Transkribe ediliyor...",
     "processing": "Düzenleniyor...",
-    "polishing": "Düzenleniyor..."
+    "polishing": "Düzenleniyor...",
+    "pillStates": {
+      "listening": "Listening",
+      "working": "Working",
+      "sentToApp": "Sent to {{app}}",
+      "onClipboard": "On the clipboard",
+      "wordsKeptPressPaste": "Words kept · press ⌘V"
+    }
   },
   "whatsNew": {
     "title": "Coco Voice v{{version}} yenilikleri"

@@ -751,7 +751,14 @@
   "overlay": {
     "transcribing": "Транскрибиране...",
     "processing": "Изчистване...",
-    "polishing": "Редакция..."
+    "polishing": "Редакция...",
+    "pillStates": {
+      "listening": "Listening",
+      "working": "Working",
+      "sentToApp": "Sent to {{app}}",
+      "onClipboard": "On the clipboard",
+      "wordsKeptPressPaste": "Words kept · press ⌘V"
+    }
   },
   "whatsNew": {
     "title": "Ново в Coco Voice v{{version}}"

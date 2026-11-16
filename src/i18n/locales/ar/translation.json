@@ -751,7 +751,14 @@
   "overlay": {
     "transcribing": "...جاري التفريغ",
     "processing": "...جاري التنقيح",
-    "polishing": "...جاري التحرير"
+    "polishing": "...جاري التحرير",
+    "pillStates": {
+      "listening": "Listening",
+      "working": "Working",
+      "sentToApp": "Sent to {{app}}",
+      "onClipboard": "On the clipboard",
+      "wordsKeptPressPaste": "Words kept · press ⌘V"
+    }
   },
   "whatsNew": {
     "title": "الجديد في Coco Voice v{{version}}"

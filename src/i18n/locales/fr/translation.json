@@ -751,7 +751,14 @@
   "overlay": {
     "transcribing": "Transcription...",
     "processing": "Nettoyage...",
-    "polishing": "Réécriture..."
+    "polishing": "Réécriture...",
+    "pillStates": {
+      "listening": "Écoute",
+      "working": "Traitement",
+      "sentToApp": "Envoyé vers {{app}}",
+      "onClipboard": "Dans le presse-papiers",
+      "wordsKeptPressPaste": "Texte conservé · appuyez sur ⌘V"
+    }
   },
   "whatsNew": {
     "title": "Nouveautés de Coco Voice v{{version}}"
