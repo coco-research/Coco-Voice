@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "Ses Teması",
+        "preview": "Ses temasını dinle",
         "description": "Kayıt başlangıç ve bitişi için sesli geri bildirim temasını seçin"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "Klavye kısayolları uyumsuzdu ve varsayılan ayarlara sıfırlandı"
       },
       "paths": {
+        "title": "Uygulama yolları",
+        "description": "Sorun giderme için dahili klasör ve dosyalar",
         "appData": "Uygulama Verileri:",
         "models": "Modeller:",
         "settings": "Ayarlar:"
@@ -646,6 +649,11 @@
     "open": "Aç",
     "copy": "Kopyala",
     "clear": "Temizle",
+    "selectOption": "Bir seçenek belirleyin...",
+    "notAvailable": "Kullanılamıyor",
+    "moreInfo": "Daha fazla bilgi",
+    "play": "Oynat",
+    "pause": "Duraklat",
     "noOptionsFound": "Seçenek bulunamadı"
   },
   "accessibility": {

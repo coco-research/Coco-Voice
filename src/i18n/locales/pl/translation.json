@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "Motyw dźwiękowy",
+        "preview": "Odsłuchaj motyw dźwiękowy",
         "description": "Wybierz motyw dźwiękowy dla informacji o rozpoczęciu i zakończeniu nagrywania"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "Skróty klawiaturowe były niekompatybilne i zostały zresetowane do wartości domyślnych"
       },
       "paths": {
+        "title": "Ścieżki aplikacji",
+        "description": "Wewnętrzne foldery i pliki do diagnostyki",
         "appData": "Dane aplikacji:",
         "models": "Modele:",
         "settings": "Ustawienia:"
@@ -646,6 +649,11 @@
     "open": "Otwórz",
     "copy": "Kopiuj",
     "clear": "Wyczyść",
+    "selectOption": "Wybierz opcję...",
+    "notAvailable": "Niedostępne",
+    "moreInfo": "Więcej informacji",
+    "play": "Odtwórz",
+    "pause": "Wstrzymaj",
     "noOptionsFound": "Nie znaleziono opcji"
   },
   "accessibility": {

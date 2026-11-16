@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "Tema de Sonido",
+        "preview": "Escuchar tema de sonido",
         "description": "Elige un tema de sonido para la retroalimentación de inicio y parada de grabación"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "Los atajos de teclado eran incompatibles y se restablecieron a los valores predeterminados"
       },
       "paths": {
+        "title": "Rutas de la aplicación",
+        "description": "Carpetas y archivos internos para diagnóstico",
         "appData": "Datos de la Aplicación:",
         "models": "Modelos:",
         "settings": "Configuración:"
@@ -646,6 +649,11 @@
     "open": "Abrir",
     "copy": "Copiar",
     "clear": "Limpiar",
+    "selectOption": "Selecciona una opción...",
+    "notAvailable": "No disponible",
+    "moreInfo": "Más información",
+    "play": "Reproducir",
+    "pause": "Pausar",
     "noOptionsFound": "No se encontraron opciones"
   },
   "accessibility": {

@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "サウンドテーマ",
+        "preview": "効果音を試聴",
         "description": "録音開始・停止フィードバックのサウンドテーマを選択"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "キーボードショートカットに互換性がなかったため、デフォルトにリセットされました"
       },
       "paths": {
+        "title": "アプリのパス",
+        "description": "トラブルシューティング用の内部フォルダとファイル",
         "appData": "アプリデータ:",
         "models": "モデル:",
         "settings": "設定:"
@@ -646,6 +649,11 @@
     "open": "開く",
     "copy": "コピー",
     "clear": "クリア",
+    "selectOption": "選択してください...",
+    "notAvailable": "利用できません",
+    "moreInfo": "詳細情報",
+    "play": "再生",
+    "pause": "一時停止",
     "noOptionsFound": "オプションが見つかりません"
   },
   "accessibility": {

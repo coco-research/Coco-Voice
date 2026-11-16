@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "Chủ đề âm thanh",
+        "preview": "Nghe thử âm thanh",
         "description": "Chọn chủ đề âm thanh cho phản hồi bắt đầu và kết thúc ghi âm"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "Các phím tắt không tương thích và đã được đặt lại về mặc định"
       },
       "paths": {
+        "title": "Đường dẫn ứng dụng",
+        "description": "Thư mục và tệp nội bộ phục vụ chẩn đoán",
         "appData": "Dữ liệu ứng dụng:",
         "models": "Mô hình:",
         "settings": "Cài đặt:"
@@ -646,6 +649,11 @@
     "open": "Mở",
     "copy": "Sao chép",
     "clear": "Xóa",
+    "selectOption": "Chọn một tùy chọn...",
+    "notAvailable": "Không khả dụng",
+    "moreInfo": "Thêm thông tin",
+    "play": "Phát",
+    "pause": "Tạm dừng",
     "noOptionsFound": "Không tìm thấy tùy chọn"
   },
   "accessibility": {

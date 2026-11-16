@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "声音主题",
+        "preview": "试听提示音",
         "description": "选择录制开始和停止反馈的声音主题"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "键盘快捷键不兼容，已重置为默认值"
       },
       "paths": {
+        "title": "应用路径",
+        "description": "用于排查问题的内部文件夹与文件",
         "appData": "应用数据:",
         "models": "模型:",
         "settings": "设置:"
@@ -646,6 +649,11 @@
     "open": "打开",
     "copy": "复制",
     "clear": "清除",
+    "selectOption": "请选择...",
+    "notAvailable": "不可用",
+    "moreInfo": "更多信息",
+    "play": "播放",
+    "pause": "暂停",
     "noOptionsFound": "未找到选项"
   },
   "accessibility": {

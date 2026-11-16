@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "Tema de Som",
+        "preview": "Ouvir tema de som",
         "description": "Escolha um tema de som para feedback de início e parada de gravação"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "Os atalhos de teclado eram incompatíveis e foram redefinidos para os padrões"
       },
       "paths": {
+        "title": "Caminhos do aplicativo",
+        "description": "Pastas e arquivos internos para diagnóstico",
         "appData": "Dados do App:",
         "models": "Modelos:",
         "settings": "Configurações:"
@@ -646,6 +649,11 @@
     "open": "Abrir",
     "copy": "Copiar",
     "clear": "Limpar",
+    "selectOption": "Selecione uma opção...",
+    "notAvailable": "Não disponível",
+    "moreInfo": "Mais informações",
+    "play": "Reproduzir",
+    "pause": "Pausar",
     "noOptionsFound": "Nenhuma opção encontrada"
   },
   "accessibility": {

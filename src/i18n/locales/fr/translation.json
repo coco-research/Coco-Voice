@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "Thème sonore",
+        "preview": "Écouter le thème sonore",
         "description": "Choisir un thème sonore pour les retours de début et de fin d'enregistrement"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "Raccourcis clavier étaient incompatibles et ont été réinitialisés aux valeurs par défaut"
       },
       "paths": {
+        "title": "Chemins de l’application",
+        "description": "Dossiers et fichiers internes pour le dépannage",
         "appData": "Données de l'application :",
         "models": "Modèles :",
         "settings": "Paramètres :"
@@ -646,6 +649,11 @@
     "open": "Ouvrir",
     "copy": "Copier",
     "clear": "Effacer",
+    "selectOption": "Choisir une option...",
+    "notAvailable": "Non disponible",
+    "moreInfo": "Plus d’informations",
+    "play": "Lire",
+    "pause": "Pause",
     "noOptionsFound": "Aucune option trouvée"
   },
   "accessibility": {

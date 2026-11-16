@@ -16,7 +16,7 @@ import { commands, type Theme } from "@/bindings";
  * avoiding a flash of the wrong palette.
  */
 
-export const THEME_STORAGE_KEY = "handy.theme";
+export const THEME_STORAGE_KEY = "coco_voice.theme";
 
 export const THEME_OPTIONS: Theme[] = ["system", "light", "dark"];
 

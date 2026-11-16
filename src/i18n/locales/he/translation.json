@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "ערכת צלילים",
+        "preview": "השמעת דוגמה של ערכת הצלילים",
         "description": "בחר ערכת צלילים להתחלה ולסיום ההקלטה"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "קיצורי המקלדת לא היו תואמים ואופסו לברירות המחדל"
       },
       "paths": {
+        "title": "נתיבי האפליקציה",
+        "description": "תיקיות וקבצים פנימיים לאבחון תקלות",
         "appData": "נתוני אפליקציה:",
         "models": "מודלים:",
         "settings": "הגדרות:"
@@ -646,6 +649,11 @@
     "open": "פתח",
     "copy": "העתק",
     "clear": "נקה",
+    "selectOption": "בחר אפשרות...",
+    "notAvailable": "לא זמין",
+    "moreInfo": "מידע נוסף",
+    "play": "נגן",
+    "pause": "השהה",
     "noOptionsFound": "לא נמצאו אפשרויות"
   },
   "accessibility": {

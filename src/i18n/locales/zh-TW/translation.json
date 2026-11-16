@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "聲音主題",
+        "preview": "試聽提示音",
         "description": "選擇錄製開始和停止回饋的聲音主題"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "鍵盤快捷鍵不相容，已重設為預設值"
       },
       "paths": {
+        "title": "應用程式路徑",
+        "description": "用於排解問題的內部資料夾與檔案",
         "appData": "應用程式資料:",
         "models": "模型:",
         "settings": "設定:"
@@ -646,6 +649,11 @@
     "open": "開啟",
     "copy": "複製",
     "clear": "清除",
+    "selectOption": "請選擇...",
+    "notAvailable": "無法使用",
+    "moreInfo": "更多資訊",
+    "play": "播放",
+    "pause": "暫停",
     "noOptionsFound": "未找到選項"
   },
   "accessibility": {

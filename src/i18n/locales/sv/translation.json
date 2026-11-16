@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "Ljudtema",
+        "preview": "Förhandslyssna på ljudtema",
         "description": "Välj ett ljudtema för återkoppling vid start och stopp av inspelning"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "Kortkommandona var inkompatibla och återställdes till standardvärden"
       },
       "paths": {
+        "title": "Appsökvägar",
+        "description": "Interna mappar och filer för felsökning",
         "appData": "Appdata:",
         "models": "Modeller:",
         "settings": "Inställningar:"
@@ -646,6 +649,11 @@
     "open": "Öppna",
     "copy": "Kopiera",
     "clear": "Rensa",
+    "selectOption": "Välj ett alternativ...",
+    "notAvailable": "Inte tillgänglig",
+    "moreInfo": "Mer information",
+    "play": "Spela",
+    "pause": "Pausa",
     "noOptionsFound": "Inga alternativ hittades"
   },
   "accessibility": {

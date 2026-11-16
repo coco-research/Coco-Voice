@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
@@ -250,5 +250,63 @@ describe("V-C7 (E18): Localized Corrections and History strings with zero missin
     );
     expect(frHtml).not.toContain('placeholder="From"');
     expect(frHtml).not.toContain('placeholder="To"');
+  });
+
+  test("no missing static i18n keys and no leftover Handy code in src/", () => {
+    const srcDir = join(rootDir, "src");
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const full = join(dir, name);
+        return statSync(full).isDirectory() ? walk(full) : [full];
+      });
+
+    const hasKey = (obj: Record<string, unknown>, keyPath: string): boolean => {
+      let cur: unknown = obj;
+      for (const part of keyPath.split(".")) {
+        if (typeof cur !== "object" || cur === null || !(part in cur)) {
+          return false;
+        }
+        cur = (cur as Record<string, unknown>)[part];
+      }
+      return true;
+    };
+
+    const allowedHandyFiles = new Set([
+      "src/bindings.ts",
+      "src/components/settings/CocoVoiceKeysShortcutInput.tsx",
+      "src/components/settings/about/WhatGoesOnline.tsx",
+      "src/content/release-notes/0.9.0.md",
+    ]);
+
+    const missingKeys: string[] = [];
+    const handyHits: string[] = [];
+
+    for (const file of walk(srcDir)) {
+      const rel = relative(rootDir, file).replaceAll("\\", "/");
+      const text = readFileSync(file, "utf8");
+
+      if (!allowedHandyFiles.has(rel) && /handy/i.test(text)) {
+        handyHits.push(rel);
+      }
+      if (!rel.startsWith("src/bindings") && /\.(ts|tsx)$/.test(rel)) {
+        for (const m of text.matchAll(
+          /(?<![A-Za-z0-9_])t\(\s*["']([A-Za-z0-9_.-]+)["']/g,
+        )) {
+          if (!hasKey(en as Record<string, unknown>, m[1])) {
+            missingKeys.push(`${rel}: ${m[1]}`);
+          }
+        }
+        for (const m of text.matchAll(
+          /i18nKey=\s*["']([A-Za-z0-9_.-]+)["']/g,
+        )) {
+          if (!hasKey(en as Record<string, unknown>, m[1])) {
+            missingKeys.push(`${rel}: ${m[1]}`);
+          }
+        }
+      }
+    }
+
+    expect(missingKeys).toEqual([]);
+    expect(handyHits).toEqual([]);
   });
 });

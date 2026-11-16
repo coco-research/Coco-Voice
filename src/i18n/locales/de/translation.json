@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "Sound-Thema",
+        "preview": "Klangthema anhören",
         "description": "Sound-Thema für Aufnahme-Start und -Stop-Feedback auswählen"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "Tastaturkürzel waren inkompatibel und wurden auf die Standardwerte zurückgesetzt"
       },
       "paths": {
+        "title": "App-Pfade",
+        "description": "Interne Ordner und Dateien zur Fehlerdiagnose",
         "appData": "App-Daten:",
         "models": "Modelle:",
         "settings": "Einstellungen:"
@@ -646,6 +649,11 @@
     "open": "Öffnen",
     "copy": "Kopieren",
     "clear": "Leeren",
+    "selectOption": "Option auswählen...",
+    "notAvailable": "Nicht verfügbar",
+    "moreInfo": "Weitere Informationen",
+    "play": "Abspielen",
+    "pause": "Pause",
     "noOptionsFound": "Keine Optionen gefunden"
   },
   "accessibility": {

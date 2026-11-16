@@ -507,6 +507,7 @@
       },
       "soundTheme": {
         "label": "Geluidsthema",
+        "preview": "Geluidsthema beluisteren",
         "description": "Kies een geluidsthema voor feedback bij het starten en stoppen van opnames"
       },
       "wordCorrectionThreshold": {
@@ -554,6 +555,8 @@
         "bindingsReset": "Sneltoetsen waren incompatibel en zijn teruggezet naar de standaardwaarden"
       },
       "paths": {
+        "title": "App-paden",
+        "description": "Interne mappen en bestanden voor probleemoplossing",
         "appData": "App-data:",
         "models": "Modellen:",
         "settings": "Instellingen:"
@@ -649,6 +652,11 @@
     "open": "Openen",
     "copy": "Kopiëren",
     "clear": "Wissen",
+    "selectOption": "Kies een optie...",
+    "notAvailable": "Niet beschikbaar",
+    "moreInfo": "Meer informatie",
+    "play": "Afspelen",
+    "pause": "Pauzeren",
     "noOptionsFound": "Geen opties gevonden"
   },
   "accessibility": {

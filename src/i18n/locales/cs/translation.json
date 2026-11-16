@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "Zvukový motiv",
+        "preview": "Přehrát ukázku zvuku",
         "description": "Vyberte zvukový motiv pro odezvu při startu a ukončení nahrávání"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "Klávesové zkratky byly nekompatibilní a byly obnoveny na výchozí hodnoty"
       },
       "paths": {
+        "title": "Cesty aplikace",
+        "description": "Interní složky a soubory pro diagnostiku",
         "appData": "Data aplikace:",
         "models": "Modely:",
         "settings": "Nastavení:"
@@ -646,6 +649,11 @@
     "open": "Otevřít",
     "copy": "Kopírovat",
     "clear": "Vymazat",
+    "selectOption": "Vyberte možnost...",
+    "notAvailable": "Není k dispozici",
+    "moreInfo": "Více informací",
+    "play": "Přehrát",
+    "pause": "Pozastavit",
     "noOptionsFound": "Nenalezeny žádné možnosti"
   },
   "accessibility": {

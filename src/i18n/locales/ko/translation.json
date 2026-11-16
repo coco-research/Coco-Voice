@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "사운드 테마",
+        "preview": "효과음 미리 듣기",
         "description": "녹음 시작 및 정지 피드백을 위한 사운드 테마를 선택하세요"
       },
       "wordCorrectionThreshold": {
@@ -559,6 +560,8 @@
         "description": "키를 놓은 후 추가로 녹음을 계속하는 시간(밀리초). 후행 오디오를 캡처하기 위함. 0 = 추가 버퍼 없음."
       },
       "paths": {
+        "title": "앱 경로",
+        "description": "문제 해결용 내부 폴더 및 파일 경로",
         "appData": "앱 데이터:",
         "models": "모델:",
         "settings": "설정:"
@@ -646,6 +649,11 @@
     "open": "열기",
     "copy": "복사",
     "clear": "지우기",
+    "selectOption": "옵션 선택...",
+    "notAvailable": "사용할 수 없음",
+    "moreInfo": "자세한 정보",
+    "play": "재생",
+    "pause": "일시정지",
     "noOptionsFound": "옵션을 찾을 수 없습니다"
   },
   "accessibility": {

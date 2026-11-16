@@ -500,6 +500,7 @@
       },
       "soundTheme": {
         "label": "Tema Sonoro",
+        "preview": "Ascolta anteprima suono",
         "description": "Scegli un tema sonoro per il feedback di inizio e fine registrazione"
       },
       "wordCorrectionThreshold": {
@@ -547,6 +548,8 @@
         "bindingsReset": "Le scorciatoie da tastiera erano incompatibili e sono state ripristinate ai valori predefiniti"
       },
       "paths": {
+        "title": "Percorsi dell’app",
+        "description": "Cartelle e file interni per la diagnostica",
         "appData": "Dati App:",
         "models": "Modelli:",
         "settings": "Impostazioni:"
@@ -646,6 +649,11 @@
     "open": "Apri",
     "copy": "Copia",
     "clear": "Svuota",
+    "selectOption": "Seleziona un’opzione...",
+    "notAvailable": "Non disponibile",
+    "moreInfo": "Ulteriori informazioni",
+    "play": "Riproduci",
+    "pause": "Pausa",
     "noOptionsFound": "Nessuna opzione trovata"
   },
   "accessibility": {

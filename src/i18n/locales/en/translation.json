@@ -507,6 +507,7 @@
       },
       "soundTheme": {
         "label": "Sound Theme",
+        "preview": "Preview sound theme",
         "description": "Choose a sound theme for recording start and stop feedback"
       },
       "wordCorrectionThreshold": {
@@ -554,6 +555,8 @@
         "bindingsReset": "Keyboard shortcuts were incompatible and reset to defaults"
       },
       "paths": {
+        "title": "App paths",
+        "description": "Internal folders and files used for troubleshooting",
         "appData": "App Data:",
         "models": "Models:",
         "settings": "Settings:"
@@ -649,6 +652,11 @@
     "open": "Open",
     "copy": "Copy",
     "clear": "Clear",
+    "selectOption": "Select an option...",
+    "notAvailable": "Not available",
+    "moreInfo": "More information",
+    "play": "Play",
+    "pause": "Pause",
     "noOptionsFound": "No options found"
   },
   "accessibility": {
