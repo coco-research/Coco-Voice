@@ -104,7 +104,9 @@ describe("Group 3 (A3, A4, A5, A6, A10) screens", () => {
       />,
     );
     expect(localHtml).toContain("Save notes as Markdown files");
-    expect(localHtml).toContain("Auto-detect");
+    expect(localHtml).toContain(
+      '<option value="auto" selected="">Auto-detect</option>',
+    );
     expect(localHtml).not.toContain("synced-folder-warning");
 
     const dropboxHtml = wrap(
