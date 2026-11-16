@@ -706,6 +706,18 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "offer": {
+      "title": "Start notes?",
+      "zoomInCall": "Zoom is in a call.",
+      "zoomOpen": "Zoom is open.",
+      "teamsInCall": "Teams is in a call.",
+      "teamsOpen": "Teams is open.",
+      "meet": "Google Meet may be open.",
+      "notRecording": "Not recording",
+      "neverOnItsOwn": "Coco Voice never records on its own.",
+      "start": "Start notes",
+      "notNow": "Not now"
     }
   }
 }

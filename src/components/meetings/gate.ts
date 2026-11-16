@@ -7,6 +7,7 @@ export interface MeetingsUi {
     grouped?: boolean;
   }>;
   MeetingsView: ComponentType;
+  OfferPanel: ComponentType;
   icon: ComponentType<{
     width?: number | string;
     height?: number | string;
