@@ -405,9 +405,13 @@ pub fn open_meeting_consent(app: AppHandle) -> MeetingStatus {
 #[specta::specta]
 pub fn confirm_meeting_start(app: AppHandle) -> Result<MeetingStatus, MeetingRefusal> {
     let meeting = controller(&app);
-    let status = meeting.confirm_start()?;
-    emit_status(&app, status.clone());
-    overlay::show_meeting_overlay(&app);
+    // Same lock a dictation hide holds across its state read and its hide.
+    let status = overlay::with_meeting_pill_gate(|| {
+        let status = meeting.confirm_start()?;
+        emit_status(&app, status.clone());
+        overlay::show_meeting_overlay(&app);
+        Ok(status)
+    })?;
     if let Some(meeting_id) = status.meeting_id {
         watch_for_sleep(app, meeting_id);
     }
