@@ -350,10 +350,12 @@ pub fn paste_last_transcript(app: &AppHandle) {
         }
     };
     let app_clone = app.clone();
-    std::thread::spawn(move || match crate::utils::replace_previous(0, text, app_clone) {
-        Ok(_) => info!("Pasted last transcript via tray."),
-        Err(err) => error!("Failed to paste last transcript via tray: {err}"),
-    });
+    std::thread::spawn(
+        move || match crate::utils::replace_previous(0, text, app_clone) {
+            Ok(_) => info!("Pasted last transcript via tray."),
+            Err(err) => error!("Failed to paste last transcript via tray: {err}"),
+        },
+    );
 }
 
 pub fn copy_last_transcript(app: &AppHandle) {
