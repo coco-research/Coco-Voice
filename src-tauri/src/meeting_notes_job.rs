@@ -163,12 +163,21 @@ impl NotesJobRunner {
                 let _ = emit_app.emit(NOTES_STATE_EVENT, snap);
             }),
             Arc::new(move |store, meeting_id| {
-                let retain_off =
-                    !crate::settings::get_settings(&retain_app).delete_audio_after_notes;
+                let cfg = crate::settings::get_settings(&retain_app);
                 crate::meeting_retention::maybe_remove_audio_after_notes(
                     store,
                     meeting_id,
-                    !retain_off,
+                    cfg.delete_audio_after_notes,
+                );
+                let folder = cfg
+                    .notes_markdown_folder
+                    .as_deref()
+                    .map(std::path::Path::new);
+                let _ = crate::meeting_retention::sync_meeting_markdown_file(
+                    store,
+                    meeting_id,
+                    cfg.save_notes_as_markdown,
+                    folder,
                 );
             }),
         )

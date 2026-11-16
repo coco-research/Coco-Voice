@@ -612,6 +612,7 @@ fn meetings_command_names() -> &'static [&'static str] {
             "delete_meeting",
             "meeting_retention_state",
             "change_delete_audio_after_notes_setting",
+            "request_delete_all_meetings",
             "delete_all_meetings",
         ]
     }
@@ -644,6 +645,7 @@ macro_rules! collect_app_commands {
             meetings_list::delete_meeting,
             meeting_retention::meeting_retention_state,
             meeting_retention::change_delete_audio_after_notes_setting,
+            meeting_retention::request_delete_all_meetings,
             meeting_retention::delete_all_meetings
         ]
     };

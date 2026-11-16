@@ -521,6 +521,18 @@ pub struct AppSettings {
     #[cfg(feature = "meetings")]
     #[serde(default)]
     pub meeting_custom_words: Vec<String>,
+    /// Save each finished meeting's notes as a Markdown file in `notes_markdown_folder`. Off by default.
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub save_notes_as_markdown: bool,
+    /// User-chosen folder for per-meeting Markdown files; `None` until picked.
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub notes_markdown_folder: Option<String>,
+    /// Optional scheduled audio retention window in seconds (`V-M4`).
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub meeting_audio_retention_secs: Option<i64>,
 }
 
 fn default_model() -> String {
@@ -1227,6 +1239,12 @@ pub fn get_default_settings() -> AppSettings {
         delete_audio_after_notes: default_delete_audio_after_notes(),
         #[cfg(feature = "meetings")]
         meeting_custom_words: Vec::new(),
+        #[cfg(feature = "meetings")]
+        save_notes_as_markdown: false,
+        #[cfg(feature = "meetings")]
+        notes_markdown_folder: None,
+        #[cfg(feature = "meetings")]
+        meeting_audio_retention_secs: None,
     }
 }
 

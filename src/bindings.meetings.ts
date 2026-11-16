@@ -209,11 +209,24 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
-  async deleteAllMeetings(): Promise<Result<DeleteAllMeetingsResult, string>> {
+  async requestDeleteAllMeetings(): Promise<Result<string, string>> {
     try {
       return {
         status: "ok",
-        data: await TAURI_INVOKE("delete_all_meetings"),
+        data: await TAURI_INVOKE("request_delete_all_meetings"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async deleteAllMeetings(
+    confirmationToken: string | null,
+  ): Promise<Result<DeleteAllMeetingsResult, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("delete_all_meetings", { confirmationToken }),
       };
     } catch (e) {
       if (e instanceof Error) throw e;
