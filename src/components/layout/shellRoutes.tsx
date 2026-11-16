@@ -1,6 +1,7 @@
 import React, { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../hooks/useSettings";
+import { MeetingsList } from "../meetings/MeetingsList";
 import type { MeetingsUi } from "../meetings/gate";
 import { CustomWords } from "../settings/CustomWords";
 import { Corrections } from "../settings/Corrections";
@@ -50,11 +51,6 @@ export type ShellSectionId = ShellRouteSpec["id"];
 const PH: Partial<Record<ShellSectionId, [string, string, RouteDomain]>> = {
   home: ["sidebar.home", "sidebar.home", "home"],
   "meetings-record": ["meetings.sidebar", "sidebar.recordMeeting", "meetings"],
-  "meetings-history": [
-    "meetings.sidebar",
-    "sidebar.meetingHistory",
-    "meetings",
-  ],
   "meetings-ask": ["meetings.sidebar", "sidebar.askMeetings", "meetings"],
   "meetings-folders": [
     "meetings.sidebar",
@@ -118,6 +114,12 @@ export function renderShellSection(
     return (
       <div data-route-domain="meetings" className="w-full">
         <mUi.MeetingsView />
+      </div>
+    );
+  if (s === "meetings-history")
+    return (
+      <div data-route-domain="meetings" className="w-full">
+        <MeetingsList />
       </div>
     );
   if (s === "voice-history")
