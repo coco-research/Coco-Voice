@@ -934,7 +934,21 @@
       "pause": "Pause",
       "resume": "Fortsetzen",
       "pausedBadge": "Pausiert",
-      "pausedHint": "Pausiert: Es wird nichts aufgenommen. Weiterhin eine Besprechung."
+      "pausedHint": "Pausiert: Es wird nichts aufgenommen. Weiterhin eine Besprechung.",
+      "addAudio": "Audio zu dieser Besprechung hinzufügen",
+      "trashTab": "Papierkorb",
+      "kept30Days": "Heute gelöscht · 30 Tage aufbewahrt",
+      "restore": "Wiederherstellen",
+      "searchTranscriptPlaceholder": "Dieses Transkript durchsuchen",
+      "deleteSpan": "Diesen Abschnitt löschen",
+      "olderNoteBanner": "Aufnahme {{title}} {{elapsed}}",
+      "olderNoteHint": "{{title}} nimmt weiter auf, während Sie lesen. Die Zeit läuft weiter.",
+      "backToLive": "Zurück zu den Live-Notizen",
+      "importTab": "Notizen importieren",
+      "importDescription": "Notizen aus einer anderen App übernehmen. Exportierte Markdown- oder Textdateien; nichts wird online abgerufen.",
+      "chooseImportFiles": "Dateien oder Ordner wählen",
+      "importIntoFolder": "In Ordner importieren: {{folder}}",
+      "importAction": "{{count}} Notizen importieren"
     }
   }
 }

@@ -934,7 +934,21 @@
       "pause": "Pause",
       "resume": "Reprendre",
       "pausedBadge": "En pause",
-      "pausedHint": "En pause : rien n’est enregistré. Toujours une seule réunion."
+      "pausedHint": "En pause : rien n’est enregistré. Toujours une seule réunion.",
+      "addAudio": "Ajouter de l’audio à cette réunion",
+      "trashTab": "Corbeille",
+      "kept30Days": "Supprimé aujourd’hui · conservé 30 jours",
+      "restore": "Restaurer",
+      "searchTranscriptPlaceholder": "Rechercher dans cette transcription",
+      "deleteSpan": "Supprimer ce passage",
+      "olderNoteBanner": "Enregistrement de {{title}} {{elapsed}}",
+      "olderNoteHint": "{{title}} continue d’être enregistré pendant votre lecture. Le minuteur tourne toujours.",
+      "backToLive": "Retour aux notes en direct",
+      "importTab": "Importer des notes",
+      "importDescription": "Importez des notes depuis une autre application. Fichiers Markdown ou texte exportés ; rien n’est récupéré en ligne.",
+      "chooseImportFiles": "Choisir des fichiers ou un dossier",
+      "importIntoFolder": "Importer dans le dossier : {{folder}}",
+      "importAction": "Importer {{count}} notes"
     }
   }
 }
