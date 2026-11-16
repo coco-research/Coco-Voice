@@ -84,8 +84,10 @@ export const AboutSettings: React.FC = () => {
             authors:
               "Hongji Wang, Chengdong Liang, Binbin Zhang, Zhengyang Chen, Yanmin Qian, Kong Aik Lee, and WeSpeaker contributors",
             url: "https://github.com/wenet-e2e/wespeaker",
-            details:
+            details: t(
+              "settings.about.acknowledgments.wespeakerDetails",
               "Speaker embedding model for per-meeting grouping (https://github.com/wenet-e2e/wespeaker).",
+            ),
           },
           {
             id: "pyannote",
@@ -93,8 +95,10 @@ export const AboutSettings: React.FC = () => {
             license: "MIT",
             authors: "Hervé Bredin and pyannote.audio contributors",
             url: "https://huggingface.co/pyannote/segmentation-3.0",
-            details:
+            details: t(
+              "settings.about.acknowledgments.pyannoteDetails",
               "On-device speaker turn segmentation model (https://huggingface.co/pyannote/segmentation-3.0).",
+            ),
           },
         ].map((credit) => (
           <SettingContainer

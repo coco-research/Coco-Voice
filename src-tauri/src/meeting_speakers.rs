@@ -30,9 +30,25 @@ pub fn insert_meeting_segment(store: &MeetingsStore, meeting_id: i64, start_ms: 
     Ok(conn.last_insert_rowid())
 }
 
+fn ensure_notes_table(conn: &rusqlite::Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS meeting_notes (
+            id INTEGER PRIMARY KEY,
+            meeting_id INTEGER NOT NULL,
+            kind TEXT NOT NULL DEFAULT '',
+            text TEXT NOT NULL,
+            owner TEXT,
+            citations TEXT NOT NULL DEFAULT '[]',
+            position INTEGER NOT NULL DEFAULT 0
+        );",
+    )?;
+    Ok(())
+}
+
 pub fn insert_meeting_note(store: &MeetingsStore, meeting_id: i64, section: &str, text: &str, speaker_label: &str) -> Result<i64> {
     let conn = store.connection()?;
-    conn.execute("INSERT INTO meeting_notes (meeting_id, section, text, speaker_label) VALUES (?1, ?2, ?3, ?4)", params![meeting_id, section, text, speaker_label])?;
+    ensure_notes_table(&conn)?;
+    conn.execute("INSERT INTO meeting_notes (meeting_id, kind, text, owner, citations, position) VALUES (?1, ?2, ?3, ?4, '[]', 0)", params![meeting_id, section, text, speaker_label])?;
     Ok(conn.last_insert_rowid())
 }
 
@@ -51,7 +67,8 @@ pub fn apply_speaker_spans_after_stop(store: &MeetingsStore, meeting_id: i64, sp
         };
         conn.execute("UPDATE meeting_segments SET speaker_label = ?1 WHERE id = ?2", params![label, seg_id])?;
     }
-    conn.execute("UPDATE meeting_notes SET speaker_label = 'Me' WHERE meeting_id = ?1 AND LOWER(speaker_label) IN ('me', 'mic')", params![meeting_id])?;
+    ensure_notes_table(&conn)?;
+    conn.execute("UPDATE meeting_notes SET owner = 'Me' WHERE meeting_id = ?1 AND LOWER(COALESCE(owner, '')) IN ('me', 'mic')", params![meeting_id])?;
     Ok(())
 }
 
@@ -98,7 +115,8 @@ pub fn meeting_segments(store: &MeetingsStore, meeting_id: i64) -> Result<Vec<Me
 
 pub fn meeting_notes(store: &MeetingsStore, meeting_id: i64) -> Result<Vec<MeetingNoteRow>> {
     let (map, conn) = (speaker_name_map(store, meeting_id)?, store.connection()?);
-    let mut stmt = conn.prepare("SELECT id, section, text, speaker_label FROM meeting_notes WHERE meeting_id = ?1 ORDER BY id")?;
+    ensure_notes_table(&conn)?;
+    let mut stmt = conn.prepare("SELECT id, kind, text, COALESCE(owner, '') FROM meeting_notes WHERE meeting_id = ?1 ORDER BY position, id")?;
     let rows = stmt.query_map(params![meeting_id], |r| {
         let (mut text, slot): (String, String) = (r.get(2)?, r.get(3)?);
         let speaker = if is_me_channel(&slot) { "Me".into() } else { map.get(&slot).cloned().unwrap_or(slot) };

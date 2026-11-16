@@ -16,35 +16,14 @@ const COPY = {
   circle: "○",
   unnamedBadge: "Unnamed",
   ariaPrefix: "Name for",
-  legal:
-    "Speaker labels are worked out per meeting and nothing about anyone's voice is saved.",
+  legal: "Speaker labels are worked out per meeting and nothing about anyone's voice is saved.",
 };
 
 const DEFAULT_SEGMENTS = [
-  {
-    id: 1,
-    time: "00:41",
-    slot: "Speaker 1",
-    text: "Homepage first, then the empty state.",
-  },
-  {
-    id: 2,
-    time: "04:22",
-    slot: "Speaker 2",
-    text: "Export should be one Markdown file.",
-  },
-  {
-    id: 3,
-    time: "09:48",
-    slot: "Speaker 2",
-    text: "I will send the empty-state copy by Thursday.",
-  },
-  {
-    id: 4,
-    time: "12:40",
-    slot: "Speaker 2",
-    text: "I will list the open questions too.",
-  },
+  { id: 1, time: "00:41", slot: "Speaker 1", text: "Homepage first, then the empty state." },
+  { id: 2, time: "04:22", slot: "Speaker 2", text: "Export should be one Markdown file." },
+  { id: 3, time: "09:48", slot: "Speaker 2", text: "I will send the empty-state copy by Thursday." },
+  { id: 4, time: "12:40", slot: "Speaker 2", text: "I will list the open questions too." },
 ];
 
 function meetingsEnabled(settings: unknown): boolean {
@@ -72,16 +51,13 @@ export function sidebarVisible(settings: unknown): boolean {
 
 export function MeetingsView() {
   const { t } = useTranslation();
-  const [names, setNames] = useState<Record<string, string>>({
-    "Speaker 1": "",
-    "Speaker 2": "Dana",
-  });
+  const [names, setNames] = useState<Record<string, string>>({ "Speaker 1": "", "Speaker 2": "Dana" });
 
   return (
     <div className="mn max-w-3xl w-full mx-auto" data-testid="frame-8-speakers">
       <p className="eyebrow">{t("meetings.sidebar", COPY.eyebrow)}</p>
       <h2 className="meet-title">{COPY.defaultTitle}</h2>
-      <p className="meta">{COPY.meta}</p>
+      <p className="meta">{t("meetings.speakersMeta", COPY.meta)}</p>
       <div className="rows">
         {(["Speaker 1", "Speaker 2"] as const).map((slot) => {
           const val = (names[slot] ?? "").trim();
@@ -89,11 +65,9 @@ export function MeetingsView() {
             <div className="row" key={slot}>
               <div className="row-x">
                 <div>
-                  <div className="l1">
-                    <span className="t">{slot}</span>
-                  </div>
+                  <div className="l1"><span className="t">{slot}</span></div>
                   <p className="row-desc">
-                    {val ? COPY.renamedDesc : COPY.unnamedDesc}
+                    {val ? t("meetings.speakersRenamedDesc", COPY.renamedDesc) : t("meetings.speakersUnnamedDesc", COPY.unnamedDesc)}
                   </p>
                 </div>
                 {val ? (
@@ -101,17 +75,12 @@ export function MeetingsView() {
                     className="field rename"
                     type="text"
                     value={names[slot] ?? ""}
-                    aria-label={`${COPY.ariaPrefix} ${slot}`}
-                    onChange={(e) =>
-                      setNames((prev) => ({ ...prev, [slot]: e.target.value }))
-                    }
+                    aria-label={`${t("meetings.speakersAriaPrefix", COPY.ariaPrefix)} ${slot}`}
+                    onChange={(e) => setNames((prev) => ({ ...prev, [slot]: e.target.value }))}
                   />
                 ) : (
                   <span className="mark mark-nobody">
-                    <span className="sh" aria-hidden="true">
-                      {COPY.circle}
-                    </span>{" "}
-                    {COPY.unnamedBadge}
+                    <span className="sh" aria-hidden="true">{COPY.circle}</span> {t("meetings.speakersUnnamedBadge", COPY.unnamedBadge)}
                   </span>
                 )}
               </div>
@@ -120,18 +89,15 @@ export function MeetingsView() {
         })}
       </div>
       <div className="transcript" style={{ height: "auto" }}>
-        {DEFAULT_SEGMENTS.map((seg) => {
-          const who = (names[seg.slot] ?? "").trim() || seg.slot;
-          return (
-            <div className="tline" key={seg.id}>
-              <span className="t-time">{seg.time}</span>
-              <span className="t-who">{who}</span>
-              <span>{seg.text}</span>
-            </div>
-          );
-        })}
+        {DEFAULT_SEGMENTS.map((seg) => (
+          <div className="tline" key={seg.id}>
+            <span className="t-time">{seg.time}</span>
+            <span className="t-who">{(names[seg.slot] ?? "").trim() || seg.slot}</span>
+            <span>{seg.text}</span>
+          </div>
+        ))}
       </div>
-      <p className="legal">{COPY.legal}</p>
+      <p className="legal">{t("meetings.speakersLegal", COPY.legal)}</p>
     </div>
   );
 }

@@ -23,39 +23,36 @@ use crate::audio_toolkit::audio::AppendWav;
 /// A newer meetings.db is refused (`DatabaseTooFarAhead`); dictation is a
 /// different file and is unaffected. The first public meetings binary has to
 /// carry every migration already on disk.
-static MIGRATIONS: &[M] = &[M::up(
-    "CREATE TABLE meetings (
-        id INTEGER PRIMARY KEY,
-        started_at INTEGER NOT NULL,
-        ended_at INTEGER,
-        title TEXT NOT NULL,
-        status TEXT NOT NULL,
-        model_id TEXT NOT NULL,
-        saved INTEGER NOT NULL DEFAULT 0
-    );
-    CREATE TABLE meeting_segments (
-        id INTEGER PRIMARY KEY,
-        meeting_id INTEGER NOT NULL,
-        start_ms INTEGER NOT NULL,
-        end_ms INTEGER NOT NULL,
-        channel TEXT NOT NULL,
-        speaker_label TEXT NOT NULL DEFAULT '',
-        text TEXT NOT NULL
-    );
-    CREATE TABLE meeting_notes (
-        id INTEGER PRIMARY KEY,
-        meeting_id INTEGER NOT NULL,
-        section TEXT NOT NULL,
-        text TEXT NOT NULL,
-        speaker_label TEXT NOT NULL DEFAULT ''
-    );
-    CREATE TABLE meeting_speaker_names (
-        meeting_id INTEGER NOT NULL,
-        speaker_label TEXT NOT NULL,
-        custom_name TEXT NOT NULL,
-        PRIMARY KEY (meeting_id, speaker_label)
-    );",
-)];
+static MIGRATIONS: &[M] = &[
+    M::up(
+        "CREATE TABLE meetings (
+            id INTEGER PRIMARY KEY,
+            started_at INTEGER NOT NULL,
+            ended_at INTEGER,
+            title TEXT NOT NULL,
+            status TEXT NOT NULL,
+            model_id TEXT NOT NULL,
+            saved INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE meeting_segments (
+            id INTEGER PRIMARY KEY,
+            meeting_id INTEGER NOT NULL,
+            start_ms INTEGER NOT NULL,
+            end_ms INTEGER NOT NULL,
+            channel TEXT NOT NULL,
+            text TEXT NOT NULL
+        );",
+    ),
+    M::up(
+        "ALTER TABLE meeting_segments ADD COLUMN speaker_label TEXT NOT NULL DEFAULT '';
+        CREATE TABLE IF NOT EXISTS meeting_speaker_names (
+            meeting_id INTEGER NOT NULL,
+            speaker_label TEXT NOT NULL,
+            custom_name TEXT NOT NULL,
+            PRIMARY KEY (meeting_id, speaker_label)
+        );",
+    ),
+];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Meeting {
@@ -338,11 +335,39 @@ mod tests {
         let meetings_version: i32 = meetings
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(meetings_version, 1);
+        assert_eq!(meetings_version, 2);
         let mode: String = meetings
             .pragma_query_value(None, "journal_mode", |row| row.get(0))
             .unwrap();
         assert_eq!(mode.to_ascii_lowercase(), "wal");
+    }
+
+    #[test]
+    fn v1_meetings_db_upgrades_cleanly_to_v2_speaker_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let meetings_dir = dir.path().join("meetings");
+        fs::create_dir_all(&meetings_dir).unwrap();
+        {
+            let mut conn = Connection::open(meetings_dir.join("meetings.db")).unwrap();
+            Migrations::new(vec![super::MIGRATIONS[0].clone()])
+                .to_latest(&mut conn)
+                .unwrap();
+            conn.execute("INSERT INTO meetings (id, started_at, ended_at, title, status, model_id, saved) VALUES (1, 1700000000, 1700000600, 'V1', 'transcript_ready', 'parakeet', 0)", []).unwrap();
+            conn.execute("INSERT INTO meeting_segments (id, meeting_id, start_ms, end_ms, channel, text) VALUES (10, 1, 0, 2000, 'Others', 'Hello from v1')", []).unwrap();
+        }
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let conn = store.connection().unwrap();
+        let ver: i32 = conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        let (lbl, txt): (String, String) = conn
+            .query_row(
+                "SELECT speaker_label, text FROM meeting_segments WHERE id = 10",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((ver, lbl.as_str(), txt.as_str()), (2, "", "Hello from v1"));
     }
 
     #[test]
