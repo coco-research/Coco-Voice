@@ -179,7 +179,7 @@
     "general": {
       "title": "Chung",
       "shortcut": {
-        "title": "Phím tắt Coco Voice",
+        "title": "Phím tắt bàn phím",
         "description": "Cấu hình phím tắt để kích hoạt ghi âm chuyển đổi giọng nói thành văn bản",
         "loading": "Đang tải phím tắt...",
         "none": "Chưa cấu hình phím tắt",
@@ -187,7 +187,7 @@
         "pressKeys": "Nhấn phím...",
         "bindings": {
           "transcribe": {
-            "name": "Phím tắt chuyển đổi",
+            "name": "Phím tắt đọc chính tả",
             "description": "Phím tắt để ghi âm và chuyển đổi giọng nói của bạn."
           },
           "cancel": {
@@ -230,7 +230,7 @@
         "loading": "Đang tải..."
       },
       "audioFeedback": {
-        "label": "Phản hồi âm thanh",
+        "label": "Âm thanh ghi âm",
         "description": "Phát âm thanh khi bắt đầu và kết thúc ghi âm"
       },
       "outputDevice": {

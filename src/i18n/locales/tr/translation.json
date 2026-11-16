@@ -156,7 +156,7 @@
   },
   "settings": {
     "modelSettings": {
-      "title": "{{model}} Ayarları"
+      "title": "{{model}} ayarları"
     },
     "models": {
       "title": "Transkripsiyon Modelleri",
@@ -179,7 +179,7 @@
     "general": {
       "title": "Genel",
       "shortcut": {
-        "title": "Coco Voice Kısayolları",
+        "title": "Klavye kısayolları",
         "description": "Sesle yazma kaydını başlatmak için klavye kısayollarını yapılandırın",
         "loading": "Kısayollar yükleniyor...",
         "none": "Kısayol yapılandırılmadı",
@@ -187,11 +187,11 @@
         "pressKeys": "Tuşlara basın...",
         "bindings": {
           "transcribe": {
-            "name": "Transkripsiyon Kısayolu",
+            "name": "Dikte kısayolu",
             "description": "Sesinizi kaydetmek ve metne dönüştürmek için klavye kısayolu."
           },
           "cancel": {
-            "name": "İptal Kısayolu",
+            "name": "İptal kısayolu",
             "description": "Mevcut kaydı iptal etmek için klavye kısayolu."
           },
           "transcribe_with_post_process": {
@@ -230,11 +230,11 @@
         "loading": "Yükleniyor..."
       },
       "audioFeedback": {
-        "label": "Sesli Geri Bildirim",
+        "label": "Kayıt sesleri",
         "description": "Kayıt başladığında ve bittiğinde ses çalar"
       },
       "outputDevice": {
-        "title": "Çıkış Cihazı",
+        "title": "Çıkış cihazı",
         "description": "Geri bildirim sesleri için ses çıkış cihazını seçin",
         "placeholder": "Çıkış cihazı seçin...",
         "loading": "Yükleniyor..."
@@ -476,7 +476,7 @@
     "debug": {
       "title": "Hata Ayıklama",
       "logDirectory": {
-        "title": "Log Dizini",
+        "title": "Günlük klasörü",
         "description": "Log dosyalarının saklandığı konum"
       },
       "logLevel": {
@@ -495,7 +495,7 @@
         "empty": "Loglar bekleniyor… Uygulama logları ürettikçe girişler burada görünür."
       },
       "updateChecks": {
-        "label": "Güncellemeleri Kontrol Et",
+        "label": "Güncellemeleri kontrol et",
         "description": "Coco Voice için yeni sürümleri otomatik olarak kontrol eder"
       },
       "soundTheme": {
@@ -535,7 +535,7 @@
         "description": "Yazıya dökümden sonra dolgu sözcükleri, noktalama ve kendi düzeltmelerinizi temizleyin"
       },
       "muteWhileRecording": {
-        "label": "Kayıt Sırasında Sessize Al",
+        "label": "Kayıt sırasında sessize al",
         "description": "Kayıt sırasında sistem sesini kapatır"
       },
       "appendTrailingSpace": {
@@ -581,11 +581,11 @@
         "description": "Coco Voice'nin mevcut sürümü"
       },
       "appDataDirectory": {
-        "title": "Uygulama Veri Dizini",
+        "title": "Uygulama veri klasörü",
         "description": "Coco Voice'nin verilerini sakladığı konum"
       },
       "sourceCode": {
-        "title": "Kaynak Kodu",
+        "title": "Kaynak kodu",
         "description": "Kaynak kodunu görüntüle ve katkıda bulun",
         "button": "GitHub'da Görüntüle"
       },
@@ -598,7 +598,7 @@
         }
       },
       "whatsNewUpdates": {
-        "label": "Yenilikleri Göster",
+        "label": "Yenilikleri göster",
         "description": "Coco Voice güncellemelerinden sonra sürüm notlarını göster"
       }
     },
@@ -690,7 +690,7 @@
     "shortcutRegistrationTryAgain": "Yeniden dene"
   },
   "appLanguage": {
-    "title": "Uygulama Dili",
+    "title": "Uygulama dili",
     "description": "Coco Voice arayüzünün dilini değiştirin"
   },
   "theme": {

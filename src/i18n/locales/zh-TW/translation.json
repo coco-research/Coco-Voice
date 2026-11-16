@@ -161,7 +161,7 @@
     "general": {
       "title": "一般",
       "shortcut": {
-        "title": "Coco Voice 快捷鍵",
+        "title": "鍵盤快捷鍵",
         "description": "設定啟動語音轉文字錄製的鍵盤快捷鍵",
         "loading": "載入快捷鍵中...",
         "none": "未設定快捷鍵",
@@ -169,7 +169,7 @@
         "pressKeys": "請按鍵...",
         "bindings": {
           "transcribe": {
-            "name": "轉錄快捷鍵",
+            "name": "聽寫快捷鍵",
             "description": "用於錄製和轉錄語音的鍵盤快捷鍵"
           },
           "cancel": {
@@ -230,7 +230,7 @@
         "loading": "載入中..."
       },
       "audioFeedback": {
-        "label": "聲音回饋",
+        "label": "錄音提示音",
         "description": "錄製開始和停止時播放聲音"
       },
       "outputDevice": {
@@ -476,7 +476,7 @@
     "debug": {
       "title": "偵錯",
       "logDirectory": {
-        "title": "日誌目錄",
+        "title": "日誌資料夾",
         "description": "日誌檔案的儲存位置"
       },
       "logLevel": {
@@ -581,7 +581,7 @@
         "description": "Coco Voice 的目前版本"
       },
       "appDataDirectory": {
-        "title": "應用程式資料目錄",
+        "title": "應用程式資料夾",
         "description": "Coco Voice 儲存資料的位置"
       },
       "sourceCode": {

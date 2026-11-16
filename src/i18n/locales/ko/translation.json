@@ -161,7 +161,7 @@
     "general": {
       "title": "일반",
       "shortcut": {
-        "title": "Coco Voice 단축키",
+        "title": "키보드 단축키",
         "description": "음성-텍스트 녹음을 시작하는 키보드 단축키를 설정하세요",
         "loading": "단축키 로딩 중...",
         "none": "설정된 단축키 없음",
@@ -169,7 +169,7 @@
         "pressKeys": "키를 눌러주세요...",
         "bindings": {
           "transcribe": {
-            "name": "음성 텍스트 변환 단축키",
+            "name": "받아쓰기 단축키",
             "description": "음성을 녹음하고 테스트로 변환하는 키보드 단축키입니다."
           },
           "cancel": {
@@ -212,7 +212,7 @@
         "loading": "로딩 중..."
       },
       "audioFeedback": {
-        "label": "오디오 피드백",
+        "label": "녹음 효과음",
         "description": "녹음 시작 및 정지 시 소리 재생"
       },
       "outputDevice": {
@@ -476,7 +476,7 @@
     "debug": {
       "title": "디버그",
       "logDirectory": {
-        "title": "로그 디렉토리",
+        "title": "로그 폴더",
         "description": "로그 파일이 저장되는 위치"
       },
       "logLevel": {
@@ -581,7 +581,7 @@
         "description": "Coco Voice의 현재 버전"
       },
       "appDataDirectory": {
-        "title": "앱 데이터 디렉토리",
+        "title": "앱 데이터 폴더",
         "description": "Coco Voice가 데이터를 저장하는 위치"
       },
       "sourceCode": {
@@ -690,7 +690,7 @@
     "shortcutRegistrationTryAgain": "다시 시도"
   },
   "appLanguage": {
-    "title": "애플리케이션 언어",
+    "title": "앱 언어",
     "description": "Coco Voice 인터페이스의 언어를 변경하세요"
   },
   "theme": {

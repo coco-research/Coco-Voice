@@ -161,7 +161,7 @@
     "general": {
       "title": "Allmänt",
       "shortcut": {
-        "title": "Coco Voice-kortkommandon",
+        "title": "Kortkommandon",
         "description": "Konfigurera kortkommandon för att starta tal-till-text-inspelning",
         "loading": "Laddar kortkommandon...",
         "none": "Inga kortkommandon konfigurerade",
@@ -169,7 +169,7 @@
         "pressKeys": "Tryck på tangenter...",
         "bindings": {
           "transcribe": {
-            "name": "Kortkommando för transkribering",
+            "name": "Kortkommando för diktering",
             "description": "Kortkommandot för att spela in och transkribera din röst."
           },
           "cancel": {
@@ -230,7 +230,7 @@
         "loading": "Laddar..."
       },
       "audioFeedback": {
-        "label": "Ljudåterkoppling",
+        "label": "Inspelningsljud",
         "description": "Spela upp ljud när inspelningen startar och stoppar"
       },
       "outputDevice": {
@@ -690,7 +690,7 @@
     "shortcutRegistrationTryAgain": "Försök igen"
   },
   "appLanguage": {
-    "title": "Applikationsspråk",
+    "title": "Appspråk",
     "description": "Ändra språket i Coco Voice-gränssnittet"
   },
   "theme": {

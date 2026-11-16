@@ -179,7 +179,7 @@
     "general": {
       "title": "Generale",
       "shortcut": {
-        "title": "Scorciatoie di Coco Voice",
+        "title": "Scorciatoie da tastiera",
         "description": "Configura le scorciatoie per attivare la trascrizione vocale",
         "loading": "Caricamento delle scorciatoie...",
         "none": "Nessuna scorciatoia configurata",
@@ -187,11 +187,11 @@
         "pressKeys": "Premi i tasti...",
         "bindings": {
           "transcribe": {
-            "name": "Scorciatoia Trascrizione",
+            "name": "Scorciatoia per dettare",
             "description": "La scorciatoia da tastiera per registrare e trascrivere la tua voce."
           },
           "cancel": {
-            "name": "Scorciatoia Annulla",
+            "name": "Scorciatoia per annullare",
             "description": "La scorciatoia da tastiera per annullare la registrazione in corso."
           },
           "transcribe_with_post_process": {
@@ -230,11 +230,11 @@
         "loading": "Caricamento..."
       },
       "audioFeedback": {
-        "label": "Feedback Audio",
+        "label": "Suoni di registrazione",
         "description": "Riproduci un suono quando la registrazione inizia e finisce"
       },
       "outputDevice": {
-        "title": "Dispositivo di Output",
+        "title": "Dispositivo di uscita",
         "description": "Scegli il dispositivo di output per il feedback audio",
         "placeholder": "Scegli dispositivo di output...",
         "loading": "Caricamento..."
@@ -476,7 +476,7 @@
     "debug": {
       "title": "Debug",
       "logDirectory": {
-        "title": "Cartella dei Log",
+        "title": "Cartella dei log",
         "description": "Cartella dove vengono salvati i file di log"
       },
       "logLevel": {
@@ -581,11 +581,11 @@
         "description": "Versione attuale di Coco Voice"
       },
       "appDataDirectory": {
-        "title": "Cartella Dati App",
+        "title": "Cartella dati dell'app",
         "description": "Cartella in cui Coco Voice salva i dati"
       },
       "sourceCode": {
-        "title": "Codice Sorgente",
+        "title": "Codice sorgente",
         "description": "Vedi e contribuisci al codice sorgente",
         "button": "Vedi su GitHub"
       },
@@ -690,7 +690,7 @@
     "shortcutRegistrationTryAgain": "Riprova"
   },
   "appLanguage": {
-    "title": "Lingua Applicazione",
+    "title": "Lingua dell'app",
     "description": "Cambia la lingua dell'interfaccia di Coco Voice"
   },
   "theme": {

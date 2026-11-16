@@ -156,12 +156,12 @@
   },
   "settings": {
     "modelSettings": {
-      "title": "{{model}} Settings"
+      "title": "{{model}} settings"
     },
     "general": {
       "title": "General",
       "shortcut": {
-        "title": "Coco Voice Shortcuts",
+        "title": "Keyboard shortcuts",
         "description": "Configure keyboard shortcuts to trigger speech-to-text recording",
         "loading": "Loading shortcuts...",
         "none": "No shortcuts configured",
@@ -169,11 +169,11 @@
         "pressKeys": "Press keys...",
         "bindings": {
           "transcribe": {
-            "name": "Transcribe Shortcut",
+            "name": "Dictation shortcut",
             "description": "The keyboard shortcut to record and transcribe your voice."
           },
           "cancel": {
-            "name": "Cancel Shortcut",
+            "name": "Cancel shortcut",
             "description": "The keyboard shortcut to cancel the current recording."
           },
           "transcribe_with_post_process": {
@@ -230,11 +230,11 @@
         "loading": "Loading..."
       },
       "audioFeedback": {
-        "label": "Audio Feedback",
+        "label": "Recording sounds",
         "description": "Play sound when recording starts and stops"
       },
       "outputDevice": {
-        "title": "Output Device",
+        "title": "Output device",
         "description": "Select your preferred audio output device for feedback sounds",
         "placeholder": "Select output device...",
         "loading": "Loading..."
@@ -476,7 +476,7 @@
     "debug": {
       "title": "Debug",
       "logDirectory": {
-        "title": "Log Directory",
+        "title": "Log folder",
         "description": "Location where log files are stored"
       },
       "logLevel": {
@@ -495,7 +495,7 @@
         "empty": "Waiting for logs… Entries appear here as the app emits them."
       },
       "updateChecks": {
-        "label": "Check for Updates",
+        "label": "Check for updates",
         "description": "Automatically check for new versions of Coco Voice"
       },
       "whatsNewPreview": {
@@ -542,7 +542,7 @@
         "description": "Clean up filler words, punctuation, and self-corrections after transcription"
       },
       "muteWhileRecording": {
-        "label": "Mute While Recording",
+        "label": "Mute while recording",
         "description": "Mute system audio during recording"
       },
       "appendTrailingSpace": {
@@ -581,15 +581,15 @@
         "description": "Current version of Coco Voice"
       },
       "whatsNewUpdates": {
-        "label": "Show What's New",
+        "label": "Show what's new",
         "description": "Show release notes after Coco Voice updates"
       },
       "appDataDirectory": {
-        "title": "App Data Directory",
+        "title": "App data folder",
         "description": "Location where Coco Voice stores its data"
       },
       "sourceCode": {
-        "title": "Source Code",
+        "title": "Source code",
         "description": "View source code and contribute",
         "button": "View on GitHub"
       },
@@ -609,7 +609,7 @@
       "leavesLabel": "Leaves your Mac:",
       "openHeading": "Every time the app opens",
       "githubName": "GitHub (Coco Voice releases)",
-      "githubWhen": "Each time the app opens, to check for an update. To stop this, turn off Check for Updates above in About. Links you click open in your browser.",
+      "githubWhen": "Each time the app opens, to check for an update. To stop this, turn off Check for updates above in About. Links you click open in your browser.",
       "githubLeaves": "a request for the list of releases, and the update file if you install one. No speech and no text.",
       "updateChecksOn": "Update checks on",
       "updateChecksOff": "Update checks off",
@@ -693,11 +693,11 @@
     "shortcutRegistrationTryAgain": "Try again"
   },
   "appLanguage": {
-    "title": "Application Language",
+    "title": "App language",
     "description": "Change the language of the Coco Voice interface"
   },
   "theme": {
-    "title": "Application Theme",
+    "title": "App theme",
     "description": "Choose whether Coco Voice follows your system theme or stays light or dark",
     "options": {
       "system": "System",

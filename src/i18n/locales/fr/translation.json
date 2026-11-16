@@ -179,7 +179,7 @@
     "general": {
       "title": "Général",
       "shortcut": {
-        "title": "Raccourcis Coco Voice",
+        "title": "Raccourcis clavier",
         "description": "Configurer les raccourcis clavier pour déclencher l'enregistrement de la reconnaissance vocale",
         "loading": "Chargement des raccourcis...",
         "none": "Aucun raccourci configuré",
@@ -187,11 +187,11 @@
         "pressKeys": "Appuyez sur les touches...",
         "bindings": {
           "transcribe": {
-            "name": "Raccourci de Transcription",
+            "name": "Raccourci de dictée",
             "description": "Le raccourci clavier pour enregistrer et transcrire votre voix."
           },
           "cancel": {
-            "name": "Raccourci d'Annulation",
+            "name": "Raccourci d'annulation",
             "description": "Le raccourci clavier pour annuler l'enregistrement en cours."
           },
           "transcribe_with_post_process": {
@@ -230,7 +230,7 @@
         "loading": "Chargement..."
       },
       "audioFeedback": {
-        "label": "Signal sonore",
+        "label": "Sons d'enregistrement",
         "description": "Jouer un son au début et à la fin de l'enregistrement"
       },
       "outputDevice": {
@@ -476,7 +476,7 @@
     "debug": {
       "title": "Débogage",
       "logDirectory": {
-        "title": "Répertoire des journaux",
+        "title": "Dossier des journaux",
         "description": "Emplacement où les fichiers journaux sont stockés"
       },
       "logLevel": {
@@ -690,11 +690,11 @@
     "shortcutRegistrationTryAgain": "Réessayer"
   },
   "appLanguage": {
-    "title": "Langue de l'application",
+    "title": "Langue de l'app",
     "description": "Changer la langue de l'interface de Coco Voice"
   },
   "theme": {
-    "title": "Thème de l'application",
+    "title": "Thème de l'app",
     "description": "Choisissez si Coco Voice suit le thème du système ou reste clair ou sombre",
     "options": {
       "system": "Système",

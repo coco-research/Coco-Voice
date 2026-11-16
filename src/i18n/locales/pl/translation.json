@@ -179,7 +179,7 @@
     "general": {
       "title": "Ogólne",
       "shortcut": {
-        "title": "Skróty Coco Voice",
+        "title": "Skróty klawiszowe",
         "description": "Skonfiguruj skróty klawiaturowe do uruchamiania nagrywania mowy",
         "loading": "Wczytywanie skrótów...",
         "none": "Brak skonfigurowanych skrótów",
@@ -187,7 +187,7 @@
         "pressKeys": "Naciśnij klawisze...",
         "bindings": {
           "transcribe": {
-            "name": "Skrót transkrypcji",
+            "name": "Skrót dyktowania",
             "description": "Skrót klawiaturowy do nagrywania i transkrypcji głosu."
           },
           "cancel": {
@@ -230,7 +230,7 @@
         "loading": "Wczytywanie..."
       },
       "audioFeedback": {
-        "label": "Informacja dźwiękowa",
+        "label": "Dźwięki nagrywania",
         "description": "Odtwarzaj dźwięk przy rozpoczęciu i zakończeniu nagrywania"
       },
       "outputDevice": {
@@ -476,7 +476,7 @@
     "debug": {
       "title": "Debugowanie",
       "logDirectory": {
-        "title": "Katalog logów",
+        "title": "Folder logów",
         "description": "Miejsce przechowywania plików logów"
       },
       "logLevel": {
@@ -581,7 +581,7 @@
         "description": "Aktualna wersja Coco Voice"
       },
       "appDataDirectory": {
-        "title": "Katalog danych aplikacji",
+        "title": "Folder danych aplikacji",
         "description": "Miejsce, gdzie Coco Voice przechowuje swoje dane"
       },
       "sourceCode": {

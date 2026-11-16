@@ -179,7 +179,7 @@
     "general": {
       "title": "Obecné",
       "shortcut": {
-        "title": "Zkratky Coco Voice",
+        "title": "Klávesové zkratky",
         "description": "Nastavte klávesové zkratky pro spuštění nahrávání řeči na text",
         "loading": "Načítám zkratky...",
         "none": "Žádné zkratky nejsou nastavené",
@@ -187,7 +187,7 @@
         "pressKeys": "Stiskněte klávesy...",
         "bindings": {
           "transcribe": {
-            "name": "Zkratka přepisu",
+            "name": "Zkratka pro diktování",
             "description": "Klávesová zkratka pro nahrávání a přepis vašeho hlasu."
           },
           "cancel": {
@@ -230,7 +230,7 @@
         "loading": "Načítání..."
       },
       "audioFeedback": {
-        "label": "Zvuková odezva",
+        "label": "Zvuky nahrávání",
         "description": "Přehrát zvuk při zahájení a ukončení nahrávání"
       },
       "outputDevice": {
@@ -581,7 +581,7 @@
         "description": "Aktuální verze Coco Voice"
       },
       "appDataDirectory": {
-        "title": "Adresář dat aplikace",
+        "title": "Složka dat aplikace",
         "description": "Umístění, kde Coco Voice ukládá data"
       },
       "sourceCode": {

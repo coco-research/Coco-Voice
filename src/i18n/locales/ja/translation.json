@@ -179,7 +179,7 @@
     "general": {
       "title": "一般",
       "shortcut": {
-        "title": "Coco Voice ショートカット",
+        "title": "キーボードショートカット",
         "description": "音声録音を開始するキーボードショートカットを設定",
         "loading": "ショートカットを読み込み中…",
         "none": "ショートカットが設定されていません",
@@ -187,7 +187,7 @@
         "pressKeys": "キーを押してください…",
         "bindings": {
           "transcribe": {
-            "name": "文字起こしのショートカット",
+            "name": "音声入力のショートカット",
             "description": "音声を録音して文字起こしするためのキーボードショートカット。"
           },
           "cancel": {
@@ -230,7 +230,7 @@
         "loading": "読み込み中…"
       },
       "audioFeedback": {
-        "label": "オーディオフィードバック",
+        "label": "録音の効果音",
         "description": "録音の開始と停止時にサウンドを再生"
       },
       "outputDevice": {
@@ -476,7 +476,7 @@
     "debug": {
       "title": "デバッグ",
       "logDirectory": {
-        "title": "ログディレクトリ",
+        "title": "ログフォルダ",
         "description": "ログファイルの保存場所"
       },
       "logLevel": {
@@ -581,7 +581,7 @@
         "description": "Coco Voice の現在のバージョン"
       },
       "appDataDirectory": {
-        "title": "アプリデータディレクトリ",
+        "title": "アプリデータのフォルダ",
         "description": "Coco Voice がデータを保存する場所"
       },
       "sourceCode": {

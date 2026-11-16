@@ -161,7 +161,7 @@
     "general": {
       "title": "Geral",
       "shortcut": {
-        "title": "Atalhos do Coco Voice",
+        "title": "Atalhos de teclado",
         "description": "Configure atalhos de teclado para iniciar a gravação de voz para texto",
         "loading": "Carregando atalhos...",
         "none": "Nenhum atalho configurado",
@@ -169,11 +169,11 @@
         "pressKeys": "Pressione as teclas...",
         "bindings": {
           "transcribe": {
-            "name": "Atalho de Transcrição",
+            "name": "Atalho de ditado",
             "description": "O atalho de teclado para gravar e transcrever sua voz."
           },
           "cancel": {
-            "name": "Atalho de Cancelar",
+            "name": "Atalho para cancelar",
             "description": "O atalho de teclado para cancelar a gravação atual."
           },
           "transcribe_with_post_process": {
@@ -230,11 +230,11 @@
         "loading": "Carregando..."
       },
       "audioFeedback": {
-        "label": "Feedback de Áudio",
+        "label": "Sons de gravação",
         "description": "Reproduzir som quando a gravação iniciar e parar"
       },
       "outputDevice": {
-        "title": "Dispositivo de Saída",
+        "title": "Dispositivo de saída",
         "description": "Selecione seu dispositivo de saída de áudio preferido para sons de feedback",
         "placeholder": "Selecionar dispositivo de saída...",
         "loading": "Carregando..."
@@ -476,7 +476,7 @@
     "debug": {
       "title": "Depuração",
       "logDirectory": {
-        "title": "Diretório de Logs",
+        "title": "Pasta de registros",
         "description": "Local onde os arquivos de log são armazenados"
       },
       "logLevel": {
@@ -495,7 +495,7 @@
         "empty": "Aguardando logs… As entradas aparecem aqui à medida que o app as emite."
       },
       "updateChecks": {
-        "label": "Verificar Atualizações",
+        "label": "Verificar atualizações",
         "description": "Verificar automaticamente novas versões do Coco Voice"
       },
       "soundTheme": {
@@ -535,7 +535,7 @@
         "description": "Limpar vícios de linguagem, pontuação e autocorreções após a transcrição"
       },
       "muteWhileRecording": {
-        "label": "Silenciar Durante Gravação",
+        "label": "Silenciar durante a gravação",
         "description": "Silenciar áudio do sistema durante a gravação"
       },
       "appendTrailingSpace": {
@@ -581,11 +581,11 @@
         "description": "Versão atual do Coco Voice"
       },
       "appDataDirectory": {
-        "title": "Diretório de Dados do App",
+        "title": "Pasta de dados do aplicativo",
         "description": "Local onde o Coco Voice armazena seus dados"
       },
       "sourceCode": {
-        "title": "Código Fonte",
+        "title": "Código-fonte",
         "description": "Visualizar código fonte e contribuir",
         "button": "Ver no GitHub"
       },
@@ -690,7 +690,7 @@
     "shortcutRegistrationTryAgain": "Tentar de novo"
   },
   "appLanguage": {
-    "title": "Idioma da Aplicação",
+    "title": "Idioma do aplicativo",
     "description": "Alterar o idioma da interface do Coco Voice"
   },
   "theme": {

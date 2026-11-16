@@ -230,7 +230,7 @@
         "loading": "Laden..."
       },
       "audioFeedback": {
-        "label": "Geluidsfeedback",
+        "label": "Opnamegeluiden",
         "description": "Geluid afspelen wanneer de opname start en stopt"
       },
       "outputDevice": {
@@ -581,7 +581,7 @@
         "description": "Huidige versie van Coco Voice"
       },
       "whatsNewUpdates": {
-        "label": "Toon 'Wat is er nieuw'",
+        "label": "Nieuwigheden tonen",
         "description": "Release-notes tonen nadat Coco Voice is bijgewerkt"
       },
       "appDataDirectory": {

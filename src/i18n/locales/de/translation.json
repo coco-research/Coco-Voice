@@ -179,7 +179,7 @@
     "general": {
       "title": "Allgemein",
       "shortcut": {
-        "title": "Coco Voice-Tastenkürzel",
+        "title": "Tastenkürzel",
         "description": "Tastenkürzel für die Sprachaufnahme konfigurieren",
         "loading": "Tastenkürzel werden geladen...",
         "none": "Keine Tastenkürzel konfiguriert",
@@ -187,7 +187,7 @@
         "pressKeys": "Tasten drücken...",
         "bindings": {
           "transcribe": {
-            "name": "Transkriptions-Tastenkürzel",
+            "name": "Diktier-Tastenkürzel",
             "description": "Das Tastenkürzel zum Aufnehmen und Transkribieren deiner Stimme."
           },
           "cancel": {
@@ -230,7 +230,7 @@
         "loading": "Wird geladen..."
       },
       "audioFeedback": {
-        "label": "Audio-Feedback",
+        "label": "Aufnahmetöne",
         "description": "Ton bei Start und Ende der Aufnahme abspielen"
       },
       "outputDevice": {
@@ -476,7 +476,7 @@
     "debug": {
       "title": "Debug",
       "logDirectory": {
-        "title": "Log-Verzeichnis",
+        "title": "Protokollordner",
         "description": "Speicherort der Log-Dateien"
       },
       "logLevel": {
@@ -581,7 +581,7 @@
         "description": "Aktuelle Version von Coco Voice"
       },
       "appDataDirectory": {
-        "title": "App-Datenverzeichnis",
+        "title": "App-Datenordner",
         "description": "Speicherort der Coco Voice-Daten"
       },
       "sourceCode": {
@@ -690,11 +690,11 @@
     "shortcutRegistrationTryAgain": "Erneut versuchen"
   },
   "appLanguage": {
-    "title": "Anwendungssprache",
+    "title": "App-Sprache",
     "description": "Sprache der Coco Voice-Oberfläche ändern"
   },
   "theme": {
-    "title": "Anwendungsdesign",
+    "title": "App-Design",
     "description": "Wählen Sie, ob Coco Voice dem Systemthema folgt oder hell bzw. dunkel bleibt",
     "options": {
       "system": "System",
