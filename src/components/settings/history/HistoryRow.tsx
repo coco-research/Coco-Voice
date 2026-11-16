@@ -342,63 +342,24 @@ export const HistoryRow: React.FC<HistoryRowProps> = (p) => {
               role="menu"
               className="absolute end-0 top-full z-20 mt-1 min-w-[140px] rounded-[10px] border border-mid-gray/30 bg-background p-1 shadow-lg"
             >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  p.onMenuClose();
-                  p.onToggleSaved();
-                }}
-                className={MENU_ITEM_CLS}
-              >
-                {t("sidebar.keep")}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={!hasText || retrying}
-                onClick={() => {
-                  p.onMenuClose();
-                  p.onStartEdit();
-                }}
-                className={MENU_ITEM_CLS}
-              >
-                {t("sidebar.editText")}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={retrying}
-                onClick={() => {
-                  p.onMenuClose();
-                  setRetrying(true);
-                  void p
-                    .retryTranscription(p.entry.id)
-                    .catch(() =>
-                      toast.error(t("settings.history.retranscribeError")),
-                    )
-                    .finally(() => setRetrying(false));
-                }}
-                className={MENU_ITEM_CLS}
-              >
-                {t("sidebar.tryAgain")}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={retrying}
-                onClick={() => {
-                  p.onMenuClose();
-                  void p
-                    .deleteAudio(p.entry.id)
-                    .catch(() =>
-                      toast.error(t("settings.history.deleteError")),
-                    );
-                }}
-                className={MENU_ITEM_CLS}
-              >
-                {t("meetings.list.delete")}
-              </button>
+              {buildHistoryRowMenuItems(
+                p,
+                t,
+                hasText,
+                retrying,
+                setRetrying,
+              ).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="menuitem"
+                  disabled={item.disabled}
+                  onClick={item.onSelect}
+                  className={MENU_ITEM_CLS}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
           ) : null}
         </div>
@@ -406,3 +367,64 @@ export const HistoryRow: React.FC<HistoryRowProps> = (p) => {
     </div>
   );
 };
+
+export function buildHistoryRowMenuItems(
+  p: Pick<
+    HistoryRowProps,
+    | "entry"
+    | "onMenuClose"
+    | "onToggleSaved"
+    | "onStartEdit"
+    | "retryTranscription"
+    | "deleteAudio"
+  >,
+  t: (key: string) => string,
+  hasText: boolean,
+  retrying: boolean,
+  setRetrying: (v: boolean) => void,
+) {
+  return [
+    {
+      id: "keep",
+      label: t("sidebar.keep"),
+      disabled: false,
+      onSelect: () => {
+        p.onMenuClose();
+        p.onToggleSaved();
+      },
+    },
+    {
+      id: "edit",
+      label: t("sidebar.editText"),
+      disabled: !hasText || retrying,
+      onSelect: () => {
+        p.onMenuClose();
+        p.onStartEdit();
+      },
+    },
+    {
+      id: "retry",
+      label: t("sidebar.tryAgain"),
+      disabled: retrying,
+      onSelect: () => {
+        p.onMenuClose();
+        setRetrying(true);
+        void p
+          .retryTranscription(p.entry.id)
+          .catch(() => toast.error(t("settings.history.retranscribeError")))
+          .finally(() => setRetrying(false));
+      },
+    },
+    {
+      id: "delete",
+      label: t("meetings.list.delete"),
+      disabled: retrying,
+      onSelect: () => {
+        p.onMenuClose();
+        void p
+          .deleteAudio(p.entry.id)
+          .catch(() => toast.error(t("settings.history.deleteError")));
+      },
+    },
+  ];
+}
