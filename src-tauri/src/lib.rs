@@ -14,13 +14,13 @@ mod input;
 mod llm_client;
 #[cfg(target_os = "macos")]
 mod local_llm;
-mod managers;
+pub mod managers;
 #[cfg(feature = "meetings")]
-mod meeting_controller;
+pub mod meeting_controller;
 #[cfg(feature = "meetings")]
 mod meeting_feed;
 #[cfg(feature = "meetings")]
-mod meeting_notes;
+pub mod meeting_notes;
 #[cfg(feature = "meetings")]
 mod meeting_notes_job;
 #[cfg(feature = "meetings")]
@@ -28,15 +28,15 @@ mod meeting_notes_merge;
 #[cfg(feature = "meetings")]
 mod meeting_notes_pieces;
 #[cfg(feature = "meetings")]
-mod meeting_notes_runner;
+pub mod meeting_notes_runner;
 #[cfg(feature = "meetings")]
-mod meeting_retention;
+pub mod meeting_retention;
 #[cfg(feature = "meetings")]
 mod meeting_session;
 #[cfg(feature = "meetings")]
 mod meetings;
 #[cfg(feature = "meetings")]
-mod meetings_list;
+pub mod meetings_list;
 #[cfg(all(feature = "meetings", target_os = "macos"))]
 pub mod meetings_tap;
 mod overlay;
