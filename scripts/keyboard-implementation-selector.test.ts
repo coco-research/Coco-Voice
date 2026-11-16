@@ -1,66 +1,69 @@
-import { expect, mock, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { DropdownOption } from "../src/components/ui/Dropdown";
+import i18next from "i18next";
+import { I18nextProvider, initReactI18next } from "react-i18next";
+import en from "../src/i18n/locales/en/translation.json";
+import {
+  applyKeyboardImplementationSelection,
+  KEYBOARD_IMPLEMENTATION_OPTIONS,
+  KeyboardImplementationSelector,
+} from "../src/components/settings/debug/KeyboardImplementationSelector";
+import { useSettingsStore } from "../src/stores/settingsStore";
 
-let currentImplementation: string | undefined;
-let capturedOptions: DropdownOption[] = [];
-let capturedSelected: string | null = null;
-let capturedOnSelect: ((value: string) => void) | undefined;
-const sentImplementations: string[] = [];
+const i18n = i18next.createInstance();
+void i18n.use(initReactI18next).init({
+  lng: "en",
+  resources: { en: { translation: en } },
+  interpolation: { escapeValue: false },
+});
 
-mock.module("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
-mock.module("../src/hooks/useSettings", () => ({
-  useSettings: () => ({
-    getSetting: () => currentImplementation,
-    isUpdating: () => false,
-    refreshSettings: async () => {},
-  }),
-}));
-
-mock.module("@/bindings", () => ({
-  commands: {
-    changeKeyboardImplementationSetting: async (value: string) => {
-      sentImplementations.push(value);
-      return { status: "ok", data: { success: true, reset_bindings: [] } };
+test("KeyboardImplementationSelector offers and selects coco_voice_keys without global module mocks", async () => {
+  const sentImplementations: string[] = [];
+  const prevSettings = useSettingsStore.getState().settings;
+  const g = globalThis as { window?: unknown };
+  const prevWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  g.window = {
+    __TAURI_INTERNALS__: {
+      invoke: (cmd: string, args?: { implementation?: string }) => {
+        if (cmd === "change_keyboard_implementation_setting") {
+          sentImplementations.push(String(args?.implementation ?? ""));
+          return Promise.resolve({ success: true, reset_bindings: [] });
+        }
+        return Promise.resolve(null);
+      },
     },
-  },
-}));
+  };
 
-mock.module("../src/components/ui/Dropdown", () => ({
-  Dropdown: (props: {
-    options: DropdownOption[];
-    selectedValue: string | null;
-    onSelect: (value: string) => void;
-  }) => {
-    capturedOptions = props.options;
-    capturedSelected = props.selectedValue;
-    capturedOnSelect = props.onSelect;
-    const active = props.options.find((o) => o.value === props.selectedValue);
-    return active ? active.label : "unmatched";
-  },
-}));
+  try {
+    expect(KEYBOARD_IMPLEMENTATION_OPTIONS).toEqual([
+      { value: "tauri", label: "System global shortcut" },
+      { value: "coco_voice_keys", label: "Coco Voice keys" },
+    ]);
 
-const { KeyboardImplementationSelector } =
-  await import("../src/components/settings/debug/KeyboardImplementationSelector");
+    useSettingsStore.setState({
+      settings: { keyboard_implementation: "coco_voice_keys" },
+    });
+    const html = renderToStaticMarkup(
+      createElement(
+        I18nextProvider,
+        { i18n },
+        createElement(KeyboardImplementationSelector),
+      ),
+    );
+    expect(html).toContain("Keyboard handler");
+    expect(html).toContain("Coco Voice keys");
 
-test("KeyboardImplementationSelector offers and selects coco_voice_keys", async () => {
-  currentImplementation = "coco_voice_keys";
-  const html = renderToStaticMarkup(
-    createElement(KeyboardImplementationSelector),
-  );
-  expect(capturedOptions).toEqual([
-    { value: "tauri", label: "System global shortcut" },
-    { value: "coco_voice_keys", label: "Coco Voice keys" },
-  ]);
-  expect(capturedSelected).toBe("coco_voice_keys");
-  expect(html).toContain("Coco Voice keys");
-
-  currentImplementation = "tauri";
-  renderToStaticMarkup(createElement(KeyboardImplementationSelector));
-  await capturedOnSelect?.("coco_voice_keys");
-  expect(sentImplementations).toEqual(["coco_voice_keys"]);
+    await applyKeyboardImplementationSelection(
+      "coco_voice_keys",
+      "tauri",
+      async () => {},
+      (k) => i18n.t(k),
+    );
+    expect(sentImplementations).toEqual(["coco_voice_keys"]);
+  } finally {
+    useSettingsStore.setState({ settings: prevSettings });
+    if (prevWindow) Object.defineProperty(globalThis, "window", prevWindow);
+    else delete g.window;
+  }
 });
