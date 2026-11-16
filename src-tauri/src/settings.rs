@@ -507,6 +507,10 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    /// Opt-in switch for V-D18 ("Agents can ask you" over stdio MCP `ask_user`).
+    /// Off by default (B29); only when true (B30) may a local agent ask a question.
+    #[serde(default)]
+    pub agents_can_ask_enabled: bool,
     /// Beta switch for Meetings. Only present when the crate is built with
     /// `--features meetings`. A default build has no field, so a stored
     /// `meetings_enabled` key is ignored.
@@ -1192,6 +1196,7 @@ pub fn get_default_settings() -> AppSettings {
         extra_recording_buffer_ms: 0,
         vad_enabled: default_vad_enabled(),
         overlay_style: default_overlay_style(),
+        agents_can_ask_enabled: false,
         #[cfg(feature = "meetings")]
         meetings_enabled: default_meetings_enabled(),
     }
