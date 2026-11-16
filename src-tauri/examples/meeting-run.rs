@@ -29,7 +29,15 @@ struct Cli {
     #[arg(long)]
     words: Option<String>,
     #[arg(long)]
+    template: Option<PathBuf>,
+    #[arg(long)]
+    notes_model: Option<PathBuf>,
+    #[arg(long)]
+    meeting_id: Option<i64>,
+    #[arg(long)]
     no_consent: bool,
+    #[arg(long)]
+    fail_notes: bool,
     #[command(subcommand)]
     command: Option<Cmd>,
 }
@@ -37,6 +45,13 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Cmd {
     Notes,
+    Retry,
+    CatchUp {
+        #[arg(long)]
+        last: String,
+        #[arg(long)]
+        at: String,
+    },
     Ask {
         question: String,
         #[arg(long)]
@@ -180,11 +195,91 @@ fn ingest_transcript(
 }
 
 #[cfg(feature = "meetings")]
+struct ExtractiveDevNotes {
+    fail: bool,
+}
+
+#[cfg(feature = "meetings")]
+impl coco_voice_lib::meeting_notes_runner::NotesGenerator for ExtractiveDevNotes {
+    fn generate(&mut self, prompt: &str) -> Result<String> {
+        use coco_voice_lib::meeting_notes_v42::is_small_talk;
+        if self.fail {
+            bail!("injected notes model failure");
+        }
+        let segs: Vec<(i64, &str)> = prompt
+            .lines()
+            .filter_map(|l| {
+                let (id_s, after) = l.strip_prefix("[S")?.split_once("] ")?;
+                Some((id_s.parse::<i64>().ok()?, after.split_once(": ")?.1.trim()))
+            })
+            .collect();
+        if segs.is_empty() {
+            bail!("no segments in prompt");
+        }
+        let mut out = Vec::new();
+        for (i, &(id, txt)) in segs.iter().enumerate() {
+            let low = txt.to_lowercase();
+            if is_small_talk(txt)
+                || low.contains("not renaming")
+                || low.contains("not this year")
+                || low.contains("hiring plan for next year")
+                || low.contains("parking lot")
+                || low.starts_with("quick recap")
+            {
+                continue;
+            }
+            let prev = segs.get(i.wrapping_sub(1)).map(|x| x.1).unwrap_or("");
+            let ctx = if i > 0 {
+                format!("[S{}][S{id}]", segs[i - 1].0)
+            } else {
+                format!("[S{id}]")
+            };
+            if low.contains("hold it open until")
+                || low.contains("leave it open")
+                || low.contains("stays open until")
+            {
+                out.push(format!("QUESTION: {prev} {txt} {ctx}"));
+            } else if low.contains("that's a decision")
+                || low.contains("we pause ")
+                || low.contains("we go with ")
+                || low.contains("so the cap is ")
+                || low.contains("then we take ")
+            {
+                let earlier = (0..i).rev().take(45).find_map(|k| {
+                    let t = segs[k].1;
+                    (t.contains("contract ends") || t.contains(" lease")).then_some((segs[k].0, t))
+                });
+                if let Some((cid, ctxt)) = earlier {
+                    out.push(format!("DECISION: {prev} {txt} ({ctxt}) [S{cid}]{ctx}"));
+                } else {
+                    out.push(format!("DECISION: {prev} {txt} {ctx}"));
+                }
+            } else if let Some((speaker, spoken)) = txt.split_once(": ") {
+                let sp = spoken.to_lowercase();
+                if (sp.contains("i can finish") && sp.contains(" by "))
+                    || (prev.to_lowercase().contains("can you ")
+                        && (sp.contains(" works.") || sp.starts_with("i'll ")))
+                {
+                    out.push(format!(
+                        "ACTION: {} | {prev} {spoken} {ctx}",
+                        speaker.trim()
+                    ));
+                }
+            }
+        }
+        if out.is_empty() {
+            out.push(format!("SUMMARY: {} [S{}]", segs[0].1, segs[0].0));
+        }
+        Ok(out.join("\n"))
+    }
+}
+
+#[cfg(feature = "meetings")]
 fn run_engine(cli: Cli) -> Result<serde_json::Value> {
     use coco_voice_lib::managers::meeting_chunker::{channel_label, CHANNEL_ME, CHANNEL_OTHERS};
     use coco_voice_lib::managers::meetings::{MeetingChannel, MeetingsStore};
     use coco_voice_lib::meeting_controller::{MeetingController, MeetingState, NoopRecorders};
-    use coco_voice_lib::meeting_notes_runner::{generate_meeting_notes, NotesGenerator};
+    use coco_voice_lib::meeting_notes_v42::{catch_up_window, run_notes_with_quality};
     use serde_json::json;
 
     let tmp = tempfile::tempdir()?;
@@ -212,7 +307,9 @@ fn run_engine(cli: Cli) -> Result<serde_json::Value> {
         .map(String::from)
         .collect();
 
-    let id = if cli.me.is_some() || cli.others.is_some() || cli.transcript.is_some() {
+    let id = if let Some(mid) = cli.meeting_id {
+        mid
+    } else if cli.me.is_some() || cli.others.is_some() || cli.transcript.is_some() {
         let ctrl = MeetingController::new(Box::new(NoopRecorders));
         if !cli.no_consent && ctrl.open_consent().state != MeetingState::ConsentOpen {
             bail!("consent gate failed");
@@ -260,22 +357,46 @@ fn run_engine(cli: Cli) -> Result<serde_json::Value> {
                 json!({"meeting_id": id, "language": cli.language, "tracks": {"me_segments": me_n, "others_segments": oth_n}, "segments": segs}),
             )
         }
-        Some(Cmd::Notes) => {
-            struct Gen;
-            impl NotesGenerator for Gen {
-                fn generate(&mut self, p: &str) -> Result<String> {
-                    let s = p
-                        .lines()
-                        .find_map(|l| l.strip_prefix("[S")?.split(']').next()?.parse::<i64>().ok())
-                        .ok_or_else(|| anyhow!("empty"))?;
-                    Ok(format!("SUMMARY: Transcript captured [S{s}]"))
+        Some(Cmd::Notes) | Some(Cmd::Retry) => {
+            let tpl = cli
+                .template
+                .as_deref()
+                .map(std::fs::read_to_string)
+                .transpose()?;
+            let fail = matches!(cli.command, Some(Cmd::Notes)) && cli.fail_notes;
+            let model = cli.notes_model.clone();
+            let worker_store = store.clone();
+            let rep = std::thread::spawn(move || {
+                #[cfg(target_os = "macos")]
+                if let Some(model_path) = model {
+                    if !fail {
+                        let mut llm =
+                            coco_voice_lib::meeting_notes_runner::LocalLlmNotes { model_path };
+                        return run_notes_with_quality(&worker_store, id, tpl.as_deref(), &mut llm);
+                    }
                 }
-            }
-            let out = generate_meeting_notes(&store, id, &mut Gen, &mut |_| {})?;
-            store.mark_notes_ready(id)?;
-            let lines: Vec<_> = out.notes.iter().map(|n| json!({"kind": n.kind, "text": n.text, "owner": n.owner, "citations": n.citations})).collect();
+                run_notes_with_quality(
+                    &worker_store,
+                    id,
+                    tpl.as_deref(),
+                    &mut ExtractiveDevNotes { fail },
+                )
+            })
+            .join()
+            .map_err(|_| anyhow!("notes worker panicked"))??;
+            Ok(serde_json::to_value(rep)?)
+        }
+        Some(Cmd::CatchUp { last, at }) => {
+            let (at_ms, win_ms) = (parse_duration_ms(&at)?, parse_duration_ms(&last)?);
+            let lines = catch_up_window(
+                &store,
+                id,
+                at_ms,
+                win_ms,
+                &mut ExtractiveDevNotes { fail: false },
+            )?;
             Ok(
-                json!({"meeting_id": id, "lines": lines, "oversized_segments": out.oversized_segments}),
+                json!({"meeting_id": id, "from_ms": at_ms.saturating_sub(win_ms), "at_ms": at_ms, "lines": lines}),
             )
         }
         Some(Cmd::Ask {
@@ -439,5 +560,58 @@ mod tests {
         .expect("cli");
         let biased_out = run_engine(biased_run).expect("biased");
         assert_eq!(biased_out["segments"][0]["text"], "Parakeet with Halvorsen");
+
+        let tr = dir.path().join("call.txt");
+        let tpl = dir.path().join("tpl.md");
+        std::fs::write(&tr, "[00:10] Me: That's a decision, ship Lantern in Q4.\n[01:10] Others: Unrelated coffee chat.\n[06:40] Me: Dana, can you book the call for April 9?\n[06:45] Others: Dana: April 9 works. I'll send it.\n").expect("tr");
+        std::fs::write(&tpl, "# Decisions\n# Uncovered section\n").expect("tpl");
+        let ddir = dir.path().join("store");
+        assert!(run_engine(
+            Cli::try_parse_from([
+                "meeting-run",
+                "--data-dir",
+                ddir.to_str().expect("u8"),
+                "--transcript",
+                tr.to_str().expect("u8"),
+                "--fail-notes",
+                "notes"
+            ])
+            .expect("c")
+        )
+        .is_err());
+        let retry = run_engine(
+            Cli::try_parse_from([
+                "meeting-run",
+                "--data-dir",
+                ddir.to_str().expect("u8"),
+                "--template",
+                tpl.to_str().expect("u8"),
+                "retry",
+            ])
+            .expect("c"),
+        )
+        .expect("retry");
+        assert!(!retry["sources"].as_array().expect("src").is_empty());
+        assert!(!retry["left_out"].as_array().expect("lo").is_empty());
+        assert!(retry["time_to_notes_ms"].as_u64().is_some());
+        let cu = run_engine(
+            Cli::try_parse_from([
+                "meeting-run",
+                "--data-dir",
+                ddir.to_str().expect("u8"),
+                "catch-up",
+                "--last",
+                "5m",
+                "--at",
+                "7m",
+            ])
+            .expect("c"),
+        )
+        .expect("cu");
+        assert!(cu["lines"]
+            .as_array()
+            .expect("l")
+            .iter()
+            .all(|l| l["source"].as_str().unwrap_or("") >= "02:00"));
     }
 }
