@@ -38,7 +38,17 @@
     "dictationSearchAria": "Dictaten doorzoeken",
     "cleanedUp": "Opgeschoond",
     "emptyDictationSearch": "Geen dictaten komen overeen met je zoekopdracht.",
-    "keptDays": "30 dagen bewaard"
+    "keptDays": "30 dagen bewaard",
+    "homeHeading": "Goedemorgen",
+    "homeMeetingsBody": "Notities en transcript worden op deze Mac gemaakt. Opnemen start pas wanneer je op Start drukt.",
+    "recentMeetings": "Recente vergaderingen",
+    "dictateBody": "Houd je sneltoets ingedrukt, spreek en laat los. De woorden verschijnen bij je cursor.",
+    "recentDictations": "Recente dictaten",
+    "more": "Meer",
+    "keep": "Bewaren",
+    "kept": "Bewaard",
+    "editText": "Tekst bewerken",
+    "tryAgain": "Opnieuw proberen"
   },
   "onboarding": {
     "subtitle": "Kies een transcriptiemodel om aan de slag te gaan",

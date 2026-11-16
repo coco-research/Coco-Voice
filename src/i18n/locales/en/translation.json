@@ -38,7 +38,17 @@
     "dictationSearchAria": "Search dictations",
     "cleanedUp": "Cleaned up",
     "emptyDictationSearch": "No dictations match your search.",
-    "keptDays": "Kept 30 days"
+    "keptDays": "Kept 30 days",
+    "homeHeading": "Good morning",
+    "homeMeetingsBody": "Notes and a transcript, made on this Mac. Recording starts only when you press Start.",
+    "recentMeetings": "Recent meetings",
+    "dictateBody": "Hold your shortcut, speak, let go. The words are typed where your cursor is.",
+    "recentDictations": "Recent dictations",
+    "more": "More",
+    "keep": "Keep",
+    "kept": "Kept",
+    "editText": "Edit text",
+    "tryAgain": "Try again"
   },
   "onboarding": {
     "subtitle": "To get started, choose a transcription model",
@@ -478,7 +488,7 @@
     },
     "history": {
       "title": "History",
-      "openFolder": "Open Recordings Folder",
+      "openFolder": "Open recordings folder",
       "loading": "Loading history...",
       "empty": "No transcriptions yet. Start recording to build your history!",
       "copyToClipboard": "Copy transcription to clipboard",
@@ -688,14 +698,14 @@
   },
   "errors": {
     "loadDirectory": "Error loading directory: {{error}}",
-    "micPermissionDeniedTitle": "Microphone Access Denied",
+    "micPermissionDeniedTitle": "Microphone access denied",
     "micPermissionDenied": {
       "generic": "Microphone access was denied by the operating system. Please grant microphone permission in your system settings.",
       "windows": "Enable microphone access in Settings → Privacy & security → Microphone (including desktop app access).",
       "macos": "Grant microphone access in System Settings → Privacy & Security → Microphone.",
       "linux": "Grant microphone access in your system's sound or privacy settings."
     },
-    "noInputDeviceTitle": "No Microphone Found",
+    "noInputDeviceTitle": "No microphone found",
     "noInputDevice": "No audio input device was detected. Please connect a microphone or headset and try again.",
     "recordingFailed": "Failed to start recording: {{error}}",
     "modelLoadFailed": "Failed to load model: {{model}}",

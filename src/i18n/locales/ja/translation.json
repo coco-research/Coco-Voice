@@ -38,7 +38,17 @@
     "dictationSearchAria": "音声入力を検索",
     "cleanedUp": "整形済み",
     "emptyDictationSearch": "一致する音声入力はありません。",
-    "keptDays": "30日間保持"
+    "keptDays": "30日間保持",
+    "homeHeading": "おはようございます",
+    "homeMeetingsBody": "メモと文字起こしはこの Mac 上で作成されます。「開始」を押すまで録音は始まりません。",
+    "recentMeetings": "最近の会議",
+    "dictateBody": "ショートカットを押したまま話して離すだけ。カーソル位置にテキストが入力されます。",
+    "recentDictations": "最近の音声入力",
+    "more": "その他",
+    "keep": "保持",
+    "kept": "保持済み",
+    "editText": "テキストを編集",
+    "tryAgain": "やり直す"
   },
   "onboarding": {
     "subtitle": "開始するには、文字起こしのモデルを選択してください",

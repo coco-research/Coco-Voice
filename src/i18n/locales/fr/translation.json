@@ -38,7 +38,17 @@
     "dictationSearchAria": "Rechercher dans les dictées",
     "cleanedUp": "Nettoyé",
     "emptyDictationSearch": "Aucune dictée ne correspond à votre recherche.",
-    "keptDays": "Conservé 30 jours"
+    "keptDays": "Conservé 30 jours",
+    "homeHeading": "Bonjour",
+    "homeMeetingsBody": "Notes et transcription créées sur ce Mac. L'enregistrement ne démarre que lorsque vous cliquez sur Démarrer.",
+    "recentMeetings": "Réunions récentes",
+    "dictateBody": "Maintenez votre raccourci, parlez, relâchez. Les mots s'écrivent là où se trouve le curseur.",
+    "recentDictations": "Dictées récentes",
+    "more": "Plus",
+    "keep": "Garder",
+    "kept": "Gardé",
+    "editText": "Modifier le texte",
+    "tryAgain": "Réessayer"
   },
   "onboarding": {
     "subtitle": "Pour commencer, choisissez un modèle de transcription",

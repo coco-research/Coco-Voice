@@ -38,7 +38,17 @@
     "dictationSearchAria": "搜尋聽寫記錄",
     "cleanedUp": "已潤飾",
     "emptyDictationSearch": "沒有符合搜尋的聽寫記錄。",
-    "keptDays": "保留 30 天"
+    "keptDays": "保留 30 天",
+    "homeHeading": "早安",
+    "homeMeetingsBody": "筆記與逐字稿皆在此 Mac 本機產生。按下「開始」後才會開始錄製。",
+    "recentMeetings": "最近的會議",
+    "dictateBody": "按住快捷鍵說話，放開後文字會輸入在游標所在位置。",
+    "recentDictations": "最近的聽寫",
+    "more": "更多",
+    "keep": "保留",
+    "kept": "已保留",
+    "editText": "編輯文字",
+    "tryAgain": "重試"
   },
   "onboarding": {
     "subtitle": "首先，請選擇一種模型",

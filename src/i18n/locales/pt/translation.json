@@ -38,7 +38,17 @@
     "dictationSearchAria": "Pesquisar ditados",
     "cleanedUp": "Revisado",
     "emptyDictationSearch": "Nenhum ditado corresponde à sua pesquisa.",
-    "keptDays": "Mantido por 30 dias"
+    "keptDays": "Mantido por 30 dias",
+    "homeHeading": "Bom dia",
+    "homeMeetingsBody": "Notas e transcrição feitas neste Mac. A gravação só começa quando você pressiona Iniciar.",
+    "recentMeetings": "Reuniões recentes",
+    "dictateBody": "Segure o atalho, fale e solte. As palavras são digitadas onde estiver o cursor.",
+    "recentDictations": "Ditados recentes",
+    "more": "Mais",
+    "keep": "Manter",
+    "kept": "Mantido",
+    "editText": "Editar texto",
+    "tryAgain": "Tentar novamente"
   },
   "onboarding": {
     "subtitle": "Para começar, escolha um modelo de transcrição",
@@ -478,7 +488,7 @@
     },
     "history": {
       "title": "Histórico",
-      "openFolder": "Abrir Pasta de Gravações",
+      "openFolder": "Abrir pasta de gravações",
       "loading": "Carregando histórico...",
       "empty": "Nenhuma transcrição ainda. Comece a gravar para construir seu histórico!",
       "copyToClipboard": "Copiar transcrição para área de transferência",

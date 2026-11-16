@@ -38,7 +38,17 @@
     "dictationSearchAria": "Cerca nelle dettature",
     "cleanedUp": "Ripulito",
     "emptyDictationSearch": "Nessuna dettatura corrisponde alla ricerca.",
-    "keptDays": "Conservato 30 giorni"
+    "keptDays": "Conservato 30 giorni",
+    "homeHeading": "Buongiorno",
+    "homeMeetingsBody": "Note e trascrizione create su questo Mac. La registrazione parte solo quando premi Avvia.",
+    "recentMeetings": "Riunioni recenti",
+    "dictateBody": "Tieni premuta la scorciatoia, parla e rilascia. Le parole vengono scritte dove si trova il cursore.",
+    "recentDictations": "Dettature recenti",
+    "more": "Altro",
+    "keep": "Conserva",
+    "kept": "Conservato",
+    "editText": "Modifica testo",
+    "tryAgain": "Riprova"
   },
   "onboarding": {
     "subtitle": "Per cominciare, scegli un modello di riconoscimento vocale",

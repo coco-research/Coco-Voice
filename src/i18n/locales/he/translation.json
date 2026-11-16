@@ -38,7 +38,17 @@
     "dictationSearchAria": "חיפוש בהכתבות",
     "cleanedUp": "נוקה",
     "emptyDictationSearch": "אין הכתבות התואמות לחיפוש.",
-    "keptDays": "נשמר ל-30 יום"
+    "keptDays": "נשמר ל-30 יום",
+    "homeHeading": "בוקר טוב",
+    "homeMeetingsBody": "סיכומים ותמליל נוצרים ב-Mac הזה. ההקלטה מתחילה רק בלחיצה על התחל.",
+    "recentMeetings": "פגישות אחרונות",
+    "dictateBody": "החזק את קיצור המקשים, דבר ושחרר. המילים מוקלדות במקום שבו נמצא הסמן.",
+    "recentDictations": "הכתבות אחרונות",
+    "more": "עוד",
+    "keep": "שמור",
+    "kept": "שמור",
+    "editText": "ערוך טקסט",
+    "tryAgain": "נסה שוב"
   },
   "onboarding": {
     "subtitle": "כדי להתחיל, בחר מודל תמלול",

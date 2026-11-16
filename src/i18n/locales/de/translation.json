@@ -38,7 +38,17 @@
     "dictationSearchAria": "Diktate durchsuchen",
     "cleanedUp": "Bereinigt",
     "emptyDictationSearch": "Keine Diktate entsprechen Ihrer Suche.",
-    "keptDays": "30 Tage gespeichert"
+    "keptDays": "30 Tage gespeichert",
+    "homeHeading": "Guten Morgen",
+    "homeMeetingsBody": "Notizen und Transkript werden auf diesem Mac erstellt. Die Aufnahme startet erst nach Klick auf Start.",
+    "recentMeetings": "Letzte Meetings",
+    "dictateBody": "Kurzbefehl gedrückt halten, sprechen, loslassen. Der Text erscheint dort, wo der Cursor steht.",
+    "recentDictations": "Letzte Diktate",
+    "more": "Mehr",
+    "keep": "Behalten",
+    "kept": "Behalten",
+    "editText": "Text bearbeiten",
+    "tryAgain": "Erneut versuchen"
   },
   "onboarding": {
     "subtitle": "Wähle ein Transkriptionsmodell, um loszulegen",

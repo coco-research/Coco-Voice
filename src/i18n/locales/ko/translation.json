@@ -38,7 +38,17 @@
     "dictationSearchAria": "받아쓰기 검색",
     "cleanedUp": "다듬어짐",
     "emptyDictationSearch": "검색과 일치하는 받아쓰기가 없습니다.",
-    "keptDays": "30일 보관"
+    "keptDays": "30일 보관",
+    "homeHeading": "좋은 아침입니다",
+    "homeMeetingsBody": "노트와 전사본이 이 Mac에서 만들어집니다. 시작을 눌러야만 녹음이 시작됩니다.",
+    "recentMeetings": "최근 회의",
+    "dictateBody": "단축키를 누른 채 말하고 놓으세요. 커서가 있는 곳에 텍스트가 입력됩니다.",
+    "recentDictations": "최근 받아쓰기",
+    "more": "더보기",
+    "keep": "보관",
+    "kept": "보관됨",
+    "editText": "텍스트 편집",
+    "tryAgain": "다시 시도"
   },
   "onboarding": {
     "subtitle": "시작하려면 음성 인식 모델을 선택하세요",

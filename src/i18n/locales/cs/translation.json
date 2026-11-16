@@ -38,7 +38,17 @@
     "dictationSearchAria": "Hledat v diktování",
     "cleanedUp": "Upraveno",
     "emptyDictationSearch": "Žádné diktování neodpovídá hledání.",
-    "keptDays": "Uchováno 30 dní"
+    "keptDays": "Uchováno 30 dní",
+    "homeHeading": "Dobré ráno",
+    "homeMeetingsBody": "Poznámky a přepis vytvořené na tomto Macu. Nahrávání začne až po stisknutí Spustit.",
+    "recentMeetings": "Nedávné schůzky",
+    "dictateBody": "Podržte zkratku, mluvte a pusťte. Slova se napíší tam, kde máte kurzor.",
+    "recentDictations": "Nedávná diktování",
+    "more": "Více",
+    "keep": "Ponechat",
+    "kept": "Ponecháno",
+    "editText": "Upravit text",
+    "tryAgain": "Zkusit znovu"
   },
   "onboarding": {
     "subtitle": "Pro začátek vyberte model pro přepis",

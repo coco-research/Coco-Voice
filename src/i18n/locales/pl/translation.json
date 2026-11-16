@@ -38,7 +38,17 @@
     "dictationSearchAria": "Szukaj w dyktowaniach",
     "cleanedUp": "Poprawiono",
     "emptyDictationSearch": "Brak dyktowań pasujących do wyszukiwania.",
-    "keptDays": "Przechowywane 30 dni"
+    "keptDays": "Przechowywane 30 dni",
+    "homeHeading": "Dzień dobry",
+    "homeMeetingsBody": "Notatki i transkrypcja powstają na tym Macu. Nagrywanie rusza dopiero po kliknięciu Start.",
+    "recentMeetings": "Ostatnie spotkania",
+    "dictateBody": "Przytrzymaj skrót, mów i puść. Słowa zostaną wpisane w miejscu kursora.",
+    "recentDictations": "Ostatnie dyktowania",
+    "more": "Więcej",
+    "keep": "Zachowaj",
+    "kept": "Zachowano",
+    "editText": "Edytuj tekst",
+    "tryAgain": "Spróbuj ponownie"
   },
   "onboarding": {
     "subtitle": "Aby rozpocząć, wybierz model transkrypcji",

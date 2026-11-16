@@ -38,7 +38,17 @@
     "dictationSearchAria": "Diktelerde ara",
     "cleanedUp": "Düzeltildi",
     "emptyDictationSearch": "Aramanızla eşleşen dikte yok.",
-    "keptDays": "30 gün saklanır"
+    "keptDays": "30 gün saklanır",
+    "homeHeading": "Günaydın",
+    "homeMeetingsBody": "Notlar ve döküm bu Mac üzerinde oluşturulur. Kayıt yalnızca Başlat düğmesine bastığınızda başlar.",
+    "recentMeetings": "Son toplantılar",
+    "dictateBody": "Kısayolunuzu basılı tutun, konuşun ve bırakın. Sözcükler imlecin olduğu yere yazılır.",
+    "recentDictations": "Son dikteler",
+    "more": "Daha fazla",
+    "keep": "Sakla",
+    "kept": "Saklandı",
+    "editText": "Metni düzenle",
+    "tryAgain": "Tekrar dene"
   },
   "onboarding": {
     "subtitle": "Başlamak için bir transkripsiyon modeli seçin",
@@ -478,7 +488,7 @@
     },
     "history": {
       "title": "Geçmiş",
-      "openFolder": "Kayıtlar Klasörünü Aç",
+      "openFolder": "Kayıtlar klasörünü aç",
       "loading": "Geçmiş yükleniyor...",
       "empty": "Henüz transkripsiyon yok. Geçmişinizi oluşturmak için kayda başlayın!",
       "copyToClipboard": "Transkripsiyonu panoya kopyala",

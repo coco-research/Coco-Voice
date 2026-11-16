@@ -38,7 +38,17 @@
     "dictationSearchAria": "Sök i dikteringar",
     "cleanedUp": "Putsad",
     "emptyDictationSearch": "Inga dikteringar matchar din sökning.",
-    "keptDays": "Sparas 30 dagar"
+    "keptDays": "Sparas 30 dagar",
+    "homeHeading": "God morgon",
+    "homeMeetingsBody": "Anteckningar och transkript skapas på den här Mac-datorn. Inspelning startar först när du trycker på Starta.",
+    "recentMeetings": "Senaste möten",
+    "dictateBody": "Håll nere genvägen, tala och släpp. Orden skrivs där markören står.",
+    "recentDictations": "Senaste dikteringar",
+    "more": "Mer",
+    "keep": "Behåll",
+    "kept": "Behållen",
+    "editText": "Redigera text",
+    "tryAgain": "Försök igen"
   },
   "onboarding": {
     "subtitle": "För att komma igång, välj en transkriptionsmodell",

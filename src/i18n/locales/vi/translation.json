@@ -38,7 +38,17 @@
     "dictationSearchAria": "Tìm bản đọc chính tả",
     "cleanedUp": "Đã làm sạch",
     "emptyDictationSearch": "Không có bản đọc nào khớp tìm kiếm.",
-    "keptDays": "Lưu 30 ngày"
+    "keptDays": "Lưu 30 ngày",
+    "homeHeading": "Chào buổi sáng",
+    "homeMeetingsBody": "Ghi chú và bản chép lời được tạo trên máy Mac này. Chỉ bắt đầu ghi khi bạn nhấn Bắt đầu.",
+    "recentMeetings": "Cuộc họp gần đây",
+    "dictateBody": "Giữ phím tắt, nói rồi thả ra. Văn bản sẽ được gõ ngay tại vị trí con trỏ.",
+    "recentDictations": "Đọc chính tả gần đây",
+    "more": "Thêm",
+    "keep": "Giữ lại",
+    "kept": "Đã giữ",
+    "editText": "Sửa văn bản",
+    "tryAgain": "Thử lại"
   },
   "onboarding": {
     "subtitle": "Để bắt đầu, hãy chọn một mô hình chuyển đổi giọng nói",

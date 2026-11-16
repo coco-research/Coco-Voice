@@ -38,7 +38,17 @@
     "dictationSearchAria": "搜索听写记录",
     "cleanedUp": "已润色",
     "emptyDictationSearch": "没有匹配的听写记录。",
-    "keptDays": "保留 30 天"
+    "keptDays": "保留 30 天",
+    "homeHeading": "早上好",
+    "homeMeetingsBody": "纪要与转写均在此 Mac 本地生成。仅在点击“开始”后才会开始录制。",
+    "recentMeetings": "最近会议",
+    "dictateBody": "按住快捷键说话，松开即输入到光标所在位置。",
+    "recentDictations": "最近听写",
+    "more": "更多",
+    "keep": "保留",
+    "kept": "已保留",
+    "editText": "编辑文本",
+    "tryAgain": "重试"
   },
   "onboarding": {
     "subtitle": "请选择一个转录模型以开始使用",

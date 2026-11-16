@@ -615,4 +615,22 @@ describe("V-C7 (E18): Localized Corrections and History strings with zero missin
       }
     }
   });
+
+  test("G4 carry-over uses sentence case for openFolder and microphone error titles across 22 locales", () => {
+    expect(en.settings.history.openFolder).toBe("Open recordings folder");
+    expect(en.errors.micPermissionDeniedTitle).toBe("Microphone access denied");
+    expect(en.errors.noInputDeviceTitle).toBe("No microphone found");
+    for (const loc of readdirSync(localesDir).sort()) {
+      const parsed = JSON.parse(
+        readFileSync(join(localesDir, loc, "translation.json"), "utf8"),
+      ) as typeof en;
+      expect(parsed.settings.history.openFolder).not.toBe(
+        "Open Recordings Folder",
+      );
+      expect(parsed.errors.micPermissionDeniedTitle).not.toBe(
+        "Microphone Access Denied",
+      );
+      expect(parsed.errors.noInputDeviceTitle).not.toBe("No Microphone Found");
+    }
+  });
 });
