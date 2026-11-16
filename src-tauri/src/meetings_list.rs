@@ -72,13 +72,7 @@ pub fn search_from_store(
         .collect()
 }
 
-pub fn export_from_store(store: &MeetingsStore, id: i64, dest: &Path) -> Result<(), String> {
-    if dest.as_os_str().is_empty() {
-        return Err("Export destination path is empty".to_string());
-    }
-    if dest.is_dir() {
-        return Err("Export destination must be a file, not a directory".to_string());
-    }
+pub fn render_meeting_markdown(store: &MeetingsStore, id: i64) -> Result<String, String> {
     let meeting = store.meeting(id).map_err(|e| e.to_string())?;
     let notes = store.notes(id).map_err(|e| e.to_string())?;
     let segments: Vec<ExportSegment> = store
@@ -92,8 +86,17 @@ pub fn export_from_store(store: &MeetingsStore, id: i64, dest: &Path) -> Result<
             text: seg.text,
         })
         .collect();
+    Ok(meeting_markdown(&meeting, &notes, &segments))
+}
 
-    let markdown = meeting_markdown(&meeting, &notes, &segments);
+pub fn export_from_store(store: &MeetingsStore, id: i64, dest: &Path) -> Result<(), String> {
+    if dest.as_os_str().is_empty() {
+        return Err("Export destination path is empty".to_string());
+    }
+    if dest.is_dir() {
+        return Err("Export destination must be a file, not a directory".to_string());
+    }
+    let markdown = render_meeting_markdown(store, id)?;
     if let Some(parent) = dest.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -125,11 +128,7 @@ pub fn search_meetings(app: AppHandle, query: String) -> Result<Vec<MeetingListI
 
 #[tauri::command]
 #[specta::specta]
-pub fn export_meeting_markdown(
-    app: AppHandle,
-    id: i64,
-    dest_path: String,
-) -> Result<(), String> {
+pub fn export_meeting_markdown(app: AppHandle, id: i64, dest_path: String) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     export_from_store(&store, id, Path::new(&dest_path))
 }
@@ -199,7 +198,13 @@ mod tests {
         let m1 = seed_meeting(&store, "Standup", 1_700_000_000, Some(1_700_000_600));
         let m2 = seed_meeting(&store, "Planning", 1_700_001_000, Some(1_700_002_800));
         store
-            .insert_segment(m1, 0, 4_000, MeetingChannel::Me, "Check the lighthouse latency numbers")
+            .insert_segment(
+                m1,
+                0,
+                4_000,
+                MeetingChannel::Me,
+                "Check the lighthouse latency numbers",
+            )
             .unwrap();
         store
             .save_notes(
@@ -232,7 +237,13 @@ mod tests {
 
         let id = seed_meeting(&store, "Product sync", 1_700_000_000, Some(1_700_001_800));
         store
-            .insert_segment(id, 5_000, 9_000, MeetingChannel::Me, "Ship the homepage this week")
+            .insert_segment(
+                id,
+                5_000,
+                9_000,
+                MeetingChannel::Me,
+                "Ship the homepage this week",
+            )
             .unwrap();
         store
             .insert_segment(id, 12_000, 16_000, MeetingChannel::Others, "Sounds good")
@@ -265,10 +276,20 @@ mod tests {
         let out_md = tmp.path().join("exported").join("product-sync.md");
         export_from_store(&store, id, &out_md).unwrap();
         let text = fs::read_to_string(&out_md).unwrap();
+        assert_eq!(
+            text.as_bytes(),
+            render_meeting_markdown(&store, id).unwrap().as_bytes()
+        );
         assert!(text.contains("# Product sync"), "{text}");
         assert!(text.contains("Homepage scope locked."), "{text}");
-        assert!(text.contains("- Review copy on Friday (owner: Me)"), "{text}");
-        assert!(text.contains("[00:05] Me: Ship the homepage this week"), "{text}");
+        assert!(
+            text.contains("- Review copy on Friday (owner: Me)"),
+            "{text}"
+        );
+        assert!(
+            text.contains("[00:05] Me: Ship the homepage this week"),
+            "{text}"
+        );
         assert!(text.contains("[00:12] Others: Sounds good"), "{text}");
 
         let del = delete_from_store(&store, id).unwrap();
@@ -289,10 +310,10 @@ mod tests {
         let audio_dir = meetings_dir.join(id.to_string());
         fs::create_dir_all(&audio_dir).unwrap();
         fs::write(audio_dir.join("mic.wav"), b"stub").unwrap();
-        fs::set_permissions(&meetings_dir, fs::Permissions::from_mode(0o555)).unwrap();
+        fs::set_permissions(&audio_dir, fs::Permissions::from_mode(0o555)).unwrap();
 
         let del = delete_from_store(&store, id);
-        fs::set_permissions(&meetings_dir, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(&audio_dir, fs::Permissions::from_mode(0o755)).unwrap();
 
         let del = del.unwrap();
         assert!(del.audio_left);
