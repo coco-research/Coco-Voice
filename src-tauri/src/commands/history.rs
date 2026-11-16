@@ -180,6 +180,21 @@ pub async fn update_history_limit(
     Ok(())
 }
 
+pub(crate) fn parse_recording_retention_period(
+    period: &str,
+) -> Result<crate::settings::RecordingRetentionPeriod, String> {
+    use crate::settings::RecordingRetentionPeriod;
+
+    match period {
+        "never" => Ok(RecordingRetentionPeriod::Never),
+        "preserve_limit" => Ok(RecordingRetentionPeriod::PreserveLimit),
+        "days_3" | "days3" => Ok(RecordingRetentionPeriod::Days3),
+        "weeks_2" | "weeks2" => Ok(RecordingRetentionPeriod::Weeks2),
+        "months_3" | "months3" => Ok(RecordingRetentionPeriod::Months3),
+        _ => Err(format!("Invalid retention period: {}", period)),
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn update_recording_retention_period(
@@ -187,16 +202,7 @@ pub async fn update_recording_retention_period(
     history_manager: State<'_, Arc<HistoryManager>>,
     period: String,
 ) -> Result<(), String> {
-    use crate::settings::RecordingRetentionPeriod;
-
-    let retention_period = match period.as_str() {
-        "never" => RecordingRetentionPeriod::Never,
-        "preserve_limit" => RecordingRetentionPeriod::PreserveLimit,
-        "days3" => RecordingRetentionPeriod::Days3,
-        "weeks2" => RecordingRetentionPeriod::Weeks2,
-        "months3" => RecordingRetentionPeriod::Months3,
-        _ => return Err(format!("Invalid retention period: {}", period)),
-    };
+    let retention_period = parse_recording_retention_period(&period)?;
 
     crate::settings::update_settings(&app, |s| {
         s.recording_retention_period = retention_period;
@@ -207,4 +213,41 @@ pub async fn update_recording_retention_period(
         .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_recording_retention_period;
+    use crate::settings::RecordingRetentionPeriod;
+
+    #[test]
+    fn retention_period_parser_accepts_canonical_snake_case_and_legacy_strings() {
+        assert_eq!(
+            parse_recording_retention_period("never"),
+            Ok(RecordingRetentionPeriod::Never)
+        );
+        assert_eq!(
+            parse_recording_retention_period("preserve_limit"),
+            Ok(RecordingRetentionPeriod::PreserveLimit)
+        );
+        for key in ["days_3", "days3"] {
+            assert_eq!(
+                parse_recording_retention_period(key),
+                Ok(RecordingRetentionPeriod::Days3)
+            );
+        }
+        for key in ["weeks_2", "weeks2"] {
+            assert_eq!(
+                parse_recording_retention_period(key),
+                Ok(RecordingRetentionPeriod::Weeks2)
+            );
+        }
+        for key in ["months_3", "months3"] {
+            assert_eq!(
+                parse_recording_retention_period(key),
+                Ok(RecordingRetentionPeriod::Months3)
+            );
+        }
+        assert!(parse_recording_retention_period("unknown").is_err());
+    }
 }

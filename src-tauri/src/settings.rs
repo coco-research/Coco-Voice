@@ -194,8 +194,11 @@ pub enum AutoSubmitKey {
 pub enum RecordingRetentionPeriod {
     Never,
     PreserveLimit,
+    #[serde(alias = "days3")]
     Days3,
+    #[serde(alias = "weeks2")]
     Weeks2,
+    #[serde(alias = "months3")]
     Months3,
 }
 
