@@ -258,6 +258,9 @@ fn initialize_core_logic(app_handle: &AppHandle) {
                     let _ = app.emit("check-for-updates", ());
                 }
             }
+            "paste_last_transcript" => {
+                tray::paste_last_transcript(app);
+            }
             "copy_last_transcript" => {
                 tray::copy_last_transcript(app);
             }
@@ -711,7 +714,9 @@ pub fn run(cli_args: CliArgs) {
             managers::transcription::StreamPhaseEvent,
             cleanup_resolver::CleanupStatus,
             actions::CleanupProgress,
-        ]);
+        ])
+        // Emitted with a plain `emit`, registered so bindings.ts carries its type.
+        .typ::<managers::model::ModelDownloadFailed>();
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
     {

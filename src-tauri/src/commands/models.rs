@@ -1,4 +1,6 @@
-use crate::managers::model::{ModelInfo, ModelManager};
+use crate::managers::model::{
+    download_failure_cause, ModelDownloadFailed, ModelInfo, ModelManager,
+};
 use crate::managers::transcription::{ModelStateEvent, TranscriptionManager};
 use crate::settings::{get_settings, update_settings, ModelUnloadTimeout};
 use std::sync::Arc;
@@ -42,19 +44,20 @@ pub async fn download_model(
     model_manager: State<'_, Arc<ModelManager>>,
     model_id: String,
 ) -> Result<(), String> {
-    let result = model_manager
-        .download_model(&model_id)
-        .await
-        .map_err(|e| e.to_string());
+    let result = model_manager.download_model(&model_id).await;
 
-    if let Err(ref error) = result {
+    if let Err(ref e) = result {
         let _ = app_handle.emit(
             "model-download-failed",
-            serde_json::json!({ "model_id": &model_id, "error": error }),
+            ModelDownloadFailed {
+                model_id,
+                error: e.to_string(),
+                cause: download_failure_cause(e),
+            },
         );
     }
 
-    result
+    result.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
