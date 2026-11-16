@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import en from "../src/i18n/locales/en/translation.json";
+import { getStoredTheme, THEME_STORAGE_KEY } from "../src/lib/utils/theme";
 import { useModelStore } from "../src/stores/modelStore";
 import { useSettingsStore } from "../src/stores/settingsStore";
 
@@ -540,7 +541,14 @@ describe("V-C7 (E18): Localized Corrections and History strings with zero missin
       "src/components/settings/CocoVoiceKeysShortcutInput.tsx",
       "src/components/settings/about/WhatGoesOnline.tsx",
       "src/content/release-notes/0.9.0.md",
+      "src/lib/utils/theme.ts",
     ]);
+
+    const themeSource = readFileSync(
+      join(rootDir, "src/lib/utils/theme.ts"),
+      "utf8",
+    );
+    expect((themeSource.match(/handy/gi) ?? []).length).toBe(1);
 
     const missingKeys: string[] = [];
     const handyHits: string[] = [];
@@ -572,5 +580,39 @@ describe("V-C7 (E18): Localized Corrections and History strings with zero missin
 
     expect(missingKeys).toEqual([]);
     expect(handyHits).toEqual([]);
+  });
+
+  test("migrates legacy handy.theme to coco_voice.theme once on boot and removes the old key", () => {
+    const store = new Map<string, string>();
+    const prev = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => {
+          store.set(k, v);
+        },
+        removeItem: (k: string) => {
+          store.delete(k);
+        },
+      },
+    });
+    try {
+      store.set("handy.theme", "dark");
+      expect(getStoredTheme()).toBe("dark");
+      expect(store.get(THEME_STORAGE_KEY)).toBe("dark");
+      expect(store.has("handy.theme")).toBe(false);
+
+      store.set(THEME_STORAGE_KEY, "light");
+      store.set("handy.theme", "dark");
+      expect(getStoredTheme()).toBe("light");
+      expect(store.get(THEME_STORAGE_KEY)).toBe("light");
+    } finally {
+      if (prev) {
+        Object.defineProperty(globalThis, "localStorage", prev);
+      } else {
+        delete (globalThis as { localStorage?: unknown }).localStorage;
+      }
+    }
   });
 });
