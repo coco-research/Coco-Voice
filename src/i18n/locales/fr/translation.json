@@ -949,6 +949,21 @@
       "chooseImportFiles": "Choisir des fichiers ou un dossier",
       "importIntoFolder": "Importer dans le dossier : {{folder}}",
       "importAction": "Importer {{count}} notes"
+    },
+    "ask": {
+      "singleHeading": "Interroger cette réunion",
+      "acrossHeading": "Interroger toutes vos réunions",
+      "scopeThisMeeting": "Cette réunion uniquement",
+      "scopeAll": "Toutes les réunions sur ce Mac",
+      "scopeFolder": "Dossier",
+      "scopePicked": "Sélection choisie",
+      "placeholderSingle": "Poser une question sur cette réunion...",
+      "placeholderAcross": "Poser une question sur vos réunions...",
+      "askButton": "Demander",
+      "voiceAskAria": "Demander à la voix",
+      "listeningQuestion": "Écoute de votre question...",
+      "citationRule": "Chaque réponse cite la réunion et le moment exact d’où elle provient.",
+      "todosTab": "Vos tâches"
     }
   }
 }
