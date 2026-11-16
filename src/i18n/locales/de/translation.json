@@ -12,7 +12,7 @@
     "general": "Allgemein",
     "models": "Modelle",
     "advanced": "Erweitert",
-    "postProcessing": "Nachbearbeitung",
+    "postProcessing": "Bereinigen",
     "history": "Verlauf",
     "debug": "Debug",
     "about": "Info"
@@ -517,8 +517,8 @@
         "description": "Mikrofon bei geschlossenem Laptop-Deckel"
       },
       "postProcessingToggle": {
-        "label": "Nachbearbeitung",
-        "description": "KI-gestützte Textverfeinerung nach der Transkription aktivieren"
+        "label": "Bereinigen",
+        "description": "Füllwörter, Zeichensetzung und Selbstkorrekturen nach der Transkription bereinigen"
       },
       "muteWhileRecording": {
         "label": "Während Aufnahme stummschalten",

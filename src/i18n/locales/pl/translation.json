@@ -12,7 +12,7 @@
     "general": "Ogólne",
     "models": "Modele",
     "advanced": "Zaawansowane",
-    "postProcessing": "Postproces",
+    "postProcessing": "Korekta",
     "history": "Historia",
     "debug": "Debugowanie",
     "about": "O programie"
@@ -517,8 +517,8 @@
         "description": "Mikrofon używany, gdy pokrywa laptopa jest zamknięta"
       },
       "postProcessingToggle": {
-        "label": "Postprocess",
-        "description": "Włącz AI do ulepszania tekstu po transkrypcji"
+        "label": "Korekta",
+        "description": "Usuwaj przerywniki oraz poprawiaj interpunkcję i autopoprawki po transkrypcji"
       },
       "muteWhileRecording": {
         "label": "Wycisz podczas nagrywania",

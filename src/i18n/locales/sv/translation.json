@@ -12,7 +12,7 @@
     "general": "Allmänt",
     "models": "Modeller",
     "advanced": "Avancerat",
-    "postProcessing": "Efterbearbetning",
+    "postProcessing": "Rensning",
     "history": "Historik",
     "debug": "Felsökning",
     "about": "Om"
@@ -517,8 +517,8 @@
         "description": "Mikrofon som ska användas när bärbara datorns lock är stängt"
       },
       "postProcessingToggle": {
-        "label": "Efterbearbetning",
-        "description": "Aktivera AI-driven textförfining efter transkription"
+        "label": "Rensning",
+        "description": "Rensa utfyllnadsord, skiljetecken och självrättelser efter transkribering"
       },
       "muteWhileRecording": {
         "label": "Ljudlös under inspelning",

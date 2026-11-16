@@ -12,7 +12,7 @@
     "general": "כללי",
     "models": "מודלים",
     "advanced": "מתקדם",
-    "postProcessing": "עיבוד משלים",
+    "postProcessing": "ליטוש טקסט",
     "history": "היסטוריה",
     "debug": "ניפוי שגיאות",
     "about": "אודות"
@@ -517,8 +517,8 @@
         "description": "המיקרופון שישמש כשהמחשב הנייד סגור"
       },
       "postProcessingToggle": {
-        "label": "עיבוד משלים",
-        "description": "הפעל שיפור טקסט מבוסס AI אחרי התמלול"
+        "label": "ליטוש טקסט",
+        "description": "ליטוש מילות מילוי, פיסוק ותיקונים עצמיים לאחר התמלול"
       },
       "muteWhileRecording": {
         "label": "השתק בזמן הקלטה",

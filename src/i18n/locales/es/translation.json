@@ -12,7 +12,7 @@
     "general": "General",
     "models": "Modelos",
     "advanced": "Avanzado",
-    "postProcessing": "Post Proceso",
+    "postProcessing": "Limpieza",
     "history": "Historial",
     "debug": "Depuración",
     "about": "Acerca de"
@@ -517,8 +517,8 @@
         "description": "Micrófono a usar cuando la tapa del portátil está cerrada"
       },
       "postProcessingToggle": {
-        "label": "Post Procesamiento",
-        "description": "Habilitar refinamiento de texto impulsado por IA después de la transcripción"
+        "label": "Limpieza",
+        "description": "Limpia muletillas, puntuación y autocorrecciones después de transcribir"
       },
       "muteWhileRecording": {
         "label": "Silenciar Durante la Grabación",

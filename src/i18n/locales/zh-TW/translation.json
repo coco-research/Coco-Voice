@@ -12,7 +12,7 @@
     "general": "一般",
     "models": "模型",
     "advanced": "進階",
-    "postProcessing": "後處理",
+    "postProcessing": "潤飾",
     "history": "歷史紀錄",
     "debug": "偵錯",
     "about": "關於"
@@ -517,8 +517,8 @@
         "description": "筆記型電腦闔蓋時使用的麥克風"
       },
       "postProcessingToggle": {
-        "label": "後處理",
-        "description": "啟用轉錄後的 AI 文字最佳化"
+        "label": "潤飾",
+        "description": "在轉寫後清理贅詞、標點符號與口頭自我更正"
       },
       "muteWhileRecording": {
         "label": "錄製時靜音",

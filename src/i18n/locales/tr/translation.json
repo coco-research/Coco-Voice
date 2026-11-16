@@ -12,7 +12,7 @@
     "general": "Genel",
     "models": "Modeller",
     "advanced": "Gelişmiş",
-    "postProcessing": "Son İşlem",
+    "postProcessing": "Düzeltme",
     "history": "Geçmiş",
     "debug": "Hata Ayıklama",
     "about": "Hakkında"
@@ -517,8 +517,8 @@
         "description": "Dizüstü bilgisayar kapağı kapalıyken kullanılacak mikrofon"
       },
       "postProcessingToggle": {
-        "label": "Son İşlem",
-        "description": "Transkripsiyon sonrası yapay zekâ destekli metin iyileştirmeyi etkinleştirir"
+        "label": "Düzeltme",
+        "description": "Yazıya dökümden sonra dolgu sözcükleri, noktalama ve kendi düzeltmelerinizi temizleyin"
       },
       "muteWhileRecording": {
         "label": "Kayıt Sırasında Sessize Al",

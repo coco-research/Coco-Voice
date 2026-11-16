@@ -12,7 +12,7 @@
     "general": "Chung",
     "models": "Mô hình",
     "advanced": "Nâng cao",
-    "postProcessing": "Xử lý sau",
+    "postProcessing": "Làm sạch",
     "history": "Lịch sử",
     "debug": "Gỡ lỗi",
     "about": "Giới thiệu"
@@ -517,8 +517,8 @@
         "description": "Micrô sử dụng khi nắp laptop được đóng"
       },
       "postProcessingToggle": {
-        "label": "Xử lý sau",
-        "description": "Bật tinh chỉnh văn bản bằng AI sau khi chuyển đổi"
+        "label": "Làm sạch",
+        "description": "Làm sạch từ đệm, dấu câu và phần tự sửa sau khi chuyển giọng nói thành văn bản"
       },
       "muteWhileRecording": {
         "label": "Tắt tiếng khi ghi âm",

@@ -12,7 +12,7 @@
     "general": "一般",
     "models": "モデル",
     "advanced": "詳細設定",
-    "postProcessing": "後処理",
+    "postProcessing": "整形",
     "history": "履歴",
     "debug": "デバッグ",
     "about": "概要"
@@ -517,8 +517,8 @@
         "description": "ノートパソコンの蓋を閉じたときに使用するマイク"
       },
       "postProcessingToggle": {
-        "label": "後処理",
-        "description": "文字起こし後の AI によるテキスト改善を有効化"
+        "label": "整形",
+        "description": "文字起こし後にフィラーや句読点、言い直しを整形します"
       },
       "muteWhileRecording": {
         "label": "録音中にミュート",

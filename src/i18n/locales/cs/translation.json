@@ -12,7 +12,7 @@
     "general": "Obecné",
     "models": "Modely",
     "advanced": "Pokročilé",
-    "postProcessing": "Následné zpracování",
+    "postProcessing": "Úprava textu",
     "history": "Historie",
     "debug": "Ladění",
     "about": "O aplikaci"
@@ -517,8 +517,8 @@
         "description": "Mikrofon, který se použije při zavřeném víku notebooku"
       },
       "postProcessingToggle": {
-        "label": "Následné zpracování",
-        "description": "Povolit AI vylepšení textu po přepisu"
+        "label": "Úprava textu",
+        "description": "Upravit výplňová slova, interpunkci a sebeopravy po přepisu"
       },
       "muteWhileRecording": {
         "label": "Ztlumit při nahrávání",

@@ -12,7 +12,7 @@
     "general": "通用",
     "models": "模型",
     "advanced": "高级",
-    "postProcessing": "后处理",
+    "postProcessing": "润色",
     "history": "历史记录",
     "debug": "调试",
     "about": "关于"
@@ -517,8 +517,8 @@
         "description": "笔记本电脑盖子关闭时使用的麦克风"
       },
       "postProcessingToggle": {
-        "label": "后处理",
-        "description": "启用转录后的 AI 文本优化"
+        "label": "润色",
+        "description": "在转写后清理语气词、标点符号和口头自我更正"
       },
       "muteWhileRecording": {
         "label": "录制时静音",

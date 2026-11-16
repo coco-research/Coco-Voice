@@ -12,7 +12,7 @@
     "general": "Algemeen",
     "models": "Modellen",
     "advanced": "Geavanceerd",
-    "postProcessing": "Naverwerking",
+    "postProcessing": "Opschonen",
     "history": "Geschiedenis",
     "debug": "Probleemoplossing",
     "about": "Over Coco Voice"
@@ -524,8 +524,8 @@
         "description": "Microfoon die gebruikt moet worden wanneer het laptopscherm gesloten is"
       },
       "postProcessingToggle": {
-        "label": "Naverwerking",
-        "description": "Schakel AI-gestuurde tekstverfijning in na transcriptie"
+        "label": "Opschonen",
+        "description": "Vulwoorden, interpunctie en zelfcorrecties na transcriptie opschonen"
       },
       "muteWhileRecording": {
         "label": "Dempen tijdens opname",

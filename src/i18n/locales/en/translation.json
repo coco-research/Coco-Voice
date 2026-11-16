@@ -12,7 +12,7 @@
     "general": "General",
     "models": "Models",
     "advanced": "Advanced",
-    "postProcessing": "Post Process",
+    "postProcessing": "Clean up",
     "history": "History",
     "debug": "Debug",
     "about": "About"
@@ -524,8 +524,8 @@
         "description": "Microphone to use when laptop lid is closed"
       },
       "postProcessingToggle": {
-        "label": "Post Processing",
-        "description": "Enable AI-powered text refinement after transcription"
+        "label": "Clean up",
+        "description": "Clean up filler words, punctuation, and self-corrections after transcription"
       },
       "muteWhileRecording": {
         "label": "Mute While Recording",

@@ -12,7 +12,7 @@
     "general": "Generale",
     "models": "Modelli",
     "advanced": "Avanzate",
-    "postProcessing": "Post-Elaborazione",
+    "postProcessing": "Revisione",
     "history": "Cronologia",
     "debug": "Debug",
     "about": "Informazioni"
@@ -517,8 +517,8 @@
         "description": "Microfono da usare quando il portatile è chiuso"
       },
       "postProcessingToggle": {
-        "label": "Post-Elaborazione",
-        "description": "Abilita il miglioramento della trascrizione con IA"
+        "label": "Revisione",
+        "description": "Pulisci intercalari, punteggiatura e autocorrezioni dopo la trascrizione"
       },
       "muteWhileRecording": {
         "label": "Silenzia durante la registrazione",

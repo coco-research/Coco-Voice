@@ -12,7 +12,7 @@
     "general": "일반",
     "models": "모델",
     "advanced": "고급",
-    "postProcessing": "후처리",
+    "postProcessing": "다듬기",
     "history": "히스토리",
     "debug": "디버그",
     "about": "정보"
@@ -517,8 +517,8 @@
         "description": "노트북 덮개가 닫혀 있을 때 사용할 마이크"
       },
       "postProcessingToggle": {
-        "label": "후처리",
-        "description": "텍스트 변환 후 AI 기반 텍스트 개선 활성화"
+        "label": "다듬기",
+        "description": "받아쓰기 후 추임새, 문장 부호, 고쳐 말한 부분을 다듬습니다"
       },
       "muteWhileRecording": {
         "label": "녹음 중 음소거",

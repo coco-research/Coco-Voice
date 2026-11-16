@@ -12,7 +12,7 @@
     "general": "Général",
     "models": "Modèles",
     "advanced": "Avancé",
-    "postProcessing": "Post-traitement",
+    "postProcessing": "Nettoyage",
     "history": "Historique",
     "debug": "Débogage",
     "about": "À propos"
@@ -517,8 +517,8 @@
         "description": "Microphone à utiliser lorsque le couvercle du portable est fermé"
       },
       "postProcessingToggle": {
-        "label": "Post-traitement",
-        "description": "Activer l'affinage du texte par IA après la transcription"
+        "label": "Nettoyage",
+        "description": "Nettoyer les mots de remplissage, la ponctuation et les autocorrections après la transcription"
       },
       "muteWhileRecording": {
         "label": "Muet pendant l'enregistrement",
