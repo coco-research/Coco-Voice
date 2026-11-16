@@ -370,6 +370,14 @@
         "remove": "Supprimer {{word}}",
         "duplicate": "\"{{word}}\" existe déjà"
       },
+      "corrections": {
+        "title": "Corrections",
+        "description": "Remplace certains mots ou expressions dans le texte final, sans tenir compte de la casse.",
+        "fromPlaceholder": "De",
+        "toPlaceholder": "Par",
+        "duplicate": "Une correction pour « {{word}} » existe déjà",
+        "remove": "Supprimer la correction de {{from}} par {{to}}"
+      },
       "voiceActivityDetection": {
         "title": "Ignorer les silences",
         "description": "Ignore les pauses silencieuses pendant l’enregistrement. Désactiver cette option enregistre tout l’audio."
@@ -458,6 +466,11 @@
       "retranscribe": "Re-transcrire",
       "retranscribeError": "Impossible de re-transcrire. Veuillez réessayer.",
       "transcribing": "Transcription en cours...",
+      "edit": "Modifier",
+      "saveEdit": "Enregistrer",
+      "editError": "Impossible d’enregistrer la modification",
+      "learnedOne": "Correction apprise : « {{from}} » → « {{to}} »",
+      "learnedMany": "{{count}} corrections apprises à partir de votre modification",
       "transcriptionFailed": "La transcription a échoué. Vous pouvez re-transcrire en utilisant l'icône de réessai."
     },
     "debug": {

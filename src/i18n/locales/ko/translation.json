@@ -370,6 +370,14 @@
         "remove": "{{word}} 제거",
         "duplicate": "\"{{word}}\"이(가) 이미 존재합니다"
       },
+      "corrections": {
+        "title": "단어 교정",
+        "description": "대소문자 구분 없이 최종 텍스트의 특정 단어나 구절을 바꿉니다.",
+        "fromPlaceholder": "원래 말",
+        "toPlaceholder": "바꿀 말",
+        "duplicate": "\"{{word}}\" 교정 규칙이 이미 있습니다",
+        "remove": "{{from}} → {{to}} 교정 삭제"
+      },
       "voiceActivityDetection": {
         "title": "무음 건너뛰기",
         "description": "녹음 중 조용한 구간을 건너뜁니다. 끄면 전체 오디오를 그대로 녹음합니다."
@@ -458,6 +466,11 @@
       "retranscribe": "다시 전사",
       "retranscribeError": "다시 전사에 실패했습니다. 다시 시도해주세요.",
       "transcribing": "전사 중...",
+      "edit": "편집",
+      "saveEdit": "저장",
+      "editError": "편집 내용을 저장하지 못했습니다",
+      "learnedOne": "교정 학습됨: \"{{from}}\" → \"{{to}}\"",
+      "learnedMany": "편집에서 교정 {{count}}개를 학습했습니다",
       "transcriptionFailed": "전사에 실패했습니다. 재시도 아이콘을 사용하여 다시 전사할 수 있습니다."
     },
     "debug": {

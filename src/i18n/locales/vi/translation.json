@@ -370,6 +370,14 @@
         "remove": "Xóa {{word}}",
         "duplicate": "\"{{word}}\" đã tồn tại"
       },
+      "corrections": {
+        "title": "Sửa từ",
+        "description": "Thay thế từ hoặc cụm từ cụ thể trong văn bản cuối cùng, không phân biệt hoa thường.",
+        "fromPlaceholder": "Từ gốc",
+        "toPlaceholder": "Thay bằng",
+        "duplicate": "Đã có mục sửa cho \"{{word}}\"",
+        "remove": "Xóa mục sửa từ {{from}} thành {{to}}"
+      },
       "voiceActivityDetection": {
         "title": "Bỏ qua khoảng lặng",
         "description": "Loại bỏ các khoảng im lặng khi ghi âm. Tắt tùy chọn này sẽ ghi lại toàn bộ âm thanh."
@@ -458,6 +466,11 @@
       "retranscribe": "Phiên âm lại",
       "retranscribeError": "Không thể phiên âm lại. Vui lòng thử lại.",
       "transcribing": "Đang phiên âm...",
+      "edit": "Sửa",
+      "saveEdit": "Lưu",
+      "editError": "Không lưu được chỉnh sửa",
+      "learnedOne": "Đã học mục sửa: \"{{from}}\" → \"{{to}}\"",
+      "learnedMany": "Đã học {{count}} mục sửa từ chỉnh sửa của bạn",
       "transcriptionFailed": "Phiên âm thất bại. Bạn có thể phiên âm lại bằng biểu tượng thử lại."
     },
     "debug": {

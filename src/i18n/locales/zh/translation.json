@@ -370,6 +370,14 @@
         "remove": "删除 {{word}}",
         "duplicate": "\"{{word}}\" 已存在"
       },
+      "corrections": {
+        "title": "词句替换",
+        "description": "在最终文本中不区分大小写地替换指定词句。",
+        "fromPlaceholder": "原词",
+        "toPlaceholder": "替换为",
+        "duplicate": "“{{word}}”的替换规则已存在",
+        "remove": "移除从 {{from}} 到 {{to}} 的替换"
+      },
       "voiceActivityDetection": {
         "title": "跳过静音",
         "description": "录音时自动略过安静停顿；关闭后将录制完整音频。"
@@ -458,6 +466,11 @@
       "retranscribe": "重新转录",
       "retranscribeError": "重新转录失败。请重试。",
       "transcribing": "转录中...",
+      "edit": "编辑",
+      "saveEdit": "保存",
+      "editError": "保存修改失败",
+      "learnedOne": "已学习替换：“{{from}}” → “{{to}}”",
+      "learnedMany": "已从本次修改中学习 {{count}} 条替换",
       "transcriptionFailed": "转录失败。您可以使用重试图标重新转录。"
     },
     "debug": {

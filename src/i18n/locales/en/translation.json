@@ -370,6 +370,14 @@
         "remove": "Remove {{word}}",
         "duplicate": "\"{{word}}\" already exists"
       },
+      "corrections": {
+        "title": "Corrections",
+        "description": "Replace specific words or phrases in the final text, regardless of capitalization.",
+        "fromPlaceholder": "From",
+        "toPlaceholder": "To",
+        "duplicate": "A correction for \"{{word}}\" already exists",
+        "remove": "Remove correction from {{from}} to {{to}}"
+      },
       "voiceActivityDetection": {
         "title": "Skip silence",
         "description": "Leave out silent pauses while recording. Turning this off records the full audio."
@@ -458,6 +466,11 @@
       "retranscribe": "Re-transcribe",
       "retranscribeError": "Failed to re-transcribe. Please try again.",
       "transcribing": "Transcribing...",
+      "edit": "Edit",
+      "saveEdit": "Save",
+      "editError": "Failed to save edit",
+      "learnedOne": "Learned correction: \"{{from}}\" → \"{{to}}\"",
+      "learnedMany": "Learned {{count}} corrections from your edit",
       "transcriptionFailed": "Transcription failed. You can re-transcribe using the retry icon."
     },
     "debug": {

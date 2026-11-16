@@ -370,6 +370,14 @@
         "remove": "Rimuovi {{word}}",
         "duplicate": "\"{{word}}\" esiste già"
       },
+      "corrections": {
+        "title": "Sostituzioni",
+        "description": "Sostituisce parole o frasi specifiche nel testo finale senza distinguere maiuscole e minuscole.",
+        "fromPlaceholder": "Da",
+        "toPlaceholder": "A",
+        "duplicate": "Esiste già una sostituzione per \"{{word}}\"",
+        "remove": "Rimuovi sostituzione da {{from}} a {{to}}"
+      },
       "voiceActivityDetection": {
         "title": "Salta i silenzi",
         "description": "Ignora le pause silenziose durante la registrazione. Disattivandolo viene registrato tutto l’audio."
@@ -458,6 +466,11 @@
       "retranscribe": "Ri-trascrivere",
       "retranscribeError": "Impossibile ri-trascrivere. Riprova.",
       "transcribing": "Trascrizione in corso...",
+      "edit": "Modifica",
+      "saveEdit": "Salva",
+      "editError": "Impossibile salvare la modifica",
+      "learnedOne": "Sostituzione appresa: \"{{from}}\" → \"{{to}}\"",
+      "learnedMany": "Apprese {{count}} sostituzioni dalla modifica",
       "transcriptionFailed": "Trascrizione fallita. Puoi ri-trascrivere usando l'icona di ripetizione."
     },
     "debug": {

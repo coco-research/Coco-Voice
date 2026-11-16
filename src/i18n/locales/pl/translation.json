@@ -370,6 +370,14 @@
         "remove": "Usuń {{word}}",
         "duplicate": "\"{{word}}\" już istnieje"
       },
+      "corrections": {
+        "title": "Korekty słów",
+        "description": "Zastępuje wybrane słowa lub zwroty w końcowym tekście niezależnie od wielkości liter.",
+        "fromPlaceholder": "Z",
+        "toPlaceholder": "Na",
+        "duplicate": "Korekta dla „{{word}}” już istnieje",
+        "remove": "Usuń korektę z {{from}} na {{to}}"
+      },
       "voiceActivityDetection": {
         "title": "Pomijaj ciszę",
         "description": "Pomija ciche przerwy podczas nagrywania. Wyłączenie tej opcji nagrywa cały dźwięk."
@@ -458,6 +466,11 @@
       "retranscribe": "Transkrybuj ponownie",
       "retranscribeError": "Nie udało się ponownie transkrybować. Spróbuj ponownie.",
       "transcribing": "Transkrybuję...",
+      "edit": "Edytuj",
+      "saveEdit": "Zapisz",
+      "editError": "Nie udało się zapisać zmiany",
+      "learnedOne": "Zapamiętano korektę: „{{from}}” → „{{to}}”",
+      "learnedMany": "Zapamiętano {{count}} korekty z Twojej zmiany",
       "transcriptionFailed": "Transkrypcja nie powiodła się. Możesz transkrybować ponownie za pomocą ikony ponowienia."
     },
     "debug": {

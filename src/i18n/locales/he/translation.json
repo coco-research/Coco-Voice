@@ -370,6 +370,14 @@
         "remove": "הסר את {{word}}",
         "duplicate": "\"{{word}}\" כבר קיימת"
       },
+      "corrections": {
+        "title": "תיקוני מילים",
+        "description": "החלפת מילים או ביטויים מסוימים בטקסט הסופי ללא תלות באותיות רישיות.",
+        "fromPlaceholder": "מאת",
+        "toPlaceholder": "אל",
+        "duplicate": "כבר קיים תיקון עבור \"{{word}}\"",
+        "remove": "הסרת תיקון מ-{{from}} ל-{{to}}"
+      },
       "voiceActivityDetection": {
         "title": "דילוג על שקט",
         "description": "דילוג על הפסקות שקטות בזמן ההקלטה. כיבוי האפשרות מקליט את השמע המלא."
@@ -458,6 +466,11 @@
       "retranscribe": "תמלל מחדש",
       "retranscribeError": "תמלול מחדש נכשל. נסה שוב.",
       "transcribing": "מתמלל...",
+      "edit": "עריכה",
+      "saveEdit": "שמירה",
+      "editError": "שמירת העריכה נכשלה",
+      "learnedOne": "נלמד תיקון: \"{{from}}\" ← \"{{to}}\"",
+      "learnedMany": "נלמדו {{count}} תיקונים מהעריכה שלך",
       "transcriptionFailed": "התמלול נכשל. אפשר לתמלל מחדש באמצעות אייקון הניסיון החוזר."
     },
     "debug": {

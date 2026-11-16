@@ -370,6 +370,14 @@
         "remove": "{{word}}を削除",
         "duplicate": "「{{word}}」は既に存在します"
       },
+      "corrections": {
+        "title": "単語の置換",
+        "description": "最終テキスト内の特定の語句を大文字・小文字を区別せずに置き換えます。",
+        "fromPlaceholder": "変換前",
+        "toPlaceholder": "変換後",
+        "duplicate": "「{{word}}」の置換は既に登録されています",
+        "remove": "{{from}} から {{to}} への置換を削除"
+      },
       "voiceActivityDetection": {
         "title": "無音をスキップ",
         "description": "録音中の無音部分を省きます。オフにすると音声全体を録音します。"
@@ -458,6 +466,11 @@
       "retranscribe": "再文字起こし",
       "retranscribeError": "再文字起こしに失敗しました。もう一度お試しください。",
       "transcribing": "文字起こし中…",
+      "edit": "編集",
+      "saveEdit": "保存",
+      "editError": "編集を保存できませんでした",
+      "learnedOne": "置換を学習しました: 「{{from}}」→「{{to}}」",
+      "learnedMany": "編集から {{count}} 件の置換を学習しました",
       "transcriptionFailed": "文字起こしに失敗しました。リトライアイコンを使用して再文字起こしできます。"
     },
     "debug": {

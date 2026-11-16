@@ -370,6 +370,14 @@
         "remove": "刪除 {{word}}",
         "duplicate": "「{{word}}」已存在"
       },
+      "corrections": {
+        "title": "詞句替換",
+        "description": "在最終文字中不區分大小寫地替換指定詞句。",
+        "fromPlaceholder": "原詞",
+        "toPlaceholder": "替換為",
+        "duplicate": "「{{word}}」的替換規則已存在",
+        "remove": "移除從 {{from}} 到 {{to}} 的替換"
+      },
       "voiceActivityDetection": {
         "title": "略過靜音",
         "description": "錄音時自動略過安靜停頓；關閉後將錄製完整音訊。"
@@ -458,6 +466,11 @@
       "retranscribe": "重新轉錄",
       "retranscribeError": "重新轉錄失敗，請重試。",
       "transcribing": "轉錄中...",
+      "edit": "編輯",
+      "saveEdit": "儲存",
+      "editError": "儲存修改失敗",
+      "learnedOne": "已學習替換：「{{from}}」→「{{to}}」",
+      "learnedMany": "已從此次修改中學習 {{count}} 條替換",
       "transcriptionFailed": "轉錄失敗。您可以使用重試圖示重新轉錄。"
     },
     "debug": {

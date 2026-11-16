@@ -283,7 +283,7 @@ export const HistorySettings: React.FC = () => {
         setEntries((prev) =>
           prev.map((e) => (e.id === id ? applyText(e, original) : e)),
         );
-        toast.error("Failed to save edit");
+        toast.error(t("settings.history.editError"));
         return;
       }
     } catch (error) {
@@ -313,8 +313,11 @@ export const HistorySettings: React.FC = () => {
       if (updateResult.status === "ok") {
         toast.success(
           learned.length === 1
-            ? `Learned correction: "${learned[0].from}" → "${learned[0].to}"`
-            : `Learned ${learned.length} corrections from your edit`,
+            ? t("settings.history.learnedOne", {
+                from: learned[0].from,
+                to: learned[0].to,
+              })
+            : t("settings.history.learnedMany", { count: learned.length }),
         );
       }
     } catch (error) {
@@ -498,7 +501,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
             onClick={isEditing ? cancelEditing : startEditing}
             disabled={!hasTranscription || retrying}
             active={isEditing}
-            title={t("settings.history.edit", { defaultValue: "Edit" })}
+            title={t("settings.history.edit")}
           >
             <Pencil width={16} height={16} />
           </IconButton>
@@ -561,9 +564,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
               className="flex items-center gap-1"
             >
               <Check width={14} height={14} />
-              <span>
-                {t("settings.history.saveEdit", { defaultValue: "Save" })}
-              </span>
+              <span>{t("settings.history.saveEdit")}</span>
             </Button>
             <Button
               onClick={cancelEditing}
@@ -573,9 +574,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
               className="flex items-center gap-1"
             >
               <X width={14} height={14} />
-              <span>
-                {t("settings.history.cancelEdit", { defaultValue: "Cancel" })}
-              </span>
+              <span>{t("tray.cancel")}</span>
             </Button>
           </div>
         </div>

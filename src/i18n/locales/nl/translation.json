@@ -370,6 +370,14 @@
         "remove": "{{word}} verwijderen",
         "duplicate": "\"{{word}}\" bestaat al"
       },
+      "corrections": {
+        "title": "Correcties",
+        "description": "Vervangt specifieke woorden of zinnen in de uiteindelijke tekst, ongeacht hoofdletters.",
+        "fromPlaceholder": "Van",
+        "toPlaceholder": "Naar",
+        "duplicate": "Er bestaat al een correctie voor \"{{word}}\"",
+        "remove": "Correctie van {{from}} naar {{to}} verwijderen"
+      },
       "voiceActivityDetection": {
         "title": "Stilte overslaan",
         "description": "Laat stille pauzes tijdens het opnemen weg. Als je dit uitschakelt, wordt alle audio opgenomen."
@@ -458,6 +466,11 @@
       "retranscribe": "Opnieuw transcriberen",
       "retranscribeError": "Opnieuw transcriberen mislukt. Probeer het opnieuw.",
       "transcribing": "Transcriberen...",
+      "edit": "Bewerken",
+      "saveEdit": "Opslaan",
+      "editError": "Wijziging opslaan mislukt",
+      "learnedOne": "Correctie geleerd: \"{{from}}\" → \"{{to}}\"",
+      "learnedMany": "{{count}} correcties geleerd uit je bewerking",
       "transcriptionFailed": "Transcriptie mislukt. Je kunt het opnieuw proberen via het herlaad-pictogram."
     },
     "debug": {

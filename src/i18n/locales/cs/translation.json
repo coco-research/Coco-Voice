@@ -370,6 +370,14 @@
         "remove": "Odebrat {{word}}",
         "duplicate": "\"{{word}}\" již existuje"
       },
+      "corrections": {
+        "title": "Opravy",
+        "description": "Nahradí vybraná slova nebo spojení ve výsledném textu bez ohledu na velikost písmen.",
+        "fromPlaceholder": "Z",
+        "toPlaceholder": "Na",
+        "duplicate": "Oprava pro „{{word}}“ již existuje",
+        "remove": "Odebrat opravu z {{from}} na {{to}}"
+      },
       "voiceActivityDetection": {
         "title": "Přeskakovat ticho",
         "description": "Vynechá tiché pauzy během nahrávání. Při vypnutí se nahraje celý zvuk."
@@ -458,6 +466,11 @@
       "retranscribe": "Přepsat znovu",
       "retranscribeError": "Opětovný přepis se nezdařil. Zkuste to prosím znovu.",
       "transcribing": "Přepisuji...",
+      "edit": "Upravit",
+      "saveEdit": "Uložit",
+      "editError": "Úpravu se nepodařilo uložit",
+      "learnedOne": "Naučená oprava: „{{from}}“ → „{{to}}“",
+      "learnedMany": "Naučeno {{count}} oprav z vaší úpravy",
       "transcriptionFailed": "Přepis selhal. Můžete zkusit přepis znovu pomocí ikony opakování."
     },
     "debug": {

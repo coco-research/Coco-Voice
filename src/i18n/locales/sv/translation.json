@@ -370,6 +370,14 @@
         "remove": "Ta bort {{word}}",
         "duplicate": "\"{{word}}\" finns redan"
       },
+      "corrections": {
+        "title": "Ersättningar",
+        "description": "Byter ut valda ord eller fraser i den färdiga texten oavsett versaler och gemener.",
+        "fromPlaceholder": "Från",
+        "toPlaceholder": "Till",
+        "duplicate": "Det finns redan en ersättning för \"{{word}}\"",
+        "remove": "Ta bort ersättning från {{from}} till {{to}}"
+      },
       "voiceActivityDetection": {
         "title": "Hoppa över tystnad",
         "description": "Utelämnar tysta pauser under inspelning. Om du stänger av spelas hela ljudet in."
@@ -458,6 +466,11 @@
       "retranscribe": "Transkribera igen",
       "retranscribeError": "Misslyckades med att transkribera igen. Försök igen.",
       "transcribing": "Transkriberar...",
+      "edit": "Redigera",
+      "saveEdit": "Spara",
+      "editError": "Kunde inte spara ändringen",
+      "learnedOne": "Lärde in ersättning: \"{{from}}\" → \"{{to}}\"",
+      "learnedMany": "Lärde in {{count}} ersättningar från din ändring",
       "transcriptionFailed": "Transkribering misslyckades. Du kan transkribera igen med hjälp av ikonen för nytt försök."
     },
     "debug": {

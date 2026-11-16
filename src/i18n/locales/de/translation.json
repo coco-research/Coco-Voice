@@ -370,6 +370,14 @@
         "remove": "{{word}} entfernen",
         "duplicate": "\"{{word}}\" existiert bereits"
       },
+      "corrections": {
+        "title": "Ersetzungen",
+        "description": "Ersetzt bestimmte Wörter oder Ausdrücke im fertigen Text unabhängig von Groß- und Kleinschreibung.",
+        "fromPlaceholder": "Von",
+        "toPlaceholder": "Durch",
+        "duplicate": "Für „{{word}}“ gibt es bereits eine Ersetzung",
+        "remove": "Ersetzung von {{from}} durch {{to}} entfernen"
+      },
       "voiceActivityDetection": {
         "title": "Stille überspringen",
         "description": "Stille Pausen während der Aufnahme weglassen. Wenn deaktiviert, wird die gesamte Aufnahme gespeichert."
@@ -458,6 +466,11 @@
       "retranscribe": "Erneut transkribieren",
       "retranscribeError": "Erneute Transkription fehlgeschlagen. Bitte versuche es erneut.",
       "transcribing": "Transkribiere...",
+      "edit": "Bearbeiten",
+      "saveEdit": "Speichern",
+      "editError": "Änderung konnte nicht gespeichert werden",
+      "learnedOne": "Ersetzung gelernt: „{{from}}“ → „{{to}}“",
+      "learnedMany": "{{count}} Ersetzungen aus deiner Änderung gelernt",
       "transcriptionFailed": "Transkription fehlgeschlagen. Du kannst über das Wiederholen-Symbol erneut transkribieren."
     },
     "debug": {

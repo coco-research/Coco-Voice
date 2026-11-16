@@ -25,6 +25,7 @@ const { AboutSettings } =
   await import("../src/components/settings/about/AboutSettings");
 const { AdvancedSettings } =
   await import("../src/components/settings/advanced/AdvancedSettings");
+const { Corrections } = await import("../src/components/settings/Corrections");
 const { DebugSettings } =
   await import("../src/components/settings/debug/DebugSettings");
 const { GeneralSettings } =
@@ -212,5 +213,42 @@ describe("V-C3 (E14): Plain labels on General and Clean up screens", () => {
       expect(text).not.toContain("Voice Activity Detection");
       expect(text).not.toContain("VAD tail");
     }
+  });
+});
+
+describe("V-C7 (E18): Localized Corrections and History strings with zero missing i18n keys", () => {
+  test("every static t() and i18nKey reference in src/ resolves in en/translation.json and Corrections renders non-English placeholders", () => {
+    const fr = JSON.parse(
+      readFileSync(join(localesDir, "fr/translation.json"), "utf8"),
+    );
+    const frInst = i18next.createInstance();
+    void frInst.use(initReactI18next).init({
+      lng: "fr",
+      fallbackLng: "fr",
+      resources: { fr: { translation: fr } },
+      interpolation: { escapeValue: false },
+    });
+    const prevSettings = useSettingsStore.getState().settings;
+    useSettingsStore.setState({
+      settings: {
+        ...(prevSettings ?? {}),
+        corrections: [{ from: "teh", to: "the" }],
+      } as never,
+    });
+    let frHtml = "";
+    try {
+      frHtml = renderToStaticMarkup(
+        <I18nextProvider i18n={frInst}>
+          <Corrections />
+        </I18nextProvider>,
+      );
+    } finally {
+      useSettingsStore.setState({ settings: prevSettings });
+    }
+    expect(frHtml).toContain(
+      `placeholder="${fr.settings.advanced.corrections.fromPlaceholder}"`,
+    );
+    expect(frHtml).not.toContain('placeholder="From"');
+    expect(frHtml).not.toContain('placeholder="To"');
   });
 });

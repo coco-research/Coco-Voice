@@ -370,6 +370,14 @@
         "remove": "Remover {{word}}",
         "duplicate": "\"{{word}}\" já existe"
       },
+      "corrections": {
+        "title": "Correções",
+        "description": "Substitui palavras ou expressões específicas no texto final, sem diferenciar maiúsculas e minúsculas.",
+        "fromPlaceholder": "De",
+        "toPlaceholder": "Para",
+        "duplicate": "Já existe uma correção para \"{{word}}\"",
+        "remove": "Remover correção de {{from}} para {{to}}"
+      },
       "voiceActivityDetection": {
         "title": "Ignorar silêncio",
         "description": "Remove pausas silenciosas durante a gravação. Ao desativar, todo o áudio é gravado."
@@ -458,6 +466,11 @@
       "retranscribe": "Re-transcrever",
       "retranscribeError": "Falha ao re-transcrever. Por favor, tente novamente.",
       "transcribing": "Transcrevendo...",
+      "edit": "Editar",
+      "saveEdit": "Salvar",
+      "editError": "Falha ao salvar a edição",
+      "learnedOne": "Correção aprendida: \"{{from}}\" → \"{{to}}\"",
+      "learnedMany": "{{count}} correções aprendidas com sua edição",
       "transcriptionFailed": "A transcrição falhou. Você pode re-transcrever usando o ícone de tentar novamente."
     },
     "debug": {

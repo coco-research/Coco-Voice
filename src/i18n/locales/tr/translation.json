@@ -370,6 +370,14 @@
         "remove": "{{word}} Kaldır",
         "duplicate": "\"{{word}}\" zaten mevcut"
       },
+      "corrections": {
+        "title": "Sözcük düzeltmeleri",
+        "description": "Son metindeki belirli sözcük veya ifadeleri büyük/küçük harf duyarsız olarak değiştirir.",
+        "fromPlaceholder": "Eski",
+        "toPlaceholder": "Yeni",
+        "duplicate": "\"{{word}}\" için zaten bir düzeltme var",
+        "remove": "{{from}} → {{to}} düzeltmesini kaldır"
+      },
       "voiceActivityDetection": {
         "title": "Sessizliği atla",
         "description": "Kayıt sırasında sessiz duraklamaları çıkarır. Kapatıldığında tüm ses kaydedilir."
@@ -458,6 +466,11 @@
       "retranscribe": "Yeniden yazıya dök",
       "retranscribeError": "Yeniden yazıya dökme başarısız oldu. Lütfen tekrar deneyin.",
       "transcribing": "Yazıya döküyor...",
+      "edit": "Düzenle",
+      "saveEdit": "Kaydet",
+      "editError": "Düzenleme kaydedilemedi",
+      "learnedOne": "Düzeltme öğrenildi: \"{{from}}\" → \"{{to}}\"",
+      "learnedMany": "Düzenlemenizden {{count}} düzeltme öğrenildi",
       "transcriptionFailed": "Transkripsiyon başarısız oldu. Yeniden deneme simgesini kullanarak tekrar yazıya dökebilirsiniz."
     },
     "debug": {

@@ -349,6 +349,14 @@
         "remove": "إزالة {{word}}",
         "duplicate": "\"{{word}}\" موجود بالفعل"
       },
+      "corrections": {
+        "title": "التصحيحات",
+        "description": "استبدال كلمات أو عبارات محددة في النص النهائي دون تمييز لحالة الأحرف.",
+        "fromPlaceholder": "الكلمة المسموعة",
+        "toPlaceholder": "تُستبدل بـ",
+        "duplicate": "يوجد تصحيح لـ \"{{word}}\" بالفعل",
+        "remove": "إزالة التصحيح من {{from}} إلى {{to}}"
+      },
       "voiceActivityDetection": {
         "title": "تخطي الصمت",
         "description": "استبعاد فترات الصمت أثناء التسجيل. عند الإيقاف يُسجَّل الصوت كاملًا."
@@ -437,6 +445,11 @@
       "retranscribe": "إعادة النسخ",
       "retranscribeError": "فشلت إعادة النسخ. يرجى المحاولة مرة أخرى.",
       "transcribing": "جارٍ النسخ...",
+      "edit": "تعديل",
+      "saveEdit": "حفظ",
+      "editError": "تعذّر حفظ التعديل",
+      "learnedOne": "تم تعلّم التصحيح: \"{{from}}\" ← \"{{to}}\"",
+      "learnedMany": "تم تعلّم {{count}} تصحيحات من تعديلك",
       "transcriptionFailed": "فشل النسخ. يمكنك إعادة النسخ باستخدام أيقونة إعادة المحاولة."
     },
     "debug": {
