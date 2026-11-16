@@ -324,7 +324,25 @@ pub fn set_tray_visibility(app: &AppHandle, visible: bool) {
     }
 }
 
-pub fn resolve_last_take_for_paste(entry: Option<&HistoryEntry>) -> Result<String, &'static str> {
+pub fn is_app_blocked_for_paste(active_app: Option<&str>, blocked_apps: &[String]) -> bool {
+    let Some(app) = active_app.map(str::trim).filter(|s| !s.is_empty()) else {
+        return false;
+    };
+    let lower = app.to_ascii_lowercase();
+    blocked_apps.iter().any(|b| {
+        let needle = b.trim().to_ascii_lowercase();
+        !needle.is_empty() && (lower == needle || lower.contains(&needle))
+    })
+}
+
+pub fn resolve_last_take_for_paste_in_app(
+    entry: Option<&HistoryEntry>,
+    active_app: Option<&str>,
+    blocked_apps: &[String],
+) -> Result<String, &'static str> {
+    if is_app_blocked_for_paste(active_app, blocked_apps) {
+        return Err("blocked_app");
+    }
     let entry = entry.ok_or("no_completed_take")?;
     let text = last_transcript_text(entry);
     if text.trim().is_empty() {
@@ -333,7 +351,33 @@ pub fn resolve_last_take_for_paste(entry: Option<&HistoryEntry>) -> Result<Strin
     Ok(text.to_string())
 }
 
+pub fn resolve_last_take_for_paste(entry: Option<&HistoryEntry>) -> Result<String, &'static str> {
+    resolve_last_take_for_paste_in_app(entry, None, &[])
+}
+
+fn frontmost_app_identifier(blocked_apps: &[String]) -> Option<String> {
+    if blocked_apps.is_empty() {
+        return None;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("lsappinfo")
+            .args([
+                "info", "-only", "bundleid", "-only", "name", "-app", "front",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
+}
+
 pub fn paste_last_transcript(app: &AppHandle) {
+    let settings = settings::get_settings(app);
+    let active_app = frontmost_app_identifier(&settings.never_dictate_apps);
     let history_manager = app.state::<Arc<HistoryManager>>();
     let entry = match history_manager.get_latest_completed_entry() {
         Ok(entry) => entry,
@@ -342,7 +386,11 @@ pub fn paste_last_transcript(app: &AppHandle) {
             return;
         }
     };
-    let text = match resolve_last_take_for_paste(entry.as_ref()) {
+    let text = match resolve_last_take_for_paste_in_app(
+        entry.as_ref(),
+        active_app.as_deref(),
+        &settings.never_dictate_apps,
+    ) {
         Ok(text) => text,
         Err(reason) => {
             warn!("Skipping tray paste_last_transcript: {reason}");
@@ -391,7 +439,10 @@ pub fn copy_last_transcript(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::{last_transcript_text, load_tray_icon, resolve_last_take_for_paste};
+    use super::{
+        last_transcript_text, load_tray_icon, resolve_last_take_for_paste,
+        resolve_last_take_for_paste_in_app,
+    };
     use crate::managers::history::HistoryEntry;
 
     fn build_entry(transcription: &str, post_processed: Option<&str>) -> HistoryEntry {
@@ -445,6 +496,22 @@ mod tests {
         let cleaned = build_entry("raw spoken words", Some("Cleaned spoken words."));
         assert_eq!(
             resolve_last_take_for_paste(Some(&cleaned)),
+            Ok("Cleaned spoken words.".to_string())
+        );
+        let blocked = vec![
+            "com.1password.1password".to_string(),
+            "1Password".to_string(),
+        ];
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(
+                Some(&cleaned),
+                Some("com.1password.1password"),
+                &blocked
+            ),
+            Err("blocked_app")
+        );
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(Some(&cleaned), Some("com.apple.Notes"), &blocked),
             Ok("Cleaned spoken words.".to_string())
         );
     }
