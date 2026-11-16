@@ -914,6 +914,7 @@ mod tests {
         use crate::meeting_controller::{MeetingController, MeetingState};
 
         let controller = MeetingController::default();
+        assert_eq!(controller.open_consent().state, MeetingState::ConsentOpen);
         let started = controller.confirm_start().unwrap();
         assert_eq!(started.state, MeetingState::Recording);
         let paused = controller.pause();
