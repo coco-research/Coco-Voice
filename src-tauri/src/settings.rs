@@ -400,6 +400,9 @@ pub struct AppSettings {
     pub selected_microphone: Option<String>,
     #[serde(default)]
     pub clamshell_microphone: Option<String>,
+    /// Ordered list of preferred microphone device names for automatic fallback.
+    #[serde(default)]
+    pub microphone_priority: Vec<String>,
     #[serde(default)]
     pub selected_output_device: Option<String>,
     #[serde(default = "default_translate_to_english")]
@@ -1142,6 +1145,7 @@ pub fn get_default_settings() -> AppSettings {
         always_on_microphone: false,
         selected_microphone: None,
         clamshell_microphone: None,
+        microphone_priority: Vec::new(),
         selected_output_device: None,
         translate_to_english: false,
         selected_language: "auto".to_string(),
