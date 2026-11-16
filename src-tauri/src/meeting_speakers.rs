@@ -31,17 +31,7 @@ pub fn insert_meeting_segment(store: &MeetingsStore, meeting_id: i64, start_ms: 
 }
 
 fn ensure_notes_table(conn: &rusqlite::Connection) -> Result<()> {
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS meeting_notes (
-            id INTEGER PRIMARY KEY,
-            meeting_id INTEGER NOT NULL,
-            kind TEXT NOT NULL DEFAULT '',
-            text TEXT NOT NULL,
-            owner TEXT,
-            citations TEXT NOT NULL DEFAULT '[]',
-            position INTEGER NOT NULL DEFAULT 0
-        );",
-    )?;
+    conn.execute_batch("CREATE TABLE IF NOT EXISTS meeting_notes (id INTEGER PRIMARY KEY, meeting_id INTEGER NOT NULL, kind TEXT NOT NULL DEFAULT '', text TEXT NOT NULL, owner TEXT, citations TEXT NOT NULL DEFAULT '[]', position INTEGER NOT NULL DEFAULT 0);")?;
     Ok(())
 }
 
