@@ -278,7 +278,7 @@
         "description": "Starta i systemfältet utan att öppna fönstret."
       },
       "autostart": {
-        "label": "Starta vid uppstart",
+        "label": "Öppna vid inloggning",
         "description": "Starta Coco Voice automatiskt när du loggar in på din dator."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" finns redan"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Hoppa över tystnad",
+        "description": "Utelämnar tysta pauser under inspelning. Om du stänger av spelas hela ljudet in."
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "Stäng av systemljudet under inspelning"
       },
       "appendTrailingSpace": {
-        "label": "Lägg till avslutande mellanslag",
+        "label": "Lägg till mellanslag i slutet",
         "description": "Lägg till ett mellanslag efter klistrad transkription"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "Inställningar:"
       },
       "pasteDelay": {
-        "title": "Fördröjning vid klistra in (före)",
+        "title": "Fördröjning före inklistring",
         "description": "Fördröjning (i millisekunder) efter att text kopierats, innan tangenttryckningen för att klistra in skickas. Öka om ingenting klistras in."
       },
       "pasteDelayAfter": {
-        "title": "Fördröjning vid klistra in (efter)",
+        "title": "Fördröjning efter inklistring",
         "description": "Fördröjning (i millisekunder) efter tangenttryckningen för att klistra in, innan ditt tidigare urklipp återställs. Öka om det gamla urklippsinnehållet klistras in i stället för transkriptionen."
       },
       "recordingBuffer": {

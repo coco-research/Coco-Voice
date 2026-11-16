@@ -278,7 +278,7 @@
         "description": "Pencereyi açmadan sistem tepsisinde başlatır."
       },
       "autostart": {
-        "label": "Başlangıçta Çalıştır",
+        "label": "Oturum açıldığında başlat",
         "description": "Bilgisayara giriş yaptığınızda Coco Voice otomatik olarak başlatılır."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" zaten mevcut"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Sessizliği atla",
+        "description": "Kayıt sırasında sessiz duraklamaları çıkarır. Kapatıldığında tüm ses kaydedilir."
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "Kayıt sırasında sistem sesini kapatır"
       },
       "appendTrailingSpace": {
-        "label": "Sonuna Boşluk Ekle",
+        "label": "Sona boşluk ekle",
         "description": "Yapıştırılan transkripsiyondan sonra boşluk ekler"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "Ayarlar:"
       },
       "pasteDelay": {
-        "title": "Yapıştırma gecikmesi (önce)",
+        "title": "Yapıştırmadan önce bekleme",
         "description": "Metin kopyalandıktan sonra, yapıştırma tuşu gönderilmeden önceki gecikme (milisaniye cinsinden). Hiçbir şey yapıştırılmıyorsa artırın."
       },
       "pasteDelayAfter": {
-        "title": "Yapıştırma gecikmesi (sonra)",
+        "title": "Yapıştırdıktan sonra bekleme",
         "description": "Yapıştırma tuşundan sonra, önceki panonuz geri yüklenmeden önceki gecikme (milisaniye cinsinden). Yazıya dökülen metin yerine eski pano içeriği yapıştırılıyorsa artırın."
       },
       "recordingBuffer": {

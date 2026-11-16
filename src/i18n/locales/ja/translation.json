@@ -278,7 +278,7 @@
         "description": "ウィンドウを開かずにシステムトレイに起動。"
       },
       "autostart": {
-        "label": "起動時に実行",
+        "label": "ログイン時に開く",
         "description": "コンピューターにログインしたときに Coco Voice を自動的に起動。"
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "「{{word}}」は既に存在します"
       },
       "voiceActivityDetection": {
-        "title": "音声区間検出 (VAD)",
-        "description": "録音から無音部分を除去します。ストリーミング対応モデルはより長い音声検出区間を使用します。VAD を無効にすると音声をそのまま録音します。"
+        "title": "無音をスキップ",
+        "description": "録音中の無音部分を省きます。オフにすると音声全体を録音します。"
       }
     },
     "postProcessing": {
@@ -539,11 +539,11 @@
         "settings": "設定:"
       },
       "pasteDelay": {
-        "title": "貼り付け遅延(前)",
+        "title": "貼り付け前の待ち時間",
         "description": "テキストをコピーした後、貼り付けキーを送信する前の遅延(ミリ秒)。何も貼り付けられない場合は増やしてください。"
       },
       "pasteDelayAfter": {
-        "title": "貼り付け遅延(後)",
+        "title": "貼り付け後の待ち時間",
         "description": "貼り付けキーを送信した後、以前のクリップボードを復元する前の遅延(ミリ秒)。文字起こしではなく古いクリップボードの内容が貼り付けられる場合は増やしてください。"
       },
       "recordingBuffer": {

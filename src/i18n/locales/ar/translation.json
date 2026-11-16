@@ -257,7 +257,7 @@
         "description": ".التشغيل في صينية النظام دون فتح النافذة"
       },
       "autostart": {
-        "label": "التشغيل عند بدء التشغيل",
+        "label": "الفتح عند تسجيل الدخول",
         "description": ".بدء تشغيل Coco Voice تلقائياً عند تسجيل الدخول إلى جهاز الكمبيوتر الخاص بك"
       },
       "showTrayIcon": {
@@ -350,8 +350,8 @@
         "duplicate": "\"{{word}}\" موجود بالفعل"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "تخطي الصمت",
+        "description": "استبعاد فترات الصمت أثناء التسجيل. عند الإيقاف يُسجَّل الصوت كاملًا."
       }
     },
     "postProcessing": {
@@ -504,7 +504,7 @@
         "description": "كتم صوت النظام أثناء التسجيل"
       },
       "appendTrailingSpace": {
-        "label": "إضافة مسافة تابعة",
+        "label": "إضافة مسافة في النهاية",
         "description": "إضافة مسافة بعد التفريغ الملصق"
       },
       "keyboardImplementation": {
@@ -518,11 +518,11 @@
         "settings": "الإعدادات:"
       },
       "pasteDelay": {
-        "title": "تأخير اللصق (قبل)",
+        "title": "المهلة قبل اللصق",
         "description": "التأخير (بالمللي ثانية) بعد نسخ النص وقبل إرسال ضغطة مفتاح اللصق. قم بزيادته إذا لم يتم لصق أي شيء."
       },
       "pasteDelayAfter": {
-        "title": "تأخير اللصق (بعد)",
+        "title": "المهلة بعد اللصق",
         "description": "التأخير (بالمللي ثانية) بعد ضغطة مفتاح اللصق وقبل استعادة محتوى الحافظة السابق. قم بزيادته إذا تم لصق محتوى الحافظة القديم بدلاً من النص المُفرَّغ."
       },
       "recordingBuffer": {

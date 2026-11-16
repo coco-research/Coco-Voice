@@ -278,7 +278,7 @@
         "description": "Uruchom w zasobniku systemowym bez otwierania okna."
       },
       "autostart": {
-        "label": "Uruchamiaj przy starcie",
+        "label": "Otwieraj po zalogowaniu",
         "description": "Automatycznie uruchamiaj Coco Voice po zalogowaniu."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" już istnieje"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Pomijaj ciszę",
+        "description": "Pomija ciche przerwy podczas nagrywania. Wyłączenie tej opcji nagrywa cały dźwięk."
       }
     },
     "postProcessing": {
@@ -539,11 +539,11 @@
         "settings": "Ustawienia:"
       },
       "pasteDelay": {
-        "title": "Opóźnienie wklejania (przed)",
+        "title": "Opóźnienie przed wklejeniem",
         "description": "Opóźnienie (w milisekundach) po skopiowaniu tekstu, przed wysłaniem klawisza wklejania. Zwiększ, jeśli nic nie jest wklejane."
       },
       "pasteDelayAfter": {
-        "title": "Opóźnienie wklejania (po)",
+        "title": "Opóźnienie po wklejeniu",
         "description": "Opóźnienie (w milisekundach) po klawiszu wklejania, przed przywróceniem poprzedniego schowka. Zwiększ, jeśli zamiast transkrypcji wklejana jest stara zawartość schowka."
       },
       "recordingBuffer": {

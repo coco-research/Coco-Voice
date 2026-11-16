@@ -278,7 +278,7 @@
         "description": "Spustit do systémové lišty bez otevření okna."
       },
       "autostart": {
-        "label": "Spouštět při startu",
+        "label": "Spustit při přihlášení",
         "description": "Automaticky spustit Coco Voice po přihlášení do počítače."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" již existuje"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Přeskakovat ticho",
+        "description": "Vynechá tiché pauzy během nahrávání. Při vypnutí se nahraje celý zvuk."
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "Ztlumit systémový zvuk během nahrávání"
       },
       "appendTrailingSpace": {
-        "label": "Přidat koncovou mezeru",
+        "label": "Přidat mezeru na konec",
         "description": "Přidat mezeru po vloženém přepisu"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "Nastavení:"
       },
       "pasteDelay": {
-        "title": "Zpoždění vložení (před)",
+        "title": "Prodleva před vložením",
         "description": "Zpoždění (v milisekundách) po zkopírování textu, před odesláním klávesy pro vložení. Zvyšte, pokud se nic nevloží."
       },
       "pasteDelayAfter": {
-        "title": "Zpoždění vložení (po)",
+        "title": "Prodleva po vložení",
         "description": "Zpoždění (v milisekundách) po klávese pro vložení, před obnovením předchozí schránky. Zvyšte, pokud se místo přepisu vkládá starý obsah schránky."
       },
       "recordingBuffer": {

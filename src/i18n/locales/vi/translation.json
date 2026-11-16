@@ -278,7 +278,7 @@
         "description": "Khởi động vào khay hệ thống mà không mở cửa sổ."
       },
       "autostart": {
-        "label": "Khởi động cùng hệ thống",
+        "label": "Mở khi đăng nhập",
         "description": "Tự động khởi động Coco Voice khi bạn đăng nhập vào máy tính."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" đã tồn tại"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Bỏ qua khoảng lặng",
+        "description": "Loại bỏ các khoảng im lặng khi ghi âm. Tắt tùy chọn này sẽ ghi lại toàn bộ âm thanh."
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "Tắt tiếng âm thanh hệ thống trong khi ghi âm"
       },
       "appendTrailingSpace": {
-        "label": "Thêm dấu cách cuối",
+        "label": "Thêm dấu cách ở cuối",
         "description": "Thêm một dấu cách sau bản ghi đã dán"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "Cài đặt:"
       },
       "pasteDelay": {
-        "title": "Độ trễ dán (trước)",
+        "title": "Độ trễ trước khi dán",
         "description": "Độ trễ (tính bằng mili giây) sau khi sao chép văn bản, trước khi gửi phím dán. Tăng nếu không có gì được dán."
       },
       "pasteDelayAfter": {
-        "title": "Độ trễ dán (sau)",
+        "title": "Độ trễ sau khi dán",
         "description": "Độ trễ (tính bằng mili giây) sau khi gửi phím dán, trước khi khôi phục bảng nhớ tạm trước đó. Tăng nếu nội dung bảng nhớ tạm cũ được dán thay vì bản chép lời."
       },
       "recordingBuffer": {

@@ -278,7 +278,7 @@
         "description": "Start op de achtergrond in het systeemvak zonder het hoofdvenster te openen."
       },
       "autostart": {
-        "label": "Starten bij opstarten",
+        "label": "Openen bij inloggen",
         "description": "Coco Voice automatisch starten zodra je inlogt op je computer."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" bestaat al"
       },
       "voiceActivityDetection": {
-        "title": "Spraakactiviteitsdetectie (VAD)",
-        "description": "Filter stilte uit opnames. Streaming-modellen gebruiken een langere VAD-uitloop; het uitschakelen van VAD neemt de ruwe audio op."
+        "title": "Stilte overslaan",
+        "description": "Laat stille pauzes tijdens het opnemen weg. Als je dit uitschakelt, wordt alle audio opgenomen."
       }
     },
     "postProcessing": {
@@ -532,7 +532,7 @@
         "description": "Systeemgeluid dempen tijdens het opnemen"
       },
       "appendTrailingSpace": {
-        "label": "Spatie achteraan toevoegen",
+        "label": "Spatie aan het einde toevoegen",
         "description": "Voeg een spatie toe na de geplakte transcriptie"
       },
       "keyboardImplementation": {
@@ -546,11 +546,11 @@
         "settings": "Instellingen:"
       },
       "pasteDelay": {
-        "title": "Plakvertraging (voor)",
+        "title": "Wachttijd vóór plakken",
         "description": "Vertraging (in milliseconden) na het kopiëren van de tekst, voordat de plak-toetsaanslag wordt verzonden. Verhoog dit als er niets wordt geplakt."
       },
       "pasteDelayAfter": {
-        "title": "Plakvertraging (na)",
+        "title": "Wachttijd na plakken",
         "description": "Vertraging (in milliseconden) na de plak-toetsaanslag, voordat je vorige klembord wordt hersteld. Verhoog dit als de oude klembordinhoud wordt geplakt in plaats van de transcriptie."
       },
       "recordingBuffer": {

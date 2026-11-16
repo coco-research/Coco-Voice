@@ -278,7 +278,7 @@
         "description": "Стартиране в системната област без отваряне на прозореца."
       },
       "autostart": {
-        "label": "Стартиране със системата",
+        "label": "Отваряне при влизане",
         "description": "Автоматично стартиране на Coco Voice при влизане в профила ви."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "„{{word}}“ вече съществува"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Пропускане на тишината",
+        "description": "Пропуска тихите паузи по време на запис. При изключване се записва целият звук."
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "Заглушаване на системния звук по време на запис"
       },
       "appendTrailingSpace": {
-        "label": "Интервал в края",
+        "label": "Добавяне на интервал в края",
         "description": "Добавяне на интервал след поставената транскрипция"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "Настройки:"
       },
       "pasteDelay": {
-        "title": "Забавяне при поставяне (преди)",
+        "title": "Изчакване преди поставяне",
         "description": "Забавяне (в милисекунди) след копиране на текста, преди изпращане на клавиша за поставяне. Увеличете, ако нищо не се поставя."
       },
       "pasteDelayAfter": {
-        "title": "Забавяне при поставяне (след)",
+        "title": "Изчакване след поставяне",
         "description": "Забавяне (в милисекунди) след клавиша за поставяне, преди възстановяване на предишния клипборд. Увеличете, ако вместо транскрипцията се поставя старото съдържание на клипборда."
       },
       "recordingBuffer": {

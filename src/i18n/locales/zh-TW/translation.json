@@ -278,7 +278,7 @@
         "description": "啟動至系統匣而不開啟視窗"
       },
       "autostart": {
-        "label": "開機啟動",
+        "label": "登入時開啟",
         "description": "登入電腦時自動啟動 Coco Voice"
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "「{{word}}」已存在"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "略過靜音",
+        "description": "錄音時自動略過安靜停頓；關閉後將錄製完整音訊。"
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "錄製期間靜音系統音訊"
       },
       "appendTrailingSpace": {
-        "label": "附加尾部空格",
+        "label": "在結尾加上空格",
         "description": "在貼上的轉錄後新增空格"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "設定:"
       },
       "pasteDelay": {
-        "title": "貼上延遲（前）",
+        "title": "貼上前延遲",
         "description": "複製文字後、發送貼上按鍵前的延遲（毫秒）。如果沒有貼上任何內容，請增加此值。"
       },
       "pasteDelayAfter": {
-        "title": "貼上延遲（後）",
+        "title": "貼上後延遲",
         "description": "發送貼上按鍵後、還原先前剪貼簿前的延遲（毫秒）。如果貼上的是舊的剪貼簿內容而非轉錄文字，請增加此值。"
       },
       "recordingBuffer": {

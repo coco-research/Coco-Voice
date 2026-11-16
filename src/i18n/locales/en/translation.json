@@ -278,7 +278,7 @@
         "description": "Launch to system tray without opening the window."
       },
       "autostart": {
-        "label": "Launch on Startup",
+        "label": "Open at login",
         "description": "Automatically start Coco Voice when you log in to your computer."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" already exists"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Skip silence",
+        "description": "Leave out silent pauses while recording. Turning this off records the full audio."
       }
     },
     "postProcessing": {
@@ -532,7 +532,7 @@
         "description": "Mute system audio during recording"
       },
       "appendTrailingSpace": {
-        "label": "Append Trailing Space",
+        "label": "Add a space at the end",
         "description": "Add a space after pasted transcription"
       },
       "keyboardImplementation": {
@@ -546,11 +546,11 @@
         "settings": "Settings:"
       },
       "pasteDelay": {
-        "title": "Paste Delay (Before)",
+        "title": "Delay before paste",
         "description": "Delay (in milliseconds) after copying text, before sending the paste keystroke. Increase if nothing gets pasted."
       },
       "pasteDelayAfter": {
-        "title": "Paste Delay (After)",
+        "title": "Delay after paste",
         "description": "Delay (in milliseconds) after the paste keystroke, before restoring your previous clipboard. Increase if your old clipboard content is being pasted instead of the transcription."
       },
       "recordingBuffer": {

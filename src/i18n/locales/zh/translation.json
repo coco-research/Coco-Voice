@@ -278,7 +278,7 @@
         "description": "启动到系统托盘而不打开窗口。"
       },
       "autostart": {
-        "label": "开机启动",
+        "label": "登录时打开",
         "description": "登录计算机时自动启动 Coco Voice。"
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" 已存在"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "跳过静音",
+        "description": "录音时自动略过安静停顿；关闭后将录制完整音频。"
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "录制期间静音系统音频"
       },
       "appendTrailingSpace": {
-        "label": "追加尾部空格",
+        "label": "在末尾添加空格",
         "description": "在粘贴的转录后添加空格"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "设置:"
       },
       "pasteDelay": {
-        "title": "粘贴延迟（前）",
+        "title": "粘贴前延迟",
         "description": "复制文本后、发送粘贴按键前的延迟（毫秒）。如果没有粘贴任何内容，请增加此值。"
       },
       "pasteDelayAfter": {
-        "title": "粘贴延迟（后）",
+        "title": "粘贴后延迟",
         "description": "发送粘贴按键后、恢复先前剪贴板前的延迟（毫秒）。如果粘贴的是旧的剪贴板内容而非转录文本，请增加此值。"
       },
       "recordingBuffer": {

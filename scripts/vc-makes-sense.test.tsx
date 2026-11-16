@@ -183,4 +183,34 @@ describe("V-C3 (E14): Plain labels on General and Clean up screens", () => {
       expect(text).not.toContain("Push To Talk");
     }
   });
+
+  test("replaces jargon on Advanced and Output screens across all 22 locales", () => {
+    expect(en.settings.advanced.voiceActivityDetection.title).toBe(
+      "Skip silence",
+    );
+    expect(en.settings.debug.appendTrailingSpace.label).toBe(
+      "Add a space at the end",
+    );
+    expect(en.settings.debug.pasteDelay.title).toBe("Delay before paste");
+    expect(en.settings.debug.pasteDelayAfter.title).toBe("Delay after paste");
+    expect(en.settings.advanced.autostart.label).toBe("Open at login");
+
+    const advancedHtml = renderWithSettings(<AdvancedSettings />);
+    expect(advancedHtml).toContain(">Skip silence<");
+    expect(advancedHtml).toContain(">Add a space at the end<");
+    expect(advancedHtml).toContain(">Delay before paste<");
+    expect(advancedHtml).toContain(">Delay after paste<");
+    expect(advancedHtml).toContain(">Open at login<");
+    expect(advancedHtml).not.toContain("Voice Activity Detection");
+    expect(advancedHtml).not.toContain("Append Trailing Space");
+
+    for (const loc of readdirSync(localesDir).sort()) {
+      const text = readFileSync(
+        join(localesDir, loc, "translation.json"),
+        "utf8",
+      );
+      expect(text).not.toContain("Voice Activity Detection");
+      expect(text).not.toContain("VAD tail");
+    }
+  });
 });

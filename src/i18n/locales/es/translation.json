@@ -278,7 +278,7 @@
         "description": "Lanzar en la bandeja del sistema sin abrir la ventana."
       },
       "autostart": {
-        "label": "Iniciar al Arranque",
+        "label": "Abrir al iniciar sesión",
         "description": "Iniciar Coco Voice automáticamente cuando inicies sesión en tu computadora."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" ya existe"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Omitir silencios",
+        "description": "Descarta las pausas en silencio al grabar. Si lo desactivas, se graba todo el audio."
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "Silenciar el audio del sistema durante la grabación"
       },
       "appendTrailingSpace": {
-        "label": "Agregar Espacio Final",
+        "label": "Añadir un espacio al final",
         "description": "Agregar un espacio después de la transcripción pegada"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "Configuración:"
       },
       "pasteDelay": {
-        "title": "Retraso de pegado (antes)",
+        "title": "Espera antes de pegar",
         "description": "Retraso (en milisegundos) después de copiar el texto, antes de enviar la pulsación de tecla de pegar. Auméntelo si no se pega nada."
       },
       "pasteDelayAfter": {
-        "title": "Retraso de pegado (después)",
+        "title": "Espera después de pegar",
         "description": "Retraso (en milisegundos) después de la pulsación de tecla de pegar, antes de restaurar el portapapeles anterior. Auméntelo si se pega el contenido antiguo del portapapeles en lugar de la transcripción."
       },
       "recordingBuffer": {

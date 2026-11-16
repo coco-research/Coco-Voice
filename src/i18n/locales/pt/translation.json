@@ -278,7 +278,7 @@
         "description": "Iniciar na bandeja do sistema sem abrir a janela."
       },
       "autostart": {
-        "label": "Iniciar na Inicialização",
+        "label": "Abrir ao iniciar sessão",
         "description": "Iniciar automaticamente o Coco Voice quando você fizer login no seu computador."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" já existe"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Ignorar silêncio",
+        "description": "Remove pausas silenciosas durante a gravação. Ao desativar, todo o áudio é gravado."
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "Silenciar áudio do sistema durante a gravação"
       },
       "appendTrailingSpace": {
-        "label": "Adicionar Espaço Final",
+        "label": "Adicionar espaço no final",
         "description": "Adicionar um espaço após a transcrição colada"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "Configurações:"
       },
       "pasteDelay": {
-        "title": "Atraso de colagem (antes)",
+        "title": "Atraso antes de colar",
         "description": "Atraso (em milissegundos) após copiar o texto, antes de enviar a tecla de colar. Aumente se nada for colado."
       },
       "pasteDelayAfter": {
-        "title": "Atraso de colagem (depois)",
+        "title": "Atraso depois de colar",
         "description": "Atraso (em milissegundos) após a tecla de colar, antes de restaurar a área de transferência anterior. Aumente se o conteúdo antigo da área de transferência estiver sendo colado em vez da transcrição."
       },
       "recordingBuffer": {

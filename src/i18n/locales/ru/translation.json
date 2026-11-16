@@ -278,7 +278,7 @@
         "description": "Запускать в системный трей, не открывая окно."
       },
       "autostart": {
-        "label": "Запускать при старте",
+        "label": "Открывать при входе в систему",
         "description": "Автоматически запускать Coco Voice при входе в систему."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" уже существует"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Пропускать тишину",
+        "description": "Пропускает тихие паузы во время записи. Если выключить, записывается весь звук целиком."
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "Отключение звука системы во время записи"
       },
       "appendTrailingSpace": {
-        "label": "Добавить пробел",
+        "label": "Добавлять пробел в конце",
         "description": "Добавить пробел после вставленной транскрипции"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "Настройки:"
       },
       "pasteDelay": {
-        "title": "Задержка вставки (до)",
+        "title": "Задержка перед вставкой",
         "description": "Задержка (в миллисекундах) после копирования текста, перед отправкой нажатия клавиши вставки. Увеличьте, если ничего не вставляется."
       },
       "pasteDelayAfter": {
-        "title": "Задержка вставки (после)",
+        "title": "Задержка после вставки",
         "description": "Задержка (в миллисекундах) после нажатия клавиши вставки, перед восстановлением предыдущего буфера обмена. Увеличьте, если вместо транскрипции вставляется старое содержимое буфера обмена."
       },
       "recordingBuffer": {

@@ -278,7 +278,7 @@
         "description": "Avvia l'applicazione in background senza aprire la finestra."
       },
       "autostart": {
-        "label": "Avvia all'Accensione",
+        "label": "Apri all’accesso",
         "description": "Avvia Coco Voice automaticamente quando accedi al computer."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" esiste già"
       },
       "voiceActivityDetection": {
-        "title": "Rilevamento dell'attività vocale",
-        "description": "Filtra il silenzio dalle registrazioni. I modelli che supportano lo streaming utilizzano una coda VAD più lunga; disabilitando la VAD si registra l'audio grezzo."
+        "title": "Salta i silenzi",
+        "description": "Ignora le pause silenziose durante la registrazione. Disattivandolo viene registrato tutto l’audio."
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "Silenzia l'audio di sistema durante la registrazione"
       },
       "appendTrailingSpace": {
-        "label": "Aggiungi Spazio Finale",
+        "label": "Aggiungi uno spazio alla fine",
         "description": "Aggiungi uno spazio dopo la trascrizione incollata"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "Impostazioni:"
       },
       "pasteDelay": {
-        "title": "Ritardo incolla (prima)",
+        "title": "Ritardo prima di incollare",
         "description": "Ritardo (in millisecondi) dopo aver copiato il testo, prima di inviare il tasto incolla. Aumentare se non viene incollato nulla."
       },
       "pasteDelayAfter": {
-        "title": "Ritardo incolla (dopo)",
+        "title": "Ritardo dopo aver incollato",
         "description": "Ritardo (in millisecondi) dopo il tasto incolla, prima di ripristinare gli appunti precedenti. Aumentare se viene incollato il vecchio contenuto degli appunti invece della trascrizione."
       },
       "recordingBuffer": {

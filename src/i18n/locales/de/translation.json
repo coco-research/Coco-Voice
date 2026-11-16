@@ -278,7 +278,7 @@
         "description": "In den Systembereich starten, ohne das Fenster zu öffnen."
       },
       "autostart": {
-        "label": "Beim Start ausführen",
+        "label": "Beim Anmelden öffnen",
         "description": "Coco Voice automatisch beim Anmelden starten."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" existiert bereits"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Stille überspringen",
+        "description": "Stille Pausen während der Aufnahme weglassen. Wenn deaktiviert, wird die gesamte Aufnahme gespeichert."
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "Systemaudio während der Aufnahme stummschalten"
       },
       "appendTrailingSpace": {
-        "label": "Leerzeichen anhängen",
+        "label": "Leerzeichen am Ende anfügen",
         "description": "Leerzeichen nach eingefügter Transkription hinzufügen"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "Einstellungen:"
       },
       "pasteDelay": {
-        "title": "Einfügeverzögerung (vorher)",
+        "title": "Verzögerung vor dem Einfügen",
         "description": "Verzögerung (in Millisekunden) nach dem Kopieren des Textes, bevor der Einfüge-Tastendruck gesendet wird. Erhöhe den Wert, wenn nichts eingefügt wird."
       },
       "pasteDelayAfter": {
-        "title": "Einfügeverzögerung (nachher)",
+        "title": "Verzögerung nach dem Einfügen",
         "description": "Verzögerung (in Millisekunden) nach dem Einfüge-Tastendruck, bevor deine vorherige Zwischenablage wiederhergestellt wird. Erhöhe den Wert, wenn der alte Inhalt der Zwischenablage statt der Transkription eingefügt wird."
       },
       "recordingBuffer": {

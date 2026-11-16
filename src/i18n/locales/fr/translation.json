@@ -278,7 +278,7 @@
         "description": "Lancer dans la barre système sans ouvrir la fenêtre."
       },
       "autostart": {
-        "label": "Lancer au démarrage",
+        "label": "Ouvrir à la connexion",
         "description": "Démarrer automatiquement Coco Voice lorsque vous vous connectez à votre ordinateur."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" existe déjà"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Ignorer les silences",
+        "description": "Ignore les pauses silencieuses pendant l’enregistrement. Désactiver cette option enregistre tout l’audio."
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "Couper le son du système pendant l'enregistrement"
       },
       "appendTrailingSpace": {
-        "label": "Ajouter une espace final",
+        "label": "Ajouter une espace à la fin",
         "description": "Ajouter une espace après la transcription collée"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "Paramètres :"
       },
       "pasteDelay": {
-        "title": "Délai de collage (avant)",
+        "title": "Délai avant le collage",
         "description": "Délai (en millisecondes) après la copie du texte, avant l'envoi de la touche de collage. Augmentez si rien n'est collé."
       },
       "pasteDelayAfter": {
-        "title": "Délai de collage (après)",
+        "title": "Délai après le collage",
         "description": "Délai (en millisecondes) après la touche de collage, avant la restauration de votre presse-papiers précédent. Augmentez si l'ancien contenu du presse-papiers est collé à la place de la transcription."
       },
       "recordingBuffer": {

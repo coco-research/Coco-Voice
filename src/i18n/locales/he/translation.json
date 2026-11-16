@@ -278,7 +278,7 @@
         "description": "הפעל לתוך מגש המערכת בלי לפתוח את החלון."
       },
       "autostart": {
-        "label": "הפעל עם עליית המערכת",
+        "label": "פתיחה בעת ההתחברות",
         "description": "הפעל את Coco Voice אוטומטית כשאתה מתחבר למחשב."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\" כבר קיימת"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "דילוג על שקט",
+        "description": "דילוג על הפסקות שקטות בזמן ההקלטה. כיבוי האפשרות מקליט את השמע המלא."
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "השתק את שמע המערכת בזמן הקלטה"
       },
       "appendTrailingSpace": {
-        "label": "הוסף רווח בסוף",
+        "label": "הוספת רווח בסוף",
         "description": "הוסף רווח אחרי התמלול המודבק"
       },
       "keyboardImplementation": {
@@ -539,11 +539,11 @@
         "settings": "הגדרות:"
       },
       "pasteDelay": {
-        "title": "השהיית הדבקה (לפני)",
+        "title": "השהיה לפני הדבקה",
         "description": "השהיה (במילישניות) לאחר העתקת הטקסט, לפני שליחת צירוף ההדבקה. הגדל אם דבר אינו מודבק."
       },
       "pasteDelayAfter": {
-        "title": "השהיית הדבקה (אחרי)",
+        "title": "השהיה אחרי הדבקה",
         "description": "השהיה (במילישניות) לאחר צירוף ההדבקה, לפני שחזור הלוח הקודם. הגדל אם התוכן הישן של הלוח מודבק במקום התמלול."
       },
       "recordingBuffer": {

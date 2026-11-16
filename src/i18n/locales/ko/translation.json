@@ -278,7 +278,7 @@
         "description": "창을 열지 않고 시스템 트레이에서 실행합니다."
       },
       "autostart": {
-        "label": "시작 시 실행",
+        "label": "로그인할 때 열기",
         "description": "컴퓨터 로그인 시 Coco Voice를 자동으로 시작합니다."
       },
       "showTrayIcon": {
@@ -371,8 +371,8 @@
         "duplicate": "\"{{word}}\"이(가) 이미 존재합니다"
       },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "무음 건너뛰기",
+        "description": "녹음 중 조용한 구간을 건너뜁니다. 끄면 전체 오디오를 그대로 녹음합니다."
       }
     },
     "postProcessing": {
@@ -525,7 +525,7 @@
         "description": "녹음 중 시스템 오디오 음소거"
       },
       "appendTrailingSpace": {
-        "label": "끝 공백 추가",
+        "label": "끝에 공백 추가",
         "description": "붙여넣은 텍스트 끝에 공백 추가"
       },
       "keyboardImplementation": {
@@ -534,11 +534,11 @@
         "bindingsReset": "키보드 단축키가 호환되지 않아 기본값으로 재설정되었습니다"
       },
       "pasteDelay": {
-        "title": "붙여넣기 지연 (이전)",
+        "title": "붙여넣기 전 대기 시간",
         "description": "텍스트를 복사한 후 붙여넣기 키 입력을 보내기 전의 지연 시간(밀리초). 아무것도 붙여넣어지지 않으면 늘리세요."
       },
       "pasteDelayAfter": {
-        "title": "붙여넣기 지연 (이후)",
+        "title": "붙여넣기 후 대기 시간",
         "description": "붙여넣기 키 입력을 보낸 후 이전 클립보드를 복원하기 전의 지연 시간(밀리초). 전사된 텍스트 대신 이전 클립보드 내용이 붙여넣어지면 늘리세요."
       },
       "recordingBuffer": {
