@@ -702,6 +702,20 @@
     "clipboardDefault": "पेस्ट पछि, तपाईंले बोलेको पाठ क्लिपबोर्डमा रहन्छ, ताकि फेरि पेस्ट गर्न सकियोस्। यसले पहिले कपी गरेको कुरा बदल्छ। सेटिङहरू > उन्नत > क्लिपबोर्ड व्यवस्थापन मा गएर यो बन्द गर्न सक्नुहुन्छ।"
   },
   "meetings": {
+    "consent": {
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
     "sidebar": "Meetings",
     "toggle": {
       "label": "Meetings",

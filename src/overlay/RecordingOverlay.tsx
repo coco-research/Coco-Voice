@@ -1,4 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import "./RecordingOverlay.css";
@@ -16,7 +17,8 @@ import i18n, { syncLanguageFromSettings } from "@/i18n";
 import { CLEANUP_NOTE } from "@/lib/utils/cleanupStatus";
 import { getLanguageDirection } from "@/lib/utils/rtl";
 
-type OverlayState = "recording" | "streaming" | "transcribing" | "processing";
+type OverlayState =
+  "recording" | "streaming" | "transcribing" | "processing" | "meeting";
 
 // Number of reactive bars in the waveform (the simple, smoothed style shared by
 // every overlay form). Mic levels arrive as 16 FFT buckets; we take the first N.
@@ -222,6 +224,8 @@ const RecordingOverlay: React.FC = () => {
           setElapsed(0);
           setSession((s) => s + 1); // remount the card fresh for this session
         }
+        // The meeting pill uses the same window and its own clock.
+        if (overlayState === "meeting") setElapsed(0);
         setIsVisible(true);
       });
 
@@ -290,9 +294,9 @@ const RecordingOverlay: React.FC = () => {
     setupEventListeners();
   }, []);
 
-  // Elapsed timer while the Live overlay is visible.
+  // Elapsed timer while the Live overlay or the meeting pill is visible.
   useEffect(() => {
-    if (state !== "streaming" || !isVisible) return;
+    if ((state !== "streaming" && state !== "meeting") || !isVisible) return;
     const id = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(id);
   }, [state, isVisible]);
@@ -457,6 +461,51 @@ const RecordingOverlay: React.FC = () => {
                 workKind === "polishing" && onDevicePolish,
               )
             : listeningRow(open, true)}
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Meeting pill (mock 3): mark | Recording | elapsed time + Stop. It is the
+  // same 256 x 46 window as the dictation pill, and Stop calls stop_meeting.
+  if (state === "meeting") {
+    const stopMeeting = () => {
+      void invoke("stop_meeting").catch((error) => {
+        console.error("Could not stop the meeting", error);
+      });
+    };
+
+    return (
+      <div
+        dir={direction}
+        className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
+      >
+        <div className="scard compact">
+          <div className="sbase">
+            <div className="sbase-l">
+              <span className="sdot" />
+            </div>
+            <span className="swork-label">{t("meetings.pill.recording")}</span>
+            <div className="sbase-r">
+              <span className="stimer">{fmtTime(elapsed)}</span>
+              <button
+                className="sx"
+                aria-label={t("meetings.pill.stop")}
+                onClick={stopMeeting}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <rect
+                    x="4.5"
+                    y="4.5"
+                    width="7"
+                    height="7"
+                    rx="1.2"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
