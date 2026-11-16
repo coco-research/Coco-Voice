@@ -11,6 +11,11 @@ import {
   type MeetingListItem,
 } from "../meetings/MeetingsList";
 import type { ShellSectionId } from "../layout/shellRoutes";
+import {
+  HomeHealthNoticeBanner,
+  resolveTopHomeNotice,
+  type HomeHealthSnapshot,
+} from "./HomeHealthNotice";
 
 const DOT_FILLED = "●";
 const DOT_OPEN = "○";
@@ -47,6 +52,7 @@ export interface HomeViewSectionProps {
   shortcut: string;
   meetings: MeetingListItem[];
   dictations: HomeDictationItem[];
+  health?: HomeHealthSnapshot | null;
   onStartRecording: () => void;
   onNavigate: (section: ShellSectionId) => void;
 }
@@ -60,10 +66,12 @@ export const HomeViewSection: React.FC<HomeViewSectionProps> = ({
   shortcut,
   meetings,
   dictations,
+  health = null,
   onStartRecording,
   onNavigate,
 }) => {
   const { t, i18n } = useTranslation();
+  const topNotice = resolveTopHomeNotice(health);
   const recentM = meetings.slice(0, HOME_RECENT_LIMIT);
   const recentD = dictations.slice(0, HOME_RECENT_LIMIT);
 
@@ -141,6 +149,14 @@ export const HomeViewSection: React.FC<HomeViewSectionProps> = ({
       className="max-w-4xl w-full mx-auto space-y-2.5"
     >
       <p className={EYEBROW}>{t("sidebar.home")}</p>
+      {topNotice ? (
+        <HomeHealthNoticeBanner
+          notice={topNotice}
+          onAction={(n) => {
+            if (n.targetSection) onNavigate(n.targetSection);
+          }}
+        />
+      ) : null}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
         <section
           aria-label={t("meetings.sidebar")}
