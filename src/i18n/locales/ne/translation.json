@@ -7,7 +7,11 @@
     "model": "मोडेल",
     "quit": "बाहिर निस्कनुहोस्",
     "cancel": "रद्द गर्नुहोस्",
-    "startNotes": "नोटहरू सुरु गर्नुहोस्..."
+    "startNotes": "नोटहरू सुरु गर्नुहोस्...",
+    "startRecordingMeeting": "Start recording a meeting",
+    "pasteLastTake": "Paste last take",
+    "copyLastTake": "Copy last take",
+    "openApp": "Open Coco Voice"
   },
   "sidebar": {
     "general": "सामान्य",
@@ -689,7 +693,10 @@
     "portableUpdateButton": "GitHub Releases खोल्नुहोस्"
   },
   "whatsNew": {
-    "title": "Coco Voice v{{version}} मा नयाँ"
+    "title": "Coco Voice v{{version}} मा नयाँ",
+    "rollbackTitle": "If an update fails",
+    "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
+    "reportIt": "Report it"
   },
   "common": {
     "loading": "लोड गरिँदैछ...",

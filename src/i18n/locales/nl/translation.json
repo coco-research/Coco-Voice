@@ -7,7 +7,11 @@
     "model": "Model",
     "quit": "Afsluiten",
     "cancel": "Annuleren",
-    "startNotes": "Notities starten..."
+    "startNotes": "Notities starten...",
+    "startRecordingMeeting": "Start recording a meeting",
+    "pasteLastTake": "Paste last take",
+    "copyLastTake": "Copy last take",
+    "openApp": "Open Coco Voice"
   },
   "sidebar": {
     "general": "Algemeen",
@@ -689,7 +693,10 @@
     "portableUpdateButton": "GitHub Releases openen"
   },
   "whatsNew": {
-    "title": "Nieuw in Coco Voice v{{version}}"
+    "title": "Nieuw in Coco Voice v{{version}}",
+    "rollbackTitle": "If an update fails",
+    "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
+    "reportIt": "Report it"
   },
   "common": {
     "loading": "Laden...",

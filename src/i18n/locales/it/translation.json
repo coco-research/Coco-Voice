@@ -7,7 +7,11 @@
     "model": "Modello",
     "quit": "Esci",
     "cancel": "Annulla",
-    "startNotes": "Avvia note..."
+    "startNotes": "Avvia note...",
+    "startRecordingMeeting": "Start recording a meeting",
+    "pasteLastTake": "Paste last take",
+    "copyLastTake": "Copy last take",
+    "openApp": "Open Coco Voice"
   },
   "sidebar": {
     "general": "Generale",
@@ -761,7 +765,10 @@
     }
   },
   "whatsNew": {
-    "title": "Novità in Coco Voice v{{version}}"
+    "title": "Novità in Coco Voice v{{version}}",
+    "rollbackTitle": "If an update fails",
+    "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
+    "reportIt": "Report it"
   },
   "cleanupStatus": {
     "chip": {

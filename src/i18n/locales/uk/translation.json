@@ -7,7 +7,11 @@
     "model": "Модель",
     "quit": "Вийти",
     "cancel": "Скасувати",
-    "startNotes": "Почати нотатки..."
+    "startNotes": "Почати нотатки...",
+    "startRecordingMeeting": "Start recording a meeting",
+    "pasteLastTake": "Paste last take",
+    "copyLastTake": "Copy last take",
+    "openApp": "Open Coco Voice"
   },
   "sidebar": {
     "general": "Загальні",
@@ -761,7 +765,10 @@
     }
   },
   "whatsNew": {
-    "title": "Нове в Coco Voice v{{version}}"
+    "title": "Нове в Coco Voice v{{version}}",
+    "rollbackTitle": "If an update fails",
+    "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
+    "reportIt": "Report it"
   },
   "cleanupStatus": {
     "chip": {

@@ -7,7 +7,11 @@
     "model": "Model",
     "quit": "Çıkış",
     "cancel": "İptal",
-    "startNotes": "Notları başlat..."
+    "startNotes": "Notları başlat...",
+    "startRecordingMeeting": "Start recording a meeting",
+    "pasteLastTake": "Paste last take",
+    "copyLastTake": "Copy last take",
+    "openApp": "Open Coco Voice"
   },
   "sidebar": {
     "general": "Genel",
@@ -761,7 +765,10 @@
     }
   },
   "whatsNew": {
-    "title": "Coco Voice v{{version}} yenilikleri"
+    "title": "Coco Voice v{{version}} yenilikleri",
+    "rollbackTitle": "If an update fails",
+    "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
+    "reportIt": "Report it"
   },
   "cleanupStatus": {
     "chip": {

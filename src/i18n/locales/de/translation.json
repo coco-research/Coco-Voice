@@ -7,7 +7,11 @@
     "model": "Modell",
     "quit": "Beenden",
     "cancel": "Abbrechen",
-    "startNotes": "Notizen starten..."
+    "startNotes": "Notizen starten...",
+    "startRecordingMeeting": "Besprechungsaufnahme starten",
+    "pasteLastTake": "Letzte Aufnahme einfügen",
+    "copyLastTake": "Letzte Aufnahme kopieren",
+    "openApp": "Coco Voice öffnen"
   },
   "sidebar": {
     "general": "Allgemein",
@@ -761,7 +765,10 @@
     }
   },
   "whatsNew": {
-    "title": "Neu in Coco Voice v{{version}}"
+    "title": "Neu in Coco Voice v{{version}}",
+    "rollbackTitle": "Wenn ein Update fehlschlägt",
+    "rollbackMessage": "{{failedVersion}} konnte nicht starten, daher kehrte Coco Voice zu {{currentVersion}} zurück. Einstellungen und Verlauf sind unverändert.",
+    "reportIt": "Melden"
   },
   "cleanupStatus": {
     "chip": {
