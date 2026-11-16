@@ -1,0 +1,376 @@
+//! Persistent local SQLite BM25 index (`{app_data_dir}/meetings/ask_index.db`) over meetings.
+//! Opens `meetings.db` read-only, supports scoped Q&A, and makes zero network calls.
+
+#![cfg(feature = "meetings")]
+
+// ponytail: ceiling = local SQLite BM25 inverted index; upgrade path = quantized local vector ANN.
+
+use anyhow::Result;
+use rusqlite::{params, Connection, OpenFlags};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+use unicode_segmentation::UnicodeSegmentation;
+
+pub const TOP_K: usize = 5;
+const STOP: &str = " a about an and are at be by did do does for from had has have how i in is it \
+    me my of on or our that the their this to was we were what when where which who why with you your ";
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AskScope {
+    OneMeeting(i64),
+    AllMeetings,
+    Folder(String),
+    PickedSet(Vec<i64>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AskCitation {
+    pub meeting_id: i64,
+    pub meeting_title: String,
+    pub segment_id: i64,
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub timestamp: String,
+    pub channel: String,
+    pub quote: String,
+}
+
+impl AskCitation {
+    pub fn resolves_in(&self, data_dir: &Path) -> bool {
+        let Some(c) = open_ro(&data_dir.join("meetings/meetings.db")) else {
+            return false;
+        };
+        let sql = "SELECT start_ms, text FROM meeting_segments WHERE id = ?1 AND meeting_id = ?2";
+        c.query_row(sql, params![self.segment_id, self.meeting_id], |r| {
+            Ok(r.get::<_, i64>(0)? == self.start_ms && !r.get::<_, String>(1)?.is_empty())
+        })
+        .unwrap_or(false)
+    }
+}
+
+pub struct MeetingAskIndex {
+    pub(crate) data_dir: PathBuf,
+    index_path: PathBuf,
+}
+
+impl MeetingAskIndex {
+    pub fn open(data_dir: &Path) -> Result<Self> {
+        let mdir = data_dir.join("meetings");
+        fs::create_dir_all(&mdir)?;
+        let _ = crate::portable::make_private(&mdir);
+        let idx = Self {
+            data_dir: data_dir.to_path_buf(),
+            index_path: mdir.join("ask_index.db"),
+        };
+        idx.conn()?.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             CREATE TABLE IF NOT EXISTS ask_folders (meeting_id INTEGER PRIMARY KEY, folder TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS indexed_meetings (meeting_id INTEGER PRIMARY KEY, title TEXT NOT NULL, folder TEXT, started_at INTEGER NOT NULL, fingerprint TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS ask_docs (doc_id INTEGER PRIMARY KEY, meeting_id INTEGER NOT NULL, segment_id INTEGER NOT NULL, start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL, channel TEXT NOT NULL, text TEXT NOT NULL, token_len INTEGER NOT NULL);
+             CREATE TABLE IF NOT EXISTS ask_terms (term TEXT NOT NULL, doc_id INTEGER NOT NULL, tf INTEGER NOT NULL, PRIMARY KEY (term, doc_id));",
+        )?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = fs::set_permissions(&idx.index_path, fs::Permissions::from_mode(0o600));
+        }
+        Ok(idx)
+    }
+
+    pub fn set_folder(&self, id: i64, folder: Option<&str>) -> Result<()> {
+        let c = self.conn()?;
+        let up = "INSERT INTO ask_folders VALUES (?1, ?2) ON CONFLICT(meeting_id) DO UPDATE SET folder = excluded.folder";
+        let rm = "DELETE FROM ask_folders WHERE meeting_id = ?1";
+        match folder.map(str::trim).filter(|s| !s.is_empty()) {
+            Some(name) => c.execute(up, params![id, name])?,
+            None => c.execute(rm, [id])?,
+        };
+        c.execute("DELETE FROM indexed_meetings WHERE meeting_id = ?1", [id])?;
+        Ok(())
+    }
+
+    pub fn sync(&self) -> Result<usize> {
+        let mut ic = self.conn()?;
+        let wipe = "DELETE FROM ask_terms; DELETE FROM ask_docs; DELETE FROM indexed_meetings;";
+        let Some(mc) = open_ro(&self.data_dir.join("meetings/meetings.db")) else {
+            ic.execute_batch(wipe)?;
+            return Ok(0);
+        };
+        let overrides = kv_map(&ic, "SELECT meeting_id, folder FROM ask_folders");
+        let existing = kv_map(&ic, "SELECT meeting_id, fingerprint FROM indexed_meetings");
+        let cols = table_cols(&mc, "meetings");
+        let trash = ["", " WHERE m.trashed_at IS NULL"]
+            [usize::from(cols.iter().any(|c| c == "trashed_at"))];
+        let src = if cols.iter().any(|c| c == "folder_id") && has_table(&mc, "folders") {
+            "f.name FROM meetings m LEFT JOIN folders f ON f.id = m.folder_id"
+        } else {
+            "NULL FROM meetings m"
+        };
+        let mut mst = mc.prepare(&format!(
+            "SELECT m.id, m.started_at, m.title, {src}{trash} ORDER BY m.id ASC"
+        ))?;
+        let mrows: Vec<(i64, i64, String, Option<String>)> = mst
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let seen: HashSet<i64> = mrows.iter().map(|r| r.0).collect();
+        let has_notes = has_table(&mc, "meeting_notes");
+        let tx = ic.transaction()?;
+        for old_id in existing.keys().copied().filter(|id| !seen.contains(id)) {
+            purge(&tx, old_id)?;
+        }
+        let mut updated = 0usize;
+        for (id, started_at, title, db_folder) in mrows {
+            let folder = overrides.get(&id).cloned().or(db_folder);
+            let q_s = "SELECT id, start_ms, end_ms, channel, text FROM meeting_segments WHERE meeting_id = ?1 ORDER BY id ASC";
+            let mut sst = mc.prepare(q_s)?;
+            let segs: Vec<(i64, i64, i64, String, String)> = sst
+                .query_map([id], |r| {
+                    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+                })?
+                .collect::<rusqlite::Result<_>>()?;
+            let (mut note_by_seg, mut n_cnt) = (HashMap::<i64, String>::new(), 0usize);
+            if has_notes {
+                let q_n = "SELECT text, citations FROM meeting_notes WHERE meeting_id = ?1";
+                let mut nst = mc.prepare(q_n)?;
+                let nrows = nst.query_map([id], |r| {
+                    Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+                })?;
+                for (txt, raw_c) in nrows.flatten() {
+                    n_cnt += 1;
+                    for cid in serde_json::from_str::<Vec<i64>>(&raw_c).unwrap_or_default() {
+                        let buf = note_by_seg.entry(cid).or_default();
+                        buf.push(' ');
+                        buf.push_str(&txt);
+                    }
+                }
+            }
+            let bytes: usize = segs.iter().map(|s| s.4.len()).sum();
+            let last = segs.last().map(|s| s.0).unwrap_or(0);
+            let fp = format!("{title}|{folder:?}|{}|{last}|{bytes}|{n_cnt}", segs.len());
+            if existing.get(&id).map(String::as_str) == Some(fp.as_str()) {
+                continue;
+            }
+            purge(&tx, id)?;
+            let ins_m = "INSERT INTO indexed_meetings VALUES (?1, ?2, ?3, ?4, ?5)";
+            tx.execute(ins_m, params![id, title, folder, started_at, fp])?;
+            for (sid, s_ms, e_ms, ch, txt) in segs {
+                let extra = note_by_seg.get(&sid).map(String::as_str).unwrap_or("");
+                let toks = tokenize(&format!("{title} {txt} {extra}"));
+                let ins_d = "INSERT INTO ask_docs (meeting_id, segment_id, start_ms, end_ms, channel, text, token_len) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
+                tx.execute(
+                    ins_d,
+                    params![id, sid, s_ms, e_ms, ch, txt, toks.len() as i64],
+                )?;
+                let doc_id = tx.last_insert_rowid();
+                let mut tf_map = HashMap::<String, i64>::new();
+                for t in toks {
+                    *tf_map.entry(t).or_insert(0) += 1;
+                }
+                for (term, tf) in tf_map {
+                    tx.execute(
+                        "INSERT INTO ask_terms VALUES (?1, ?2, ?3)",
+                        params![term, doc_id, tf],
+                    )?;
+                }
+            }
+            updated += 1;
+        }
+        tx.commit()?;
+        Ok(updated)
+    }
+
+    pub fn retrieve(&self, scope: &AskScope, question: &str) -> Result<Vec<AskCitation>> {
+        let ic = self.conn()?;
+        let docs = load_scoped_docs(&ic, scope)?;
+        if docs.is_empty() {
+            return Ok(Vec::new());
+        }
+        let q_terms = tokenize(question);
+        if question.to_lowercase().contains("what did i miss") || q_terms.is_empty() {
+            let skip = docs.len().saturating_sub(TOP_K);
+            return Ok(docs.into_iter().skip(skip).map(|(_, c, _)| c).collect());
+        }
+        let n_docs = docs.len() as f64;
+        let avg_len = (docs.iter().map(|(_, _, l)| *l as f64).sum::<f64>() / n_docs).max(1.0);
+        let doc_map: HashMap<i64, (&AskCitation, i64)> =
+            docs.iter().map(|(id, c, l)| (*id, (c, *l))).collect();
+        let mut scores = HashMap::<i64, f64>::new();
+        let mut st = ic.prepare("SELECT doc_id, tf FROM ask_terms WHERE term = ?1")?;
+        for term in &q_terms {
+            let posts: Vec<(i64, i64)> = st
+                .query_map(params![term], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .flatten()
+                .filter(|(did, _)| doc_map.contains_key(did))
+                .collect();
+            if posts.is_empty() {
+                continue;
+            }
+            let df = posts.len() as f64;
+            let idf = ((n_docs - df + 0.5) / (df + 0.5) + 1.0).ln();
+            for (did, tf) in posts {
+                let (dl, tf_f) = (doc_map[&did].1 as f64, tf as f64);
+                let norm = (tf_f * 2.2) / (tf_f + 1.2 * (0.25 + 0.75 * (dl / avg_len)));
+                *scores.entry(did).or_insert(0.0) += idf * norm;
+            }
+        }
+        let mut hits: Vec<(f64, AskCitation)> = scores
+            .into_iter()
+            .filter_map(|(did, s)| doc_map.get(&did).map(|(c, _)| (s, (*c).clone())))
+            .collect();
+        hits.sort_by(|a, b| {
+            b.0.total_cmp(&a.0).then_with(|| {
+                (a.1.meeting_id, a.1.segment_id).cmp(&(b.1.meeting_id, b.1.segment_id))
+            })
+        });
+        Ok(hits.into_iter().take(TOP_K).map(|(_, c)| c).collect())
+    }
+
+    fn conn(&self) -> Result<Connection> {
+        let c = Connection::open(&self.index_path)?;
+        c.busy_timeout(Duration::from_secs(1))?;
+        Ok(c)
+    }
+}
+
+pub(crate) fn open_ro(path: &Path) -> Option<Connection> {
+    let m = fs::symlink_metadata(path).ok()?;
+    if m.file_type().is_symlink() || !m.is_file() {
+        return None;
+    }
+    let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let c = Connection::open_with_flags(path, flags).ok()?;
+    let _ = c.busy_timeout(Duration::from_secs(1));
+    let _ = c.execute_batch("PRAGMA query_only = ON;");
+    Some(c)
+}
+
+fn has_table(c: &Connection, name: &str) -> bool {
+    let q = "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = ?1";
+    c.query_row(q, [name], |r| r.get(0)).unwrap_or(false)
+}
+
+fn table_cols(c: &Connection, table: &str) -> Vec<String> {
+    let Ok(mut st) = c.prepare(&format!("PRAGMA table_info({table})")) else {
+        return Vec::new();
+    };
+    let rows = st.query_map([], |r| r.get::<_, String>(1)).ok();
+    rows.into_iter().flatten().flatten().collect()
+}
+
+fn kv_map(ic: &Connection, sql: &str) -> HashMap<i64, String> {
+    let Ok(mut st) = ic.prepare(sql) else {
+        return HashMap::new();
+    };
+    let rows = st
+        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
+        .ok();
+    rows.into_iter().flatten().flatten().collect()
+}
+
+fn purge(tx: &rusqlite::Transaction<'_>, id: i64) -> Result<()> {
+    let q_t =
+        "DELETE FROM ask_terms WHERE doc_id IN (SELECT doc_id FROM ask_docs WHERE meeting_id = ?1)";
+    tx.execute(q_t, [id])?;
+    tx.execute("DELETE FROM ask_docs WHERE meeting_id = ?1", [id])?;
+    tx.execute("DELETE FROM indexed_meetings WHERE meeting_id = ?1", [id])?;
+    Ok(())
+}
+
+fn load_scoped_docs(ic: &Connection, scope: &AskScope) -> Result<Vec<(i64, AskCitation, i64)>> {
+    let mut st = ic.prepare(
+        "SELECT d.doc_id, d.meeting_id, m.title, m.folder, d.segment_id, d.start_ms, d.end_ms, d.channel, d.text, d.token_len
+         FROM ask_docs d JOIN indexed_meetings m ON m.meeting_id = d.meeting_id ORDER BY d.meeting_id, d.segment_id",
+    )?;
+    let mut rows = st.query([])?;
+    let mut out = Vec::new();
+    while let Some(r) = rows.next()? {
+        let (mid, folder): (i64, Option<String>) = (r.get(1)?, r.get(3)?);
+        let keep = match scope {
+            AskScope::OneMeeting(t) => mid == *t,
+            AskScope::AllMeetings => true,
+            AskScope::Folder(w) => folder
+                .as_deref()
+                .is_some_and(|f| f.eq_ignore_ascii_case(w.trim())),
+            AskScope::PickedSet(ids) => ids.contains(&mid),
+        };
+        if keep {
+            let s_ms: i64 = r.get(5)?;
+            let cite = AskCitation {
+                meeting_id: mid,
+                meeting_title: r.get(2)?,
+                segment_id: r.get(4)?,
+                start_ms: s_ms,
+                end_ms: r.get(6)?,
+                timestamp: format_mm_ss(s_ms),
+                channel: r.get(7)?,
+                quote: r.get(8)?,
+            };
+            out.push((r.get(0)?, cite, r.get(9)?));
+        }
+    }
+    Ok(out)
+}
+
+pub fn format_mm_ss(ms: i64) -> String {
+    let s = (ms.max(0) / 1000) as u64;
+    if s >= 3600 {
+        format!("{}:{:02}:{:02}", s / 3600, (s % 3600) / 60, s % 60)
+    } else {
+        format!("{:02}:{:02}", s / 60, s % 60)
+    }
+}
+
+pub(crate) fn tokenize(text: &str) -> Vec<String> {
+    text.unicode_words()
+        .map(str::to_lowercase)
+        .filter(|w| w.len() > 1 && !STOP.split_ascii_whitespace().any(|s| s == w))
+        .collect()
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+
+    pub(crate) fn seed_three_meetings(dir: &Path) {
+        fs::create_dir_all(dir.join("meetings")).unwrap();
+        let mc = Connection::open(dir.join("meetings/meetings.db")).unwrap();
+        mc.execute_batch(
+            "CREATE TABLE meetings (id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, ended_at INTEGER, title TEXT NOT NULL, status TEXT NOT NULL, model_id TEXT NOT NULL, saved INTEGER NOT NULL DEFAULT 0);
+             CREATE TABLE meeting_segments (id INTEGER PRIMARY KEY, meeting_id INTEGER NOT NULL, start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL, channel TEXT NOT NULL, text TEXT NOT NULL);
+             INSERT INTO meetings VALUES (1, 1700000100, 1700001900, 'Weekly product sync', 'notes_ready', 'whisper-small', 0);
+             INSERT INTO meeting_segments VALUES (101, 1, 724000, 730000, 'me', 'Thursday is the homepage launch deadline and Friday is the review');
+             INSERT INTO meetings VALUES (2, 1700003600, 1700005400, 'Design critique', 'notes_ready', 'whisper-small', 0);
+             INSERT INTO meeting_segments VALUES (202, 2, 980000, 988000, 'others', 'Design critique kept the Thursday deadline unchanged and approved the dark sidebar');
+             INSERT INTO meetings VALUES (3, 1700007200, 1700009000, 'Infra retro', 'notes_ready', 'whisper-small', 0);
+             INSERT INTO meeting_segments VALUES (303, 3, 255000, 262000, 'me', 'SQLite WAL checkpoint latency dropped under two milliseconds');",
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn index_retrieves_across_all_folder_and_set_and_prunes_deleted_meetings() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        seed_three_meetings(p);
+        let idx = MeetingAskIndex::open(p).unwrap();
+        idx.set_folder(1, Some("Product")).unwrap();
+        idx.set_folder(2, Some("Product")).unwrap();
+        idx.set_folder(3, Some("Engineering")).unwrap();
+        assert_eq!((idx.sync().unwrap(), idx.sync().unwrap()), (3, 0));
+        let q = |s: AskScope, w: &str| idx.retrieve(&s, w).unwrap();
+        let all = q(AskScope::AllMeetings, "What is the Thursday deadline?");
+        assert!(all.len() == 2 && all.iter().all(|c| c.resolves_in(p)));
+        assert_eq!([&*all[0].timestamp, &*all[1].timestamp], ["12:04", "16:20"]);
+        let eng = q(AskScope::Folder("engineering".into()), "Thursday WAL");
+        assert!(eng.len() == 1 && eng[0].meeting_id == 3);
+        let set = q(AskScope::PickedSet(vec![1, 3]), "Thursday deadline");
+        assert!(set.len() == 1 && set[0].meeting_id == 1);
+        let db = Connection::open(p.join("meetings/meetings.db")).unwrap();
+        db.execute("DELETE FROM meetings WHERE id = 2", []).unwrap();
+        idx.sync().unwrap();
+        assert!(q(AskScope::AllMeetings, "dark sidebar").is_empty());
+    }
+}
