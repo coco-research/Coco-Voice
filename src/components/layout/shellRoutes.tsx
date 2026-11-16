@@ -4,6 +4,7 @@ import { useSettings } from "../../hooks/useSettings";
 import { HomeView } from "../home/HomeView";
 import { MeetingsList } from "../meetings/MeetingsList";
 import type { MeetingsUi } from "../meetings/gate";
+import { AppProfilesView } from "../settings/AppProfilesView";
 import { CustomWords } from "../settings/CustomWords";
 import { Corrections } from "../settings/Corrections";
 import { GeneralSettings } from "../settings/general/GeneralSettings";
@@ -58,7 +59,6 @@ const PH: Partial<Record<ShellSectionId, [string, string, RouteDomain]>> = {
     "meetings",
   ],
   "meetings-agent": ["meetings.sidebar", "sidebar.agentAccess", "meetings"],
-  "voice-profiles": ["sidebar.voiceSection", "sidebar.perAppProfiles", "voice"],
   about: ["sidebar.settings", "sidebar.about", "shared"],
 };
 
@@ -127,6 +127,12 @@ export function renderShellSection(
     return (
       <div data-route-domain="voice" className="w-full">
         <HistorySettings />
+      </div>
+    );
+  if (s === "voice-profiles")
+    return (
+      <div data-route-domain="voice" className="w-full">
+        <AppProfilesView onNavigate={ex?.onNavigate} />
       </div>
     );
   if (s === "voice-words")
