@@ -9,7 +9,7 @@ pub use audio::{
     read_wav_samples, save_wav_file, verify_wav_file, AudioRecorder, CpalDeviceInfo, VadPolicy,
 };
 pub use text::{
-    apply_corrections, apply_custom_words, filter_transcription_output,
+    apply_corrections, apply_custom_words, filter_transcription_output, resolve_take_language,
     rewrite_spoken_self_corrections,
 };
 pub use utils::get_cpal_host;

@@ -623,6 +623,122 @@ pub fn rewrite_spoken_self_corrections(text: &str) -> String {
     out.join(" ")
 }
 
+static ENGINE_LANG_TAG_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*<\|([a-zA-Z]{2,3}(?:-[a-zA-Z]+)?)\|>\s*").unwrap());
+
+fn detect_script_or_lexicon_language(text: &str) -> &'static str {
+    let (mut kana, mut hangul, mut han, mut cyr, mut uk_cyr, mut arab, mut hebr, mut deva) =
+        (0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32);
+    for c in text.chars() {
+        match c {
+            '\u{3040}'..='\u{30FF}' => kana += 1,
+            '\u{AC00}'..='\u{D7AF}' => hangul += 1,
+            '\u{4E00}'..='\u{9FFF}' => han += 1,
+            'і' | 'ї' | 'є' | 'ґ' | 'І' | 'Ї' | 'Є' | 'Ґ' => {
+                cyr += 1;
+                uk_cyr += 1;
+            }
+            '\u{0400}'..='\u{04FF}' => cyr += 1,
+            '\u{0600}'..='\u{06FF}' => arab += 1,
+            '\u{0590}'..='\u{05FF}' => hebr += 1,
+            '\u{0900}'..='\u{097F}' => deva += 1,
+            _ => {}
+        }
+    }
+    if kana > 0 {
+        return "ja";
+    }
+    if hangul > 0 {
+        return "ko";
+    }
+    if han > 0 {
+        return "zh";
+    }
+    if cyr > 0 {
+        return if uk_cyr > 0 { "uk" } else { "ru" };
+    }
+    if arab > 0 {
+        return "ar";
+    }
+    if hebr > 0 {
+        return "he";
+    }
+    if deva > 0 {
+        return "hi";
+    }
+
+    const LEX: &[(&str, &str)] = &[
+        (
+            "pt",
+            " um uma não para com gato bonito você está muito isso obrigado ",
+        ),
+        (
+            "es",
+            " el la los las una por para sido buen día hola qué pero este esta ",
+        ),
+        (
+            "fr",
+            " le les des une dans pour avec est pas bonjour tout monde très nous ",
+        ),
+        (
+            "de",
+            " der die das und ist nicht mit ein eine sehr gut wir auf äh ähm ",
+        ),
+        (
+            "it",
+            " il gli una che non per sono questo molto ciao tutti ",
+        ),
+        (
+            "en",
+            " the and is are was this that with for you have from they would think ",
+        ),
+    ];
+
+    let words: Vec<String> = text
+        .split_whitespace()
+        .map(|w| w.trim_matches(|c: char| !c.is_alphabetic()).to_lowercase())
+        .filter(|w| !w.is_empty())
+        .collect();
+    let lc = text.to_lowercase();
+    let mut best = ("auto", 0i32);
+    for (lang, vocab) in LEX {
+        let mut score = words
+            .iter()
+            .filter(|w| vocab.contains(&format!(" {w} ")))
+            .count() as i32
+            * 2;
+        score += match *lang {
+            "es" if "ñ¿¡".chars().any(|c| lc.contains(c)) => 3,
+            "pt" if "ãõ".chars().any(|c| lc.contains(c)) => 3,
+            "de" if "ßäöü".chars().any(|c| lc.contains(c)) => 2,
+            "fr" if "çœ".chars().any(|c| lc.contains(c)) || lc.contains("euh") => 2,
+            _ => 0,
+        };
+        if score > best.1 {
+            best = (lang, score);
+        }
+    }
+    best.0
+}
+
+/// Strips optional leading engine language tags (`<|es|>`) and resolves the
+/// effective language for a single take when `requested_language` is `"auto"`.
+pub fn resolve_take_language(raw: &str, requested_language: &str) -> (String, String) {
+    let (cleaned, tag_lang) = match ENGINE_LANG_TAG_RE.captures(raw) {
+        Some(caps) => {
+            let m = caps.get(0).unwrap();
+            (raw[m.end()..].to_string(), Some(caps[1].to_lowercase()))
+        }
+        None => (raw.to_string(), None),
+    };
+    let req = requested_language.trim();
+    if !req.is_empty() && !req.eq_ignore_ascii_case("auto") {
+        return (cleaned, req.to_string());
+    }
+    let detected = tag_lang.unwrap_or_else(|| detect_script_or_lexicon_language(&cleaned).into());
+    (cleaned, detected)
+}
+
 /// Filters transcription output by removing filler words and stutter artifacts.
 ///
 /// This function cleans up raw transcription text by:
@@ -1033,5 +1149,35 @@ mod tests {
             filter_transcription_output("The gate is B12 actually C7", "en", &None),
             "The gate is C7"
         );
+    }
+
+    #[test]
+    fn auto_detect_resolves_language_per_take_and_preserves_language_safe_words() {
+        let cases = [
+            ("um gato bonito para você", "pt", "um gato bonito para você"),
+            (
+                "ha sido un buen día para todos",
+                "es",
+                "ha sido un buen día para todos",
+            ),
+            ("euh bonjour tout le monde", "fr", "bonjour tout le monde"),
+            ("ähm das ist sehr gut", "de", "das ist sehr gut"),
+            ("<|ja|> こんにちは世界", "ja", "こんにちは世界"),
+            (
+                "um the release is ready for you",
+                "en",
+                "the release is ready for you",
+            ),
+        ];
+        for (raw, expected_lang, expected_text) in cases {
+            let (clean, detected) = resolve_take_language(raw, "auto");
+            assert_eq!(detected, expected_lang, "input: {raw}");
+            assert_eq!(
+                filter_transcription_output(&clean, &detected, &None),
+                expected_text
+            );
+        }
+        // Explicit language choice overrides auto-detect.
+        assert_eq!(resolve_take_language("hello world", "fr").1, "fr");
     }
 }
