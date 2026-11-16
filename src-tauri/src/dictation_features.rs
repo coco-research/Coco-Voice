@@ -192,6 +192,8 @@ pub fn scan_open_repo_symbols(root: &Path, is_ssh_remote: bool) -> RepoScanResul
     RepoScanResult::Symbols(symbols.into_iter().collect())
 }
 
+const MAX_REPO_SOURCE_FILE_BYTES: u64 = 262_144;
+
 fn collect_repo_symbols_rec(dir: &Path, depth: usize, files_budget: &mut usize, out: &mut BTreeSet<String>) {
     if depth > 5 || *files_budget == 0 {
         return;
@@ -202,13 +204,20 @@ fn collect_repo_symbols_rec(dir: &Path, depth: usize, files_budget: &mut usize, 
             break;
         }
         let path = entry.path();
+        let Ok(meta) = fs::symlink_metadata(&path) else { continue };
+        if meta.file_type().is_symlink() {
+            continue;
+        }
         let Some(name) = path.file_name().and_then(|n| n.to_str()) else { continue };
         if name.starts_with('.') || matches!(name, "target" | "node_modules" | "dist" | "build" | "vendor") {
             continue;
         }
-        if path.is_dir() {
+        if meta.is_dir() {
             collect_repo_symbols_rec(&path, depth + 1, files_budget, out);
-        } else if matches!(path.extension().and_then(|e| e.to_str()), Some("rs" | "ts" | "tsx" | "js" | "py" | "go")) {
+        } else if meta.is_file()
+            && meta.len() <= MAX_REPO_SOURCE_FILE_BYTES
+            && matches!(path.extension().and_then(|e| e.to_str()), Some("rs" | "ts" | "tsx" | "js" | "py" | "go"))
+        {
             *files_budget -= 1;
             if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
                 if stem.len() >= 3 && !matches!(stem, "mod" | "lib" | "main" | "index") {
@@ -326,9 +335,20 @@ mod tests {
              pub struct CleanupResolver; pub fn overlay_xy_for_monitor() {} pub const MAX_RETRY_COUNT: usize = 3; \
              pub fn apply_custom_words() {} pub struct ShortcutBinding;",
         ).unwrap();
-        let t0 = Instant::now();
+        let huge = format!("pub struct OversizedBundleSymbol;\n{}", "// pad\n".repeat(45_000));
+        fs::write(dir.path().join("src/huge_bundle.js"), huge).unwrap();
+        #[cfg(unix)]
+        {
+            let outside = tempfile::tempdir().expect("outside");
+            fs::write(outside.path().join("leaked_symlink.rs"), "pub struct SymlinkedOutsideSymbol;").unwrap();
+            std::os::unix::fs::symlink(outside.path().join("leaked_symlink.rs"), dir.path().join("src/symlinked.rs")).unwrap();
+            let t0 = Instant::now();
+            let RepoScanResult::Symbols(symbols) = scan_open_repo_symbols(dir.path(), false) else { panic!("expected Symbols") };
+            assert!(t0.elapsed().as_millis() < 1000, "p50 must be < 1s");
+            assert!(!symbols.iter().any(|s| s == "SymlinkedOutsideSymbol" || s == "symlinked"));
+            assert!(!symbols.iter().any(|s| s == "OversizedBundleSymbol" || s == "huge_bundle"));
+        }
         let RepoScanResult::Symbols(symbols) = scan_open_repo_symbols(dir.path(), false) else { panic!("expected Symbols") };
-        assert!(t0.elapsed().as_millis() < 1000, "p50 must be < 1s");
         let fixtures = [
             ("Update transcription coordinator now", "Update TranscriptionCoordinator now"),
             ("Check audio recording manager state", "Check AudioRecordingManager state"),
