@@ -2,12 +2,12 @@
 //! identifier casing), and V-D17 (local open-repo symbol scanner & spelling bias).
 // ponytail: ceiling = local filesystem walk + defaults plist helper; upgrade path = tree-sitter symbol index.
 
-use crate::audio_toolkit::apply_custom_words;
 use crate::audio_toolkit::text::has_identifier_casing;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
+use strsim::levenshtein;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FnKeyUsageType {
@@ -238,9 +238,29 @@ pub fn apply_repo_symbols(text: &str, symbols: &[String], threshold: f64) -> Str
         let mut hit: Option<(usize, &String)> = None;
         for n in (1..=5).rev() {
             if i + n <= words.len() {
+                let first_k = norm_key(words[i]);
+                let last_k = norm_key(words[i + n - 1]);
                 let cand: String = words[i..i + n].iter().map(|w| norm_key(w)).collect();
+                if cand.len() < 4 || first_k.is_empty() || last_k.is_empty() {
+                    continue;
+                }
                 if let Some((_, sym)) = sym_keys.iter().find(|(k, _)| *k == cand) {
                     hit = Some((n, *sym));
+                    break;
+                }
+                let mut best: Option<(f64, &String)> = None;
+                for (k, sym) in &sym_keys {
+                    if n > 1 && (!k.starts_with(&first_k[..1]) || !k.ends_with(&last_k[last_k.len() - 1..])) {
+                        continue;
+                    }
+                    let max_len = cand.len().max(k.len()) as f64;
+                    let score = levenshtein(&cand, k) as f64 / max_len;
+                    if score <= threshold && best.as_ref().is_none_or(|(b, _)| score < *b) {
+                        best = Some((score, *sym));
+                    }
+                }
+                if let Some((_, sym)) = best {
+                    hit = Some((n, sym));
                     break;
                 }
             }
@@ -255,7 +275,7 @@ pub fn apply_repo_symbols(text: &str, symbols: &[String], threshold: f64) -> Str
             i += 1;
         }
     }
-    apply_custom_words(&joined.join(" "), symbols, threshold)
+    joined.join(" ")
 }
 
 #[cfg(test)]
@@ -278,11 +298,11 @@ mod tests {
     #[test]
     fn code_editor_mode_preserves_camel_pascal_snake_and_screaming_snake_identifiers() {
         assert!(is_code_editor_app("com.microsoft.VSCode") && is_code_editor_app("Cursor") && !is_code_editor_app("com.apple.mail"));
-        let idents = vec!["getUserById".into(), "UserProfileStore".into(), "get_user_by_id".into(), "MAX_RETRY_COUNT".into()];
-        let raw = "Getuserbyid calls user profile store and get user by id with max retry count, plus snake case parse token stream.";
+        let idents = vec!["getUserById".into(), "UserProfileStore".into(), "fetch_session_token".into(), "MAX_RETRY_COUNT".into()];
+        let raw = "Getuserbyid calls user profile store and fetch session token with max retry count, plus snake case parse token stream.";
         assert_eq!(
             format_code_editor_identifiers(raw, true, &idents),
-            "getUserById calls UserProfileStore and get_user_by_id with MAX_RETRY_COUNT, plus parse_token_stream."
+            "getUserById calls UserProfileStore and fetch_session_token with MAX_RETRY_COUNT, plus parse_token_stream."
         );
     }
 

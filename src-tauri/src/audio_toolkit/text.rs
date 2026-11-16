@@ -213,11 +213,10 @@ pub fn has_identifier_casing(word: &str) -> bool {
 
 /// Preserves the case pattern of the original word when applying a replacement
 fn preserve_case_pattern(original: &str, replacement: &str) -> String {
-    if has_identifier_casing(replacement) {
-        return replacement.to_string();
-    }
     if original.chars().all(|c| c.is_uppercase()) {
         replacement.to_uppercase()
+    } else if has_identifier_casing(replacement) {
+        replacement.to_string()
     } else if original.chars().next().is_some_and(|c| c.is_uppercase()) {
         let mut chars: Vec<char> = replacement.chars().collect();
         if let Some(first_char) = chars.get_mut(0) {
