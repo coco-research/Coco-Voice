@@ -16,6 +16,8 @@ mod llm_client;
 mod local_llm;
 pub mod managers;
 #[cfg(feature = "meetings")]
+pub mod meeting_append;
+#[cfg(feature = "meetings")]
 pub mod meeting_controller;
 #[cfg(feature = "meetings")]
 mod meeting_feed;
