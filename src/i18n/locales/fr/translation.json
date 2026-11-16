@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Confirmer la suppression",
       "cancel": "Annuler",
       "audioLeftWarning": "Les réunions ont été supprimées, mais un ou plusieurs dossiers audio n’ont pas pu être retirés.",
-      "actionFailed": "Impossible de modifier la conservation des réunions."
+      "actionFailed": "Impossible de modifier la conservation des réunions.",
+      "continueDeleteAll": "Continuer",
+      "confirmStep2Prompt": "Dernière vérification : supprimer définitivement toutes les réunions, transcriptions, notes et pistes audio locales ?",
+      "deleteTimerLabel": "Supprimer les transcriptions après",
+      "deleteTimerOff": "Désactivé (garder jusqu’à suppression)"
     }
   }
 }

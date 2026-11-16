@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Potwierdź usunięcie wszystkiego",
       "cancel": "Anuluj",
       "audioLeftWarning": "Spotkania zostały usunięte, ale nie udało się usunąć co najmniej jednego folderu audio.",
-      "actionFailed": "Nie udało się zaktualizować przechowywania spotkań."
+      "actionFailed": "Nie udało się zaktualizować przechowywania spotkań.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

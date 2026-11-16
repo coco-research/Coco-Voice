@@ -914,7 +914,11 @@
       "confirmDeleteAll": "सबै मेटाउन पुष्टि गर्नुहोस्",
       "cancel": "रद्द गर्नुहोस्",
       "audioLeftWarning": "बैठकहरू मेटाइए तर एक वा बढी अडियो फोल्डर हटाउन सकिएन।",
-      "actionFailed": "बैठक संरक्षण अद्यावधिक गर्न सकिएन।"
+      "actionFailed": "बैठक संरक्षण अद्यावधिक गर्न सकिएन।",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

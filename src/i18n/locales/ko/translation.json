@@ -914,7 +914,11 @@
       "confirmDeleteAll": "모두 삭제 확인",
       "cancel": "취소",
       "audioLeftWarning": "회의는 삭제되었지만 일부 오디오 폴더를 제거하지 못했습니다.",
-      "actionFailed": "회의 보관 설정을 업데이트하지 못했습니다."
+      "actionFailed": "회의 보관 설정을 업데이트하지 못했습니다.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

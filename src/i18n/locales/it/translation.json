@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Conferma elimina tutto",
       "cancel": "Annulla",
       "audioLeftWarning": "Le riunioni sono state eliminate, ma non è stato possibile rimuovere una o più cartelle audio.",
-      "actionFailed": "Impossibile aggiornare la conservazione delle riunioni."
+      "actionFailed": "Impossibile aggiornare la conservazione delle riunioni.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

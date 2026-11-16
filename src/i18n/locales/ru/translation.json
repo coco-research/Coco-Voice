@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Подтвердить удаление всего",
       "cancel": "Отмена",
       "audioLeftWarning": "Встречи удалены, но одну или несколько папок с аудио удалить не удалось.",
-      "actionFailed": "Не удалось обновить настройки хранения встреч."
+      "actionFailed": "Не удалось обновить настройки хранения встреч.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

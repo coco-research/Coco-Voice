@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Alles verwijderen bevestigen",
       "cancel": "Annuleren",
       "audioLeftWarning": "Vergaderingen zijn verwijderd, maar een of meer audiomappen konden niet worden verwijderd.",
-      "actionFailed": "Kon bewaarinstellingen voor vergaderingen niet bijwerken."
+      "actionFailed": "Kon bewaarinstellingen voor vergaderingen niet bijwerken.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

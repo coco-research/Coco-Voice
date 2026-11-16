@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Confirmar eliminar todo",
       "cancel": "Cancelar",
       "audioLeftWarning": "Se eliminaron las reuniones, pero no se pudo borrar una o más carpetas de audio.",
-      "actionFailed": "No se pudo actualizar la retención de reuniones."
+      "actionFailed": "No se pudo actualizar la retención de reuniones.",
+      "continueDeleteAll": "Continuar",
+      "confirmStep2Prompt": "Confirmación final: ¿eliminar permanentemente todas las reuniones, transcripciones, notas y audios locales?",
+      "deleteTimerLabel": "Eliminar transcripciones después de",
+      "deleteTimerOff": "Desactivado (conservar hasta borrar)"
     }
   }
 }

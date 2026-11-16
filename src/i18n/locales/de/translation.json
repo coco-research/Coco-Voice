@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Alle endgültig löschen",
       "cancel": "Abbrechen",
       "audioLeftWarning": "Meetings wurden gelöscht, aber mindestens ein Audio-Ordner konnte nicht entfernt werden.",
-      "actionFailed": "Meeting-Aufbewahrung konnte nicht aktualisiert werden."
+      "actionFailed": "Meeting-Aufbewahrung konnte nicht aktualisiert werden.",
+      "continueDeleteAll": "Weiter",
+      "confirmStep2Prompt": "Letzte Prüfung: Alle lokalen Besprechungen, Transkripte, Notizen und Audiodateien dauerhaft löschen?",
+      "deleteTimerLabel": "Transkripte löschen nach",
+      "deleteTimerOff": "Aus (behalten bis zum Löschen)"
     }
   }
 }

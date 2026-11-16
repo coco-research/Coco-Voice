@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Підтвердити видалення всього",
       "cancel": "Скасувати",
       "audioLeftWarning": "Зустрічі видалено, але одну чи кілька папок з аудіо не вдалося прибрати.",
-      "actionFailed": "Не вдалося оновити налаштування зберігання зустрічей."
+      "actionFailed": "Не вдалося оновити налаштування зберігання зустрічей.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

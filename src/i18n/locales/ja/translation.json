@@ -914,7 +914,11 @@
       "confirmDeleteAll": "すべて削除を確定",
       "cancel": "キャンセル",
       "audioLeftWarning": "会議は削除されましたが、1 つ以上の音声フォルダを削除できませんでした。",
-      "actionFailed": "会議の保存設定を更新できませんでした。"
+      "actionFailed": "会議の保存設定を更新できませんでした。",
+      "continueDeleteAll": "続行",
+      "confirmStep2Prompt": "最終確認: この Mac 上のすべての会議・文字起こし・メモ・音声を完全に削除しますか？",
+      "deleteTimerLabel": "文字起こしの自動削除",
+      "deleteTimerOff": "オフ（手動で削除するまで保持）"
     }
   }
 }

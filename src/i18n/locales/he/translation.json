@@ -914,7 +914,11 @@
       "confirmDeleteAll": "אשר מחיקת הכול",
       "cancel": "ביטול",
       "audioLeftWarning": "הפגישות נמחקו, אך לא ניתן היה להסיר תיקיית שמע אחת או יותר.",
-      "actionFailed": "לא ניתן לעדכן את הגדרות השמירה של הפגישות."
+      "actionFailed": "לא ניתן לעדכן את הגדרות השמירה של הפגישות.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Tümünü silmeyi onayla",
       "cancel": "İptal",
       "audioLeftWarning": "Toplantılar silindi ancak bir veya daha fazla ses klasörü kaldırılamadı.",
-      "actionFailed": "Toplantı saklama ayarı güncellenemedi."
+      "actionFailed": "Toplantı saklama ayarı güncellenemedi.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

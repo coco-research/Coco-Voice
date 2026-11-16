@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Xác nhận xóa tất cả",
       "cancel": "Hủy",
       "audioLeftWarning": "Đã xóa các cuộc họp nhưng không thể xóa một hoặc nhiều thư mục âm thanh.",
-      "actionFailed": "Không thể cập nhật cài đặt lưu trữ cuộc họp."
+      "actionFailed": "Không thể cập nhật cài đặt lưu trữ cuộc họp.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

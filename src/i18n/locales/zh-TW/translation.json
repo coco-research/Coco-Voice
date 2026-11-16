@@ -914,7 +914,11 @@
       "confirmDeleteAll": "確認全部刪除",
       "cancel": "取消",
       "audioLeftWarning": "已刪除會議，但無法移除一或多個音訊資料夾。",
-      "actionFailed": "無法更新會議保留設定。"
+      "actionFailed": "無法更新會議保留設定。",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Potvrdit smazání všeho",
       "cancel": "Zrušit",
       "audioLeftWarning": "Schůzky byly smazány, ale jednu či více složek se zvukem se nepodařilo odstranit.",
-      "actionFailed": "Nastavení uchovávání schůzek se nepodařilo upravit."
+      "actionFailed": "Nastavení uchovávání schůzek se nepodařilo upravit.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

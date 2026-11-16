@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Confirmar exclusão de tudo",
       "cancel": "Cancelar",
       "audioLeftWarning": "As reuniões foram excluídas, mas uma ou mais pastas de áudio não puderam ser removidas.",
-      "actionFailed": "Não foi possível atualizar a retenção das reuniões."
+      "actionFailed": "Não foi possível atualizar a retenção das reuniões.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

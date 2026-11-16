@@ -914,7 +914,11 @@
       "confirmDeleteAll": "تأكيد حذف الكل",
       "cancel": "إلغاء",
       "audioLeftWarning": "تم حذف الاجتماعات، لكن تعذرت إزالة مجلد صوتي واحد أو أكثر.",
-      "actionFailed": "تعذر تحديث إعدادات الاحتفاظ بالاجتماعات."
+      "actionFailed": "تعذر تحديث إعدادات الاحتفاظ بالاجتماعات.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

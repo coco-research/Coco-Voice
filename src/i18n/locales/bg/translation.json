@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Потвърди изтриването",
       "cancel": "Отказ",
       "audioLeftWarning": "Срещите бяха изтрити, но една или повече аудио папки не можаха да бъдат премахнати.",
-      "actionFailed": "Неуспешна промяна на запазването на срещите."
+      "actionFailed": "Неуспешна промяна на запазването на срещите.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

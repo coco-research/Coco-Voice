@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Bekräfta ta bort alla",
       "cancel": "Avbryt",
       "audioLeftWarning": "Möten togs bort, men en eller flera ljudmappar kunde inte tas bort.",
-      "actionFailed": "Kunde inte uppdatera lagring för möten."
+      "actionFailed": "Kunde inte uppdatera lagring för möten.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }

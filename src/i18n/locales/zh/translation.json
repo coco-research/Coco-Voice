@@ -914,7 +914,11 @@
       "confirmDeleteAll": "确认全部删除",
       "cancel": "取消",
       "audioLeftWarning": "已删除会议，但无法移除一个或多个音频文件夹。",
-      "actionFailed": "无法更新会议保留设置。"
+      "actionFailed": "无法更新会议保留设置。",
+      "continueDeleteAll": "继续",
+      "confirmStep2Prompt": "最终确认：永久删除此 Mac 上的所有会议、转写、笔记与音频？",
+      "deleteTimerLabel": "自动删除转写期限",
+      "deleteTimerOff": "关闭（手动删除前一直保留）"
     }
   }
 }

@@ -914,7 +914,11 @@
       "confirmDeleteAll": "Confirm delete all",
       "cancel": "Cancel",
       "audioLeftWarning": "Meetings were deleted, but one or more audio folders could not be removed.",
-      "actionFailed": "Could not update meeting retention."
+      "actionFailed": "Could not update meeting retention.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
     }
   }
 }
