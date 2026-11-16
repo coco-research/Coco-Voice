@@ -585,6 +585,31 @@
         "label": "显示新功能",
         "description": "Coco Voice 更新后显示发行说明"
       }
+    },
+    "online": {
+      "title": "联网内容说明",
+      "intro": "您的语音会在这台 Mac 上转换为文字。以下是此版本 Coco Voice 可能连接的地址，以及各处会收到的数据。",
+      "leavesLabel": "离开您 Mac 的内容：",
+      "openHeading": "每次打开应用时",
+      "githubName": "GitHub（Coco Voice 版本发布）",
+      "githubWhen": "每次打开应用时检查更新。若要停用，请在调试设置（Cmd+Shift+D）中关闭更新检查。点击的链接会在浏览器中打开。",
+      "githubLeaves": "获取版本列表的请求，以及安装更新时的更新文件。不包含语音，也不包含文字。",
+      "updateChecksOn": "更新检查已开启",
+      "updateChecksOff": "更新检查已关闭",
+      "clickHeading": "仅在您点击时",
+      "modelFilesName": "Coco Voice 模型文件",
+      "modelFilesWhen": "当您在内置语音模型上点击“下载”时。",
+      "modelFilesLeaves": "您请求的模型文件名。不包含语音，也不包含文字。",
+      "huggingFaceWhen": "当您在目录模型上点击“下载”，或点击其许可证在浏览器中打开时。",
+      "huggingFaceLeaves": "模型名称、版本和文件名，以及这台 Mac 上已设置时的 Hugging Face 令牌。不包含语音，也不包含文字。",
+      "cleanupHeading": "仅在您选择润色服务商时",
+      "cloudWhen": "当使用您所选的云端服务商运行文本润色时。",
+      "cloudLeaves": "您口述的文字、润色指令以及您的 API 密钥。获取模型列表仅发送您的 API 密钥。",
+      "customName": "自定义润色（Ollama）",
+      "customWhen": "当选择“自定义”作为服务商运行润色时。除非您更改地址，否则它只会与这台 Mac 上的程序通信。",
+      "customLeaves": "默认地址下无任何内容外发。您口述的文字和润色指令会发往这台 Mac 上的程序。",
+      "staysOnMac": "留在本地 Mac",
+      "onDeviceNote": "设备端润色（Apple Intelligence 或本地模型）不会连接以上任何地址。"
     }
   },
   "footer": {

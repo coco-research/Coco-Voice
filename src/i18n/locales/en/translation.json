@@ -585,6 +585,31 @@
           "details": "Coco Voice's local speech-to-text is built on transcribe.cpp and ggml. Thanks to the amazing work by Georgi Gerganov and contributors."
         }
       }
+    },
+    "online": {
+      "title": "What goes online",
+      "intro": "Your speech is turned into text on this Mac. These are the places this version of Coco Voice can contact, and what each one gets.",
+      "leavesLabel": "Leaves your Mac:",
+      "openHeading": "Every time the app opens",
+      "githubName": "GitHub (Coco Voice releases)",
+      "githubWhen": "Each time the app opens, to check for an update. To stop this, turn off update checks in Debug settings (Cmd+Shift+D). Links you click open in your browser.",
+      "githubLeaves": "a request for the list of releases, and the update file if you install one. No speech and no text.",
+      "updateChecksOn": "Update checks on",
+      "updateChecksOff": "Update checks off",
+      "clickHeading": "Only when you click",
+      "modelFilesName": "Coco Voice model files",
+      "modelFilesWhen": "When you click Download on a built-in speech model.",
+      "modelFilesLeaves": "the name of the model file you asked for. No speech and no text.",
+      "huggingFaceWhen": "When you click Download on a catalogue model, or click its licence to open it in your browser.",
+      "huggingFaceLeaves": "the model name, version and file name, plus a Hugging Face token if one is already set on this Mac. No speech and no text.",
+      "cleanupHeading": "Only when you pick a clean-up provider",
+      "cloudWhen": "When clean-up runs with the cloud provider you picked.",
+      "cloudLeaves": "the text of what you said, the clean-up instructions, and your API key. Listing models sends only your API key.",
+      "customName": "Custom clean-up (Ollama)",
+      "customWhen": "When clean-up runs with Custom as the provider you picked. It talks to a program on this Mac unless you change its address.",
+      "customLeaves": "nothing at the starting address. The text of what you said and the clean-up instructions go to the program on this Mac.",
+      "staysOnMac": "Stays on this Mac",
+      "onDeviceNote": "On-device clean-up (Apple Intelligence, or the local model) contacts none of these."
     }
   },
   "footer": {

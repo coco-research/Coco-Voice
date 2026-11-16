@@ -585,6 +585,31 @@
         "label": "Neuerungen anzeigen",
         "description": "Versionshinweise nach Coco Voice-Updates anzeigen"
       }
+    },
+    "online": {
+      "title": "Was online geht",
+      "intro": "Deine Sprache wird auf diesem Mac in Text umgewandelt. Dies sind die Stellen, die diese Version von Coco Voice kontaktieren kann, und was jede davon erhält.",
+      "leavesLabel": "Verlässt deinen Mac:",
+      "openHeading": "Bei jedem Start der App",
+      "githubName": "GitHub (Coco Voice-Versionen)",
+      "githubWhen": "Bei jedem Öffnen der App, um nach Updates zu suchen. Zum Abschalten deaktiviere die Updateprüfung in den Debug-Einstellungen (Cmd+Shift+D). Angeklickte Links öffnen sich im Browser.",
+      "githubLeaves": "eine Anfrage nach der Versionsliste und die Updatedatei, falls du eine installierst. Keine Sprache und kein Text.",
+      "updateChecksOn": "Updateprüfung ein",
+      "updateChecksOff": "Updateprüfung aus",
+      "clickHeading": "Nur wenn du klickst",
+      "modelFilesName": "Coco Voice-Modelldateien",
+      "modelFilesWhen": "Wenn du bei einem integrierten Sprachmodell auf Herunterladen klickst.",
+      "modelFilesLeaves": "der Name der angeforderten Modelldatei. Keine Sprache und kein Text.",
+      "huggingFaceWhen": "Wenn du bei einem Katalogmodell auf Herunterladen klickst oder dessen Lizenz im Browser öffnest.",
+      "huggingFaceLeaves": "Modellname, Version und Dateiname sowie ein Hugging-Face-Token, falls bereits eines auf diesem Mac gesetzt ist. Keine Sprache und kein Text.",
+      "cleanupHeading": "Nur wenn du einen Bereinigungsanbieter auswählst",
+      "cloudWhen": "Wenn die Bereinigung mit dem von dir gewählten Cloud-Anbieter läuft.",
+      "cloudLeaves": "der Text des Gesagten, die Bereinigungsanweisungen und dein API-Schlüssel. Beim Abrufen der Modellliste wird nur dein API-Schlüssel gesendet.",
+      "customName": "Eigene Bereinigung (Ollama)",
+      "customWhen": "Wenn die Bereinigung mit Benutzerdefiniert als gewähltem Anbieter läuft. Sie spricht mit einem Programm auf diesem Mac, sofern du die Adresse nicht änderst.",
+      "customLeaves": "nichts unter der Startadresse. Der gesprochene Text und die Bereinigungsanweisungen gehen an das Programm auf diesem Mac.",
+      "staysOnMac": "Bleibt auf diesem Mac",
+      "onDeviceNote": "Die Bereinigung auf dem Gerät (Apple Intelligence oder das lokale Modell) kontaktiert keinen dieser Dienste."
     }
   },
   "footer": {

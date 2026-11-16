@@ -585,6 +585,31 @@
         "label": "Afficher les nouveautés",
         "description": "Afficher les notes de version après les mises à jour de Coco Voice"
       }
+    },
+    "online": {
+      "title": "Ce qui va en ligne",
+      "intro": "Votre parole est convertie en texte sur ce Mac. Voici les services que cette version de Coco Voice peut contacter et ce que chacun reçoit.",
+      "leavesLabel": "Quitte votre Mac :",
+      "openHeading": "À chaque ouverture de l’application",
+      "githubName": "GitHub (versions de Coco Voice)",
+      "githubWhen": "À chaque ouverture de l’application, pour vérifier les mises à jour. Pour l’arrêter, désactivez la recherche de mises à jour dans les réglages de débogage (Cmd+Shift+D). Les liens cliqués s’ouvrent dans votre navigateur.",
+      "githubLeaves": "une requête pour la liste des versions et le fichier de mise à jour si vous l’installez. Aucune parole ni aucun texte.",
+      "updateChecksOn": "Mises à jour activées",
+      "updateChecksOff": "Mises à jour désactivées",
+      "clickHeading": "Uniquement lorsque vous cliquez",
+      "modelFilesName": "Fichiers de modèles Coco Voice",
+      "modelFilesWhen": "Lorsque vous cliquez sur Télécharger pour un modèle vocal intégré.",
+      "modelFilesLeaves": "le nom du fichier du modèle demandé. Aucune parole ni aucun texte.",
+      "huggingFaceWhen": "Lorsque vous cliquez sur Télécharger pour un modèle du catalogue, ou sur sa licence pour l’ouvrir dans le navigateur.",
+      "huggingFaceLeaves": "le nom du modèle, la version et le nom du fichier, ainsi qu’un jeton Hugging Face s’il est déjà défini sur ce Mac. Aucune parole ni aucun texte.",
+      "cleanupHeading": "Uniquement lorsque vous choisissez un fournisseur de nettoyage",
+      "cloudWhen": "Lorsque le nettoyage s’exécute avec le fournisseur cloud que vous avez choisi.",
+      "cloudLeaves": "le texte de ce que vous avez dit, les instructions de nettoyage et votre clé API. Lister les modèles n’envoie que votre clé API.",
+      "customName": "Nettoyage personnalisé (Ollama)",
+      "customWhen": "Lorsque le nettoyage s’exécute avec Personnalisé comme fournisseur choisi. Il communique avec un programme sur ce Mac sauf si vous modifiez son adresse.",
+      "customLeaves": "rien avec l’adresse par défaut. Le texte dicté et les instructions de nettoyage vont au programme sur ce Mac.",
+      "staysOnMac": "Reste sur ce Mac",
+      "onDeviceNote": "Le nettoyage sur l’appareil (Apple Intelligence ou le modèle local) ne contacte aucun de ces services."
     }
   },
   "footer": {

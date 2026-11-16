@@ -585,6 +585,31 @@
         "label": "Hiển thị điểm mới",
         "description": "Hiển thị ghi chú phát hành sau khi Coco Voice cập nhật"
       }
+    },
+    "online": {
+      "title": "Những gì kết nối mạng",
+      "intro": "Giọng nói của bạn được chuyển thành văn bản ngay trên máy Mac này. Đây là những nơi phiên bản Coco Voice này có thể kết nối và dữ liệu mỗi nơi nhận được.",
+      "leavesLabel": "Rời khỏi máy Mac của bạn:",
+      "openHeading": "Mỗi khi mở ứng dụng",
+      "githubName": "GitHub (các bản phát hành Coco Voice)",
+      "githubWhen": "Mỗi khi mở ứng dụng để kiểm tra bản cập nhật. Để tắt, hãy tắt kiểm tra cập nhật trong cài đặt Gỡ lỗi (Cmd+Shift+D). Các liên kết bạn bấm sẽ mở trong trình duyệt.",
+      "githubLeaves": "yêu cầu danh sách bản phát hành và tệp cập nhật nếu bạn cài đặt. Không có giọng nói và không có văn bản.",
+      "updateChecksOn": "Đang bật kiểm tra cập nhật",
+      "updateChecksOff": "Đã tắt kiểm tra cập nhật",
+      "clickHeading": "Chỉ khi bạn bấm",
+      "modelFilesName": "Tệp mô hình Coco Voice",
+      "modelFilesWhen": "Khi bạn bấm Tải xuống trên một mô hình giọng nói tích hợp sẵn.",
+      "modelFilesLeaves": "tên tệp mô hình bạn đã yêu cầu. Không có giọng nói và không có văn bản.",
+      "huggingFaceWhen": "Khi bạn bấm Tải xuống trên một mô hình trong danh mục hoặc bấm vào giấy phép để mở trong trình duyệt.",
+      "huggingFaceLeaves": "tên mô hình, phiên bản và tên tệp, cùng mã Hugging Face nếu đã được đặt sẵn trên máy Mac này. Không có giọng nói và không có văn bản.",
+      "cleanupHeading": "Chỉ khi bạn chọn nhà cung cấp làm sạch văn bản",
+      "cloudWhen": "Khi bước làm sạch chạy với nhà cung cấp đám mây bạn đã chọn.",
+      "cloudLeaves": "văn bản những gì bạn đã nói, hướng dẫn làm sạch và khóa API của bạn. Việc lấy danh sách mô hình chỉ gửi khóa API.",
+      "customName": "Làm sạch tùy chỉnh (Ollama)",
+      "customWhen": "Khi làm sạch chạy với tùy chọn Tùy chỉnh. Ứng dụng giao tiếp với một chương trình trên máy Mac này trừ khi bạn đổi địa chỉ.",
+      "customLeaves": "không có gì ở địa chỉ mặc định. Văn bản bạn nói và hướng dẫn làm sạch được gửi tới chương trình trên máy Mac này.",
+      "staysOnMac": "Ở lại trên máy Mac này",
+      "onDeviceNote": "Làm sạch trên thiết bị (Apple Intelligence hoặc mô hình cục bộ) không kết nối với bất kỳ nơi nào kể trên."
     }
   },
   "footer": {
