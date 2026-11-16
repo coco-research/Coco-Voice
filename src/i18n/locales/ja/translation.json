@@ -890,7 +890,17 @@
       "smallTalkLabel": "雑談として処理",
       "uncoveredLabel": "どのメモにも未収録",
       "showInTranscript": "文字起こしで表示",
-      "leftOutRule": "却下された案や保留の案はメモに含めず、文字起こしに残します。"
+      "leftOutRule": "却下された案や保留の案はメモに含めず、文字起こしに残します。",
+      "catchUpButton": "聞き逃した内容は？",
+      "catchUpWindow": "直近 5 分",
+      "foldersHeading": "フォルダ",
+      "templatesHeading": "メモテンプレート",
+      "openFolder": "開く",
+      "closedFolder": "閉じる",
+      "newFolderPlaceholder": "新しいフォルダ名...",
+      "createFolder": "フォルダを追加",
+      "editTemplates": "テンプレートを編集",
+      "flatFoldersHint": "この Mac 上のローカルフォルダ（1 階層のみ）。"
     }
   }
 }

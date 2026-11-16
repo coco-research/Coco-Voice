@@ -890,7 +890,17 @@
       "smallTalkLabel": "Als Smalltalk eingestuft",
       "uncoveredLabel": "Von keiner Notiz abgedeckt",
       "showInTranscript": "Im Transkript zeigen",
-      "leftOutRule": "Verworfene oder offene Ideen werden nicht als Beschluss notiert. Sie bleiben im Transkript."
+      "leftOutRule": "Verworfene oder offene Ideen werden nicht als Beschluss notiert. Sie bleiben im Transkript.",
+      "catchUpButton": "Was habe ich verpasst?",
+      "catchUpWindow": "Letzte 5 Minuten",
+      "foldersHeading": "Ordner",
+      "templatesHeading": "Notizvorlagen",
+      "openFolder": "Offen",
+      "closedFolder": "Geschlossen",
+      "newFolderPlaceholder": "Neuer Ordnername...",
+      "createFolder": "Ordner hinzufügen",
+      "editTemplates": "Vorlagen bearbeiten",
+      "flatFoldersHint": "Lokale Ordner auf diesem Mac. Nur eine flache Ebene."
     }
   }
 }

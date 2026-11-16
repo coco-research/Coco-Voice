@@ -890,7 +890,17 @@
       "smallTalkLabel": "Classé comme discussion informelle",
       "uncoveredLabel": "Non couvert par une note",
       "showInTranscript": "Voir dans la transcription",
-      "leftOutRule": "Les idées rejetées ou en suspens ne deviennent pas des notes. Elles restent dans la transcription."
+      "leftOutRule": "Les idées rejetées ou en suspens ne deviennent pas des notes. Elles restent dans la transcription.",
+      "catchUpButton": "Qu’ai-je manqué ?",
+      "catchUpWindow": "5 dernières minutes",
+      "foldersHeading": "Dossiers",
+      "templatesHeading": "Modèles de notes",
+      "openFolder": "Ouvert",
+      "closedFolder": "Fermé",
+      "newFolderPlaceholder": "Nom du dossier...",
+      "createFolder": "Ajouter un dossier",
+      "editTemplates": "Modifier les modèles",
+      "flatFoldersHint": "Dossiers locaux sur ce Mac. Un seul niveau."
     }
   }
 }

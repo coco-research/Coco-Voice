@@ -890,7 +890,17 @@
       "smallTalkLabel": "Tratado como charla informal",
       "uncoveredLabel": "No cubierto por ninguna nota",
       "showInTranscript": "Mostrar en la transcripción",
-      "leftOutRule": "Las ideas descartadas o en duda no son notas. Permanecen en la transcripción."
+      "leftOutRule": "Las ideas descartadas o en duda no son notas. Permanecen en la transcripción.",
+      "catchUpButton": "¿Qué me perdí?",
+      "catchUpWindow": "Últimos 5 minutos",
+      "foldersHeading": "Carpetas",
+      "templatesHeading": "Plantillas de notas",
+      "openFolder": "Abierta",
+      "closedFolder": "Cerrada",
+      "newFolderPlaceholder": "Nombre de carpeta...",
+      "createFolder": "Añadir carpeta",
+      "editTemplates": "Editar plantillas",
+      "flatFoldersHint": "Carpetas locales en este Mac. Un solo nivel."
     }
   }
 }

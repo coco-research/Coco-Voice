@@ -890,7 +890,17 @@
       "smallTalkLabel": "Treated as small talk",
       "uncoveredLabel": "Not covered by any note",
       "showInTranscript": "Show in transcript",
-      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript."
+      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript.",
+      "catchUpButton": "What did I miss?",
+      "catchUpWindow": "Last 5 minutes",
+      "foldersHeading": "Folders",
+      "templatesHeading": "Note templates",
+      "openFolder": "Open",
+      "closedFolder": "Closed",
+      "newFolderPlaceholder": "New folder name...",
+      "createFolder": "Add folder",
+      "editTemplates": "Edit templates",
+      "flatFoldersHint": "Local folders on this Mac. One flat level only."
     }
   }
 }

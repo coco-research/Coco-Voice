@@ -890,7 +890,17 @@
       "smallTalkLabel": "归为寒暄闲聊",
       "uncoveredLabel": "未被任何笔记覆盖",
       "showInTranscript": "在转写中查看",
-      "leftOutRule": "被否决或暂定的想法不会写入笔记，但保留在转写中。"
+      "leftOutRule": "被否决或暂定的想法不会写入笔记，但保留在转写中。",
+      "catchUpButton": "我错过了什么？",
+      "catchUpWindow": "最近 5 分钟",
+      "foldersHeading": "文件夹",
+      "templatesHeading": "笔记模板",
+      "openFolder": "展开",
+      "closedFolder": "收起",
+      "newFolderPlaceholder": "新文件夹名称...",
+      "createFolder": "添加文件夹",
+      "editTemplates": "编辑模板",
+      "flatFoldersHint": "此 Mac 上的本地单层文件夹。"
     }
   }
 }
