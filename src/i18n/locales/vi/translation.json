@@ -6,7 +6,8 @@
     "unloadModel": "Dỡ mô hình",
     "model": "Mô hình",
     "quit": "Thoát",
-    "cancel": "Hủy"
+    "cancel": "Hủy",
+    "startNotes": "Bắt đầu ghi chú..."
   },
   "sidebar": {
     "general": "Chung",
@@ -814,6 +815,18 @@
       "start": "Start",
       "cancel": "Cancel",
       "cannotStart": "Could not start the meeting."
+    },
+    "offer": {
+      "title": "Start notes?",
+      "zoomInCall": "Zoom is in a call.",
+      "zoomOpen": "Zoom is open.",
+      "teamsInCall": "Teams is in a call.",
+      "teamsOpen": "Teams is open.",
+      "meet": "Google Meet may be open.",
+      "notRecording": "Not recording",
+      "neverOnItsOwn": "Coco Voice never records on its own.",
+      "start": "Start notes",
+      "notNow": "Not now"
     }
   }
 }
