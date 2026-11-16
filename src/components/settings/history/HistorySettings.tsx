@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { Check, Copy } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   commands,
@@ -10,55 +9,111 @@ import {
   type HistoryUpdatePayload,
 } from "@/bindings";
 import { useOsType } from "@/hooks/useOsType";
-import { formatDateTime } from "@/utils/dateFormat";
-import { AudioPlayer } from "../../ui/AudioPlayer";
-
-const IconButton: React.FC<{
-  onClick: () => void;
-  title: string;
-  disabled?: boolean;
-  active?: boolean;
-  children: React.ReactNode;
-}> = ({ onClick, title, disabled, active, children }) => (
-  <button
-    onClick={onClick}
-    disabled={disabled}
-    className={`p-1.5 rounded-md flex items-center justify-center transition-colors cursor-pointer disabled:cursor-not-allowed disabled:text-text/20 ${
-      active
-        ? "text-logo-primary hover:text-logo-primary/80"
-        : "text-text/50 hover:text-logo-primary"
-    }`}
-    title={title}
-  >
-    {children}
-  </button>
-);
+import { OUTLINED_BTN_SM } from "../../meetings/MeetingsList";
 
 const PAGE_SIZE = 30;
+const QUOTE = '"';
+const MID_SEP = " · ";
+const TIME_OPTS: Intl.DateTimeFormatOptions = {
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: false,
+};
+const SHORT_DATE_OPTS: Intl.DateTimeFormatOptions = {
+  day: "numeric",
+  month: "short",
+};
 
-/**
- * The text the user actually saw for a history entry: the post-processed text
- * when post-processing produced output, otherwise the raw transcript. Display,
- * copy, edit and auto-learn all key off this so learned correction pairs are
- * the tokens as they appear in the final (post-processed) output that
- * `apply_corrections` runs on at inference time.
- */
+type EntryWithApp = HistoryEntry & { app_name?: string | null };
+
 const displayTextFor = (e: HistoryEntry): string =>
   e.post_processed_text && e.post_processed_text.trim().length > 0
     ? e.post_processed_text
     : e.transcription_text;
 
-export const HistorySettings: React.FC = () => {
+function sameCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function capFirst(value: string): string {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+export function formatDictationTime(
+  timestampSec: number,
+  lang: string,
+  nowSec: number = Math.floor(Date.now() / 1000),
+): string {
+  const date = new Date(timestampSec * 1000);
+  const now = new Date(nowSec * 1000);
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+
+  const rawClock = date.toLocaleTimeString(lang, TIME_OPTS);
+  const clock = rawClock.replace(/^0(?=\d:)/, "");
+  const rtf = new Intl.RelativeTimeFormat(lang, { numeric: "auto" });
+
+  if (sameCalendarDay(date, now)) {
+    return `${capFirst(rtf.format(0, "day"))} ${clock}`;
+  }
+  if (sameCalendarDay(date, yesterday)) {
+    return `${capFirst(rtf.format(-1, "day"))} ${clock}`;
+  }
+  return `${date.toLocaleDateString(lang, SHORT_DATE_OPTS)} ${clock}`;
+}
+
+function isDictationEntry(x: unknown): x is EntryWithApp {
+  const o =
+    typeof x === "object" && x !== null ? (x as Record<string, unknown>) : null;
+  return Boolean(
+    o &&
+    typeof o.transcription_text === "string" &&
+    !("notes_ready" in o) &&
+    !("started_at" in o),
+  );
+}
+
+export function selectDictationEntries(
+  records: readonly unknown[],
+  query: string,
+): EntryWithApp[] {
+  const q = query.trim().toLowerCase();
+  const takes = records.filter(isDictationEntry);
+  return q
+    ? takes.filter((e) =>
+        `${displayTextFor(e)} ${e.app_name ?? ""} ${e.title}`
+          .toLowerCase()
+          .includes(q),
+      )
+    : takes;
+}
+
+export interface HistoryProps {
+  initialEntries?: readonly unknown[];
+  initialQuery?: string;
+  retentionText?: string;
+  nowTimestamp?: number;
+}
+
+export const HistorySettings: React.FC<HistoryProps> = (props) => {
   const { t } = useTranslation();
   const osType = useOsType();
-  const [entries, setEntries] = useState<HistoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [entries, setEntries] = useState<EntryWithApp[]>(() =>
+    props.initialEntries
+      ? selectDictationEntries(props.initialEntries, "")
+      : [],
+  );
+  const [loading, setLoading] = useState(!props.initialEntries);
+  const [query, setQuery] = useState(props.initialQuery ?? "");
   const [hasMore, setHasMore] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const entriesRef = useRef<HistoryEntry[]>([]);
+  const entriesRef = useRef<EntryWithApp[]>([]);
   const loadingRef = useRef(false);
 
-  // Keep ref in sync for use in IntersectionObserver callback
   useEffect(() => {
     entriesRef.current = entries;
   }, [entries]);
@@ -67,9 +122,7 @@ export const HistorySettings: React.FC = () => {
     const isFirstPage = cursor === undefined;
     if (!isFirstPage && loadingRef.current) return;
     loadingRef.current = true;
-
     if (isFirstPage) setLoading(true);
-
     try {
       const result = await commands.getHistoryEntries(
         cursor ?? null,
@@ -90,37 +143,30 @@ export const HistorySettings: React.FC = () => {
     }
   }, []);
 
-  // Initial load
   useEffect(() => {
-    loadPage();
-  }, [loadPage]);
+    if (props.initialEntries) return;
+    void loadPage();
+  }, [props.initialEntries, loadPage]);
 
-  // Infinite scroll via IntersectionObserver
   useEffect(() => {
-    if (loading) return;
-
+    if (loading || props.initialEntries) return;
     const sentinel = sentinelRef.current;
     if (!sentinel || !hasMore) return;
-
     const observer = new IntersectionObserver(
       (observerEntries) => {
-        const first = observerEntries[0];
-        if (first.isIntersecting) {
+        if (observerEntries[0]?.isIntersecting) {
           const lastEntry = entriesRef.current[entriesRef.current.length - 1];
-          if (lastEntry) {
-            loadPage(lastEntry.id);
-          }
+          if (lastEntry) void loadPage(lastEntry.id);
         }
       },
       { threshold: 0 },
     );
-
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [loading, hasMore, loadPage]);
+  }, [loading, hasMore, loadPage, props.initialEntries]);
 
-  // Listen for new entries added from the transcription pipeline
   useEffect(() => {
+    if (props.initialEntries) return;
     const unlisten = events.historyUpdatePayload.listen((event) => {
       const payload: HistoryUpdatePayload = event.payload;
       if (payload.action === "added") {
@@ -130,14 +176,11 @@ export const HistorySettings: React.FC = () => {
           prev.map((e) => (e.id === payload.entry.id ? payload.entry : e)),
         );
       }
-      // "deleted" and "toggled" are handled by optimistic updates only,
-      // so we intentionally ignore them here to avoid double-mutation.
     });
-
     return () => {
-      unlisten.then((fn) => fn());
+      void unlisten.then((fn) => fn());
     };
-  }, []);
+  }, [props.initialEntries]);
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -168,114 +211,178 @@ export const HistorySettings: React.FC = () => {
     [osType],
   );
 
+  const filtered = selectDictationEntries(entries, query);
+  const retentionLabel = props.retentionText ?? t("sidebar.keptDays");
   let content: React.ReactNode;
 
   if (loading) {
     content = (
-      <div className="px-4 py-3 text-center text-text/60">
+      <p className="mt-5 text-sm text-mid-gray">
         {t("settings.history.loading")}
-      </div>
+      </p>
     );
   } else if (entries.length === 0) {
     content = (
-      <div className="px-4 py-3 text-center text-text/60">
+      <p className="mt-5 text-sm text-mid-gray">
         {t("settings.history.empty")}
-      </div>
+      </p>
+    );
+  } else if (filtered.length === 0) {
+    content = (
+      <p className="mt-5 text-sm text-mid-gray">
+        {t("sidebar.emptyDictationSearch")}
+      </p>
     );
   } else {
     content = (
       <>
-        <div className="divide-y divide-mid-gray/20">
-          {entries.map((entry) => (
-            <HistoryEntryComponent
+        <div className="mt-3 divide-y divide-mid-gray/20 border-b-[1.5px] border-text/80">
+          {filtered.map((entry) => (
+            <HistoryRow
               key={entry.id}
               entry={entry}
-              onCopyText={() => copyToClipboard(displayTextFor(entry))}
+              nowTimestamp={props.nowTimestamp}
+              onCopyText={() => void copyToClipboard(displayTextFor(entry))}
               getAudioUrl={getAudioUrl}
             />
           ))}
         </div>
-        {/* Sentinel for infinite scroll */}
         <div ref={sentinelRef} className="h-1" />
       </>
     );
   }
 
   return (
-    <div className="max-w-3xl w-full mx-auto space-y-6">
-      <div className="space-y-2">
-        <div className="px-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xs font-medium text-mid-gray uppercase tracking-wide">
-              {t("settings.history.title")}
-            </h2>
-          </div>
-        </div>
-        <div className="bg-background border border-mid-gray/20 rounded-lg overflow-visible">
-          {content}
-        </div>
-      </div>
+    <div
+      data-testid="dictation-history-section"
+      className="max-w-3xl w-full mx-auto"
+    >
+      <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-logo-primary">
+        {t("sidebar.voiceSection")}
+      </p>
+      <header className="mt-1 flex items-baseline justify-between gap-3">
+        <h2 className="text-[22px] leading-[28px] font-semibold tracking-[-0.02em] text-text">
+          {t("sidebar.dictationHistory")}
+        </h2>
+        <span className="text-xs font-medium text-mid-gray">
+          {retentionLabel}
+        </span>
+      </header>
+      <label className="mt-3 block">
+        <span className="block text-xs font-medium text-mid-gray">
+          {t("meetings.list.searchLabel")}
+        </span>
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t("sidebar.dictationSearchPlaceholder")}
+          aria-label={t("sidebar.dictationSearchAria")}
+          className="mt-1 w-full rounded-[10px] border border-mid-gray/40 bg-background px-3 py-1.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-logo-primary"
+        />
+      </label>
+      {content}
     </div>
   );
 };
 
-interface HistoryEntryProps {
-  entry: HistoryEntry;
+interface HistoryRowProps {
+  entry: EntryWithApp;
+  nowTimestamp?: number;
   onCopyText: () => void;
   getAudioUrl: (fileName: string) => Promise<string | null>;
 }
 
-const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
+const HistoryRow: React.FC<HistoryRowProps> = ({
   entry,
+  nowTimestamp,
   onCopyText,
   getAudioUrl,
 }) => {
   const { t, i18n } = useTranslation();
-  const [showCopied, setShowCopied] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   const hasTranscription = entry.transcription_text.trim().length > 0;
-
-  const handleLoadAudio = useCallback(
-    () => getAudioUrl(entry.file_name),
-    [getAudioUrl, entry.file_name],
+  const lineOne = hasTranscription
+    ? `${QUOTE}${displayTextFor(entry)}${QUOTE}`
+    : t("settings.history.transcriptionFailed");
+  const appName = entry.app_name?.trim() || "";
+  const timeLabel = formatDictationTime(
+    entry.timestamp,
+    i18n.language,
+    nowTimestamp,
   );
+  const isCleaned = Boolean(
+    entry.post_processed_text && entry.post_processed_text.trim().length > 0,
+  );
+  const metaTail = isCleaned
+    ? `${timeLabel}${MID_SEP}${t("sidebar.cleanedUp")}`
+    : timeLabel;
+  const playLabel = playing ? t("common.pause") : t("common.play");
 
-  const handleCopyText = () => {
-    if (!hasTranscription) {
+  const handlePlay = async () => {
+    if (playing && audioRef.current) {
+      audioRef.current.pause();
+      setPlaying(false);
       return;
     }
-
-    onCopyText();
-    setShowCopied(true);
-    setTimeout(() => setShowCopied(false), 2000);
+    const url = await getAudioUrl(entry.file_name);
+    if (!url) return;
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    audio.onended = () => setPlaying(false);
+    audio.onerror = () => setPlaying(false);
+    setPlaying(true);
+    void audio.play().catch(() => setPlaying(false));
   };
 
-  const formattedDate = formatDateTime(String(entry.timestamp), i18n.language);
-
   return (
-    <div className="px-4 py-2 pb-5 flex flex-col gap-3">
-      <div className="flex justify-between items-center">
-        <p className="text-sm font-medium">{formattedDate}</p>
-        <div className="flex items-center">
-          <IconButton
-            onClick={handleCopyText}
-            disabled={!hasTranscription}
-            title={t("settings.history.copyToClipboard")}
-          >
-            {showCopied ? (
-              <Check width={16} height={16} />
-            ) : (
-              <Copy width={16} height={16} />
-            )}
-          </IconButton>
-        </div>
+    <div className="flex items-center justify-between gap-4 py-3">
+      <div className="min-w-0">
+        <p className="text-[14px] font-medium text-text break-words">
+          {lineOne}
+        </p>
+        <p className="mt-0.5 text-[13px] text-mid-gray">
+          {appName ? (
+            <>
+              <span className="font-mono text-[12px] font-semibold text-text">
+                {appName}
+              </span>
+              {MID_SEP}
+              {metaTail}
+            </>
+          ) : (
+            metaTail
+          )}
+        </p>
       </div>
-      <p className="text-sm pb-2 text-text/90">
-        {hasTranscription
-          ? displayTextFor(entry)
-          : t("settings.history.transcriptionFailed")}
-      </p>
-      <AudioPlayer onLoadRequest={handleLoadAudio} className="w-full" />
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={onCopyText}
+          disabled={!hasTranscription}
+          className={OUTLINED_BTN_SM}
+        >
+          {t("common.copy")}
+        </button>
+        <button
+          type="button"
+          onClick={() => void handlePlay()}
+          className={OUTLINED_BTN_SM}
+        >
+          {playLabel}
+        </button>
+      </div>
     </div>
   );
 };
