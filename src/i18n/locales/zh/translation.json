@@ -305,7 +305,7 @@
         }
       },
       "pasteMethod": {
-        "title": "粘贴方式",
+        "title": "文字输入方式",
         "description": "选择文字插入方式。直接：通过系统输入模拟打字。无：跳过粘贴，仅更新历史记录/剪贴板。",
         "options": {
           "clipboard": "剪贴板 ({{modifier}}+V)",
@@ -325,16 +325,16 @@
         }
       },
       "clipboardHandling": {
-        "title": "剪贴板处理",
+        "title": "粘贴后的剪贴板",
         "description": "不修改剪贴板将在转录后保留当前剪贴板内容。复制到剪贴板将在粘贴后将转录结果留在剪贴板中。",
         "options": {
-          "dontModify": "不修改剪贴板",
+          "dontModify": "保留原有剪贴板内容",
           "copyToClipboard": "复制到剪贴板"
         },
         "privacyHint": "剪贴板上的文字，其他应用和剪贴板工具都能看到，通用剪贴板还可以将其拷贝到您的其他 Apple 设备。"
       },
       "autoSubmit": {
-        "title": "自动提交",
+        "title": "粘贴后按键",
         "description": "在文本插入后自动发送所选的按键组合。macOS 上使用 Cmd+Enter，Windows/Linux 上使用 Super+Enter。",
         "options": {
           "off": "关闭",
@@ -543,7 +543,7 @@
         "description": "在粘贴的转录后添加空格"
       },
       "keyboardImplementation": {
-        "title": "键盘实现",
+        "title": "键盘处理方式",
         "description": "选择键盘快捷键的后端。",
         "bindingsReset": "键盘快捷键不兼容，已重置为默认值"
       },

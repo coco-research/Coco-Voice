@@ -305,7 +305,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Způsob vložení",
+        "title": "Jak se vkládají slova",
         "description": "Vyberte, jak se text vkládá. Přímé: simuluje psaní přes systémový vstup. Žádné: přeskočí vložení a aktualizuje pouze historii/schránku.",
         "options": {
           "clipboard": "Schránka ({{modifier}}+V)",
@@ -321,20 +321,20 @@
         "title": "Nástroj pro psaní",
         "description": "Vyberte, který linuxový nástroj pro psaní použít pro metodu přímého vložení. Auto automaticky zjistí a použije nejlepší dostupný nástroj pro váš systém.",
         "options": {
-          "auto": "Auto (Doporučeno)"
+          "auto": "Auto (doporučeno)"
         }
       },
       "clipboardHandling": {
-        "title": "Práce se schránkou",
+        "title": "Schránka po vložení",
         "description": "'Neměnit schránku' zachová po přepisu aktuální obsah schránky. 'Kopírovat do schránky' ponechá po vložení výsledek přepisu ve schránce.",
         "options": {
-          "dontModify": "Neměnit schránku",
+          "dontModify": "Ponechat původní schránku",
           "copyToClipboard": "Kopírovat do schránky"
         },
         "privacyHint": "Text ve schránce vidí jiné aplikace a nástroje pro schránku a univerzální schránka ho může zkopírovat do vašich dalších zařízení Apple."
       },
       "autoSubmit": {
-        "title": "Automatické odeslání",
+        "title": "Stisknout klávesu po vložení",
         "description": "Automaticky odešle vybranou kombinaci kláves po vložení textu. Cmd+Enter platí pro macOS, zatímco Windows/Linux používají Super+Enter.",
         "options": {
           "off": "Vypnuto",
@@ -543,7 +543,7 @@
         "description": "Přidat mezeru po vloženém přepisu"
       },
       "keyboardImplementation": {
-        "title": "Implementace klávesnice",
+        "title": "Obsluha klávesnice",
         "description": "Zvolte backend pro klávesové zkratky.",
         "bindingsReset": "Klávesové zkratky byly nekompatibilní a byly obnoveny na výchozí hodnoty"
       },

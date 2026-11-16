@@ -305,7 +305,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Metoda wklejania",
+        "title": "Jak wpisywane są słowa",
         "description": "Wybierz sposób wstawiania tekstu. Direct: symuluje wpisywanie. None: pomija wklejanie, tylko aktualizuje historię/clipboard.",
         "options": {
           "clipboard": "Schowek ({{modifier}}+V)",
@@ -321,20 +321,20 @@
         "title": "Narzędzie do wpisywania",
         "description": "Wybierz, którego narzędzia do wpisywania w Linuxie użyć dla metody bezpośredniego wklejania. Auto automatycznie wykryje i użyje najlepszego dostępnego narzędzia dla Twojego systemu.",
         "options": {
-          "auto": "Auto (Zalecane)"
+          "auto": "Auto (zalecane)"
         }
       },
       "clipboardHandling": {
-        "title": "Obsługa schowka",
+        "title": "Schowek po wklejeniu",
         "description": "Nie modyfikuj schowka zachowuje jego zawartość. Kopiuj do schowka pozostawia wynik transkrypcji w schowku.",
         "options": {
-          "dontModify": "Nie modyfikuj schowka",
+          "dontModify": "Zachowaj poprzedni schowek",
           "copyToClipboard": "Kopiuj do schowka"
         },
         "privacyHint": "Tekst w schowku widzą inne aplikacje i narzędzia schowka, a Uniwersalny schowek może skopiować go na inne Twoje urządzenia Apple."
       },
       "autoSubmit": {
-        "title": "Automatyczne wysyłanie",
+        "title": "Naciśnij klawisz po wklejeniu",
         "description": "Automatycznie wysyła wybraną kombinację klawiszy po wstawieniu tekstu. Cmd+Enter dotyczy macOS, natomiast Windows/Linux używają Super+Enter.",
         "options": {
           "off": "Wyłączone",
@@ -543,7 +543,7 @@
         "description": "Dodaj spację po wklejonej transkrypcji"
       },
       "keyboardImplementation": {
-        "title": "Implementacja klawiatury",
+        "title": "Obsługa klawiatury",
         "description": "Wybierz backend dla skrótów klawiaturowych.",
         "bindingsReset": "Skróty klawiaturowe były niekompatybilne i zostały zresetowane do wartości domyślnych"
       },

@@ -305,7 +305,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Phương thức dán",
+        "title": "Cách chèn chữ",
         "description": "Chọn cách chèn văn bản. Trực tiếp: mô phỏng gõ phím qua đầu vào hệ thống. Không có: bỏ qua dán, chỉ cập nhật lịch sử/clipboard.",
         "options": {
           "clipboard": "Clipboard ({{modifier}}+V)",
@@ -321,20 +321,20 @@
         "title": "Công cụ gõ",
         "description": "Chọn công cụ gõ trên Linux cho phương thức dán trực tiếp. Auto sẽ tự động phát hiện và dùng công cụ tốt nhất có sẵn cho hệ thống của bạn.",
         "options": {
-          "auto": "Auto (Khuyến nghị)"
+          "auto": "Auto (khuyến nghị)"
         }
       },
       "clipboardHandling": {
-        "title": "Xử lý Clipboard",
+        "title": "Bộ nhớ tạm sau khi dán",
         "description": "Không sửa đổi Clipboard giữ nguyên nội dung clipboard hiện tại sau khi chuyển đổi. Sao chép vào Clipboard để lại kết quả chuyển đổi trong clipboard sau khi dán.",
         "options": {
-          "dontModify": "Không sửa đổi Clipboard",
-          "copyToClipboard": "Sao chép vào Clipboard"
+          "dontModify": "Giữ nguyên bộ nhớ tạm trước đó",
+          "copyToClipboard": "Sao chép vào bộ nhớ tạm"
         },
         "privacyHint": "Ứng dụng khác và công cụ clipboard có thể thấy chữ trên clipboard, và Bảng nhớ tạm chung có thể sao chép chữ đó sang các thiết bị Apple khác của bạn."
       },
       "autoSubmit": {
-        "title": "Gửi tự động",
+        "title": "Nhấn phím sau khi dán",
         "description": "Tự động gửi tổ hợp phím đã chọn sau khi chèn văn bản. Cmd+Enter áp dụng trên macOS, còn Windows/Linux dùng Super+Enter.",
         "options": {
           "off": "Tắt",
@@ -543,7 +543,7 @@
         "description": "Thêm một dấu cách sau bản ghi đã dán"
       },
       "keyboardImplementation": {
-        "title": "Triển khai bàn phím",
+        "title": "Bộ xử lý bàn phím",
         "description": "Chọn hệ thống xử lý phím tắt.",
         "bindingsReset": "Các phím tắt không tương thích và đã được đặt lại về mặc định"
       },

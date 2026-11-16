@@ -305,7 +305,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Einfügemethode",
+        "title": "Wie Wörter eingefügt werden",
         "description": "Wähle, wie Text eingefügt wird. Direkt: simuliert Tippen über Systemeingabe. Keine: überspringt Einfügen, aktualisiert nur Verlauf/Zwischenablage.",
         "options": {
           "clipboard": "Zwischenablage ({{modifier}}+V)",
@@ -321,20 +321,20 @@
         "title": "Eingabetool",
         "description": "Wähle, welches Linux-Eingabetool für die Direkt-Einfügen-Methode verwendet werden soll. Auto erkennt und verwendet automatisch das beste verfügbare Tool für dein System.",
         "options": {
-          "auto": "Auto (Empfohlen)"
+          "auto": "Auto (empfohlen)"
         }
       },
       "clipboardHandling": {
-        "title": "Zwischenablage-Verhalten",
+        "title": "Zwischenablage nach dem Einfügen",
         "description": "Zwischenablage nicht ändern bewahrt den aktuellen Inhalt nach der Transkription. In Zwischenablage kopieren hinterlässt das Transkriptionsergebnis in der Zwischenablage.",
         "options": {
-          "dontModify": "Zwischenablage nicht ändern",
+          "dontModify": "Vorherige Zwischenablage behalten",
           "copyToClipboard": "In Zwischenablage kopieren"
         },
         "privacyHint": "Text in der Zwischenablage können andere Apps und Zwischenablage-Werkzeuge sehen, und die universelle Zwischenablage kann ihn auf deine anderen Apple-Geräte kopieren."
       },
       "autoSubmit": {
-        "title": "Automatisch absenden",
+        "title": "Taste nach dem Einfügen drücken",
         "description": "Sendet nach dem Einfügen von Text automatisch die ausgewählte Tastenkombination. Cmd+Enter gilt für macOS, während Windows/Linux Super+Enter verwenden.",
         "options": {
           "off": "Aus",
@@ -543,7 +543,7 @@
         "description": "Leerzeichen nach eingefügter Transkription hinzufügen"
       },
       "keyboardImplementation": {
-        "title": "Tastatur-Implementierung",
+        "title": "Tastatur-Steuerung",
         "description": "Wähle das Backend für Tastaturkürzel.",
         "bindingsReset": "Tastaturkürzel waren inkompatibel und wurden auf die Standardwerte zurückgesetzt"
       },

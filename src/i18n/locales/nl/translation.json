@@ -305,7 +305,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Plakmethode",
+        "title": "Hoe woorden worden ingevoerd",
         "description": "Kies hoe tekst wordt ingevoegd. 'Direct' simuleert typen via het systeem. 'Geen' slaat het plakken over en werkt alleen de geschiedenis en het klembord bij.",
         "options": {
           "clipboard": "Klembord ({{modifier}}+V)",
@@ -321,20 +321,20 @@
         "title": "Typgereedschap",
         "description": "Kies welke Linux-typtool gebruikt moet worden voor de 'Directe' plakmethode. 'Automatisch' detecteert zelf de beste optie voor jouw systeem.",
         "options": {
-          "auto": "Automatisch (Aanbevolen)"
+          "auto": "Automatisch (aanbevolen)"
         }
       },
       "clipboardHandling": {
-        "title": "Klembordbeheer",
+        "title": "Klembord na plakken",
         "description": "'Klembord niet aanpassen' behoudt je huidige klembordinhoud na een transcriptie. 'Kopiëren naar klembord' laat de getranscribeerde tekst achter op je klembord.",
         "options": {
-          "dontModify": "Klembord niet aanpassen",
+          "dontModify": "Vorig klembord behouden",
           "copyToClipboard": "Kopiëren naar klembord"
         },
         "privacyHint": "Tekst op het klembord is zichtbaar voor andere apps en klembordhulpmiddelen, en het universele klembord kan de tekst naar je andere Apple-apparaten kopiëren."
       },
       "autoSubmit": {
-        "title": "Automatisch verzenden",
+        "title": "Toets indrukken na plakken",
         "description": "Verzend automatisch de geselecteerde toetsencombinatie na het invoegen van de tekst. Cmd+Enter geldt voor macOS, Windows/Linux gebruiken Super+Enter.",
         "options": {
           "off": "Uit",
@@ -550,7 +550,7 @@
         "description": "Voeg een spatie toe na de geplakte transcriptie"
       },
       "keyboardImplementation": {
-        "title": "Toetsenbord-implementatie",
+        "title": "Toetsenbordafhandeling",
         "description": "Kies de backend voor sneltoetsen.",
         "bindingsReset": "Sneltoetsen waren incompatibel en zijn teruggezet naar de standaardwaarden"
       },

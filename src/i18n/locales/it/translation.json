@@ -305,7 +305,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Metodo di Incollaggio",
+        "title": "Come vengono scritte le parole",
         "description": "Scegli come viene inserito il testo. Diretto: simula l'input da tastiera. Nessuno: non incolla, aggiorna solo la cronologia/appunti.",
         "options": {
           "clipboard": "Appunti ({{modifier}}+V)",
@@ -321,20 +321,20 @@
         "title": "Strumento di digitazione",
         "description": "Scegli quale strumento di digitazione Linux usare per il metodo di incolla diretto. Auto rileverà e userà automaticamente lo strumento migliore disponibile per il tuo sistema.",
         "options": {
-          "auto": "Auto (Consigliato)"
+          "auto": "Auto (consigliato)"
         }
       },
       "clipboardHandling": {
-        "title": "Gestione Appunti",
+        "title": "Appunti dopo aver incollato",
         "description": "Non Modificare gli Appunti mantiene il contenuto dei tuoi appunti dopo la trascrizione. Copia negli Appunti lascia il risultato della trascrizione negli appunti dopo aver incollato.",
         "options": {
-          "dontModify": "Non Modificare gli Appunti",
-          "copyToClipboard": "Copia negli Appunti"
+          "dontModify": "Mantieni gli appunti precedenti",
+          "copyToClipboard": "Copia negli appunti"
         },
         "privacyHint": "Il testo negli appunti è visibile ad altre app e agli strumenti per gli appunti, e la funzione Appunti universali può copiarlo sugli altri tuoi dispositivi Apple."
       },
       "autoSubmit": {
-        "title": "Invio automatico",
+        "title": "Premi tasto dopo aver incollato",
         "description": "Invia automaticamente la combinazione di tasti selezionata dopo l'inserimento del testo. Cmd+Enter si applica su macOS, mentre Windows/Linux usano Super+Enter.",
         "options": {
           "off": "Disattivato",
@@ -508,12 +508,12 @@
         "description": "Sensibilità per la correzione delle parole personalizzate"
       },
       "historyLimit": {
-        "title": "Limite della Cronologia",
+        "title": "Limite della cronologia",
         "description": "Massimo numero di elementi da conservare nella cronologia",
         "entries": "elementi"
       },
       "recordingRetention": {
-        "title": "Eliminazione Automatica Registrazioni",
+        "title": "Eliminazione automatica registrazioni",
         "description": "Elimina automaticamente le registrazioni vecchie per liberare spazio",
         "never": "Mai",
         "preserveLimit": "Conserva le ultime {{count}}",
@@ -543,7 +543,7 @@
         "description": "Aggiungi uno spazio dopo la trascrizione incollata"
       },
       "keyboardImplementation": {
-        "title": "Implementazione tastiera",
+        "title": "Gestore della tastiera",
         "description": "Scegli il backend per le scorciatoie da tastiera.",
         "bindingsReset": "Le scorciatoie da tastiera erano incompatibili e sono state ripristinate ai valori predefiniti"
       },

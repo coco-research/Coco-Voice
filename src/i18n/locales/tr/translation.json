@@ -262,11 +262,11 @@
       },
       "acceleration": {
         "transcribe": {
-          "title": "Whisper Hızlandırma",
+          "title": "Whisper hızlandırma",
           "description": "Whisper modelleri için donanım hızlandırma. Otomatik mod, mevcutsa GPU kullanır (macOS'ta Metal, Windows/Linux'ta Vulkan)."
         },
         "ort": {
-          "title": "ONNX Hızlandırma",
+          "title": "ONNX hızlandırma",
           "description": "ONNX modelleri için donanım hızlandırma (Parakeet, Canary, Moonshine vb.). Windows'ta DirectML deneyseldir. Modeller transkripsiyon yapamayabilir."
         },
         "gpuDevice": {
@@ -305,7 +305,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Yapıştırma Yöntemi",
+        "title": "Kelimelerin yazılış şekli",
         "description": "Metnin nasıl ekleneceğini seçin. Doğrudan: sistem girişiyle yazmayı simüle eder. Yok: yapıştırmayı atlar, sadece geçmişi/panoyu günceller.",
         "options": {
           "clipboard": "Pano ({{modifier}}+V)",
@@ -313,28 +313,28 @@
           "clipboardShiftInsert": "Pano (Shift+Insert)",
           "direct": "Doğrudan",
           "none": "Yok",
-          "externalScript": "Harici Betik"
+          "externalScript": "Harici betik"
         },
         "externalScriptPlaceholder": "/dosya/yolu/betik.sh"
       },
       "typingTool": {
-        "title": "Yazma Aracı",
+        "title": "Yazma aracı",
         "description": "Doğrudan yapıştırma yöntemi için hangi Linux yazma aracının kullanılacağını seçin. Auto, sisteminiz için mevcut en iyi aracı otomatik olarak algılar ve kullanır.",
         "options": {
-          "auto": "Auto (Önerilen)"
+          "auto": "Auto (önerilen)"
         }
       },
       "clipboardHandling": {
-        "title": "Pano Yönetimi",
+        "title": "Yapıştırmadan sonra pano",
         "description": "Panoyu Değiştirme, transkripsiyon sonrası mevcut pano içeriğini korur. Panoya Kopyala ise yapıştırma işleminden sonra transkripsiyon sonucunu panoda bırakır.",
         "options": {
-          "dontModify": "Panoyu Değiştirme",
-          "copyToClipboard": "Panoya Kopyala"
+          "dontModify": "Önceki panoyu koru",
+          "copyToClipboard": "Panoya kopyala"
         },
         "privacyHint": "Panodaki metni başka uygulamalar ve pano araçları görebilir; Evrensel Pano da metni diğer Apple aygıtlarınıza kopyalayabilir."
       },
       "autoSubmit": {
-        "title": "Otomatik Gönder",
+        "title": "Yapıştırmadan sonra tuşa bas",
         "description": "Metin eklendikten sonra seçilen tuş kombinasyonunu otomatik olarak gönderir. macOS'ta Cmd+Enter, Windows/Linux'ta Super+Enter geçerlidir.",
         "options": {
           "off": "Kapalı",
@@ -363,7 +363,7 @@
         }
       },
       "customWords": {
-        "title": "Özel Kelimeler",
+        "title": "Özel kelimeler",
         "description": "Transkripsiyon sırasında sıkça yanlış duyulan veya yanlış yazılan kelimeleri ekleyin. Sistem, benzer sesli kelimeleri listenize göre otomatik olarak düzeltir.",
         "placeholder": "Kelime ekle",
         "add": "Ekle",
@@ -508,12 +508,12 @@
         "description": "Özel kelime düzeltmeleri için hassasiyet"
       },
       "historyLimit": {
-        "title": "Geçmiş Limiti",
+        "title": "Geçmiş limiti",
         "description": "Saklanacak maksimum geçmiş kaydı sayısı",
         "entries": "kayıt"
       },
       "recordingRetention": {
-        "title": "Kayıtları Otomatik Sil",
+        "title": "Kayıtları otomatik sil",
         "description": "Alan tasarrufu için eski kayıtları otomatik olarak siler",
         "never": "Asla",
         "preserveLimit": "Son {{count}} kaydı tut",
@@ -543,7 +543,7 @@
         "description": "Yapıştırılan transkripsiyondan sonra boşluk ekler"
       },
       "keyboardImplementation": {
-        "title": "Klavye Uygulaması",
+        "title": "Klavye işleyicisi",
         "description": "Klavye kısayolları için kullanılacak altyapıyı seçin.",
         "bindingsReset": "Klavye kısayolları uyumsuzdu ve varsayılan ayarlara sıfırlandı"
       },

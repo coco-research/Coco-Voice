@@ -305,7 +305,7 @@
         }
       },
       "pasteMethod": {
-        "title": "貼上方式",
+        "title": "文字輸入方式",
         "description": "選擇文字插入方式。直接：透過系統輸入模擬打字。無：跳過貼上，僅更新歷史紀錄/剪貼簿",
         "options": {
           "clipboard": "剪貼簿 ({{modifier}}+V)",
@@ -325,16 +325,16 @@
         }
       },
       "clipboardHandling": {
-        "title": "剪貼簿處理",
+        "title": "貼上後的剪貼簿",
         "description": "不修改剪貼簿將在轉錄後保留目前剪貼簿內容。複製到剪貼簿會在貼上後將轉錄結果留在剪貼簿中",
         "options": {
-          "dontModify": "不修改剪貼簿",
+          "dontModify": "保留原有剪貼簿內容",
           "copyToClipboard": "複製到剪貼簿"
         },
         "privacyHint": "剪貼簿上的文字，其他應用程式和剪貼簿工具都看得到，通用剪貼板也可以將其拷貝到您的其他 Apple 裝置。"
       },
       "autoSubmit": {
-        "title": "自動送出",
+        "title": "貼上後按鍵",
         "description": "插入文字後自動發送指定的按鍵組合。macOS 為 Cmd+Enter，Windows/Linux 為 Super+Enter",
         "options": {
           "off": "關閉",
@@ -543,7 +543,7 @@
         "description": "在貼上的轉錄後新增空格"
       },
       "keyboardImplementation": {
-        "title": "鍵盤實作",
+        "title": "鍵盤處理方式",
         "description": "選擇鍵盤快捷鍵的後端",
         "bindingsReset": "鍵盤快捷鍵不相容，已重設為預設值"
       },

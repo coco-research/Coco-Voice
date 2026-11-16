@@ -305,7 +305,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Klistra-in-metod",
+        "title": "Hur ord skrivs in",
         "description": "Välj hur text infogas. Direkt: simulerar skrivande via systeminmatning. Ingen: hoppar över klistra in, uppdaterar endast historik/urklipp.",
         "options": {
           "clipboard": "Urklipp ({{modifier}}+V)",
@@ -321,20 +321,20 @@
         "title": "Skrivverktyg",
         "description": "Välj vilket Linux-skrivverktyg som ska användas för metoden Direkt klistra in. Auto kommer automatiskt att upptäcka och använda det bästa tillgängliga verktyget för ditt system.",
         "options": {
-          "auto": "Auto (Rekommenderas)"
+          "auto": "Auto (rekommenderas)"
         }
       },
       "clipboardHandling": {
-        "title": "Hantering av urklipp",
+        "title": "Urklipp efter inklistring",
         "description": "Ändra inte urklipp bevarar ditt nuvarande urklippsinnehåll efter transkription. Kopiera till urklipp lämnar transkriptionsresultatet i ditt urklipp efter att ha klistrat in.",
         "options": {
-          "dontModify": "Ändra inte urklipp",
+          "dontModify": "Behåll tidigare urklipp",
           "copyToClipboard": "Kopiera till urklipp"
         },
         "privacyHint": "Text i urklipp kan ses av andra appar och urklippsverktyg, och Universellt urklipp kan kopiera den till dina andra Apple-enheter."
       },
       "autoSubmit": {
-        "title": "Skicka automatiskt",
+        "title": "Tryck på tangent efter inklistring",
         "description": "Skicka automatiskt den valda tangentkombinationen efter textinsättning. Cmd+Enter gäller på macOS, medan Windows/Linux använder Super+Enter.",
         "options": {
           "off": "Av",
@@ -543,7 +543,7 @@
         "description": "Lägg till ett mellanslag efter klistrad transkription"
       },
       "keyboardImplementation": {
-        "title": "Tangentbordsimplementering",
+        "title": "Tangentbordshantering",
         "description": "Välj tangentbordsgenvägens implementation.",
         "bindingsReset": "Kortkommandona var inkompatibla och återställdes till standardvärden"
       },

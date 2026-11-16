@@ -305,7 +305,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Método de Colar",
+        "title": "Como as palavras são inseridas",
         "description": "Escolha como o texto é inserido. Direto: simula digitação via entrada do sistema. Nenhum: ignora colar, apenas atualiza histórico/área de transferência.",
         "options": {
           "clipboard": "Área de Transferência ({{modifier}}+V)",
@@ -321,20 +321,20 @@
         "title": "Ferramenta de digitação",
         "description": "Escolha qual ferramenta de digitação do Linux usar para o método de colagem direta. Auto detectará e usará automaticamente a melhor ferramenta disponível para o seu sistema.",
         "options": {
-          "auto": "Auto (Recomendado)"
+          "auto": "Auto (recomendado)"
         }
       },
       "clipboardHandling": {
-        "title": "Manipulação da Área de Transferência",
+        "title": "Área de transferência após colar",
         "description": "Não Modificar Área de Transferência preserva o conteúdo atual da área de transferência após a transcrição. Copiar para Área de Transferência deixa o resultado da transcrição na área de transferência após colar.",
         "options": {
-          "dontModify": "Não Modificar Área de Transferência",
-          "copyToClipboard": "Copiar para Área de Transferência"
+          "dontModify": "Manter a área de transferência anterior",
+          "copyToClipboard": "Copiar para a área de transferência"
         },
         "privacyHint": "O texto na área de transferência pode ser visto por outros aplicativos e ferramentas de área de transferência, e a Área de Transferência Universal pode copiá-lo para seus outros dispositivos Apple."
       },
       "autoSubmit": {
-        "title": "Envio automático",
+        "title": "Pressionar tecla após colar",
         "description": "Envia automaticamente a combinação de teclas selecionada após a inserção do texto. Cmd+Enter aplica-se no macOS, enquanto Windows/Linux usam Super+Enter.",
         "options": {
           "off": "Desativado",
@@ -363,7 +363,7 @@
         }
       },
       "customWords": {
-        "title": "Palavras Personalizadas",
+        "title": "Palavras personalizadas",
         "description": "Adicione palavras que são frequentemente mal ouvidas ou mal escritas durante a transcrição. O sistema irá automaticamente corrigir palavras semelhantes para corresponder à sua lista.",
         "placeholder": "Adicionar uma palavra",
         "add": "Adicionar",
@@ -508,12 +508,12 @@
         "description": "Sensibilidade para correções de palavras personalizadas"
       },
       "historyLimit": {
-        "title": "Limite de Histórico",
+        "title": "Limite de histórico",
         "description": "Número máximo de entradas de histórico a manter",
         "entries": "entradas"
       },
       "recordingRetention": {
-        "title": "Excluir Gravações Automaticamente",
+        "title": "Excluir gravações automaticamente",
         "description": "Excluir automaticamente gravações antigas para economizar espaço",
         "never": "Nunca",
         "preserveLimit": "Manter as últimas {{count}}",
@@ -543,7 +543,7 @@
         "description": "Adicionar um espaço após a transcrição colada"
       },
       "keyboardImplementation": {
-        "title": "Implementação do Teclado",
+        "title": "Controlador do teclado",
         "description": "Escolha o sistema responsável pelos atalhos de teclado.",
         "bindingsReset": "Os atalhos de teclado eram incompatíveis e foram redefinidos para os padrões"
       },
