@@ -2,6 +2,7 @@ import React, { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../hooks/useSettings";
 import { HomeView } from "../home/HomeView";
+import { FoldersAndTemplatesView } from "../meetings/FoldersAndTemplatesView";
 import { MeetingsList } from "../meetings/MeetingsList";
 import { RecordMeetingPage } from "../meetings/RecordMeetingPage";
 import type { MeetingsUi } from "../meetings/gate";
@@ -122,6 +123,12 @@ export function renderShellSection(
     return (
       <div data-route-domain="meetings" className="w-full">
         <MeetingsList />
+      </div>
+    );
+  if (s === "meetings-folders")
+    return (
+      <div data-route-domain="meetings" className="w-full">
+        <FoldersAndTemplatesView />
       </div>
     );
   if (s === "voice-history")
