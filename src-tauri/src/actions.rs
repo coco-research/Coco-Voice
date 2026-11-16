@@ -1049,9 +1049,20 @@ pub(crate) async fn process_transcription_output(
     transcription: &str,
     post_process: bool,
     correction: bool,
+    active_app: Option<&crate::app_profiles::ActiveAppInfo>,
     local_llm_cancel: Option<LocalLlmCancel>,
 ) -> ProcessedTranscription {
-    let settings = get_settings(app);
+    let raw_settings = get_settings(app);
+    let resolved_profile =
+        active_app.map(|info| crate::app_profiles::resolve_for_app(&raw_settings, Some(info)));
+    let settings = resolved_profile
+        .as_ref()
+        .map(|r| &r.settings)
+        .unwrap_or(&raw_settings);
+    let post_process = resolved_profile
+        .as_ref()
+        .and_then(|r| r.post_process_override)
+        .unwrap_or(post_process);
     let mut final_text = transcription.to_string();
     let mut post_processed_text: Option<String> = None;
     let mut post_process_prompt: Option<String> = None;
@@ -1061,7 +1072,7 @@ pub(crate) async fn process_transcription_output(
     // Resolve the language the transcription actually ran in (the persisted
     // intent coerced against the loaded model's capabilities) so OpenCC keys off
     // the effective language rather than a possibly-stale intent.
-    let effective_language = resolve_effective_language(app, &settings);
+    let effective_language = resolve_effective_language(app, settings);
     if let Some(converted_text) =
         maybe_convert_chinese_variant(&effective_language, transcription).await
     {
@@ -1072,7 +1083,7 @@ pub(crate) async fn process_transcription_output(
         // CORRECTION MODE (explicit hotkey): unconditionally treat this utterance
         // as an edit of the last output. We never sniff the words — the dedicated
         // "correction" hotkey is the only trigger.
-        if let Some(prior_output) = refine_base_for_correction(&settings) {
+        if let Some(prior_output) = refine_base_for_correction(settings) {
             // The prior output is what the previous dictation pasted (plus the
             // trailing space `paste` appends when that setting is on), so its
             // grapheme length is how many Backspaces the replace must send before
@@ -1082,7 +1093,7 @@ pub(crate) async fn process_transcription_output(
                 crate::utils::pasted_grapheme_count(&prior_output, settings.append_trailing_space);
             match post_process_transcription(
                 app,
-                &settings,
+                settings,
                 &final_text,
                 Some(&prior_output),
                 local_llm_cancel,
@@ -1124,7 +1135,7 @@ pub(crate) async fn process_transcription_output(
         // dictation is NEVER silently reinterpreted as an edit of a prior output.
         if let Some(processed_text) = post_process_transcription(
             app,
-            &settings,
+            settings,
             &final_text,
             None,
             local_llm_cancel,
@@ -1157,11 +1168,22 @@ pub(crate) async fn process_transcription_output(
         final_text = crate::audio_toolkit::apply_corrections(&final_text, &settings.corrections);
     }
 
+    if let Some(resolved) = &resolved_profile {
+        if !final_text.is_empty() {
+            let styled =
+                crate::app_profiles::apply_surface_style(&final_text, resolved.surface_style);
+            if styled != final_text {
+                final_text = styled;
+                post_processed_text = Some(final_text.clone());
+            }
+        }
+    }
+
     // Remember this dictation so a later correction-hotkey press can edit it.
     // Stored for BOTH plain and post-processed dictations, and updated after a
     // correction too, so the buffer always holds exactly what the user last
     // received and a subsequent correction deletes the right number of chars.
-    store_refine_buffer(&settings, transcription, &final_text);
+    store_refine_buffer(settings, transcription, &final_text);
 
     ProcessedTranscription {
         final_text,
@@ -1176,6 +1198,12 @@ impl ShortcutAction for TranscribeAction {
     fn start(&self, app: &AppHandle, binding_id: &str, _shortcut_str: &str) {
         let start_time = Instant::now();
         debug!("TranscribeAction::start called for binding: {}", binding_id);
+
+        let settings = get_settings(app);
+        if crate::app_profiles::check_active_app_start(&settings).is_blocked() {
+            debug!("Dictation shortcut ignored in blocked frontmost app");
+            return;
+        }
 
         // Load model in the background
         let tm = app.state::<Arc<TranscriptionManager>>();
@@ -1199,7 +1227,6 @@ impl ShortcutAction for TranscribeAction {
 
         // Get the microphone mode to determine audio feedback timing
         let plan_started = Instant::now();
-        let settings = get_settings(app);
         let is_always_on = settings.always_on_microphone;
 
         let selected_model_info = app
@@ -1486,6 +1513,7 @@ impl ShortcutAction for TranscribeAction {
                                     &transcription,
                                     post_process,
                                     correction,
+                                    active_app.as_ref(),
                                     Some(local_llm_cancel),
                                 ),
                                 || rm.was_cancelled_since(cancel_generation),

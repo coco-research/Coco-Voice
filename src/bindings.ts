@@ -891,6 +891,30 @@ async updateRecordingRetentionPeriod(period: string) : Promise<Result<null, stri
  * This uses pmset to check for battery information.
  * Returns true if a battery is detected (laptop), false otherwise (desktop)
  */
+async getActiveAppInfo() : Promise<Result<ActiveAppInfo | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_active_app_info") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateAppProfiles(profiles: AppProfile[]) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_app_profiles", { profiles }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateBlockedApps(apps: string[]) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_blocked_apps", { apps }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async isLaptop() : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("is_laptop") };
@@ -955,7 +979,12 @@ whats_new_last_seen_version?: string; selected_model?: string; onboarding_comple
  * not gated on this — that follows model capability. Migrated from the old
  * `overlay_position` (position `none` → style `None`).
  */
-overlay_style?: OverlayStyle }
+overlay_style?: OverlayStyle; app_profiles?: AppProfile[]; blocked_apps?: string[] }
+export type ActiveAppInfo = { app_name: string; bundle_id: string | null; process_stem: string | null }
+export type AppTone = "default" | "auto" | "casual" | "direct" | "formal" | "code"
+export type CapitalizationStyle = "default" | "sentence" | "lowercase"
+export type PunctuationStyle = "default" | "full" | "drop_trailing_period"
+export type AppProfile = { id: string; name: string; app_identifier: string; blocked?: boolean; tone?: AppTone; capitalization?: CapitalizationStyle; punctuation?: PunctuationStyle; post_process_enabled?: boolean | null; prompt_id?: string | null; provider_id?: string | null; model?: string | null; corrections?: CorrectionPair[] }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
 export type AvailableAccelerators = { transcribe: string[]; ort: string[]; gpu_devices: GpuDeviceOption[] }

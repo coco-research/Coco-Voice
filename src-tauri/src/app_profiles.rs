@@ -5,9 +5,10 @@
 //! and maps application kinds and profile tones to capitalization and
 //! punctuation surface styles.
 
-use crate::settings::CorrectionPair;
+use crate::settings::{AppSettings, CorrectionPair};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::collections::HashSet;
 
 const CHAT_APPS: &str = "com.tinyspeck.slackmacgap|slack|com.apple.mobilesms|messages|com.hnc.discord|discord|ru.keepcoder.telegram|telegram|net.whatsapp.whatsapp|whatsapp|org.whispersystems.signal-desktop|signal";
 const EMAIL_APPS: &str = "com.apple.mail|mail|com.microsoft.outlook|microsoft outlook|com.superhuman.electron|superhuman|org.mozilla.thunderbird|thunderbird";
@@ -93,6 +94,24 @@ pub struct AppProfile {
     pub corrections: Vec<CorrectionPair>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StartDecision {
+    Allow,
+    BlockedApp(String),
+}
+
+impl StartDecision {
+    pub fn is_blocked(&self) -> bool {
+        matches!(self, Self::BlockedApp(_))
+    }
+}
+
+pub(crate) struct ResolvedAppProfile {
+    pub settings: AppSettings,
+    pub surface_style: SurfaceStyle,
+    pub post_process_override: Option<bool>,
+}
+
 pub fn is_self_identifier(value: &str) -> bool {
     let t = value.trim();
     t.eq_ignore_ascii_case("Coco Voice")
@@ -168,6 +187,199 @@ pub fn app_profile_matches(saved: &str, info: &ActiveAppInfo) -> bool {
     info.bundle_id.as_deref().is_some_and(eq)
         || (!info.app_name.is_empty() && eq(&info.app_name))
         || info.process_stem.as_deref().is_some_and(eq)
+}
+
+pub(crate) fn check_start_allowed(
+    settings: &AppSettings,
+    app: Option<&ActiveAppInfo>,
+) -> StartDecision {
+    let Some(info) = app.filter(|i| !is_self_app(i)) else {
+        return StartDecision::Allow;
+    };
+    if let Some(pat) = settings
+        .blocked_apps
+        .iter()
+        .find(|b| app_profile_matches(b, info))
+    {
+        return StartDecision::BlockedApp(pat.trim().to_string());
+    }
+    if let Some(p) = settings
+        .app_profiles
+        .iter()
+        .find(|p| p.blocked && app_profile_matches(&p.app_identifier, info))
+    {
+        return StartDecision::BlockedApp(p.app_identifier.trim().to_string());
+    }
+    StartDecision::Allow
+}
+
+pub(crate) fn check_active_app_start(settings: &AppSettings) -> StartDecision {
+    if settings.blocked_apps.is_empty() && !settings.app_profiles.iter().any(|p| p.blocked) {
+        return StartDecision::Allow;
+    }
+    check_start_allowed(settings, read_active_app().as_ref())
+}
+
+fn clamp_str(s: &str, max: usize) -> String {
+    s.trim().chars().take(max).collect()
+}
+
+pub(crate) fn normalize_app_profiles(
+    profiles: Vec<AppProfile>,
+    settings: &AppSettings,
+) -> Vec<AppProfile> {
+    let prompts: HashSet<&str> = settings
+        .post_process_prompts
+        .iter()
+        .map(|p| p.id.as_str())
+        .collect();
+    let providers: HashSet<&str> = settings
+        .post_process_providers
+        .iter()
+        .map(|p| p.id.as_str())
+        .collect();
+    let (mut ids, mut apps, mut out) = (HashSet::new(), HashSet::new(), Vec::new());
+    for mut p in profiles {
+        if out.len() >= 64 {
+            break;
+        }
+        p.id = clamp_str(&p.id, 128);
+        p.name = clamp_str(&p.name, 80);
+        p.app_identifier = clamp_str(&p.app_identifier, 260);
+        if p.id.is_empty()
+            || p.app_identifier.is_empty()
+            || is_self_identifier(&p.app_identifier)
+            || !ids.insert(p.id.clone())
+            || !apps.insert(p.app_identifier.to_ascii_lowercase())
+        {
+            continue;
+        }
+        if p.name.is_empty() {
+            p.name = p.app_identifier.clone();
+        }
+        p.prompt_id = p
+            .prompt_id
+            .map(|s| clamp_str(&s, 128))
+            .filter(|s| prompts.contains(s.as_str()));
+        p.provider_id = p
+            .provider_id
+            .map(|s| clamp_str(&s, 128))
+            .filter(|s| providers.contains(s.as_str()));
+        p.model = p
+            .model
+            .map(|s| clamp_str(&s, 260))
+            .filter(|s| !s.is_empty());
+        out.push(p);
+    }
+    out
+}
+
+pub(crate) fn normalize_blocked_apps(apps: Vec<String>) -> Vec<String> {
+    let (mut seen, mut out) = (HashSet::new(), Vec::new());
+    for raw in apps {
+        if out.len() >= 128 {
+            break;
+        }
+        let c = clamp_str(&raw, 260);
+        if c.is_empty() || is_self_identifier(&c) || !seen.insert(c.to_ascii_lowercase()) {
+            continue;
+        }
+        out.push(c);
+    }
+    out
+}
+
+pub(crate) fn resolve_for_app(
+    settings: &AppSettings,
+    app: Option<&ActiveAppInfo>,
+) -> ResolvedAppProfile {
+    let default_out = || ResolvedAppProfile {
+        settings: settings.clone(),
+        surface_style: SurfaceStyle::default(),
+        post_process_override: None,
+    };
+    let Some(info) = app.filter(|i| !is_self_app(i)) else {
+        return default_out();
+    };
+    let Some(profile) = settings
+        .app_profiles
+        .iter()
+        .find(|p| app_profile_matches(&p.app_identifier, info))
+    else {
+        return default_out();
+    };
+    let mut effective = settings.clone();
+    if let Some(enabled) = profile.post_process_enabled {
+        effective.post_process_enabled = enabled;
+        if enabled && effective.post_process_selected_prompt_id.is_none() {
+            effective.post_process_selected_prompt_id =
+                effective.post_process_prompts.first().map(|p| p.id.clone());
+        }
+    }
+    if let Some(pid) = profile
+        .prompt_id
+        .as_ref()
+        .filter(|id| effective.post_process_prompts.iter().any(|p| &p.id == *id))
+    {
+        effective.post_process_selected_prompt_id = Some(pid.clone());
+    }
+    if let Some(prov) = profile
+        .provider_id
+        .as_ref()
+        .filter(|id| effective.post_process_provider(id).is_some())
+    {
+        effective.post_process_provider_id = prov.clone();
+    }
+    if let Some(m) = profile.model.as_ref().filter(|m| !m.trim().is_empty()) {
+        effective
+            .post_process_models
+            .insert(effective.post_process_provider_id.clone(), m.clone());
+    }
+    effective
+        .corrections
+        .extend(profile.corrections.iter().cloned());
+
+    let base = tone_defaults(profile.tone, Some(info));
+    ResolvedAppProfile {
+        settings: effective,
+        surface_style: SurfaceStyle {
+            capitalization: if profile.capitalization == CapitalizationStyle::Default {
+                base.capitalization
+            } else {
+                profile.capitalization
+            },
+            punctuation: if profile.punctuation == PunctuationStyle::Default {
+                base.punctuation
+            } else {
+                profile.punctuation
+            },
+        },
+        post_process_override: profile.post_process_enabled,
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_active_app_info() -> Option<ActiveAppInfo> {
+    read_active_app()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn update_app_profiles(app: tauri::AppHandle, profiles: Vec<AppProfile>) -> Result<(), String> {
+    crate::settings::update_settings(&app, |s| {
+        s.app_profiles = normalize_app_profiles(profiles, s);
+    });
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn update_blocked_apps(app: tauri::AppHandle, apps: Vec<String>) -> Result<(), String> {
+    crate::settings::update_settings(&app, |s| {
+        s.blocked_apps = normalize_blocked_apps(apps);
+    });
+    Ok(())
 }
 
 pub fn classify_app_kind(info: &ActiveAppInfo) -> AppKind {
@@ -374,5 +586,67 @@ mod per_app_tests {
             ),
             "cargo test useState"
         );
+    }
+
+    #[test]
+    fn per_app_overrides_and_blocked_bundle_noop_before_recording() {
+        let mut s = crate::settings::get_default_settings();
+        s.blocked_apps = normalize_blocked_apps(vec![
+            " com.1password.1password ".into(),
+            "com.cocoresearch.cocovoice".into(),
+        ]);
+        assert_eq!(s.blocked_apps, vec!["com.1password.1password"]);
+        s.app_profiles = vec![
+            AppProfile {
+                id: "mail".into(),
+                name: "Mail".into(),
+                app_identifier: "com.apple.mail".into(),
+                tone: AppTone::Auto,
+                post_process_enabled: Some(true),
+                corrections: vec![CorrectionPair {
+                    from: "coco".into(),
+                    to: "Coco Voice".into(),
+                }],
+                ..Default::default()
+            },
+            AppProfile {
+                id: "bank".into(),
+                name: "Bank".into(),
+                app_identifier: "com.example.banking".into(),
+                blocked: true,
+                ..Default::default()
+            },
+        ];
+
+        let onepass = app("1Password", Some("com.1password.1password"), None);
+        assert_eq!(
+            check_start_allowed(&s, Some(&onepass)),
+            StartDecision::BlockedApp("com.1password.1password".into())
+        );
+        let bank = app("Banking", Some("com.example.banking"), None);
+        assert!(check_start_allowed(&s, Some(&bank)).is_blocked());
+
+        let mail = app("Mail", Some("com.apple.mail"), None);
+        assert_eq!(check_start_allowed(&s, Some(&mail)), StartDecision::Allow);
+        let resolved = resolve_for_app(&s, Some(&mail));
+        assert_eq!(resolved.post_process_override, Some(true));
+        assert_eq!(resolved.settings.corrections.len(), 1);
+        assert_eq!(
+            resolved.surface_style.capitalization,
+            CapitalizationStyle::Sentence
+        );
+
+        let norm = normalize_app_profiles(
+            vec![AppProfile {
+                id: "v".into(),
+                name: "".into(),
+                app_identifier: "com.microsoft.VSCode".into(),
+                prompt_id: Some("missing".into()),
+                provider_id: Some("missing".into()),
+                ..Default::default()
+            }],
+            &s,
+        );
+        assert!(norm[0].prompt_id.is_none() && norm[0].provider_id.is_none());
     }
 }
