@@ -190,11 +190,12 @@ pub async fn update_recording_retention_period(
     use crate::settings::RecordingRetentionPeriod;
 
     let retention_period = match period.as_str() {
+        "never_store" | "off" | "none" => RecordingRetentionPeriod::NeverStore,
         "never" => RecordingRetentionPeriod::Never,
         "preserve_limit" => RecordingRetentionPeriod::PreserveLimit,
-        "days3" => RecordingRetentionPeriod::Days3,
-        "weeks2" => RecordingRetentionPeriod::Weeks2,
-        "months3" => RecordingRetentionPeriod::Months3,
+        "days3" | "days_3" => RecordingRetentionPeriod::Days3,
+        "weeks2" | "weeks_2" => RecordingRetentionPeriod::Weeks2,
+        "months3" | "months_3" => RecordingRetentionPeriod::Months3,
         _ => return Err(format!("Invalid retention period: {}", period)),
     };
 

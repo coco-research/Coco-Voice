@@ -214,6 +214,75 @@ impl HistoryManager {
         &self.recordings_dir
     }
 
+    pub fn is_never_store_policy(
+        retention: crate::settings::RecordingRetentionPeriod,
+        history_limit: usize,
+        never_store_flag: bool,
+    ) -> bool {
+        retention == crate::settings::RecordingRetentionPeriod::NeverStore
+            || never_store_flag
+            || (retention == crate::settings::RecordingRetentionPeriod::PreserveLimit
+                && history_limit == 0)
+    }
+
+    pub fn purge_all_history_and_recordings_with_conn(
+        conn: &Connection,
+        recordings_dir: &std::path::Path,
+    ) -> Result<usize> {
+        conn.execute("DELETE FROM transcription_history", [])?;
+        let mut removed = 0usize;
+        if let Ok(read_dir) = fs::read_dir(recordings_dir) {
+            for entry in read_dir.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) == Some("wav")
+                    && fs::remove_file(&path).is_ok()
+                {
+                    removed += 1;
+                }
+            }
+        }
+        Ok(removed)
+    }
+
+    pub fn record_take_with_policy(
+        conn: &Connection,
+        recordings_dir: &std::path::Path,
+        retention: crate::settings::RecordingRetentionPeriod,
+        history_limit: usize,
+        never_store_flag: bool,
+        file_name: &str,
+        samples: &[f32],
+        transcription_text: &str,
+    ) -> Result<Option<HistoryEntry>> {
+        if Self::is_never_store_policy(retention, history_limit, never_store_flag) {
+            let _ = Self::purge_all_history_and_recordings_with_conn(conn, recordings_dir);
+            return Ok(None);
+        }
+        fs::create_dir_all(recordings_dir)?;
+        let wav_path = recordings_dir.join(file_name);
+        crate::audio_toolkit::save_wav_file(&wav_path, samples)?;
+        let timestamp = Utc::now().timestamp();
+        let title = format!("Recording {}", timestamp);
+        conn.execute(
+            "INSERT INTO transcription_history (
+                file_name, timestamp, saved, title, transcription_text,
+                post_processed_text, post_process_prompt, post_process_requested
+            ) VALUES (?1, ?2, 0, ?3, ?4, NULL, NULL, 0)",
+            params![file_name, timestamp, title, transcription_text],
+        )?;
+        Ok(Some(HistoryEntry {
+            id: conn.last_insert_rowid(),
+            file_name: file_name.to_string(),
+            timestamp,
+            saved: false,
+            title,
+            transcription_text: transcription_text.to_string(),
+            post_processed_text: None,
+            post_process_prompt: None,
+            post_process_requested: false,
+        }))
+    }
+
     /// Save a new history entry to the database.
     /// The WAV file should already have been written to the recordings directory.
     pub fn save_entry(
@@ -224,6 +293,16 @@ impl HistoryManager {
         post_processed_text: Option<String>,
         post_process_prompt: Option<String>,
     ) -> Result<HistoryEntry> {
+        let settings = crate::settings::get_settings(&self.app_handle);
+        if Self::is_never_store_policy(
+            settings.recording_retention_period,
+            settings.history_limit,
+            settings.never_store_history,
+        ) {
+            let conn = self.get_connection()?;
+            let _ = Self::purge_all_history_and_recordings_with_conn(&conn, &self.recordings_dir);
+            return Err(anyhow!("Dictation history is set to Never store"));
+        }
         let timestamp = Utc::now().timestamp();
         let title = self.format_timestamp_title(timestamp);
 
@@ -328,9 +407,21 @@ impl HistoryManager {
     }
 
     pub fn cleanup_old_entries(&self) -> Result<()> {
-        let retention_period = crate::settings::get_recording_retention_period(&self.app_handle);
+        let settings = crate::settings::get_settings(&self.app_handle);
+        let retention_period = settings.recording_retention_period;
+        if settings.never_store_history {
+            let conn = self.get_connection()?;
+            let _ = Self::purge_all_history_and_recordings_with_conn(&conn, &self.recordings_dir);
+            return Ok(());
+        }
 
         match retention_period {
+            crate::settings::RecordingRetentionPeriod::NeverStore => {
+                let conn = self.get_connection()?;
+                let _ =
+                    Self::purge_all_history_and_recordings_with_conn(&conn, &self.recordings_dir);
+                Ok(())
+            }
             crate::settings::RecordingRetentionPeriod::Never => {
                 // Don't delete anything
                 Ok(())
@@ -774,5 +865,56 @@ mod tests {
             .expect("entry exists");
         assert_eq!(latest.timestamp, 200);
         assert_eq!(latest.transcription_text, "second");
+    }
+
+    #[test]
+    fn never_store_policy_keeps_zero_db_rows_and_zero_wav_files_on_disk() {
+        use crate::settings::RecordingRetentionPeriod;
+        let dir = tempfile::tempdir().expect("tempdir");
+        let recordings_dir = dir.path().join("recordings");
+        fs::create_dir_all(&recordings_dir).expect("create recordings dir");
+        let conn = setup_conn();
+        let samples = vec![0.05f32; 1600];
+
+        // 1. Seed a normal stored take first.
+        let stored = HistoryManager::record_take_with_policy(
+            &conn,
+            &recordings_dir,
+            RecordingRetentionPeriod::Days3,
+            5,
+            false,
+            "coco-voice-1.wav",
+            &samples,
+            "first stored take",
+        )
+        .expect("record normal take");
+        assert!(stored.is_some());
+        assert!(recordings_dir.join("coco-voice-1.wav").exists());
+
+        // 2. Under NeverStore, recording a take leaves 0 DB rows and 0 WAV files on disk.
+        let skipped = HistoryManager::record_take_with_policy(
+            &conn,
+            &recordings_dir,
+            RecordingRetentionPeriod::NeverStore,
+            5,
+            false,
+            "coco-voice-2.wav",
+            &samples,
+            "secret take",
+        )
+        .expect("record under NeverStore");
+        assert!(skipped.is_none());
+        let row_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM transcription_history", [], |r| {
+                r.get(0)
+            })
+            .expect("count rows");
+        assert_eq!(row_count, 0, "NeverStore must keep 0 DB rows");
+        let wav_count = fs::read_dir(&recordings_dir)
+            .expect("read_dir")
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().and_then(|x| x.to_str()) == Some("wav"))
+            .count();
+        assert_eq!(wav_count, 0, "NeverStore must keep 0 .wav files on disk");
     }
 }

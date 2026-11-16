@@ -69,8 +69,8 @@ pub fn paste_word_locations(
     retention: RecordingRetentionPeriod,
 ) -> (bool, bool) {
     let on_clipboard = paste_failed || handling == ClipboardHandling::CopyToClipboard;
-    let history_disabled =
-        history_limit == 0 && retention == RecordingRetentionPeriod::PreserveLimit;
+    let history_disabled = retention == RecordingRetentionPeriod::NeverStore
+        || (history_limit == 0 && retention == RecordingRetentionPeriod::PreserveLimit);
     (on_clipboard, history_saved && !history_disabled)
 }
 

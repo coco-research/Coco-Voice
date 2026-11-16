@@ -192,6 +192,8 @@ pub enum AutoSubmitKey {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum RecordingRetentionPeriod {
+    #[serde(alias = "off", alias = "none")]
+    NeverStore,
     Never,
     PreserveLimit,
     Days3,
@@ -429,6 +431,12 @@ pub struct AppSettings {
     pub history_limit: usize,
     #[serde(default = "default_recording_retention_period")]
     pub recording_retention_period: RecordingRetentionPeriod,
+    #[serde(default)]
+    pub never_store_history: bool,
+    #[serde(default = "default_repo_words_enabled")]
+    pub repo_words_enabled: bool,
+    #[serde(default = "default_code_editor_mode_enabled")]
+    pub code_editor_mode_enabled: bool,
     #[serde(default)]
     pub paste_method: PasteMethod,
     #[serde(default)]
@@ -672,6 +680,14 @@ fn default_history_limit() -> usize {
 
 fn default_recording_retention_period() -> RecordingRetentionPeriod {
     RecordingRetentionPeriod::PreserveLimit
+}
+
+fn default_repo_words_enabled() -> bool {
+    true
+}
+
+fn default_code_editor_mode_enabled() -> bool {
+    true
 }
 
 fn default_audio_feedback_volume() -> f32 {
@@ -1155,6 +1171,9 @@ pub fn get_default_settings() -> AppSettings {
         word_correction_threshold: default_word_correction_threshold(),
         history_limit: default_history_limit(),
         recording_retention_period: default_recording_retention_period(),
+        never_store_history: false,
+        repo_words_enabled: default_repo_words_enabled(),
+        code_editor_mode_enabled: default_code_editor_mode_enabled(),
         paste_method: PasteMethod::default(),
         clipboard_handling: if cfg!(target_os = "macos") {
             ClipboardHandling::CopyToClipboard
