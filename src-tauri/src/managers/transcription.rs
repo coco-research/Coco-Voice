@@ -521,6 +521,27 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             .unwrap_or_else(|err| err.into_inner()) = Some(model_id.to_string());
     }
 
+    /// Live meeting test hook: install a real engine from a model file the
+    /// caller found on disk, through the normal load path. No model download.
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn install_engine_from_path_for_test(
+        &self,
+        model_id: &str,
+        path: &std::path::Path,
+    ) -> Result<()> {
+        let engine_type = crate::catalog::find_model(model_id)
+            .map(|desc| desc.engine_type.clone())
+            .ok_or_else(|| anyhow::anyhow!("Model {} is not in the catalog", model_id))?;
+        self.load_model_from_path(
+            model_id,
+            model_id,
+            engine_type,
+            path,
+            None,
+            std::time::Instant::now(),
+        )
+    }
+
     #[cfg(all(test, feature = "meetings"))]
     pub(crate) fn set_test_unload_timeout(&self, timeout: Option<ModelUnloadTimeout>) {
         *self
@@ -793,7 +814,27 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         }
 
         let model_path = self.model_manager.get_model_path(model_id)?;
+        self.load_model_from_path(
+            model_id,
+            &model_info.name,
+            model_info.engine_type.clone(),
+            &model_path,
+            device_index,
+            load_start,
+        )
+    }
 
+    /// Build and install an engine from an already-resolved model file. Split
+    /// out of [`load_model_with_device`] so a test can load by path.
+    fn load_model_from_path(
+        &self,
+        model_id: &str,
+        model_name: &str,
+        engine_type: EngineType,
+        model_path: &std::path::Path,
+        device_index: Option<usize>,
+        load_start: std::time::Instant,
+    ) -> Result<()> {
         // Drop the current engine BEFORE building the new one so transcribe-cpp
         // frees the previous native context first — avoids holding two models at
         // once (peak memory on large GGUFs). Clear the id too: if the new load
@@ -814,13 +855,13 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
                 ModelStateEvent {
                     event_type: "loading_failed".to_string(),
                     model_id: Some(model_id.to_string()),
-                    model_name: Some(model_info.name.clone()),
+                    model_name: Some(model_name.to_string()),
                     error: Some(error_msg.to_string()),
                 },
             );
         };
 
-        let loaded_engine = match model_info.engine_type {
+        let loaded_engine = match engine_type {
             EngineType::TranscribeCpp => {
                 // The whisper backend is chosen at load time (transcribe-cpp has
                 // no runtime global). With an explicit `device_index` (the
@@ -981,7 +1022,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             ModelStateEvent {
                 event_type: "loading_completed".to_string(),
                 model_id: Some(model_id.to_string()),
-                model_name: Some(model_info.name.clone()),
+                model_name: Some(model_name.to_string()),
                 error: None,
             },
         );

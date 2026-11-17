@@ -95,6 +95,16 @@ pub struct MeetingSegment {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MeetingSegment {
+    pub id: i64,
+    pub meeting_id: i64,
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub channel: String,
+    pub text: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Meeting {
     pub id: i64,
     pub started_at: i64,
