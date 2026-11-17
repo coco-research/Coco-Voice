@@ -6,6 +6,24 @@ from the conventional commit titles when a release is cut. The user-facing notes
 for each version are in [src/content/release-notes/](src/content/release-notes/)
 and on the [GitHub Release](https://github.com/coco-research/Coco-Voice/releases).
 
+## [0.11.0](https://github.com/coco-research/Coco-Voice/compare/v0.10.1...v0.11.0) (2026-11-17)
+
+
+### Added
+
+* meeting notes core with segment citations ([#241](https://github.com/coco-research/Coco-Voice/issues/241)) ([f0ad288](https://github.com/coco-research/Coco-Voice/commit/f0ad288e60ee0836f14ae45501f263da3db653ca))
+* score WER with number words and digits treated as equal ([#221](https://github.com/coco-research/Coco-Voice/issues/221)) ([9214389](https://github.com/coco-research/Coco-Voice/commit/921438940762a600971124ebd0e56111bf1633de))
+* store meeting notes and notepad points ([#243](https://github.com/coco-research/Coco-Voice/issues/243)) ([006a766](https://github.com/coco-research/Coco-Voice/commit/006a76629f3340811e489dcaca428088646e82af))
+
+
+### Fixed
+
+* hold transcription toggles until startup has managed the managers ([#245](https://github.com/coco-research/Coco-Voice/issues/245)) ([a748aa6](https://github.com/coco-research/Coco-Voice/commit/a748aa6203905069810ee3f679884fd105daa448)), closes [#212](https://github.com/coco-research/Coco-Voice/issues/212)
+* **llm:** build against llama-cpp-2 0.1.161 ([#249](https://github.com/coco-research/Coco-Voice/issues/249)) ([77052f5](https://github.com/coco-research/Coco-Voice/commit/77052f580c4d07349e6cf025e608fe7df354db17)), closes [#233](https://github.com/coco-research/Coco-Voice/issues/233)
+* **meetings:** drop a misaligned tap buffer instead of reading it ([#234](https://github.com/coco-research/Coco-Voice/issues/234)) ([53e71be](https://github.com/coco-research/Coco-Voice/commit/53e71be21e64f058d316c10b6cb1738dc95b4efc))
+* **meetings:** parse Info.plist for the system-audio usage string ([#235](https://github.com/coco-research/Coco-Voice/issues/235)) ([09d415a](https://github.com/coco-research/Coco-Voice/commit/09d415a7f4db9524e555d6b0f17d4c234aa4f77f))
+* use the backend key recorder for coco_voice_keys ([#246](https://github.com/coco-research/Coco-Voice/issues/246)) ([4f55528](https://github.com/coco-research/Coco-Voice/commit/4f5552899dc9884606cfeef4995060ec820dd0b7)), closes [#219](https://github.com/coco-research/Coco-Voice/issues/219)
+
 ## [0.10.1](https://github.com/coco-research/Coco-Voice/compare/v0.10.0...v0.10.1) (2026-11-16)
 
 
