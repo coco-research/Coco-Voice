@@ -144,6 +144,8 @@ encoding_rs = "0.8.35"
 # Process tap, macOS only (this is the cfg(target_os = "macos") table). default = ["full"] pulls every Apple
 # framework; enable only core_audio (+ dispatch, which av imports) and macOS 14.4, the meetings runtime floor.
 cidre = { version = "0.29.0", optional = true, default-features = false, features = ["core_audio", "dispatch", "macos_14_4"] }
+# Real plist parse for the Info.plist usage-string check in meetings_tap.
+plist = "1.8"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk-layer-shell = { version = "0.8", features = ["v0_6"] }

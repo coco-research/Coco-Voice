@@ -890,6 +890,7 @@ dependencies = [
  "log",
  "natural",
  "once_cell",
+ "plist",
  "regex",
  "reqwest 0.13.2",
  "rodio",
