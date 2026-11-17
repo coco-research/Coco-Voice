@@ -46,24 +46,25 @@ impl TapError {
     }
 }
 
-/// Plist text must carry the usage key with a non-empty string value.
+/// Plist text must carry the usage key as a top-level, non-empty string value.
+/// A real plist parse is used, so a commented-out or nested key does not count.
 /// This does not read the bundle and does not start IO.
 pub fn require_usage_string(plist_text: &str) -> Result<(), TapError> {
-    let key = format!("<key>{USAGE_KEY}</key>");
-    let rest = plist_text
-        .split_once(&key)
-        .map(|(_, rest)| rest.trim_start())
-        .ok_or(TapError::UsageStringMissing)?;
-    let rest = rest
-        .strip_prefix("<string>")
-        .ok_or(TapError::UsageStringMissing)?;
-    let (value, _) = rest
-        .split_once("</string>")
-        .ok_or(TapError::UsageStringMissing)?;
-    if value.trim().is_empty() {
-        return Err(TapError::UsageStringMissing);
+    let parsed = match plist::Value::from_reader_xml(plist_text.as_bytes()) {
+        Ok(value) if value.as_dictionary().is_some() => value,
+        // A bare key/value fragment has no `<plist>` root, so it is read inside a
+        // wrapper dict. A real document never takes this path.
+        _ => {
+            let wrapped = format!("<plist><dict>{plist_text}</dict></plist>");
+            plist::Value::from_reader_xml(wrapped.as_bytes())
+                .map_err(|_| TapError::UsageStringMissing)?
+        }
+    };
+    let dict = parsed.as_dictionary().ok_or(TapError::UsageStringMissing)?;
+    match dict.get(USAGE_KEY).and_then(|value| value.as_string()) {
+        Some(value) if !value.trim().is_empty() => Ok(()),
+        _ => Err(TapError::UsageStringMissing),
     }
-    Ok(())
 }
 
 /// What the read path needs from a device. Tests pass a fake. Core Audio is the other impl's caller.
@@ -236,8 +237,15 @@ extern "C" fn on_input(
             if buf.data.is_null() || buf.data_bytes_size < 4 {
                 return Status::NO_ERR;
             }
+            // #226: the HAL hands back bytes, so the f32 view is only sound when the address is
+            // aligned. A misaligned block is unreadable, so it is dropped and counted.
+            if !(buf.data as *const f32).is_aligned() {
+                state.dropped.fetch_add(1, Ordering::Relaxed);
+                return Status::NO_ERR;
+            }
             let count = buf.data_bytes_size as usize / std::mem::size_of::<f32>();
-            // SAFETY: HAL owns this buffer for the duration of the IO proc. Length is the byte size.
+            // SAFETY: HAL owns this buffer for the duration of the IO proc. Length is the byte
+            // size, the address is aligned (checked above), and f32 has no invalid bit patterns.
             let raw = unsafe { std::slice::from_raw_parts(buf.data as *const f32, count) };
             io_block(state, raw);
         }
@@ -377,12 +385,45 @@ fn private_aggregate(tap_uid: &cf::String) -> Result<(AggregateDevice, u32), Tap
     Ok((aggregate, id))
 }
 
+/// The real device: a started aggregate. The session runs IO itself, so only `stop` works;
+/// the other members exist to satisfy [`SystemAudioDevice`].
+pub struct StartedAggregate {
+    started: Option<hardware::StartedDevice<AggregateDevice>>,
+    rate: usize,
+}
+
+impl SystemAudioDevice for StartedAggregate {
+    fn sample_rate_hz(&self) -> usize {
+        self.rate
+    }
+
+    fn start(&mut self) -> Result<(), TapError> {
+        Err(TapError::Device(
+            "a started aggregate is never started again".into(),
+        ))
+    }
+
+    fn pull(&mut self) -> Result<Vec<f32>, TapError> {
+        Err(TapError::Device(
+            "a streaming aggregate is never pulled".into(),
+        ))
+    }
+
+    fn stop(&mut self) -> Result<(), TapError> {
+        match self.started.take() {
+            Some(started) => started.stop().map(|_| ()).map_err(map_os),
+            None => Ok(()),
+        }
+    }
+}
+
 /// Live tap. `start` checks the usage string before any Core Audio call.
 /// `stop` stops IO, frees the IO state (which closes the queue), joins the worker,
 /// then destroys the aggregate and drops the tap.
-pub struct SystemAudioSession {
+/// Generic over the device so a test can fail `stop` without Core Audio.
+pub struct SystemAudioSession<D: SystemAudioDevice = StartedAggregate> {
     tap: Option<TapGuard>,
-    started: Option<hardware::StartedDevice<AggregateDevice>>,
+    device: Option<D>,
     aggregate_id: Option<u32>,
     state: *mut IoState,
     worker: Option<JoinHandle<Result<(), TapError>>>,
@@ -392,7 +433,7 @@ pub struct SystemAudioSession {
     shutdown: Arc<AtomicBool>,
 }
 
-impl SystemAudioSession {
+impl SystemAudioSession<StartedAggregate> {
     pub fn start(plist_text: &str, sink: TapSink) -> Result<Self, TapError> {
         require_usage_string(plist_text)?;
 
@@ -478,7 +519,10 @@ impl SystemAudioSession {
         match hardware::device_start(aggregate, Some(proc_id)) {
             Ok(started) => Ok(Self {
                 tap: Some(tap),
-                started: Some(started),
+                device: Some(StartedAggregate {
+                    started: Some(started),
+                    rate,
+                }),
                 aggregate_id: Some(aggregate_id),
                 state,
                 worker: Some(worker),
@@ -494,7 +538,9 @@ impl SystemAudioSession {
             }
         }
     }
+}
 
+impl<D: SystemAudioDevice> SystemAudioSession<D> {
     /// Blocks dropped because the worker fell behind. The IO thread never blocks.
     pub fn dropped_blocks(&self) -> u64 {
         self.dropped.load(Ordering::Relaxed)
@@ -514,11 +560,8 @@ impl SystemAudioSession {
     }
 
     pub fn stop(mut self) -> Result<(), TapError> {
-        let stop_err = match self.started.take() {
-            Some(started) => match started.stop() {
-                Ok(_aggregate) => None,
-                Err(err) => Some(map_os(err)),
-            },
+        let stop_err = match self.device.take() {
+            Some(mut device) => device.stop().err(),
             None => None,
         };
         let finish_err = if stop_err.is_some() {
@@ -544,7 +587,7 @@ impl SystemAudioSession {
     /// worker and return its `finish` outcome. Only valid once IO has stopped.
     fn finish_worker(&mut self) -> Option<TapError> {
         if !self.state.is_null() {
-            // SAFETY: started.take()/stop() has already stopped IO, so the proc is not in on_input.
+            // SAFETY: device.stop() has already stopped IO, so the proc is not in on_input.
             drop(unsafe { Box::from_raw(self.state) });
             self.state = std::ptr::null_mut();
         }
@@ -571,10 +614,10 @@ impl SystemAudioSession {
     }
 }
 
-impl Drop for SystemAudioSession {
+impl<D: SystemAudioDevice> Drop for SystemAudioSession<D> {
     fn drop(&mut self) {
-        if let Some(started) = self.started.take() {
-            if started.stop().is_err() {
+        if let Some(mut device) = self.device.take() {
+            if device.stop().is_err() {
                 let _ = self.abandon_state();
             }
         }
@@ -746,6 +789,40 @@ mod tests {
                 "{text} counted as a usage string"
             );
         }
+    }
+
+    /// A real plist parse is needed: a text search counts a commented-out key and a nested key.
+    #[test]
+    fn usage_string_ignores_comments_and_nesting() {
+        const VALUE: &str = "Coco Voice records system audio from your meetings.";
+
+        let commented = format!(
+            "<plist version=\"1.0\"><dict><!-- <key>{USAGE_KEY}</key>\
+             <string>{VALUE}</string> --></dict></plist>"
+        );
+        assert_eq!(
+            require_usage_string(&commented),
+            Err(TapError::UsageStringMissing),
+            "a commented-out key counted as a usage string"
+        );
+
+        let nested = format!(
+            "<plist version=\"1.0\"><dict><key>Other</key>\
+             <dict><key>{USAGE_KEY}</key><string>{VALUE}</string></dict></dict></plist>"
+        );
+        assert_eq!(
+            require_usage_string(&nested),
+            Err(TapError::UsageStringMissing),
+            "a key nested in another dict counted as a top-level usage string"
+        );
+
+        let valid = format!(
+            "<plist version=\"1.0\"><dict>\
+             <key>CFBundleName</key><string>Coco Voice</string>\
+             <key>{USAGE_KEY}</key><string>{VALUE}</string>\
+             </dict></plist>"
+        );
+        require_usage_string(&valid).expect("a top-level usage string must pass");
     }
 
     #[test]
@@ -980,6 +1057,70 @@ mod tests {
         drop(tx);
     }
 
+    /// Drive `stop()` itself: a device whose stop fails must report that failure, join the
+    /// worker and raise the shutdown flag. No Core Audio: the session is built over the fake.
+    #[test]
+    fn session_stop_with_failing_device_reports_and_exits() {
+        // The test keeps `tx` open, so only `shutdown` can end the worker.
+        let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+        let (free_tx, _free) = mpsc::sync_channel::<Vec<f32>>(QUEUE_BLOCKS);
+        let (shutdown, heard) = (
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(false)),
+        );
+        let (flag, worker_heard) = (Arc::clone(&shutdown), Arc::clone(&heard));
+        let (done_tx, done) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let result = run_worker(
+                48_000,
+                &rx,
+                &free_tx,
+                &mut |_: &[f32]| {},
+                &worker_heard,
+                &flag,
+            );
+            let _ = done_tx.send(());
+            result
+        });
+        tx.send(sine(48_000, 440.0, 0.25)).expect("queue tone");
+        for _ in 0..400 {
+            if heard.load(Ordering::Relaxed) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(
+            heard.load(Ordering::Relaxed),
+            "worker never reached the queued tone"
+        );
+
+        let session: SystemAudioSession<FakeDevice> = SystemAudioSession {
+            tap: None,
+            device: Some(FakeDevice {
+                stop_err: Some(TapError::Device("stop failed".into())),
+                ..FakeDevice::default()
+            }),
+            aggregate_id: None,
+            state: std::ptr::null_mut(),
+            worker: Some(worker),
+            dropped: Arc::new(AtomicU64::new(0)),
+            worker_gone: Arc::new(AtomicBool::new(false)),
+            heard,
+            shutdown: Arc::clone(&shutdown),
+        };
+        let err = session
+            .stop()
+            .expect_err("device stop failure was swallowed");
+        assert_eq!(err, TapError::Device("stop failed".into()));
+        assert!(
+            shutdown.load(Ordering::Acquire),
+            "stop left the shutdown flag down with IO possibly live"
+        );
+        done.recv_timeout(Duration::from_secs(2))
+            .expect("worker thread never exited");
+        drop(tx);
+    }
+
     #[test]
     fn io_block_reuses_pool_buffers_and_counts_every_drop() {
         let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(1);
@@ -1002,5 +1143,60 @@ mod tests {
         io_block(&state, &[0.0; 6]); // 3 frames > capacity 2: dropped, never grown
         assert_eq!(dropped.load(Ordering::Relaxed), 2);
         assert_eq!(rx.try_recv().map(|b| b.len()), Ok(0)); // buffer recycled, no oversize data
+    }
+
+    /// #226: the HAL returns bytes, so the f32 view needs an alignment guard, not an assumption.
+    /// This test never dereferences the misaligned pointer; the guard must reject it first.
+    #[test]
+    fn misaligned_buffer_is_dropped_not_read() {
+        #[repr(align(8))]
+        struct AlignedBytes([u8; 16]);
+
+        let storage = AlignedBytes([0; 16]);
+        // wrapping_add is safe and does not read through the pointer.
+        let misaligned = storage.0.as_ptr().wrapping_add(1) as *const f32;
+        assert_ne!(
+            misaligned as usize % std::mem::align_of::<f32>(),
+            0,
+            "test setup: pointer must be misaligned"
+        );
+
+        let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(1);
+        let (free_tx, free) = mpsc::sync_channel::<Vec<f32>>(1);
+        free_tx.send(Vec::with_capacity(8)).expect("seed pool");
+        let dropped = Arc::new(AtomicU64::new(0));
+        let mut state = IoState {
+            channels: 1,
+            free,
+            tx,
+            dropped: Arc::clone(&dropped),
+            worker_gone: Arc::new(AtomicBool::new(false)),
+        };
+
+        let mut input = AudioBufList::<1>::new();
+        input.buffers[0].number_channels = 1;
+        input.buffers[0].data = misaligned as *mut u8;
+        input.buffers[0].data_bytes_size = 8;
+        let mut output = AudioBufList::<1>::new();
+        let now = cidre::cat::AudioTimeStamp::invalid();
+        let _ = on_input(
+            hardware::Device(Obj(0)),
+            &now,
+            &input,
+            &now,
+            &mut output,
+            &now,
+            Some(&mut state),
+        );
+
+        assert_eq!(
+            dropped.load(Ordering::Relaxed),
+            1,
+            "misaligned buffer was not counted as a drop"
+        );
+        assert!(
+            rx.try_recv().is_err(),
+            "misaligned buffer was delivered to the worker"
+        );
     }
 }
