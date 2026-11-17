@@ -2,10 +2,10 @@ use crate::actions::ACTION_MAP;
 use crate::managers::audio::AudioRecordingManager;
 use log::{debug, error, warn};
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex, PoisonError, Weak};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError, Weak};
 use std::thread;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 const DEBOUNCE: Duration = Duration::from_millis(30);
 const RELEASE_GRACE: Duration = Duration::from_millis(50);
@@ -44,6 +44,39 @@ enum Stage {
     Processing,
 }
 
+/// What the coordinator does with a press or release once PTT grace handling is done.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InputAction {
+    Start,
+    Stop,
+    /// A press arrived while the last take is still being transcribed.
+    Busy,
+    Ignore,
+}
+
+fn classify_input(
+    stage: &Stage,
+    binding_id: &str,
+    is_pressed: bool,
+    push_to_talk: bool,
+) -> InputAction {
+    // Push-to-talk stops on the key-up; toggle mode stops on the next press.
+    let stop_edge = if push_to_talk {
+        !is_pressed
+    } else {
+        is_pressed
+    };
+    match stage {
+        Stage::Idle if is_pressed => InputAction::Start,
+        Stage::Recording(id) if id == binding_id && stop_edge => InputAction::Stop,
+        Stage::Processing if is_pressed => InputAction::Busy,
+        _ => InputAction::Ignore,
+    }
+}
+
+/// Event sent to the overlay when a press is refused because a take is still in flight.
+const BUSY_EVENT: &str = "pipeline-busy";
+
 fn classify_ptt_event(
     pending_release_binding: Option<&str>,
     is_pressed: bool,
@@ -74,6 +107,10 @@ fn classify_ptt_event(
 pub struct TranscriptionCoordinator {
     /// Shared with the worker so it can swap in a fresh channel after a panic.
     tx: Arc<Mutex<Sender<Command>>>,
+    /// Set by `mark_ready` once setup has managed every state the actions read.
+    /// Until then the worker holds commands in the channel instead of running
+    /// them, so an early toggle can't hit `state()` before `manage()` (#212).
+    ready: Arc<OnceLock<()>>,
 }
 
 pub fn is_transcribe_binding(id: &str) -> bool {
@@ -87,14 +124,27 @@ impl TranscriptionCoordinator {
     pub fn new(app: AppHandle) -> Self {
         let (tx, rx) = mpsc::channel();
         let tx = Arc::new(Mutex::new(tx));
-        Self::spawn_worker(app, Arc::downgrade(&tx), rx);
-        Self { tx }
+        let ready = Arc::new(OnceLock::new());
+        Self::spawn_worker(app, Arc::downgrade(&tx), rx, ready.clone());
+        Self { tx, ready }
+    }
+
+    /// Lets the worker run queued and future commands. Call once the managers,
+    /// tray and overlay are managed.
+    pub fn mark_ready(&self) {
+        let _ = self.ready.set(());
     }
 
     /// Runs the coordinator loop on its own thread. If the loop panics, a new
     /// channel and worker are installed so the hotkey keeps working.
-    fn spawn_worker(app: AppHandle, tx: Weak<Mutex<Sender<Command>>>, rx: Receiver<Command>) {
+    fn spawn_worker(
+        app: AppHandle,
+        tx: Weak<Mutex<Sender<Command>>>,
+        rx: Receiver<Command>,
+        ready: Arc<OnceLock<()>>,
+    ) {
         thread::spawn(move || {
+            wait_until_ready(&ready);
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let mut stage = Stage::Idle;
                 let mut last_press: Option<Instant> = None;
@@ -177,26 +227,21 @@ impl TranscriptionCoordinator {
                                 last_press = Some(now);
                             }
 
-                            if push_to_talk {
-                                if is_pressed && matches!(stage, Stage::Idle) {
-                                    start(&app, &mut stage, &binding_id, &hotkey_string);
-                                } else if !is_pressed
-                                    && matches!(&stage, Stage::Recording(id) if id == &binding_id)
-                                {
-                                    stop(&app, &mut stage, &binding_id, &hotkey_string);
+                            match classify_input(&stage, &binding_id, is_pressed, push_to_talk) {
+                                InputAction::Start => {
+                                    start(&app, &mut stage, &binding_id, &hotkey_string)
                                 }
-                            } else if is_pressed {
-                                match &stage {
-                                    Stage::Idle => {
-                                        start(&app, &mut stage, &binding_id, &hotkey_string);
-                                    }
-                                    Stage::Recording(id) if id == &binding_id => {
-                                        stop(&app, &mut stage, &binding_id, &hotkey_string);
-                                    }
-                                    _ => {
-                                        debug!("Ignoring press for '{binding_id}': pipeline busy")
+                                InputAction::Stop => {
+                                    stop(&app, &mut stage, &binding_id, &hotkey_string)
+                                }
+                                InputAction::Busy => {
+                                    debug!("Press for '{binding_id}' while transcribing");
+                                    if let Err(e) = app.emit_to("recording_overlay", BUSY_EVENT, ())
+                                    {
+                                        debug!("Failed to emit {BUSY_EVENT}: {e}");
                                     }
                                 }
+                                InputAction::Ignore => {}
                             }
                         }
                         Command::Cancel {
@@ -233,7 +278,7 @@ impl TranscriptionCoordinator {
                 // new worker (stage Idle). A dropped coordinator ends the chain.
                 if let Some(tx) = tx.upgrade() {
                     let new_rx = replace_channel(&tx);
-                    Self::spawn_worker(app, Arc::downgrade(&tx), new_rx);
+                    Self::spawn_worker(app, Arc::downgrade(&tx), new_rx, ready);
                 }
             }
         });
@@ -255,6 +300,9 @@ impl TranscriptionCoordinator {
         is_pressed: bool,
         push_to_talk: bool,
     ) {
+        if self.ready.get().is_none() {
+            warn!("Input for '{binding_id}' arrived during startup; it will run once the app is ready");
+        }
         if self
             .send(Command::Input {
                 binding_id: binding_id.to_string(),
@@ -283,6 +331,14 @@ impl TranscriptionCoordinator {
         if self.send(Command::ProcessingFinished).is_err() {
             warn!("Transcription coordinator channel closed");
         }
+    }
+}
+
+/// Blocks until `ready` is set. Commands sent meanwhile wait in the channel.
+fn wait_until_ready(ready: &OnceLock<()>) {
+    if ready.get().is_none() {
+        debug!("Transcription coordinator waiting for startup to finish");
+        ready.wait();
     }
 }
 
@@ -344,6 +400,41 @@ mod tests {
         ));
     }
 
+    /// Regression for #212: a toggle sent before setup has managed the managers
+    /// must not reach them (Tauri panics with "state() called before manage()")
+    /// and must not be lost: it runs once the app is marked ready.
+    #[test]
+    fn toggle_before_ready_waits_and_runs_once_ready() {
+        let ready = Arc::new(OnceLock::new());
+        let managed = Arc::new(OnceLock::<()>::new()); // stands in for app.manage()
+        let (tx, rx) = mpsc::channel();
+        let (done_tx, done_rx) = mpsc::channel();
+        let worker = {
+            let (ready, managed) = (ready.clone(), managed.clone());
+            thread::spawn(move || {
+                wait_until_ready(&ready);
+                let cmd = rx.recv().unwrap();
+                // What app.state::<...>() does when nothing is managed yet.
+                managed.get().expect("state() called before manage()");
+                done_tx.send(cmd).unwrap();
+            })
+        };
+
+        tx.send(Command::ProcessingFinished).unwrap(); // the early toggle
+        assert!(
+            done_rx.recv_timeout(Duration::from_millis(100)).is_err(),
+            "command ran before the app was ready"
+        );
+
+        managed.set(()).unwrap(); // initialize_core_logic finishes
+        ready.set(()).unwrap(); // mark_ready
+        assert!(matches!(
+            done_rx.recv_timeout(Duration::from_secs(5)),
+            Ok(Command::ProcessingFinished)
+        ));
+        worker.join().expect("worker must not panic");
+    }
+
     #[test]
     fn push_to_talk_release_while_recording_defers_release() {
         assert_eq!(
@@ -403,6 +494,54 @@ mod tests {
         assert_eq!(
             classify_ptt_event(Some("transcribe"), true, true, "transcribe", None),
             PttAction::CancelRelease
+        );
+    }
+
+    #[test]
+    fn press_while_transcribing_is_busy_in_both_modes() {
+        for push_to_talk in [true, false] {
+            assert_eq!(
+                classify_input(&Stage::Processing, "transcribe", true, push_to_talk),
+                InputAction::Busy
+            );
+            // The key-up after that press stays silent.
+            assert_eq!(
+                classify_input(&Stage::Processing, "transcribe", false, push_to_talk),
+                InputAction::Ignore
+            );
+        }
+    }
+
+    #[test]
+    fn classify_input_keeps_start_and_stop() {
+        let recording = Stage::Recording("transcribe".to_string());
+        assert_eq!(
+            classify_input(&Stage::Idle, "transcribe", true, true),
+            InputAction::Start
+        );
+        assert_eq!(
+            classify_input(&Stage::Idle, "transcribe", true, false),
+            InputAction::Start
+        );
+        assert_eq!(
+            classify_input(&recording, "transcribe", false, true),
+            InputAction::Stop
+        );
+        assert_eq!(
+            classify_input(&recording, "transcribe", true, false),
+            InputAction::Stop
+        );
+        assert_eq!(
+            classify_input(&recording, "transcribe", true, true),
+            InputAction::Ignore
+        );
+        assert_eq!(
+            classify_input(&recording, "correction", true, false),
+            InputAction::Ignore
+        );
+        assert_eq!(
+            classify_input(&Stage::Idle, "transcribe", false, false),
+            InputAction::Ignore
         );
     }
 

@@ -4,7 +4,11 @@ pub mod history;
 #[cfg(feature = "meetings")]
 pub mod meeting_capture;
 #[cfg(feature = "meetings")]
+pub mod meeting_chunker;
+#[cfg(feature = "meetings")]
 pub mod meetings;
+#[cfg(feature = "meetings")]
+pub mod meetings_export;
 pub mod model;
 pub mod model_capabilities;
 pub mod transcription;
