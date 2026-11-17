@@ -236,8 +236,15 @@ extern "C" fn on_input(
             if buf.data.is_null() || buf.data_bytes_size < 4 {
                 return Status::NO_ERR;
             }
+            // #226: the HAL hands back bytes, so the f32 view is only sound when the address is
+            // aligned. A misaligned block is unreadable, so it is dropped and counted.
+            if !(buf.data as *const f32).is_aligned() {
+                state.dropped.fetch_add(1, Ordering::Relaxed);
+                return Status::NO_ERR;
+            }
             let count = buf.data_bytes_size as usize / std::mem::size_of::<f32>();
-            // SAFETY: HAL owns this buffer for the duration of the IO proc. Length is the byte size.
+            // SAFETY: HAL owns this buffer for the duration of the IO proc. Length is the byte
+            // size, the address is aligned (checked above), and f32 has no invalid bit patterns.
             let raw = unsafe { std::slice::from_raw_parts(buf.data as *const f32, count) };
             io_block(state, raw);
         }
@@ -1002,5 +1009,60 @@ mod tests {
         io_block(&state, &[0.0; 6]); // 3 frames > capacity 2: dropped, never grown
         assert_eq!(dropped.load(Ordering::Relaxed), 2);
         assert_eq!(rx.try_recv().map(|b| b.len()), Ok(0)); // buffer recycled, no oversize data
+    }
+
+    /// #226: the HAL returns bytes, so the f32 view needs an alignment guard, not an assumption.
+    /// This test never dereferences the misaligned pointer; the guard must reject it first.
+    #[test]
+    fn misaligned_buffer_is_dropped_not_read() {
+        #[repr(align(8))]
+        struct AlignedBytes([u8; 16]);
+
+        let storage = AlignedBytes([0; 16]);
+        // wrapping_add is safe and does not read through the pointer.
+        let misaligned = storage.0.as_ptr().wrapping_add(1) as *const f32;
+        assert_ne!(
+            misaligned as usize % std::mem::align_of::<f32>(),
+            0,
+            "test setup: pointer must be misaligned"
+        );
+
+        let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(1);
+        let (free_tx, free) = mpsc::sync_channel::<Vec<f32>>(1);
+        free_tx.send(Vec::with_capacity(8)).expect("seed pool");
+        let dropped = Arc::new(AtomicU64::new(0));
+        let mut state = IoState {
+            channels: 1,
+            free,
+            tx,
+            dropped: Arc::clone(&dropped),
+            worker_gone: Arc::new(AtomicBool::new(false)),
+        };
+
+        let mut input = AudioBufList::<1>::new();
+        input.buffers[0].number_channels = 1;
+        input.buffers[0].data = misaligned as *mut u8;
+        input.buffers[0].data_bytes_size = 8;
+        let mut output = AudioBufList::<1>::new();
+        let now = cidre::cat::AudioTimeStamp::invalid();
+        let _ = on_input(
+            hardware::Device(Obj(0)),
+            &now,
+            &input,
+            &now,
+            &mut output,
+            &now,
+            Some(&mut state),
+        );
+
+        assert_eq!(
+            dropped.load(Ordering::Relaxed),
+            1,
+            "misaligned buffer was not counted as a drop"
+        );
+        assert!(
+            rx.try_recv().is_err(),
+            "misaligned buffer was delivered to the worker"
+        );
     }
 }
