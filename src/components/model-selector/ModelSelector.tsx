@@ -34,6 +34,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
     verifyingModels,
     extractingModels,
     selectModel,
+    isRecording,
   } = useModelStore();
 
   const [modelStatus, setModelStatus] = useState<ModelStatus>("unloaded");
@@ -45,6 +46,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const displayModelId = pendingModelId || currentModel;
+
+  // Switching models mid-take would swap the engine under the recording.
+  useEffect(() => {
+    if (isRecording) setShowModelDropdown(false);
+  }, [isRecording]);
 
   // Check model status when currentModel changes
   useEffect(() => {
@@ -256,10 +262,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ onError }) => {
           displayText={getModelDisplayText()}
           isDropdownOpen={showModelDropdown}
           onClick={() => setShowModelDropdown(!showModelDropdown)}
+          disabled={isRecording}
         />
 
         {/* Model Dropdown */}
-        {showModelDropdown && (
+        {showModelDropdown && !isRecording && (
           <ModelDropdown
             models={models}
             currentModelId={displayModelId}
