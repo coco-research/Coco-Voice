@@ -6,6 +6,41 @@ from the conventional commit titles when a release is cut. The user-facing notes
 for each version are in [src/content/release-notes/](src/content/release-notes/)
 and on the [GitHub Release](https://github.com/coco-research/Coco-Voice/releases).
 
+## [0.11.0](https://github.com/coco-research/Coco-Voice/compare/v0.10.1...v0.11.0) (2026-11-17)
+
+
+### Added
+
+* meeting notes core with segment citations ([#241](https://github.com/coco-research/Coco-Voice/issues/241)) ([f0ad288](https://github.com/coco-research/Coco-Voice/commit/f0ad288e60ee0836f14ae45501f263da3db653ca))
+* score WER with number words and digits treated as equal ([#221](https://github.com/coco-research/Coco-Voice/issues/221)) ([9214389](https://github.com/coco-research/Coco-Voice/commit/921438940762a600971124ebd0e56111bf1633de))
+* store meeting notes and notepad points ([#243](https://github.com/coco-research/Coco-Voice/issues/243)) ([006a766](https://github.com/coco-research/Coco-Voice/commit/006a76629f3340811e489dcaca428088646e82af))
+
+
+### Fixed
+
+* hold transcription toggles until startup has managed the managers ([#245](https://github.com/coco-research/Coco-Voice/issues/245)) ([a748aa6](https://github.com/coco-research/Coco-Voice/commit/a748aa6203905069810ee3f679884fd105daa448)), closes [#212](https://github.com/coco-research/Coco-Voice/issues/212)
+* **llm:** build against llama-cpp-2 0.1.161 ([#249](https://github.com/coco-research/Coco-Voice/issues/249)) ([77052f5](https://github.com/coco-research/Coco-Voice/commit/77052f580c4d07349e6cf025e608fe7df354db17)), closes [#233](https://github.com/coco-research/Coco-Voice/issues/233)
+* **meetings:** drop a misaligned tap buffer instead of reading it ([#234](https://github.com/coco-research/Coco-Voice/issues/234)) ([53e71be](https://github.com/coco-research/Coco-Voice/commit/53e71be21e64f058d316c10b6cb1738dc95b4efc))
+* **meetings:** parse Info.plist for the system-audio usage string ([#235](https://github.com/coco-research/Coco-Voice/issues/235)) ([09d415a](https://github.com/coco-research/Coco-Voice/commit/09d415a7f4db9524e555d6b0f17d4c234aa4f77f))
+* use the backend key recorder for coco_voice_keys ([#246](https://github.com/coco-research/Coco-Voice/issues/246)) ([4f55528](https://github.com/coco-research/Coco-Voice/commit/4f5552899dc9884606cfeef4995060ec820dd0b7)), closes [#219](https://github.com/coco-research/Coco-Voice/issues/219)
+
+## [0.10.1](https://github.com/coco-research/Coco-Voice/compare/v0.10.0...v0.10.1) (2026-11-16)
+
+
+### Fixed
+
+* apply the legal hold to every model source, not only Hugging Face ([#173](https://github.com/coco-research/Coco-Voice/issues/173)) ([5ce6a28](https://github.com/coco-research/Coco-Voice/commit/5ce6a284f397aac084dd87c6c8b78c3befce387a))
+* cancelling a model download stops only that download ([#135](https://github.com/coco-research/Coco-Voice/issues/135)) ([b306eb3](https://github.com/coco-research/Coco-Voice/commit/b306eb344cbed41e1949494316c992a618b88c6c))
+* check every catalog model's download against its SHA-256 ([#180](https://github.com/coco-research/Coco-Voice/issues/180)) ([9a7e453](https://github.com/coco-research/Coco-Voice/commit/9a7e4535896f4e9c8bb70c70acf821b040c9ba0f))
+* format scripts/wer.ts so main's code-quality check passes again ([#183](https://github.com/coco-research/Coco-Voice/issues/183)) ([113e3bc](https://github.com/coco-research/Coco-Voice/commit/113e3bc2439a6fd482abef512b442670ef0974c1))
+* keep models people already downloaded when the catalog pins, hashes or moves them ([#193](https://github.com/coco-research/Coco-Voice/issues/193)) ([89b8bae](https://github.com/coco-research/Coco-Voice/commit/89b8baecdb8482f2809abbd166c7109ff0205415))
+* label Whisper large-v3-turbo MIT and pin licences to the converted source ([#181](https://github.com/coco-research/Coco-Voice/issues/181)) ([0ea3e4c](https://github.com/coco-research/Coco-Voice/commit/0ea3e4cd3ffcf0a052996adb0994ca9fcf53511b))
+* pin every catalog model to a commit instead of main ([#179](https://github.com/coco-research/Coco-Voice/issues/179)) ([d0a279f](https://github.com/coco-research/Coco-Voice/commit/d0a279f9e9d8e9f041b6787836a800f67c405355))
+* reuse a model already in the shared cache instead of downloading it again ([#136](https://github.com/coco-research/Coco-Voice/issues/136)) ([df4b703](https://github.com/coco-research/Coco-Voice/commit/df4b70334ce9f347940c01d95d66fc1ccb220e9b))
+* say how to re-add Coco Voice in Accessibility after the update ([4fff70e](https://github.com/coco-research/Coco-Voice/commit/4fff70e10cbf6432d4614d16cec8356ab00f64a7))
+* say why a shortcut can't be registered, and offer Try again ([#149](https://github.com/coco-research/Coco-Voice/issues/149)) ([7512e17](https://github.com/coco-research/Coco-Voice/commit/7512e179ca73b50b8e4f8452a263ea8e4bdae3e9))
+* ship the system-audio permission text only in meetings builds ([#254](https://github.com/coco-research/Coco-Voice/issues/254)) ([2b60771](https://github.com/coco-research/Coco-Voice/commit/2b60771f6af16a4e95f58a6ca587dd9a3dd02a1d))
+
 ## [0.10.0](https://github.com/coco-research/Coco-Voice/compare/v0.9.6...v0.10.0) (2026-10-28)
 
 
