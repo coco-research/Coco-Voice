@@ -15,6 +15,7 @@ interface ModelStatusButtonProps {
   displayText: string;
   isDropdownOpen: boolean;
   onClick: () => void;
+  disabled?: boolean;
   className?: string;
 }
 
@@ -23,6 +24,7 @@ const ModelStatusButton: React.FC<ModelStatusButtonProps> = ({
   displayText,
   isDropdownOpen,
   onClick,
+  disabled = false,
   className = "",
 }) => {
   const getStatusColor = (status: ModelStatus): string => {
@@ -51,7 +53,8 @@ const ModelStatusButton: React.FC<ModelStatusButtonProps> = ({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 hover:text-text/80 transition-colors ${className}`}
+      disabled={disabled}
+      className={`flex items-center gap-2 hover:text-text/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
       title={`Model status: ${displayText}`}
     >
       <div className={`w-2 h-2 rounded-full ${getStatusColor(status)}`} />
