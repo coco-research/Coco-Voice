@@ -1,7 +1,7 @@
 {
   "name": "coco-voice",
   "private": true,
-  "version": "0.10.0",
+  "version": "0.11.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,7 +16,7 @@
     "format:backend": "cd src-tauri && cargo fmt",
     "test:playwright": "playwright test",
     "test:playwright:ui": "playwright test --ui",
-    "test:static": "bun test scripts/no-donate.test.ts scripts/check-tauri-versions.test.ts scripts/sbom-model-licences.test.ts scripts/meetings-release-gate.test.ts scripts/meetings-frontend-gate.test.ts scripts/privacy-scan.test.ts scripts/meetings-consent-copy.test.ts",
+    "test:static": "bun test scripts/no-donate.test.ts scripts/check-tauri-versions.test.ts scripts/sbom-model-licences.test.ts scripts/meetings-release-gate.test.ts scripts/meetings-frontend-gate.test.ts scripts/privacy-scan.test.ts scripts/meetings-consent-copy.test.ts scripts/shortcut-input.test.ts scripts/permission-checks.test.ts && bun test scripts/model-selector-recording.test.tsx",
     "check:translations": "bun scripts/check-translations.ts",
     "check:tauri-versions": "bun scripts/check-tauri-versions.ts",
     "postinstall": "bun scripts/check-nix-deps.ts"
@@ -45,7 +45,7 @@
     "react-select": "^5.8.0",
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.8",
-    "tailwindcss": "^4.1.16",
+    "tailwindcss": "^4.3.5",
     "tauri-plugin-macos-permissions-api": "2.3.0",
     "zod": "^3.25.76",
     "zustand": "^5.0.16"
@@ -57,8 +57,8 @@
     "@types/react": "^18.3.26",
     "@types/react-dom": "^18.3.7",
     "@types/react-select": "^5.0.1",
-    "@typescript-eslint/eslint-plugin": "^8.72.0",
-    "@typescript-eslint/parser": "^8.72.0",
+    "@typescript-eslint/eslint-plugin": "^8.72.1",
+    "@typescript-eslint/parser": "^8.72.1",
     "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^10.13.0",
     "eslint-plugin-i18next": "^6.1.5",
