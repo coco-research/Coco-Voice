@@ -22,7 +22,7 @@ use llama_cpp_2::context::params::LlamaContextParams;
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
-use llama_cpp_2::model::{AddBos, LlamaModel};
+use llama_cpp_2::model::LlamaModel;
 use llama_cpp_2::sampling::LlamaSampler;
 use log::{debug, warn};
 use tokio::sync::mpsc;
@@ -304,6 +304,25 @@ pub(crate) fn strip_think_blocks(text: &str) -> String {
     out.trim().to_string()
 }
 
+/// Decode one token's bytes with the run's UTF-8 decoder. This is the body of
+/// `LlamaModel::token_to_piece` in llama-cpp-2 0.1.156, which 0.1.161 removed;
+/// its two panics are errors here, as the old call returned an error.
+fn decode_piece(decoder: &mut encoding_rs::Decoder, bytes: &[u8]) -> Result<String, LocalLlmError> {
+    // `decode_to_string` never grows its destination. The decoder's bound also accounts
+    // for an incomplete UTF-8 sequence retained from the previous token.
+    let capacity = decoder.max_utf8_buffer_length(bytes.len()).ok_or_else(|| {
+        LocalLlmError::Other("Failed to convert token to string: token too large".to_string())
+    })?;
+    let mut output = String::with_capacity(capacity);
+    let (result, read, _) = decoder.decode_to_string(bytes, &mut output, false);
+    if !matches!(result, encoding_rs::CoderResult::InputEmpty) || read != bytes.len() {
+        return Err(LocalLlmError::Other(
+            "Failed to convert token to string: decoder did not consume the token".to_string(),
+        ));
+    }
+    Ok(output)
+}
+
 fn generate_text_blocking(
     model_path: &Path,
     system_prompt: &str,
@@ -401,6 +420,7 @@ fn generate_with_model(
         .as_ref()
         .expect("model is cached after the load branch")
         .model;
+    let vocab = model.vocab();
 
     let ctx_params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(N_CTX));
     let mut ctx = model
@@ -417,15 +437,9 @@ fn generate_with_model(
         .unwrap_or_default();
     let qwen3 = is_qwen3(architecture.as_deref(), &file_name);
     let (prefix, transcript, suffix) = chat_template_parts(system_prompt, user_content, qwen3);
-    let prefix_tokens = model
-        .str_to_token(&prefix, AddBos::Always)
-        .map_err(|e| LocalLlmError::Other(format!("Failed to tokenize prompt: {}", e)))?;
-    let transcript_tokens = model
-        .str_to_token(&transcript, AddBos::Never)
-        .map_err(|e| LocalLlmError::Other(format!("Failed to tokenize prompt: {}", e)))?;
-    let suffix_tokens = model
-        .str_to_token(&suffix, AddBos::Never)
-        .map_err(|e| LocalLlmError::Other(format!("Failed to tokenize prompt: {}", e)))?;
+    let prefix_tokens = vocab.tokenize(prefix.as_bytes(), true, true);
+    let transcript_tokens = vocab.tokenize(transcript.as_bytes(), false, true);
+    let suffix_tokens = vocab.tokenize(suffix.as_bytes(), false, true);
     if prompt_over_budget(
         prefix_tokens.len().saturating_add(suffix_tokens.len()),
         transcript_tokens.len(),
@@ -476,16 +490,13 @@ fn generate_with_model(
 
         let new_token = sampler.sample(&ctx, -1);
 
-        if model.is_eog_token(new_token) {
+        if vocab.is_eog(new_token) {
             saw_eos = true;
             break;
         }
 
-        let token_str = model
-            .token_to_piece(new_token, &mut decoder, false, None)
-            .map_err(|e| {
-                LocalLlmError::Other(format!("Failed to convert token to string: {}", e))
-            })?;
+        let piece = vocab.token_to_piece(new_token, false, None);
+        let token_str = decode_piece(&mut decoder, &piece)?;
 
         tokens_generated += 1;
 
