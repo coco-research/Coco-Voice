@@ -7,6 +7,7 @@
 use crate::audio_toolkit::vad::{SileroVad, VoiceActivityDetector};
 use crate::catalog::find_model;
 use crate::managers::meetings::{set_meeting_active, MeetingsStore};
+use crate::managers::model::EngineType;
 use crate::managers::transcription::TranscriptionManager;
 use anyhow::{anyhow, Result};
 use log::warn;
@@ -205,13 +206,25 @@ impl ChannelChunker {
 /// Transcribe one chunk under the meeting lock and store the raw text.
 /// Meeting text does not go through `post_process_transcription`.
 /// The segment is stored even when the engine check afterwards fails.
+/// A chunk the engine never freed is not stored, so it is logged here instead
+/// of vanishing: the agent that fed it decides whether to retry. Rows already
+/// written for earlier chunks are never touched.
 pub fn commit_chunk<R: tauri::Runtime>(
     tm: &TranscriptionManager<R>,
     store: &MeetingsStore,
     meeting_id: i64,
     chunk: FinishedChunk,
 ) -> Result<String> {
-    let text = tm.transcribe_meeting_chunk(chunk.samples)?;
+    let text = match tm.transcribe_meeting_chunk(chunk.samples) {
+        Ok(text) => text,
+        Err(err) => {
+            warn!(
+                "meeting chunk {}..{} ms on {} was not stored: {err}",
+                chunk.start_ms, chunk.end_ms, chunk.channel
+            );
+            return Err(err);
+        }
+    };
     store.insert_segment(
         meeting_id,
         chunk.start_ms,
@@ -251,22 +264,57 @@ pub enum BeginMeetingError {
 
 /// Speech model to pin. Does not write `selected_model`.
 /// `qwen3` rows are not speech models (`is_local_llm_arch` -> not a speech engine).
+///
+/// `other` answers for a downloaded id the catalog does not know (the ONNX
+/// engines `ModelManager::new` registers); production passes
+/// `|id| model_manager.get_model_info(id).map(|m| m.engine_type)`.
+///
+/// Pick order, deterministic: `selected` when it takes long audio, else the
+/// first parakeet (catalog GGUF ids before non-catalog ones, ties by
+/// `downloaded` order), else the first long-audio id.
 pub fn plan_meeting_model(
     selected: &str,
     downloaded: &[String],
+    other: &dyn Fn(&str) -> Option<EngineType>,
 ) -> Result<String, MeetingStartRefusal> {
     let mut speech = Vec::new();
     let mut long_audio = Vec::new();
+    let mut catalog_parakeet: Option<String> = None;
+    let mut other_parakeet: Option<String> = None;
     for id in downloaded {
-        let Some(desc) = find_model(id) else {
-            continue;
+        // Catalog rows keep today's rules: every family but `voxtral` is safe
+        // for 30 s chunks, and `parakeet` is the preferred family.
+        let (is_speech, takes_long_audio, is_parakeet, in_catalog) = match find_model(id) {
+            Some(desc) => (
+                desc.engine_type.is_speech(),
+                desc.family.as_deref() != Some("voxtral"),
+                desc.family.as_deref() == Some("parakeet"),
+                true,
+            ),
+            // ponytail: only Parakeet is cleared for 30 s chunks off-catalog.
+            // Every other ONNX engine counts as speech but not long-audio until
+            // it gets its own long-audio check; add it to this arm after that
+            // check exists. `None` from the lookup means not downloaded: skip.
+            None => match other(id) {
+                Some(engine_type) => {
+                    let is_parakeet = matches!(engine_type, EngineType::Parakeet);
+                    (engine_type.is_speech(), is_parakeet, is_parakeet, false)
+                }
+                None => continue,
+            },
         };
-        if !desc.engine_type.is_speech() {
+        if !is_speech {
             continue;
         }
         speech.push(id.clone());
-        if desc.family.as_deref() != Some("voxtral") {
-            long_audio.push(id.clone());
+        if !takes_long_audio {
+            continue;
+        }
+        long_audio.push(id.clone());
+        if is_parakeet && in_catalog && catalog_parakeet.is_none() {
+            catalog_parakeet = Some(id.clone());
+        } else if is_parakeet && !in_catalog && other_parakeet.is_none() {
+            other_parakeet = Some(id.clone());
         }
     }
     if long_audio.is_empty() {
@@ -276,19 +324,11 @@ pub fn plan_meeting_model(
             .unwrap_or_else(|| selected.to_string());
         return Err(MeetingStartRefusal::OnlyVoxtral { model_id });
     }
-    if let Some(desc) = find_model(selected) {
-        if desc.engine_type.is_speech()
-            && desc.family.as_deref() != Some("voxtral")
-            && long_audio.iter().any(|id| id == selected)
-        {
-            return Ok(selected.to_string());
-        }
+    if long_audio.iter().any(|id| id == selected) {
+        return Ok(selected.to_string());
     }
-    if let Some(id) = long_audio
-        .iter()
-        .find(|id| find_model(id).and_then(|desc| desc.family.as_deref()) == Some("parakeet"))
-    {
-        return Ok(id.clone());
+    if let Some(id) = catalog_parakeet.or(other_parakeet) {
+        return Ok(id);
     }
     Ok(long_audio.remove(0))
 }
@@ -299,8 +339,10 @@ pub fn begin_meeting(
     selected: &str,
     downloaded: &[String],
     title: &str,
+    other: &dyn Fn(&str) -> Option<EngineType>,
 ) -> Result<i64, BeginMeetingError> {
-    let model_id = plan_meeting_model(selected, downloaded).map_err(BeginMeetingError::Refused)?;
+    let model_id =
+        plan_meeting_model(selected, downloaded, other).map_err(BeginMeetingError::Refused)?;
     let id = store
         .start_meeting(title, &model_id)
         .map_err(BeginMeetingError::Store)?;
@@ -313,6 +355,7 @@ mod tests {
     use super::*;
     use crate::actions::POST_PROCESS_CALLS;
     use crate::managers::meetings::test_lock;
+    use crate::managers::model::{builtin_models, EngineType};
     use crate::managers::transcription::DICTATION_LOAD_KICKOFFS;
     use crate::settings::{get_settings, update_settings, ModelUnloadTimeout};
     use std::sync::atomic::Ordering;
@@ -324,6 +367,12 @@ mod tests {
     const QWEN: &str = "Qwen/Qwen3-4B-GGUF";
     const CANARY: &str = "handy-computer/canary-180m-flash-gguf";
     const CANARY_FILE: &str = "canary-180m-flash-Q8_0.gguf";
+    const PARAKEET_V3: &str = "parakeet-tdt-0.6b-v3";
+    const PARAKEET_V3_DIR: &str = "parakeet-tdt-0.6b-v3-int8";
+
+    /// What `test_app()` produces, so the live fixture helper can hand it to a
+    /// closure without repeating the runtime type at every call site.
+    type TestManager = TranscriptionManager<tauri::test::MockRuntime>;
 
     struct ResetMeeting;
     impl Drop for ResetMeeting {
@@ -372,6 +421,17 @@ mod tests {
             chunks.push(tail);
         }
         chunks
+    }
+
+    /// `other` for the planner: the built-in non-catalog table, by id.
+    fn builtin_lookup() -> impl Fn(&str) -> Option<EngineType> {
+        let models = builtin_models();
+        move |id| {
+            models
+                .iter()
+                .find(|model| model.id == id)
+                .map(|model| model.engine_type.clone())
+        }
     }
 
     #[test]
@@ -437,9 +497,14 @@ mod tests {
         assert!(chunks[0].samples.len() >= MAX_CHUNK_SAMPLES);
     }
 
-    #[test]
-    #[ignore = "live: needs macOS say/afconvert and an installed speech model"]
-    fn live_chunker_transcribes_fixture() {
+    /// Live fixture shared by the ignored live tests: `say` -> `afconvert` ->
+    /// the Silero chunker -> the engine `install` loads -> one `meeting_lock`
+    /// pass. `start` opens the meeting row, so the planner is what pins the
+    /// model. Returns the model id that row was started with.
+    fn run_live_fixture(
+        install: impl FnOnce(&TestManager) -> anyhow::Result<()>,
+        start: impl FnOnce(&MeetingsStore) -> i64,
+    ) -> String {
         let _lock = test_lock();
         let _reset = ResetMeeting;
         let app = test_app();
@@ -497,6 +562,41 @@ mod tests {
         }
         assert!(!chunks.is_empty(), "the chunker produced no finished chunk");
 
+        let tm = TranscriptionManager::new_for_test(app.handle().clone());
+        install(&tm).expect("load the engine at the given path");
+
+        // The meeting row is where the planned model lands, so it is what
+        // "pinned" means for a live run.
+        let store_dir = tempfile::tempdir().expect("create the meeting store dir");
+        let store = MeetingsStore::open(store_dir.path()).expect("open the meeting store");
+        let meeting_id = start(&store);
+        let pinned = store
+            .meeting(meeting_id)
+            .expect("read the meeting")
+            .model_id;
+
+        let mut texts = Vec::new();
+        for chunk in chunks {
+            assert_eq!(chunk.channel, CHANNEL_ME);
+            texts.push(
+                tm.transcribe_meeting_chunk(chunk.samples)
+                    .expect("transcribe a meeting chunk"),
+            );
+        }
+        let joined = texts.join(" ").to_lowercase();
+        for word in ["budget", "review", "monday"] {
+            assert!(joined.contains(word), "missing '{word}' in: {joined}");
+        }
+        assert!(
+            tm.is_engine_available(),
+            "the meeting lock did not release the engine"
+        );
+        pinned
+    }
+
+    #[test]
+    #[ignore = "live: needs macOS say/afconvert and an installed speech model"]
+    fn live_chunker_transcribes_fixture() {
         let snapshots = std::env::var("HOME")
             .map(std::path::PathBuf::from)
             .expect("HOME is set")
@@ -517,25 +617,113 @@ mod tests {
                 )
             });
 
-        let tm = TranscriptionManager::new_for_test(app.handle().clone());
-        tm.install_engine_from_path_for_test(CANARY, &model_path)
-            .expect("load the canary engine");
-        let mut texts = Vec::new();
-        for chunk in chunks {
-            assert_eq!(chunk.channel, CHANNEL_ME);
-            texts.push(
-                tm.transcribe_meeting_chunk(chunk.samples)
-                    .expect("transcribe a meeting chunk"),
+        run_live_fixture(
+            |tm| tm.install_engine_from_path_for_test(CANARY, &model_path),
+            |store| {
+                store
+                    .start_meeting("Live fixture", CANARY)
+                    .expect("start the meeting")
+            },
+        );
+    }
+
+    /// The ONNX Parakeet V3 engine, read straight from its installed directory.
+    /// The model dir is only read; nothing in it is written, moved or deleted.
+    #[test]
+    #[ignore = "live: needs macOS say/afconvert and the installed Parakeet V3 model"]
+    fn live_chunker_transcribes_fixture_parakeet_v3() {
+        let dir = std::env::var("COCO_TEST_PARAKEET_V3_DIR")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| {
+                let home = std::env::var("HOME").expect("HOME is set");
+                std::path::PathBuf::from(home)
+                    .join("Library/Application Support/com.cocoresearch.cocovoice/models")
+                    .join(PARAKEET_V3_DIR)
+            });
+        if !dir.is_dir() {
+            panic!(
+                "missing the Parakeet V3 model under {}; install it first or set \
+                 COCO_TEST_PARAKEET_V3_DIR",
+                dir.display()
             );
         }
-        let joined = texts.join(" ").to_lowercase();
-        for word in ["budget", "review", "monday"] {
-            assert!(joined.contains(word), "missing '{word}' in: {joined}");
-        }
-        assert!(
-            tm.is_engine_available(),
-            "the meeting lock did not release the engine"
+
+        let lookup = builtin_lookup();
+        let pinned = run_live_fixture(
+            |tm| tm.install_engine_with_type_for_test(PARAKEET_V3, EngineType::Parakeet, &dir),
+            |store| {
+                let downloaded = [PARAKEET_V3.to_string()];
+                begin_meeting(store, "", &downloaded, "Live fixture", &lookup)
+                    .expect("start the meeting through the planner")
+            },
         );
+        assert_eq!(pinned, PARAKEET_V3, "the meeting pinned a different model");
+    }
+
+    #[test]
+    fn planner_pins_onnx_parakeet_v3_when_it_is_the_only_download() {
+        let lookup = builtin_lookup();
+        let downloaded = vec![PARAKEET_V3.to_string()];
+        let pinned = plan_meeting_model("", &downloaded, &lookup).unwrap();
+        assert_eq!(pinned, PARAKEET_V3);
+    }
+
+    #[test]
+    fn planner_prefers_gguf_parakeet_over_onnx_when_both_downloaded() {
+        let lookup = builtin_lookup();
+        // The ONNX id comes first, so picking the catalog id proves the order is
+        // not simply `downloaded` order.
+        let downloaded = vec![PARAKEET_V3.to_string(), PARAKEET.to_string()];
+        let pinned = plan_meeting_model(VOXTRAL, &downloaded, &lookup).unwrap();
+        assert_eq!(pinned, PARAKEET);
+
+        let pinned = plan_meeting_model(PARAKEET_V3, &downloaded, &lookup).unwrap();
+        assert_eq!(pinned, PARAKEET_V3);
+    }
+
+    #[test]
+    fn planner_refuses_when_nothing_is_downloaded() {
+        let lookup = builtin_lookup();
+        let downloaded: Vec<String> = Vec::new();
+        let err = plan_meeting_model(VOXTRAL, &downloaded, &lookup).unwrap_err();
+        assert_eq!(
+            err,
+            MeetingStartRefusal::OnlyVoxtral {
+                model_id: VOXTRAL.to_string()
+            }
+        );
+    }
+
+    /// Reads this Mac's installed models. Read only: nothing in that directory
+    /// is written, moved or deleted. Catalog GGUFs live in the Hugging Face
+    /// cache, not this directory, so they are not counted here.
+    #[test]
+    #[ignore = "live: reads this Mac's installed models, read only"]
+    fn planner_picks_on_this_macs_installed_models() {
+        let dir = std::env::var("COCO_TEST_MODELS_DIR")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| {
+                let home = std::env::var("HOME").expect("HOME is set");
+                std::path::PathBuf::from(home)
+                    .join("Library/Application Support/com.cocoresearch.cocovoice/models")
+            });
+        let downloaded: Vec<String> = builtin_models()
+            .into_iter()
+            .filter(|model| dir.join(model.filename.as_str()).exists())
+            .map(|model| model.id)
+            .collect();
+        let lookup = builtin_lookup();
+        let picked = match plan_meeting_model("", &downloaded, &lookup) {
+            Ok(id) => id,
+            Err(refusal) => format!("refused: {refusal}"),
+        };
+        println!("downloaded={} picked={}", downloaded.join(", "), picked);
+        if dir.join(PARAKEET_V3_DIR).exists() {
+            assert_eq!(
+                picked, PARAKEET_V3,
+                "the planner did not pick the installed ONNX Parakeet"
+            );
+        }
     }
 
     #[test]
@@ -548,7 +736,7 @@ mod tests {
             settings.selected_model = selected.clone();
         });
         let downloaded = vec![VOXTRAL.to_string(), PARAKEET.to_string(), QWEN.to_string()];
-        let pinned = plan_meeting_model(&selected, &downloaded).unwrap();
+        let pinned = plan_meeting_model(&selected, &downloaded, &|_| None).unwrap();
         assert_eq!(pinned, PARAKEET);
         assert_eq!(get_settings(app.handle()).selected_model, selected);
 
@@ -664,6 +852,308 @@ mod tests {
         assert_eq!(rows[0].channel, CHANNEL_ME);
     }
 
+    /// A chunk that arrives while a live stream holds the engine lease must
+    /// wait for the lease instead of being dropped, and its text must reach
+    /// the meeting transcript.
+    #[test]
+    fn stream_lease_vs_meeting_chunk() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let _lock = test_lock();
+        let _reset = ResetMeeting;
+        let app = test_app();
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.pin_meeting_model(PARAKEET);
+        tm.lease_engine_for_test(PARAKEET);
+        assert!(
+            !tm.is_engine_available(),
+            "the simulated stream lease did not take the engine"
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let meeting_id = store.start_meeting("Standup", PARAKEET).unwrap();
+        let mut me = ChannelChunker::new(CHANNEL_ME, Box::new(EnergySpeech));
+        let mut chunks = collect(&mut me, &speech_silence_speech());
+        let chunk = chunks.pop().expect("no chunk to submit");
+
+        let (tx, rx) = mpsc::channel();
+        let worker = {
+            let tm = Arc::clone(&tm);
+            let store = store;
+            thread::spawn(move || {
+                let result = commit_chunk(&tm, &store, meeting_id, chunk);
+                let rows = store.segments(meeting_id).unwrap_or_default();
+                let _ = tx.send(result.map(|text| (text, rows)).map_err(|e| e.to_string()));
+            })
+        };
+
+        // The live stream finishes and releases the lease shortly after the
+        // chunk arrives, so a correct chunker waits instead of dropping it.
+        thread::sleep(Duration::from_millis(200));
+        tm.release_engine_lease_for_test(PARAKEET);
+
+        let received = rx.recv_timeout(Duration::from_secs(5));
+        let Ok(outcome) = received else {
+            panic!("the chunk never returned after the lease was released: {received:?}");
+        };
+        let _ = worker.join();
+        let (text, rows) = match outcome {
+            Ok(value) => value,
+            Err(err) => panic!("the chunk was dropped while the stream held the lease: {err}"),
+        };
+        assert!(!text.is_empty());
+        assert_eq!(
+            rows.len(),
+            1,
+            "the chunk left a hole in the meeting transcript"
+        );
+        assert_eq!(rows[0].text, text);
+        assert_eq!(rows[0].channel, CHANNEL_ME);
+        assert!(tm.is_engine_available());
+    }
+
+    /// A lease that outlives one wait round must not drop the chunk: the wait
+    /// repeats while the meeting is active, then the chunk lands.
+    #[test]
+    fn meeting_chunk_outlasts_a_stream_lease_longer_than_the_wait() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let _lock = test_lock();
+        let _reset = ResetMeeting;
+        let app = test_app();
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.pin_meeting_model(PARAKEET);
+        tm.lease_engine_for_test(PARAKEET);
+        assert!(
+            !tm.is_engine_available(),
+            "the simulated stream lease did not take the engine"
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let meeting_id = store.start_meeting("Standup", PARAKEET).unwrap();
+        let mut me = ChannelChunker::new(CHANNEL_ME, Box::new(EnergySpeech));
+        let mut chunks = collect(&mut me, &speech_silence_speech());
+        let chunk = chunks.pop().expect("no chunk to submit");
+
+        let (tx, rx) = mpsc::channel();
+        let worker = {
+            let tm = Arc::clone(&tm);
+            let store = store;
+            thread::spawn(move || {
+                let result = commit_chunk(&tm, &store, meeting_id, chunk);
+                let rows = store.segments(meeting_id).unwrap_or_default();
+                let _ = tx.send(result.map(|text| (text, rows)).map_err(|e| e.to_string()));
+            })
+        };
+
+        // Longer than the test wait bound (100 ms), so the first round times
+        // out and the chunk has to wait again.
+        thread::sleep(Duration::from_millis(500));
+        tm.release_engine_lease_for_test(PARAKEET);
+
+        let received = rx.recv_timeout(Duration::from_secs(5));
+        let Ok(outcome) = received else {
+            panic!("the chunk never returned after the lease was released: {received:?}");
+        };
+        let _ = worker.join();
+        let (text, rows) = match outcome {
+            Ok(value) => value,
+            Err(err) => panic!("the chunk was dropped while the stream held the lease: {err}"),
+        };
+        assert!(!text.is_empty());
+        assert_eq!(
+            rows.len(),
+            1,
+            "the chunk left a hole in the meeting transcript"
+        );
+        assert_eq!(rows[0].text, text);
+        assert_eq!(rows[0].channel, CHANNEL_ME);
+        assert!(tm.is_engine_available());
+    }
+
+    /// A stream that re-takes the lease after the chunk's wait must not drop
+    /// the chunk.
+    #[test]
+    fn meeting_chunk_survives_a_stream_retaking_the_lease() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let _lock = test_lock();
+        let _reset = ResetMeeting;
+        let app = test_app();
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.pin_meeting_model(PARAKEET);
+        tm.install_fake_engine(PARAKEET);
+        assert!(
+            tm.is_engine_available(),
+            "the engine should start available for this test"
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let meeting_id = store.start_meeting("Standup", PARAKEET).unwrap();
+        let mut me = ChannelChunker::new(CHANNEL_ME, Box::new(EnergySpeech));
+        let mut chunks = collect(&mut me, &speech_silence_speech());
+        let chunk = chunks.pop().expect("no chunk to submit");
+
+        // A stream takes the lease back right after the chunk's lease check,
+        // then holds it past one wait round before handing it back.
+        tm.set_after_lease_check_hook_for_test(Box::new({
+            let tm = Arc::clone(&tm);
+            move || {
+                tm.lease_engine_for_test(PARAKEET);
+                let tm = Arc::clone(&tm);
+                let _ = thread::spawn(move || {
+                    thread::sleep(Duration::from_millis(300));
+                    tm.release_engine_lease_for_test(PARAKEET);
+                });
+            }
+        }));
+
+        let (tx, rx) = mpsc::channel();
+        let worker = {
+            let tm = Arc::clone(&tm);
+            let store = store;
+            thread::spawn(move || {
+                let result = commit_chunk(&tm, &store, meeting_id, chunk);
+                let rows = store.segments(meeting_id).unwrap_or_default();
+                let _ = tx.send(result.map(|text| (text, rows)).map_err(|e| e.to_string()));
+            })
+        };
+
+        let received = rx.recv_timeout(Duration::from_secs(5));
+        let Ok(outcome) = received else {
+            panic!("the chunk never returned after the lease was released: {received:?}");
+        };
+        let _ = worker.join();
+        let (text, rows) = match outcome {
+            Ok(value) => value,
+            Err(err) => panic!("the chunk was dropped when the stream re-took the lease: {err}"),
+        };
+        assert!(!text.is_empty());
+        assert_eq!(
+            rows.len(),
+            1,
+            "the chunk left a hole in the meeting transcript"
+        );
+        assert_eq!(rows[0].text, text);
+        assert_eq!(rows[0].channel, CHANNEL_ME);
+        assert!(tm.is_engine_available());
+    }
+
+    /// A real engine failure while a stream holds the lease is returned, not
+    /// retried until the meeting ends.
+    #[test]
+    fn meeting_chunk_returns_an_engine_failure_during_a_lease() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let _lock = test_lock();
+        let _reset = ResetMeeting;
+        let app = test_app();
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.pin_meeting_model(PARAKEET);
+        tm.install_fake_engine(PARAKEET);
+        assert!(
+            tm.is_engine_available(),
+            "the engine should start available for this test"
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let meeting_id = store.start_meeting("Standup", PARAKEET).unwrap();
+        let mut me = ChannelChunker::new(CHANNEL_ME, Box::new(EnergySpeech));
+        let mut chunks = collect(&mut me, &speech_silence_speech());
+        let chunk = chunks.pop().expect("no chunk to submit");
+
+        // The engine fails while a stream takes the lease, as a real stream
+        // finishing inference would.
+        tm.fail_next_fake_call_under_lease_for_test();
+
+        let (tx, rx) = mpsc::channel();
+        let worker = {
+            let tm = Arc::clone(&tm);
+            let store = store;
+            thread::spawn(move || {
+                let result =
+                    commit_chunk(&tm, &store, meeting_id, chunk).map_err(|e| e.to_string());
+                let rows = store.segments(meeting_id).unwrap_or_default();
+                let _ = tx.send((result, rows));
+            })
+        };
+
+        let received = rx.recv_timeout(Duration::from_secs(2));
+        let (result, rows) = match received {
+            Ok(value) => value,
+            Err(recv_err) => {
+                set_meeting_active(false);
+                tm.release_engine_lease_for_test(PARAKEET);
+                let _ = worker.join();
+                panic!("the chunk kept retrying a real engine failure: {recv_err:?}");
+            }
+        };
+        tm.release_engine_lease_for_test(PARAKEET);
+        let _ = worker.join();
+        let err = result.expect_err("the chunk succeeded instead of returning the failure");
+        assert!(
+            err.contains("fake engine failure"),
+            "unexpected error: {err}"
+        );
+        assert!(
+            rows.is_empty(),
+            "the chunk stored a row after the engine failed"
+        );
+    }
+
+    /// A meeting that ends while its chunk waits must stop the wait with an
+    /// error instead of storing a row.
+    #[test]
+    fn meeting_chunk_gives_up_when_the_meeting_ends() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+
+        let _lock = test_lock();
+        let _reset = ResetMeeting;
+        let app = test_app();
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        set_meeting_active(false);
+        tm.lease_engine_for_test(PARAKEET);
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let meeting_id = store.start_meeting("Standup", PARAKEET).unwrap();
+        let mut me = ChannelChunker::new(CHANNEL_ME, Box::new(EnergySpeech));
+        let mut chunks = collect(&mut me, &speech_silence_speech());
+        let chunk = chunks.pop().expect("no chunk to submit");
+
+        let (tx, rx) = mpsc::channel();
+        let worker = {
+            let tm = Arc::clone(&tm);
+            let store = store;
+            thread::spawn(move || {
+                let result =
+                    commit_chunk(&tm, &store, meeting_id, chunk).map_err(|e| e.to_string());
+                let rows = store.segments(meeting_id).unwrap_or_default();
+                let _ = tx.send((result, rows));
+            })
+        };
+
+        let (result, rows) = rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("the chunk did not give up within 1 s after the meeting ended");
+        let _ = worker.join();
+        let err = result.expect_err("the chunk succeeded after the meeting ended");
+        assert!(err.contains("meeting ended"), "unexpected error: {err}");
+        assert!(
+            rows.is_empty(),
+            "the chunk stored a row after the meeting ended"
+        );
+    }
+
     #[test]
     fn voxtral_only_refuses_start() {
         let _lock = test_lock();
@@ -671,7 +1161,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = MeetingsStore::open(dir.path()).unwrap();
         let downloaded = vec![VOXTRAL.to_string(), QWEN.to_string()];
-        let err = begin_meeting(&store, VOXTRAL, &downloaded, "Standup").unwrap_err();
+        let err = begin_meeting(&store, VOXTRAL, &downloaded, "Standup", &|_| None).unwrap_err();
         match err {
             BeginMeetingError::Refused(MeetingStartRefusal::OnlyVoxtral { model_id }) => {
                 assert!(

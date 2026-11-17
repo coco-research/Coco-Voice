@@ -939,17 +939,20 @@ pub struct ModelManager {
     recovery_attempted: Mutex<HashSet<String>>,
 }
 
+/// The hard-coded non-catalog models: the Whisper `.bin` files and the ONNX
+/// engines, which no catalog entry describes. Pure: no app handle, no disk and
+/// no network, so tests can read the table `new` registers.
+/// Sorted by `id` so the order is stable; callers still key by `id`.
+#[cfg(test)]
+pub(crate) fn builtin_models() -> Vec<ModelInfo> {
+    let mut models: Vec<ModelInfo> = ModelManager::builtin_table().into_values().collect();
+    models.sort_by(|a, b| a.id.cmp(&b.id));
+    models
+}
+
 impl ModelManager {
-    pub fn new(app_handle: &AppHandle) -> Result<Self> {
-        // Create models directory in app data
-        let models_dir = crate::portable::app_data_dir(app_handle)
-            .map_err(|e| anyhow::anyhow!("Failed to get app data dir: {}", e))?
-            .join("models");
-
-        if !models_dir.exists() {
-            fs::create_dir_all(&models_dir)?;
-        }
-
+    /// The table behind `builtin_models`, keyed by id.
+    fn builtin_table() -> HashMap<String, ModelInfo> {
         let mut available_models = HashMap::new();
 
         // Whisper supported languages (99 languages from tokenizer)
@@ -1491,6 +1494,21 @@ impl ModelManager {
                 supports_language_detection: true,
             },
         );
+
+        available_models
+    }
+
+    pub fn new(app_handle: &AppHandle) -> Result<Self> {
+        // Create models directory in app data
+        let models_dir = crate::portable::app_data_dir(app_handle)
+            .map_err(|e| anyhow::anyhow!("Failed to get app data dir: {}", e))?
+            .join("models");
+
+        if !models_dir.exists() {
+            fs::create_dir_all(&models_dir)?;
+        }
+
+        let mut available_models = Self::builtin_table();
 
         // Seed the bundled offline catalog before the on-disk scans, so a model
         // already in the HF cache dedups onto its richer catalog entry (the scans
