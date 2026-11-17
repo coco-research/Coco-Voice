@@ -17,6 +17,7 @@ import AccessibilityPermissions from "./components/AccessibilityPermissions";
 import Footer from "./components/footer";
 import Onboarding, { AccessibilityOnboarding } from "./components/onboarding";
 import { Sidebar, SidebarSection, SECTIONS_CONFIG } from "./components/Sidebar";
+import { useMeetingsUi } from "./components/meetings/gate";
 import { WhatsNewGate } from "./components/whats-new";
 import { useSettings } from "./hooks/useSettings";
 import { useSettingsStore } from "./stores/settingsStore";
@@ -25,7 +26,7 @@ import { getLanguageDirection, initializeRTL } from "@/lib/utils/rtl";
 
 type OnboardingStep = "accessibility" | "model" | "done";
 
-const renderSettingsContent = (section: SidebarSection) => {
+const renderSettingsContent = (section: keyof typeof SECTIONS_CONFIG) => {
   const ActiveComponent =
     SECTIONS_CONFIG[section]?.component || SECTIONS_CONFIG.general.component;
   return <ActiveComponent />;
@@ -56,6 +57,9 @@ function App() {
   const [currentSection, setCurrentSection] =
     useState<SidebarSection>("general");
   const { settings, updateSetting } = useSettings();
+  const meetingsUi = useMeetingsUi();
+  const showMeetings =
+    meetingsUi !== null && meetingsUi.sidebarVisible(settings);
   const direction = getLanguageDirection(i18n.language);
   const refreshAudioDevices = useSettingsStore(
     (state) => state.refreshAudioDevices,
@@ -69,6 +73,12 @@ function App() {
   useEffect(() => {
     checkOnboardingStatus();
   }, []);
+
+  useEffect(() => {
+    if (currentSection === "meetings" && !showMeetings) {
+      setCurrentSection("general");
+    }
+  }, [currentSection, showMeetings]);
 
   // Initialize RTL direction when language changes
   useEffect(() => {
@@ -435,7 +445,13 @@ function App() {
             <div className="flex-1 overflow-y-auto">
               <div className="flex flex-col items-center p-4 gap-4">
                 <AccessibilityPermissions />
-                {renderSettingsContent(currentSection)}
+                {currentSection === "meetings" && meetingsUi ? (
+                  <meetingsUi.MeetingsView />
+                ) : (
+                  renderSettingsContent(
+                    currentSection === "meetings" ? "general" : currentSection,
+                  )
+                )}
               </div>
             </div>
           </div>

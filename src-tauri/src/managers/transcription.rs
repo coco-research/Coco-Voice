@@ -115,6 +115,11 @@ impl StreamRouter {
         }
     }
 
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn new_for_test() -> Self {
+        Self::new()
+    }
+
     /// Open a fresh command channel for a new streaming session, returning the
     /// receiver the worker should drain. Caller must ensure no prior channel is
     /// still open.
@@ -168,6 +173,10 @@ enum LoadedEngine {
     GigaAM(GigaAMModel),
     Canary(CanaryModel),
     Cohere(CohereModel),
+    /// Test double. No weights. `transcribe_with_meeting_lock` checks it out
+    /// and puts it back, so a chunk and a dictation take share one engine.
+    #[cfg(all(test, feature = "meetings"))]
+    Fake,
 }
 
 /// RAII guard that clears the `is_loading` flag and notifies waiters on drop.
@@ -259,11 +268,10 @@ impl Drop for StreamWorkerGuard {
     }
 }
 
-#[derive(Clone)]
-pub struct TranscriptionManager {
+pub struct TranscriptionManager<R: tauri::Runtime = tauri::Wry> {
     engine: Arc<Mutex<Option<LoadedEngine>>>,
     model_manager: Arc<ModelManager>,
-    app_handle: AppHandle,
+    app_handle: AppHandle<R>,
     current_model_id: Arc<Mutex<Option<String>>>,
     last_activity: Arc<AtomicU64>,
     shutdown_signal: Arc<AtomicBool>,
@@ -292,10 +300,56 @@ pub struct TranscriptionManager {
     /// `is_model_loaded()` consults this so the model still reports "loaded"
     /// while the worker holds it.
     active_engine_lease: Arc<AtomicU64>,
+    /// Held around wait-then-transcribe. Meeting chunks and a dictation take
+    /// queue here instead of both calling `transcribe()` while the engine is out.
+    #[cfg(feature = "meetings")]
+    meeting_lock: Arc<Mutex<()>>,
+    /// Speech model pinned for the meeting. `None` when no meeting is pinned.
+    #[cfg(feature = "meetings")]
+    meeting_pin: Arc<Mutex<Option<String>>>,
+    /// When set, idle unload and `maybe_unload_immediately` use this instead of
+    /// the settings store. Tests have no store.
+    #[cfg(all(test, feature = "meetings"))]
+    test_unload_timeout: Arc<Mutex<Option<ModelUnloadTimeout>>>,
+    #[cfg(all(test, feature = "meetings"))]
+    fake_seq: Arc<AtomicU64>,
 }
 
-impl TranscriptionManager {
-    pub fn new(app_handle: &AppHandle, model_manager: Arc<ModelManager>) -> Result<Self> {
+#[cfg(all(test, feature = "meetings"))]
+pub(crate) static DICTATION_LOAD_KICKOFFS: AtomicU64 = AtomicU64::new(0);
+
+impl<R: tauri::Runtime> Clone for TranscriptionManager<R> {
+    fn clone(&self) -> Self {
+        Self {
+            engine: Arc::clone(&self.engine),
+            model_manager: Arc::clone(&self.model_manager),
+            app_handle: self.app_handle.clone(),
+            current_model_id: Arc::clone(&self.current_model_id),
+            last_activity: Arc::clone(&self.last_activity),
+            shutdown_signal: Arc::clone(&self.shutdown_signal),
+            watcher_handle: Arc::clone(&self.watcher_handle),
+            is_loading: Arc::clone(&self.is_loading),
+            loading_condvar: Arc::clone(&self.loading_condvar),
+            reload_model_on_next_use: Arc::clone(&self.reload_model_on_next_use),
+            router: Arc::clone(&self.router),
+            stream_active: Arc::clone(&self.stream_active),
+            next_stream_worker_id: Arc::clone(&self.next_stream_worker_id),
+            active_stream_worker: Arc::clone(&self.active_stream_worker),
+            active_engine_lease: Arc::clone(&self.active_engine_lease),
+            #[cfg(feature = "meetings")]
+            meeting_lock: Arc::clone(&self.meeting_lock),
+            #[cfg(feature = "meetings")]
+            meeting_pin: Arc::clone(&self.meeting_pin),
+            #[cfg(all(test, feature = "meetings"))]
+            test_unload_timeout: Arc::clone(&self.test_unload_timeout),
+            #[cfg(all(test, feature = "meetings"))]
+            fake_seq: Arc::clone(&self.fake_seq),
+        }
+    }
+}
+
+impl<R: tauri::Runtime> TranscriptionManager<R> {
+    pub fn new(app_handle: &AppHandle<R>, model_manager: Arc<ModelManager>) -> Result<Self> {
         let manager = Self {
             engine: Arc::new(Mutex::new(None)),
             model_manager,
@@ -312,11 +366,18 @@ impl TranscriptionManager {
             next_stream_worker_id: Arc::new(AtomicU64::new(1)),
             active_stream_worker: Arc::new(AtomicU64::new(0)),
             active_engine_lease: Arc::new(AtomicU64::new(0)),
+            #[cfg(feature = "meetings")]
+            meeting_lock: Arc::new(Mutex::new(())),
+            #[cfg(feature = "meetings")]
+            meeting_pin: Arc::new(Mutex::new(None)),
+            #[cfg(all(test, feature = "meetings"))]
+            test_unload_timeout: Arc::new(Mutex::new(None)),
+            #[cfg(all(test, feature = "meetings"))]
+            fake_seq: Arc::new(AtomicU64::new(0)),
         };
 
         // Start the idle watcher
         {
-            let app_handle_cloned = app_handle.clone();
             let manager_cloned = manager.clone();
             let shutdown_signal = manager.shutdown_signal.clone();
             let handle = thread::spawn(move || {
@@ -329,56 +390,7 @@ impl TranscriptionManager {
                         break;
                     }
 
-                    let settings = get_settings(&app_handle_cloned);
-                    let timeout = settings.model_unload_timeout;
-
-                    // Skip Immediately — that variant is handled by
-                    // maybe_unload_immediately() after each transcription.
-                    // Treating it as 0s here would unload the model mid-recording.
-                    if timeout == ModelUnloadTimeout::Immediately {
-                        continue;
-                    }
-
-                    // While recording, keep the idle timer fresh so the
-                    // model is never unloaded mid-session.
-                    let is_recording = app_handle_cloned
-                        .try_state::<Arc<AudioRecordingManager>>()
-                        .is_some_and(|a| a.is_recording());
-                    if is_recording {
-                        manager_cloned.touch_activity();
-                        continue;
-                    }
-
-                    if let Some(limit_seconds) = timeout.to_seconds() {
-                        let last = manager_cloned.last_activity.load(Ordering::Relaxed);
-                        let now_ms = TranscriptionManager::now_ms();
-                        let idle_ms = now_ms.saturating_sub(last);
-                        let limit_ms = limit_seconds * 1000;
-
-                        if idle_ms > limit_ms {
-                            // idle -> unload
-                            if manager_cloned.is_model_loaded() {
-                                let unload_start = std::time::Instant::now();
-                                info!(
-                                    "Model idle for {}s (limit: {}s), unloading",
-                                    idle_ms / 1000,
-                                    limit_seconds
-                                );
-                                match manager_cloned.unload_model() {
-                                    Ok(()) => {
-                                        let unload_duration = unload_start.elapsed();
-                                        info!(
-                                            "Model unloaded due to inactivity (took {}ms)",
-                                            unload_duration.as_millis()
-                                        );
-                                    }
-                                    Err(e) => {
-                                        error!("Failed to unload idle model: {}", e);
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    manager_cloned.poll_idle_unload();
                 }
                 debug!("Idle watcher thread shutting down gracefully");
             });
@@ -386,6 +398,32 @@ impl TranscriptionManager {
         }
 
         Ok(manager)
+    }
+
+    /// Manager for meeting tests. No idle-watcher thread and no model files.
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn new_for_test(app_handle: AppHandle<R>) -> Self {
+        Self {
+            engine: Arc::new(Mutex::new(None)),
+            model_manager: Arc::new(ModelManager::for_test()),
+            app_handle,
+            current_model_id: Arc::new(Mutex::new(None)),
+            last_activity: Arc::new(AtomicU64::new(Self::now_ms())),
+            shutdown_signal: Arc::new(AtomicBool::new(false)),
+            watcher_handle: Arc::new(Mutex::new(None)),
+            is_loading: Arc::new(Mutex::new(false)),
+            loading_condvar: Arc::new(Condvar::new()),
+            reload_model_on_next_use: Arc::new(AtomicBool::new(false)),
+            router: Arc::new(StreamRouter::new()),
+            stream_active: Arc::new(AtomicBool::new(false)),
+            next_stream_worker_id: Arc::new(AtomicU64::new(1)),
+            active_stream_worker: Arc::new(AtomicU64::new(0)),
+            active_engine_lease: Arc::new(AtomicU64::new(0)),
+            meeting_lock: Arc::new(Mutex::new(())),
+            meeting_pin: Arc::new(Mutex::new(None)),
+            test_unload_timeout: Arc::new(Mutex::new(None)),
+            fake_seq: Arc::new(AtomicU64::new(0)),
+        }
     }
 
     /// Lock the engine mutex, recovering from poison if a previous transcription panicked.
@@ -416,6 +454,116 @@ impl TranscriptionManager {
         poll_until(timeout, Duration::from_millis(100), || {
             self.is_engine_available()
         })
+    }
+
+    #[cfg(feature = "meetings")]
+    fn meeting_model_pinned(&self) -> bool {
+        self.meeting_pin
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .is_some()
+    }
+
+    /// Pin `model_id` for the meeting. Does not write `settings.selected_model`.
+    #[cfg(feature = "meetings")]
+    pub fn pin_meeting_model(&self, model_id: &str) {
+        *self
+            .meeting_pin
+            .lock()
+            .unwrap_or_else(|err| err.into_inner()) = Some(model_id.to_string());
+        crate::managers::meetings::set_meeting_active(true);
+    }
+
+    #[cfg(feature = "meetings")]
+    pub fn clear_meeting_pin(&self) {
+        *self
+            .meeting_pin
+            .lock()
+            .unwrap_or_else(|err| err.into_inner()) = None;
+        crate::managers::meetings::set_meeting_active(false);
+    }
+
+    /// Meeting chunks and dictation both enter here. The meeting path does not
+    /// call [`transcribe`](Self::transcribe) without this lock.
+    #[cfg(feature = "meetings")]
+    pub fn transcribe_with_meeting_lock(&self, audio: Vec<f32>) -> Result<String> {
+        let _guard = self
+            .meeting_lock
+            .lock()
+            .unwrap_or_else(|err| err.into_inner());
+        #[cfg(test)]
+        if self.engine_is_fake() {
+            return self.transcribe_fake(audio);
+        }
+        if self.availability() == EngineAvailability::LeasedToStream
+            && !self.wait_for_engine(Duration::from_secs(30))
+        {
+            return Err(anyhow::anyhow!(
+                "The transcription engine is still busy finishing the previous live \
+                 transcription. Please try again in a moment."
+            ));
+        }
+        self.transcribe(audio)
+    }
+
+    /// A meeting chunk. Never calls `transcribe()` without the meeting lock.
+    #[cfg(feature = "meetings")]
+    pub fn transcribe_meeting_chunk(&self, audio: Vec<f32>) -> Result<String> {
+        self.transcribe_with_meeting_lock(audio)
+    }
+
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn install_fake_engine(&self, model_id: &str) {
+        *self.lock_engine() = Some(LoadedEngine::Fake);
+        *self
+            .current_model_id
+            .lock()
+            .unwrap_or_else(|err| err.into_inner()) = Some(model_id.to_string());
+    }
+
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn set_test_unload_timeout(&self, timeout: Option<ModelUnloadTimeout>) {
+        *self
+            .test_unload_timeout
+            .lock()
+            .unwrap_or_else(|err| err.into_inner()) = timeout;
+    }
+
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn set_last_activity_for_test(&self, ms: u64) {
+        self.last_activity.store(ms, Ordering::Relaxed);
+    }
+
+    #[cfg(all(test, feature = "meetings"))]
+    fn engine_is_fake(&self) -> bool {
+        matches!(self.lock_engine().as_ref(), Some(LoadedEngine::Fake))
+    }
+
+    #[cfg(all(test, feature = "meetings"))]
+    fn transcribe_fake(&self, audio: Vec<f32>) -> Result<String> {
+        match self.availability() {
+            EngineAvailability::Ready => {}
+            EngineAvailability::LeasedToStream => {
+                return Err(anyhow::anyhow!(
+                    "The transcription engine is still busy finishing the previous live \
+                     transcription. Please try again in a moment."
+                ));
+            }
+            EngineAvailability::NotLoaded => {
+                return Err(anyhow::anyhow!("Model is not loaded for transcription."));
+            }
+        }
+        let engine = self
+            .lock_engine()
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("Model is not loaded for transcription."))?;
+        // Hold the engine out long enough that a second caller, without the
+        // meeting lock, observes it gone.
+        thread::sleep(Duration::from_millis(40));
+        *self.lock_engine() = Some(engine);
+        let n = self.fake_seq.fetch_add(1, Ordering::SeqCst);
+        let _ = audio;
+        Ok(format!("chunk-{n}"))
     }
 
     pub fn is_model_loaded(&self) -> bool {
@@ -492,15 +640,86 @@ impl TranscriptionManager {
         self.last_activity.store(Self::now_ms(), Ordering::Relaxed);
     }
 
-    /// Unloads the model immediately if the setting is enabled and the model is loaded
+    /// Unloads the model immediately if the setting is enabled and the model is loaded.
+    /// A meeting pin skips this until the meeting ends.
     pub fn maybe_unload_immediately(&self, context: &str) {
-        let settings = get_settings(&self.app_handle);
-        if settings.model_unload_timeout == ModelUnloadTimeout::Immediately
-            && self.is_model_loaded()
+        #[cfg(feature = "meetings")]
+        if self.meeting_model_pinned() {
+            return;
+        }
+        if self.model_unload_timeout() == ModelUnloadTimeout::Immediately && self.is_model_loaded()
         {
             info!("Immediately unloading model after {}", context);
             if let Err(e) = self.unload_model() {
                 warn!("Failed to immediately unload model: {}", e);
+            }
+        }
+    }
+
+    fn model_unload_timeout(&self) -> ModelUnloadTimeout {
+        #[cfg(all(test, feature = "meetings"))]
+        if let Some(timeout) = *self
+            .test_unload_timeout
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+        {
+            return timeout;
+        }
+        get_settings(&self.app_handle).model_unload_timeout
+    }
+
+    /// One pass of the idle watcher. A pinned meeting model stays loaded.
+    pub(crate) fn poll_idle_unload(&self) {
+        #[cfg(feature = "meetings")]
+        if self.meeting_model_pinned() {
+            return;
+        }
+
+        let timeout = self.model_unload_timeout();
+
+        // Skip Immediately — that variant is handled by
+        // maybe_unload_immediately() after each transcription.
+        // Treating it as 0s here would unload the model mid-recording.
+        if timeout == ModelUnloadTimeout::Immediately {
+            return;
+        }
+
+        // While recording, keep the idle timer fresh so the
+        // model is never unloaded mid-session.
+        let is_recording = self
+            .app_handle
+            .try_state::<Arc<AudioRecordingManager>>()
+            .is_some_and(|a| a.is_recording());
+        if is_recording {
+            self.touch_activity();
+            return;
+        }
+
+        if let Some(limit_seconds) = timeout.to_seconds() {
+            let last = self.last_activity.load(Ordering::Relaxed);
+            let now_ms = Self::now_ms();
+            let idle_ms = now_ms.saturating_sub(last);
+            let limit_ms = limit_seconds * 1000;
+
+            if idle_ms > limit_ms && self.is_model_loaded() {
+                let unload_start = std::time::Instant::now();
+                info!(
+                    "Model idle for {}s (limit: {}s), unloading",
+                    idle_ms / 1000,
+                    limit_seconds
+                );
+                match self.unload_model() {
+                    Ok(()) => {
+                        let unload_duration = unload_start.elapsed();
+                        info!(
+                            "Model unloaded due to inactivity (took {}ms)",
+                            unload_duration.as_millis()
+                        );
+                    }
+                    Err(e) => {
+                        error!("Failed to unload idle model: {}", e);
+                    }
+                }
             }
         }
     }
@@ -776,8 +995,17 @@ impl TranscriptionManager {
         Ok(())
     }
 
-    /// Kicks off the model loading in a background thread if it's not already loaded
+    /// Kicks off the model loading in a background thread if it's not already loaded.
+    /// While a meeting model is pinned this is a no-op: it does not read or write
+    /// `settings.selected_model` and does not change `current_model_id`.
     pub fn initiate_model_load(&self) {
+        #[cfg(feature = "meetings")]
+        if self.meeting_model_pinned() {
+            return;
+        }
+        #[cfg(all(test, feature = "meetings"))]
+        DICTATION_LOAD_KICKOFFS.fetch_add(1, Ordering::SeqCst);
+
         let mut is_loading = self.is_loading.lock().unwrap();
         if *is_loading {
             return;
@@ -1313,6 +1541,8 @@ impl TranscriptionManager {
 
             let transcribe_result = catch_unwind(AssertUnwindSafe(|| -> Result<String> {
                 match &mut engine {
+                    #[cfg(all(test, feature = "meetings"))]
+                    LoadedEngine::Fake => Ok(String::new()),
                     LoadedEngine::TranscribeCpp(session) => {
                         // Custom words become the initial prompt ONLY for models
                         // that accept one (whisper family). Attaching the
@@ -1905,7 +2135,7 @@ fn resolve_gpu_device(setting: TranscribeAcceleratorSetting, gpu_device: i32) ->
 /// The transcribe.cpp (whisper-family) backend is no longer set here: it is
 /// chosen at model-load time from [`select_transcribe_backend`], so changing the
 /// accelerator only needs a model reload (see `reload_model_on_next_use`).
-pub fn apply_accelerator_settings(app: &tauri::AppHandle) {
+pub fn apply_accelerator_settings<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     use transcribe_rs::accel;
 
     let settings = get_settings(app);
@@ -2076,7 +2306,7 @@ mod tests {
     }
 }
 
-impl Drop for TranscriptionManager {
+impl<R: tauri::Runtime> Drop for TranscriptionManager<R> {
     fn drop(&mut self) {
         // Skip shutdown unless this is the very last clone. TranscriptionManager
         // is cloned by initiate_model_load() and the watcher thread — those

@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "Dopo un incolla, il testo dettato resta negli appunti così puoi incollarlo di nuovo. Sostituisce ciò che avevi copiato prima. Puoi disattivarlo in Impostazioni > Avanzate > Gestione Appunti."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }

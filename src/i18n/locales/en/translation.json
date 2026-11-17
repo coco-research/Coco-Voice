@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "After a paste, your dictated text now stays on the clipboard so you can paste it again. It replaces whatever you'd copied before. You can turn this off in Settings > Advanced > Clipboard Handling."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }

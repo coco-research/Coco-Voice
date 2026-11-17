@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "Efter en inklistring ligger den dikterade texten kvar i urklipp så att du kan klistra in den igen. Den ersätter det du hade kopierat innan. Du kan stänga av det under Inställningar > Avancerat > Hantering av urklipp."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }

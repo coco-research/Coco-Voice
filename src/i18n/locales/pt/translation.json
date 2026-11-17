@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "Depois de colar, o texto ditado permanece na área de transferência para você colar de novo. Ele substitui o que você tinha copiado antes. Você pode desligar isso em Configurações > Avançado > Manipulação da Área de Transferência."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }

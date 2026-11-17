@@ -700,5 +700,12 @@
   },
   "notices": {
     "clipboardDefault": "Après un collage, le texte dicté reste dans le presse-papiers pour que vous puissiez le coller à nouveau. Il remplace ce que vous aviez copié. Vous pouvez désactiver cela dans Paramètres > Avancé > Gestion du presse-papiers."
+  },
+  "meetings": {
+    "sidebar": "Meetings",
+    "toggle": {
+      "label": "Meetings",
+      "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    }
   }
 }
