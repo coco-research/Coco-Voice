@@ -7,24 +7,45 @@
 
 #![cfg(feature = "meetings")]
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use log::info;
 use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::AppHandle;
 
+/// One meeting at a time. Mute and the meeting controller read this.
+static MEETING_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+/// Whether a meeting is recording. Dictation mute checks this and returns.
+pub fn meeting_is_active() -> bool {
+    MEETING_ACTIVE.load(Ordering::Acquire)
+}
+
+pub fn set_meeting_active(active: bool) {
+    MEETING_ACTIVE.store(active, Ordering::Release);
+}
+
+#[cfg(test)]
+pub(crate) fn test_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock().unwrap_or_else(|err| err.into_inner())
+}
+
 use crate::audio_toolkit::audio::AppendWav;
 
-/// One migration. `rusqlite_migration` stores it as `user_version` 1.
+/// Two migrations. `rusqlite_migration` stores them as `user_version` 2.
 /// A newer meetings.db is refused (`DatabaseTooFarAhead`); dictation is a
 /// different file and is unaffected. The first public meetings binary has to
-/// carry every migration already on disk.
-static MIGRATIONS: &[M] = &[M::up(
-    "CREATE TABLE meetings (
+/// carry every migration already on disk; a later meetings migration takes the
+/// next number.
+static MIGRATIONS: &[M] = &[
+    M::up(
+        "CREATE TABLE meetings (
         id INTEGER PRIMARY KEY,
         started_at INTEGER NOT NULL,
         ended_at INTEGER,
@@ -41,7 +62,37 @@ static MIGRATIONS: &[M] = &[M::up(
         channel TEXT NOT NULL,
         text TEXT NOT NULL
     );",
-)];
+    ),
+    M::up(
+        "CREATE TABLE meeting_notes (
+            id INTEGER PRIMARY KEY,
+            meeting_id INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            text TEXT NOT NULL,
+            owner TEXT,
+            citations TEXT NOT NULL,
+            position INTEGER NOT NULL
+        );
+        CREATE INDEX meeting_notes_meeting ON meeting_notes(meeting_id, position);
+        CREATE TABLE meeting_notepad (
+            id INTEGER PRIMARY KEY,
+            meeting_id INTEGER NOT NULL,
+            at_ms INTEGER NOT NULL,
+            text TEXT NOT NULL
+        );
+        CREATE INDEX meeting_notepad_meeting ON meeting_notepad(meeting_id, at_ms);",
+    ),
+];
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MeetingSegment {
+    pub id: i64,
+    pub meeting_id: i64,
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub channel: String,
+    pub text: String,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Meeting {
@@ -52,6 +103,19 @@ pub struct Meeting {
     pub status: String,
     pub model_id: String,
     pub saved: i64,
+}
+
+/// One cited note line of a meeting.
+///
+/// `kind` is the note kind, `text` the line itself, `owner` an optional
+/// person the note is attributed to, and `citations` the segment ids the
+/// line is grounded in.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StoredNote {
+    pub kind: String,
+    pub text: String,
+    pub owner: Option<String>,
+    pub citations: Vec<i64>,
 }
 
 pub struct MeetingsStore {
@@ -93,6 +157,55 @@ impl MeetingsStore {
         Ok(conn.last_insert_rowid())
     }
 
+    pub fn meeting_count(&self) -> Result<i64> {
+        let conn = self.connection()?;
+        Ok(conn.query_row("SELECT COUNT(*) FROM meetings", [], |row| row.get(0))?)
+    }
+
+    /// One finished chunk, one transaction. Times are milliseconds from the
+    /// meeting start. `channel` is `me` or `others`.
+    pub fn insert_segment(
+        &self,
+        meeting_id: i64,
+        start_ms: i64,
+        end_ms: i64,
+        channel: &str,
+        text: &str,
+    ) -> Result<i64> {
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        tx.execute(
+            "INSERT INTO meeting_segments (meeting_id, start_ms, end_ms, channel, text)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![meeting_id, start_ms, end_ms, channel, text],
+        )?;
+        let id = tx.last_insert_rowid();
+        tx.commit()?;
+        Ok(id)
+    }
+
+    pub fn segments(&self, meeting_id: i64) -> Result<Vec<MeetingSegment>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, meeting_id, start_ms, end_ms, channel, text
+             FROM meeting_segments
+             WHERE meeting_id = ?1
+             ORDER BY id",
+        )?;
+        let rows = stmt.query_map(params![meeting_id], |row| {
+            Ok(MeetingSegment {
+                id: row.get(0)?,
+                meeting_id: row.get(1)?,
+                start_ms: row.get(2)?,
+                end_ms: row.get(3)?,
+                channel: row.get(4)?,
+                text: row.get(5)?,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|err| anyhow!(err))
+    }
+
     pub fn meeting(&self, id: i64) -> Result<Meeting> {
         let conn = self.connection()?;
         conn.query_row(
@@ -112,6 +225,95 @@ impl MeetingsStore {
             },
         )
         .map_err(|e| anyhow!("meeting {id}: {e}"))
+    }
+
+    /// Replace every note of `meeting_id` with `notes`, in one transaction.
+    ///
+    /// `position` is the index of the note in `notes`. `citations` is stored
+    /// as a JSON array of segment ids. On error nothing is written.
+    pub fn save_notes(&self, meeting_id: i64, notes: &[StoredNote]) -> Result<()> {
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        tx.execute(
+            "DELETE FROM meeting_notes WHERE meeting_id = ?1",
+            params![meeting_id],
+        )?;
+        {
+            let mut stmt = tx.prepare(
+                "INSERT INTO meeting_notes
+                 (meeting_id, kind, text, owner, citations, position)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            )?;
+            for (position, note) in notes.iter().enumerate() {
+                let citations = serde_json::to_string(&note.citations)?;
+                stmt.execute(params![
+                    meeting_id,
+                    &note.kind,
+                    &note.text,
+                    note.owner.as_deref(),
+                    citations,
+                    position as i64
+                ])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Every note of `meeting_id`, ordered by `position` ascending.
+    pub fn notes(&self, meeting_id: i64) -> Result<Vec<StoredNote>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT kind, text, owner, citations FROM meeting_notes
+             WHERE meeting_id = ?1 ORDER BY position",
+        )?;
+        let rows = stmt.query_map(params![meeting_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (kind, text, owner, citations) = row?;
+            let citations = serde_json::from_str(&citations)
+                .with_context(|| format!("meeting {meeting_id}: invalid citations JSON"))?;
+            out.push(StoredNote {
+                kind,
+                text,
+                owner,
+                citations,
+            });
+        }
+        Ok(out)
+    }
+
+    /// Append one notepad point at `at_ms` and return the new row id.
+    pub fn add_notepad_point(&self, meeting_id: i64, at_ms: i64, text: &str) -> Result<i64> {
+        let conn = self.connection()?;
+        conn.execute(
+            "INSERT INTO meeting_notepad (meeting_id, at_ms, text) VALUES (?1, ?2, ?3)",
+            params![meeting_id, at_ms, text],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    /// Notepad points of `meeting_id` as `(at_ms, text)`, ordered by `at_ms`
+    /// ascending and then by row id ascending.
+    pub fn notepad(&self, meeting_id: i64) -> Result<Vec<(i64, String)>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT at_ms, text FROM meeting_notepad
+             WHERE meeting_id = ?1 ORDER BY at_ms, id",
+        )?;
+        let rows = stmt.query_map(params![meeting_id], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
     }
 
     /// Append PCM. On a write error the writer is stopped, this meeting is
@@ -324,7 +526,7 @@ mod tests {
         let meetings_version: i32 = meetings
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(meetings_version, 1);
+        assert_eq!(meetings_version, 2);
         let mode: String = meetings
             .pragma_query_value(None, "journal_mode", |row| row.get(0))
             .unwrap();
@@ -400,5 +602,115 @@ mod tests {
         let again = store.meeting(id).unwrap();
         assert_eq!(again.status, "transcript_ready");
         assert_eq!(again.ended_at, ended);
+    }
+
+    fn note(kind: &str, text: &str, owner: Option<&str>, citations: Vec<i64>) -> StoredNote {
+        StoredNote {
+            kind: kind.to_string(),
+            text: text.to_string(),
+            owner: owner.map(str::to_string),
+            citations,
+        }
+    }
+
+    #[test]
+    fn notes_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = store.start_meeting("Planning", "model").unwrap();
+        let first = note("decision", "Ship on Friday", Some("Priya"), vec![1, 3]);
+        let second = note("action", "Book the room", None, vec![2]);
+        store
+            .save_notes(id, &[first.clone(), second.clone()])
+            .unwrap();
+        assert_eq!(store.notes(id).unwrap(), vec![first, second]);
+    }
+
+    #[test]
+    fn save_notes_replaces_and_is_per_meeting() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let a = store.start_meeting("A", "model").unwrap();
+        let b = store.start_meeting("B", "model").unwrap();
+        let a1 = note("decision", "A one", None, vec![1]);
+        let a2 = note("action", "A two", None, vec![2]);
+        let b1 = note("decision", "B one", None, vec![3]);
+        store.save_notes(a, &[a1, a2]).unwrap();
+        store.save_notes(b, &[b1.clone()]).unwrap();
+
+        let replacement = note("risk", "A only", Some("Sam"), vec![4]);
+        store.save_notes(a, &[replacement.clone()]).unwrap();
+        assert_eq!(store.notes(a).unwrap(), vec![replacement]);
+        assert_eq!(store.notes(b).unwrap(), vec![b1]);
+    }
+
+    #[test]
+    fn notepad_points_ordered() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = store.start_meeting("Standup", "model").unwrap();
+        store.add_notepad_point(id, 5000, "b").unwrap();
+        store.add_notepad_point(id, 1000, "a").unwrap();
+        store.add_notepad_point(id, 5000, "c").unwrap();
+        assert_eq!(
+            store.notepad(id).unwrap(),
+            vec![
+                (1000, "a".to_string()),
+                (5000, "b".to_string()),
+                (5000, "c".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn version_1_db_upgrades_to_2() {
+        let dir = tempfile::tempdir().unwrap();
+        let meetings_dir = dir.path().join("meetings");
+        fs::create_dir_all(&meetings_dir).unwrap();
+        let path = meetings_dir.join("meetings.db");
+        {
+            let mut conn = Connection::open(&path).unwrap();
+            let migrations = Migrations::new(vec![MIGRATIONS[0].clone()]);
+            migrations.to_latest(&mut conn).unwrap();
+            conn.execute(
+                "INSERT INTO meetings
+                 (id, started_at, ended_at, title, status, model_id, saved)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    1i64,
+                    1_700_000_000i64,
+                    1_700_000_100i64,
+                    "Old",
+                    "transcript_ready",
+                    "m",
+                    0
+                ],
+            )
+            .unwrap();
+        }
+
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let conn = Connection::open(store.db_path()).unwrap();
+        let version: i32 = conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, 2);
+        let row = store.meeting(1).unwrap();
+        assert_eq!(row.title, "Old");
+    }
+
+    #[test]
+    fn newer_db_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let meetings_dir = dir.path().join("meetings");
+        fs::create_dir_all(&meetings_dir).unwrap();
+        let path = meetings_dir.join("meetings.db");
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.pragma_update(None, "user_version", 3).unwrap();
+        }
+
+        let result = MeetingsStore::open(dir.path());
+        assert!(result.is_err(), "a newer meetings.db was accepted");
     }
 }
