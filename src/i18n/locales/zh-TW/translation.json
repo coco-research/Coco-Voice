@@ -585,6 +585,32 @@
         "label": "顯示新功能",
         "description": "Coco Voice 更新後顯示版本資訊"
       }
+    },
+    "online": {
+      "eyebrow": "設定",
+      "title": "連線內容說明",
+      "intro": "您的語音會在這台 Mac 上轉換為文字。以下是此版本 Coco Voice 可能連線的位置，以及各處會收到的內容。",
+      "leavesLabel": "離開這台 Mac 的內容：",
+      "openHeading": "每次開啟應用程式時",
+      "githubName": "GitHub（Coco Voice 版本發佈）",
+      "githubWhen": "每次開啟應用程式時檢查更新。若要停用，請在除錯設定（Cmd+Shift+D）中關閉更新檢查。點擊的連結會在瀏覽器中開啟。",
+      "githubLeaves": "取得版本清單的請求，以及安裝更新時的更新檔案。不含語音，也不含文字。",
+      "updateChecksOn": "更新檢查已開啟",
+      "updateChecksOff": "更新檢查已關閉",
+      "clickHeading": "僅在您點擊時",
+      "modelFilesName": "Coco Voice 模型檔案",
+      "modelFilesWhen": "當您在內建語音模型上點擊「下載」時。",
+      "modelFilesLeaves": "您請求的模型檔案名稱。不含語音，也不含文字。",
+      "huggingFaceWhen": "當您在目錄模型上點擊「下載」，或點擊其授權條款以在瀏覽器中開啟時。",
+      "huggingFaceLeaves": "模型名稱、版本與檔案名稱，以及這台 Mac 上已設定時的 Hugging Face 權杖。不含語音，也不含文字。",
+      "cleanupHeading": "僅在您選擇潤飾供應商時",
+      "cloudWhen": "當使用您所選的雲端供應商執行文字潤飾時。",
+      "cloudLeaves": "您口述的文字、潤飾指示與您的 API 金鑰。取得模型清單時僅會傳送 API 金鑰。",
+      "customName": "自訂潤飾（Ollama）",
+      "customWhen": "當選擇「自訂」作為供應商執行潤飾時。除非您變更位址，否則它只會與這台 Mac 上的程式通訊。",
+      "customLeaves": "預設位址下不會外傳任何內容。您口述的文字與潤飾指示會傳送給這台 Mac 上的程式。",
+      "staysOnMac": "留在這台 Mac",
+      "onDeviceNote": "裝置端潤飾（Apple Intelligence 或本機模型）不會連線至上述任何位置。"
     }
   },
   "footer": {

@@ -585,6 +585,32 @@
         "label": "Visa nyheter",
         "description": "Visa versionsinformation efter Coco Voice-uppdateringar"
       }
+    },
+    "online": {
+      "eyebrow": "Inställningar",
+      "title": "Vad som går online",
+      "intro": "Ditt tal omvandlas till text på den här Mac-datorn. Det här är platserna som den här versionen av Coco Voice kan kontakta och vad varje plats får.",
+      "leavesLabel": "Lämnar din Mac:",
+      "openHeading": "Varje gång appen öppnas",
+      "githubName": "GitHub (Coco Voice-utgåvor)",
+      "githubWhen": "Varje gång appen öppnas för att söka efter uppdateringar. Stäng av uppdateringskontroller i felsökningsinställningarna (Cmd+Shift+D) för att stoppa detta. Länkar du klickar på öppnas i webbläsaren.",
+      "githubLeaves": "en begäran om listan över utgåvor och uppdateringsfilen om du installerar en. Inget tal och ingen text.",
+      "updateChecksOn": "Uppdateringskontroll på",
+      "updateChecksOff": "Uppdateringskontroll av",
+      "clickHeading": "Endast när du klickar",
+      "modelFilesName": "Coco Voice-modellfiler",
+      "modelFilesWhen": "När du klickar på Ladda ner på en inbyggd talmodell.",
+      "modelFilesLeaves": "namnet på modellfilen du bad om. Inget tal och ingen text.",
+      "huggingFaceWhen": "När du klickar på Ladda ner på en katalogmodell eller klickar på dess licens för att öppna den i webbläsaren.",
+      "huggingFaceLeaves": "modellnamn, version och filnamn samt en Hugging Face-token om en redan är inställd på den här Mac-datorn. Inget tal och ingen text.",
+      "cleanupHeading": "Endast när du väljer en rensningsleverantör",
+      "cloudWhen": "När rensning körs med molnleverantören du har valt.",
+      "cloudLeaves": "texten för det du sa, rensningsinstruktionerna och din API-nyckel. Att lista modeller skickar bara din API-nyckel.",
+      "customName": "Anpassad rensning (Ollama)",
+      "customWhen": "När rensning körs med Anpassad som vald leverantör. Den pratar med ett program på den här Mac-datorn om du inte ändrar adressen.",
+      "customLeaves": "ingenting på startadressen. Texten du sa och rensningsinstruktionerna går till programmet på den här Mac-datorn.",
+      "staysOnMac": "Stannar på den här Mac-datorn",
+      "onDeviceNote": "Rensning på enheten (Apple Intelligence eller den lokala modellen) kontaktar ingen av dessa."
     }
   },
   "footer": {
