@@ -1182,6 +1182,9 @@ pub(crate) async fn process_transcription_output(
     // Runs after LLM post-processing (above) and after apply_custom_words (which
     // runs earlier in the transcription pipeline), so the user always gets a
     // predictable last-word override via case-insensitive whole-word replacement.
+    if !settings.saved_blocks.is_empty() {
+        final_text = crate::audio_toolkit::expand_saved_blocks(&final_text, &settings.saved_blocks);
+    }
     if !settings.corrections.is_empty() {
         final_text = crate::audio_toolkit::apply_corrections(&final_text, &settings.corrections);
     }
