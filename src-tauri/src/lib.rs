@@ -25,6 +25,8 @@ pub mod meeting_ask_index;
 #[cfg(feature = "meetings")]
 mod meeting_controller;
 #[cfg(feature = "meetings")]
+pub mod meeting_history_ops;
+#[cfg(feature = "meetings")]
 mod meeting_notes;
 #[cfg(feature = "meetings")]
 mod meeting_notes_merge;

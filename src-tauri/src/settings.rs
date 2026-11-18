@@ -517,6 +517,10 @@ pub struct AppSettings {
     #[cfg(feature = "meetings")]
     #[serde(default = "default_meetings_enabled")]
     pub meetings_enabled: bool,
+    /// Optional automatic transcript deletion timer in days (`None` = off by default).
+    #[cfg(feature = "meetings")]
+    #[serde(default = "default_transcript_delete_after_days")]
+    pub transcript_delete_after_days: Option<u32>,
 }
 
 fn default_model() -> String {
@@ -595,6 +599,11 @@ fn default_overlay_style() -> OverlayStyle {
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn default_meetings_enabled() -> bool {
     false
+}
+
+#[cfg(feature = "meetings")]
+pub(crate) fn default_transcript_delete_after_days() -> Option<u32> {
+    None
 }
 
 /// Meetings UI shows only when the setting is on and `os` is macOS 14.4 or newer.
@@ -1215,6 +1224,8 @@ pub fn get_default_settings() -> AppSettings {
         agents_can_ask_enabled: false,
         #[cfg(feature = "meetings")]
         meetings_enabled: default_meetings_enabled(),
+        #[cfg(feature = "meetings")]
+        transcript_delete_after_days: default_transcript_delete_after_days(),
     }
 }
 
