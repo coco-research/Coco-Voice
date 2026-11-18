@@ -50,6 +50,7 @@
     "showAllModels": "सबै {{total}} मोडेलहरू देखाउनुहोस्",
     "showFewerModels": "थोरै मोडेलहरू देखाउनुहोस्",
     "recommended": "सिफारिस गरिएको",
+    "measuredReason": "Fewest words wrong of {{compared}} models measured on our clip set: {{wrong}} per 100 words, {{speed}}× faster than real time, {{memory}} MB of memory.",
     "customModelDescription": "आधिकारिक रूपमा समर्थित छैन",
     "modelCard": {
       "accuracy": "शुद्धता",
