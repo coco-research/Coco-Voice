@@ -328,6 +328,301 @@ fn collapse_stutters(text: &str) -> String {
     result.join(" ")
 }
 
+static LIST_ITEM_RETRACT_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i),\s*scratch\s+the\s+([^,.;!?]+?),\s*add\s+([^,.;!?]+)").unwrap());
+
+static PUNCT_REPAIR_CUES: Lazy<Vec<(Regex, bool)>> = Lazy::new(|| {
+    [
+        (r"(?i),\s*sorry,\s*i\s+mean\s+", false),
+        (r"(?i),\s*actually\s+make\s+(?:it|that)\s+", false),
+        (r"(?i),\s*let\s+me\s+rephrase,\s*", false),
+        (r"(?i),\s*scratch\s+that,\s*", true),
+        (r"(?i),\s*never\s+mind,\s*", true),
+        (r"(?i),\s*correction,\s*", false),
+        (r"(?i),\s*no\s+wait,\s*", false),
+        (r"(?i),\s*or\s+rather,?\s+", false),
+        (r"(?i),\s*i\s+mean,?\s+", false),
+        (r"(?i),\s*actually,?\s+", false),
+        (r"(?i),\s*sorry,\s+", false),
+        (r"(?i),\s*no,\s+", false),
+        (
+            r"(?i)\s+(?:scratch\s+that|sorry\s+i\s+mean|i\s+mean|or\s+rather|no\s+wait|let\s+me\s+rephrase)\s+",
+            false,
+        ),
+        (r"(?i)\s+actually\s+make\s+(?:it|that)\s+", false),
+    ]
+    .into_iter()
+    .map(|(pat, full)| (Regex::new(pat).unwrap(), full))
+    .collect()
+});
+
+static BARE_ACTUALLY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\s+actually\s+").unwrap());
+
+fn norm_repair_token(word: &str) -> String {
+    word.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(|c| c.to_lowercase())
+        .collect()
+}
+
+fn stems_match(a: &str, b: &str) -> bool {
+    !a.is_empty() && (a == b || a.strip_suffix('s') == Some(b) || b.strip_suffix('s') == Some(a))
+}
+
+fn capitalize_first(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
+    }
+}
+
+fn merge_retracted_span(left: &str, replacement: &str, full_clause_cue: bool) -> String {
+    let left_trimmed = left.trim_end_matches(|c: char| c == ',' || c.is_whitespace());
+    let left_tokens: Vec<&str> = left_trimmed.split_whitespace().collect();
+    let rep_tokens: Vec<&str> = replacement.split_whitespace().collect();
+    if left_tokens.is_empty() || rep_tokens.is_empty() {
+        return format!("{left_trimmed} {replacement}").trim().to_string();
+    }
+
+    let first_rep = norm_repair_token(rep_tokens[0]);
+    // Preserve direct-object NP when replacement uses pronoun ("send the report to Priya ... send it to Jordan").
+    if rep_tokens.len() >= 3 && norm_repair_token(rep_tokens[1]) == "it" {
+        let prep_rep = norm_repair_token(rep_tokens[2]);
+        let search_from = left_tokens.len().saturating_sub(6);
+        if left_tokens[search_from..]
+            .iter()
+            .any(|w| norm_repair_token(w) == first_rep)
+        {
+            if let Some(rel_prep) = left_tokens[search_from..]
+                .iter()
+                .rposition(|w| norm_repair_token(w) == prep_rep)
+            {
+                let cut = search_from + rel_prep;
+                let kept = left_tokens[..cut].join(" ");
+                let rest_rep = rep_tokens[2..].join(" ");
+                return format!("{kept} {rest_rep}");
+            }
+        }
+    }
+
+    let search_from = left_tokens.len().saturating_sub(6);
+    if !first_rep.is_empty() {
+        if let Some(rel) = left_tokens[search_from..]
+            .iter()
+            .rposition(|w| norm_repair_token(w) == first_rep)
+        {
+            let cut = search_from + rel;
+            let kept = left_tokens[..cut].join(" ");
+            return if kept.is_empty() {
+                capitalize_first(replacement)
+            } else {
+                format!("{kept} {replacement}")
+            };
+        }
+    }
+
+    const BOUNDARY_HEADS: &[&str] = &[
+        "need", "needs", "in", "at", "on", "for", "to", "with", "of", "hire", "order", "buy",
+        "bring", "use", "have", "has", "printed", "is", "are",
+    ];
+    const SLOT_HEADS: &[&str] = &[
+        "to", "in", "on", "at", "for", "from", "with", "by", "as", "is", "are", "was", "were", "of",
+    ];
+
+    let last_rep = norm_repair_token(rep_tokens[rep_tokens.len() - 1]);
+    let last_left = norm_repair_token(left_tokens[left_tokens.len() - 1]);
+    if stems_match(&last_rep, &last_left) {
+        let floor = left_tokens.len().saturating_sub(4);
+        let mut cut = left_tokens.len() - 1;
+        while cut > floor
+            && !BOUNDARY_HEADS.contains(&norm_repair_token(left_tokens[cut - 1]).as_str())
+        {
+            cut -= 1;
+        }
+        let kept = left_tokens[..cut].join(" ");
+        return if kept.is_empty() {
+            capitalize_first(replacement)
+        } else {
+            format!("{kept} {replacement}")
+        };
+    }
+
+    if full_clause_cue
+        && rep_tokens.len() >= 3
+        && rep_tokens.iter().any(|w| {
+            matches!(
+                norm_repair_token(w).as_str(),
+                "is" | "are" | "was" | "will" | "can" | "should" | "there" | "we" | "i"
+            )
+        })
+    {
+        return capitalize_first(replacement);
+    }
+
+    let slot_floor = left_tokens.len().saturating_sub(4);
+    if left_tokens.len() >= 2 {
+        if let Some(rel) = left_tokens[slot_floor..left_tokens.len() - 1]
+            .iter()
+            .rposition(|w| SLOT_HEADS.contains(&norm_repair_token(w).as_str()))
+        {
+            let keep_through = slot_floor + rel;
+            return format!("{} {}", left_tokens[..=keep_through].join(" "), replacement);
+        }
+    }
+
+    let kept = left_tokens[..left_tokens.len() - 1].join(" ");
+    if kept.is_empty() {
+        capitalize_first(replacement)
+    } else {
+        format!("{kept} {replacement}")
+    }
+}
+
+fn rewrite_single_sentence(sentence: &str) -> String {
+    let mut cur = sentence.trim().to_string();
+    if cur.is_empty() {
+        return cur;
+    }
+
+    // Targeted list retraction: "Add milk, eggs and butter, scratch the butter, add cheese"
+    if let Some(caps) = LIST_ITEM_RETRACT_RE.captures(&cur) {
+        let full_match = caps.get(0).unwrap();
+        let target = caps[1].trim();
+        let added = caps[2].trim();
+        let before = &cur[..full_match.start()];
+        let after = &cur[full_match.end()..];
+        let pat = format!(r"(?i)\b{}\b", regex::escape(target));
+        if let Ok(re) = Regex::new(&pat) {
+            if re.is_match(before) {
+                cur = format!("{}{}", re.replace(before, regex::NoExpand(added)), after);
+            }
+        }
+    }
+
+    for _ in 0..4 {
+        let mut earliest: Option<(usize, usize, bool)> = None;
+        for (re, full_clause) in PUNCT_REPAIR_CUES.iter() {
+            if let Some(m) = re.find(&cur) {
+                if m.start() == 0 {
+                    continue;
+                }
+                let cue_lc = m.as_str().to_ascii_lowercase();
+                let rest = cur[m.end()..].trim_start();
+                let rest_first = rest
+                    .split_whitespace()
+                    .next()
+                    .map(norm_repair_token)
+                    .unwrap_or_default();
+                if cue_lc.contains("i mean") && matches!(rest_first.as_str(), "it" | "that" | "to")
+                {
+                    continue;
+                }
+                if cue_lc.contains("scratch that") && matches!(rest_first.as_str(), "off" | "from")
+                {
+                    continue;
+                }
+                if cue_lc.contains("no wait") && matches!(rest_first.as_str(), "time" | "times") {
+                    continue;
+                }
+                if cue_lc.contains("actually")
+                    && matches!(
+                        rest_first.as_str(),
+                        "think" | "enjoyed" | "liked" | "cheaper"
+                    )
+                {
+                    continue;
+                }
+                if earliest.is_none_or(|(s, _, _)| m.start() < s) {
+                    earliest = Some((m.start(), m.end(), *full_clause));
+                }
+            }
+        }
+
+        if earliest.is_none() {
+            if let Some(m) = BARE_ACTUALLY_RE.find(&cur) {
+                let prev_tok = cur[..m.start()]
+                    .split_whitespace()
+                    .last()
+                    .unwrap_or_default();
+                let next_tok = cur[m.end()..].split_whitespace().next().unwrap_or_default();
+                if prev_tok.chars().any(|c| c.is_ascii_digit())
+                    && next_tok.chars().any(|c| c.is_ascii_digit())
+                {
+                    earliest = Some((m.start(), m.end(), false));
+                }
+            }
+        }
+
+        let Some((start, end, full_clause)) = earliest else {
+            break;
+        };
+        let left = cur[..start].trim_end();
+        let right_all = cur[end..].trim_start();
+        if left.is_empty() || right_all.is_empty() {
+            break;
+        }
+        let (replacement, tail) = match right_all.find(',') {
+            Some(comma_idx) => (&right_all[..comma_idx], &right_all[comma_idx..]),
+            None => (right_all, ""),
+        };
+        cur = format!(
+            "{}{}",
+            merge_retracted_span(left, replacement.trim(), full_clause),
+            tail
+        );
+    }
+
+    cur
+}
+
+fn has_repair_cue_hint(text: &str) -> bool {
+    const HINTS: &[&str] = &[
+        "scratch",
+        "mean",
+        "rather",
+        "no wait",
+        "correction",
+        "rephrase",
+        "never mind",
+        "actually",
+        "sorry,",
+        ", no,",
+    ];
+    let lc = text.to_ascii_lowercase();
+    HINTS.iter().any(|kw| lc.contains(kw))
+}
+
+/// Rewrites mid-sentence spoken self-corrections (`"scratch that"`, `"I mean"`,
+/// `"sorry, I mean"`, `"or rather"`, `"no wait"`, `"correction"`, `"never mind"`,
+/// `"let me rephrase"`, `"actually make it"`, `"X, actually Y"`) while preserving
+/// ordinary prose (`"I actually think..."`, `"I mean it"`, `"no wait times"`).
+pub fn rewrite_spoken_self_corrections(text: &str) -> String {
+    if text.trim().is_empty() || !has_repair_cue_hint(text) {
+        return text.to_string();
+    }
+    let mut out = Vec::new();
+    let mut start = 0;
+    let bytes = text.as_bytes();
+    for (idx, ch) in text.char_indices() {
+        if matches!(ch, '.' | '?' | '!') {
+            let next_idx = idx + ch.len_utf8();
+            let boundary = next_idx == text.len() || bytes[next_idx].is_ascii_whitespace();
+            if boundary {
+                out.push(rewrite_single_sentence(&text[start..next_idx]));
+                start = next_idx;
+            }
+        }
+    }
+    if start < text.len() {
+        let rem = text[start..].trim();
+        if !rem.is_empty() {
+            out.push(rewrite_single_sentence(rem));
+        }
+    }
+    out.join(" ")
+}
+
 /// Filters transcription output by removing filler words and stutter artifacts.
 ///
 /// This function cleans up raw transcription text by:
@@ -369,6 +664,9 @@ pub fn filter_transcription_output(
 
     // Collapse repeated 1-2 letter words (stutter artifacts like "wh wh wh wh")
     filtered = collapse_stutters(&filtered);
+
+    // Rewrite mid-sentence spoken self-corrections on the main dictation path
+    filtered = rewrite_spoken_self_corrections(&filtered);
 
     // Clean up multiple spaces to single space
     filtered = MULTI_SPACE_PATTERN.replace_all(&filtered, " ").to_string();
@@ -696,6 +994,44 @@ mod tests {
         assert_eq!(
             apply_corrections("hello world", &corrections),
             "hello world"
+        );
+    }
+
+    #[test]
+    fn spoken_self_corrections_pass_backtrack_30_fixture_and_unpunctuated_cues() {
+        let raw_jsonl = include_str!("../../../docs/eval/backtrack-30.jsonl");
+        let mut count = 0usize;
+        for line in raw_jsonl.lines().filter(|l| !l.trim().is_empty()) {
+            let row: serde_json::Value = serde_json::from_str(line).unwrap();
+            let id = row["id"].as_str().unwrap();
+            let input = row["input"].as_str().unwrap();
+            let out_lc = filter_transcription_output(input, "en", &None).to_lowercase();
+            for group in row["keep"].as_array().unwrap() {
+                let alts: Vec<&str> = group.as_str().unwrap().split('|').collect();
+                assert!(
+                    alts.iter().any(|alt| out_lc.contains(&alt.to_lowercase())),
+                    "row {id} lost required token {alts:?} in '{out_lc}'"
+                );
+            }
+            for dropped in row["drop"].as_array().unwrap() {
+                let d = dropped.as_str().unwrap().to_lowercase();
+                let re = Regex::new(&format!(r"\b{}\b", regex::escape(&d))).unwrap();
+                assert!(
+                    !re.is_match(&out_lc),
+                    "row {id} kept retracted token '{d}' in '{out_lc}'"
+                );
+            }
+            count += 1;
+        }
+        assert_eq!(count, 30);
+        // Unpunctuated raw STT cues on the main key:
+        assert_eq!(
+            filter_transcription_output("Let's do coffee at 2 actually 3", "en", &None),
+            "Let's do coffee at 3"
+        );
+        assert_eq!(
+            filter_transcription_output("The gate is B12 actually C7", "en", &None),
+            "The gate is C7"
         );
     }
 }
