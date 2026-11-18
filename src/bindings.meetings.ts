@@ -62,6 +62,28 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async currentMeetingOffer(): Promise<Result<MeetingOffer | null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("current_meeting_offer"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async dismissMeetingOffer(bundleId: string): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("dismiss_meeting_offer", { bundleId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
   async meetingStatus(): Promise<MeetingStatus> {
     return await TAURI_INVOKE("meeting_status");
   },
@@ -83,6 +105,13 @@ export const commands = {
 /** user-defined types **/
 
 export type MeetingChannel = "me" | "others";
+export type MeetingOffer = {
+  bundleId: string;
+  app: string;
+  inCall: boolean;
+  body: string;
+  startsCapture: boolean;
+};
 export type MeetingRefusal = "already_recording";
 export type MeetingSegmentView = {
   meeting_id: number;
