@@ -507,6 +507,10 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    #[serde(default)]
+    pub app_profiles: Vec<crate::app_profiles::AppProfile>,
+    #[serde(default)]
+    pub blocked_apps: Vec<String>,
     /// Beta switch for Meetings. Only present when the crate is built with
     /// `--features meetings`. A default build has no field, so a stored
     /// `meetings_enabled` key is ignored.
@@ -1192,6 +1196,8 @@ pub fn get_default_settings() -> AppSettings {
         extra_recording_buffer_ms: 0,
         vad_enabled: default_vad_enabled(),
         overlay_style: default_overlay_style(),
+        app_profiles: Vec::new(),
+        blocked_apps: Vec::new(),
         #[cfg(feature = "meetings")]
         meetings_enabled: default_meetings_enabled(),
     }

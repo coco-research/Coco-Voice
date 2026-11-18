@@ -101,6 +101,7 @@ pub async fn retry_history_entry_transcription(
         &transcription,
         entry.post_process_requested,
         false,
+        false,
         None,
     )
     .await;
