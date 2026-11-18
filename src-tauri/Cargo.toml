@@ -73,6 +73,8 @@ unicode-segmentation = "1.12.0"
 # transcribe-rs is now ONNX-only (Parakeet, Moonshine, SenseVoice, GigaAM,
 # Canary, Cohere). Per-platform backend features are added in the target tables.
 transcribe-rs = { version = "0.3.8", features = ["onnx"] }
+ort = "=2.0.0-rc.12"
+ndarray = "0.17"
 transcribe-cpp = { version = "0.1.2", default-features = false }
 handy-keys = "0.3.0"
 ferrous-opencc = "0.4.0"
