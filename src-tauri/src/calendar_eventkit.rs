@@ -83,10 +83,10 @@ fn calendars_of(store: &AnyObject) -> Retained<NSArray<AnyObject>> {
     unsafe { msg_send![store, calendarsForEntityType: ENTITY_EVENT] }
 }
 
-fn info_of(cal: &AnyObject) -> CalendarInfo {
+fn info_of(calendar_obj: &AnyObject) -> CalendarInfo {
     // SAFETY: plain getters on EKCalendar and EKSource; text getters may return nil.
     unsafe {
-        let source: Option<Retained<AnyObject>> = msg_send![cal, source];
+        let source: Option<Retained<AnyObject>> = msg_send![calendar_obj, source];
         let (account, kind) = match source {
             Some(src) => {
                 let name: Option<Retained<NSString>> = msg_send![&*src, title];
@@ -95,8 +95,8 @@ fn info_of(cal: &AnyObject) -> CalendarInfo {
             }
             None => (String::new(), "Other".to_string()),
         };
-        let id: Option<Retained<NSString>> = msg_send![cal, calendarIdentifier];
-        let title: Option<Retained<NSString>> = msg_send![cal, title];
+        let id: Option<Retained<NSString>> = msg_send![calendar_obj, calendarIdentifier];
+        let title: Option<Retained<NSString>> = msg_send![calendar_obj, title];
         CalendarInfo {
             id: text(id),
             title: text(title),
@@ -144,8 +144,9 @@ impl CalendarSource for EventKitSource {
                 if all_day.as_bool() {
                     continue;
                 }
-                let cal: Retained<AnyObject> = msg_send![&*event, calendar];
-                let cal_id: Option<Retained<NSString>> = msg_send![&*cal, calendarIdentifier];
+                let calendar_obj: Retained<AnyObject> = msg_send![&*event, calendar];
+                let calendar_id: Option<Retained<NSString>> =
+                    msg_send![&*calendar_obj, calendarIdentifier];
                 let title: Option<Retained<NSString>> = msg_send![&*event, title];
                 let s: Retained<NSDate> = msg_send![&*event, startDate];
                 let e: Retained<NSDate> = msg_send![&*event, endDate];
@@ -161,7 +162,7 @@ impl CalendarSource for EventKitSource {
                     })
                     .unwrap_or_default();
                 out.push(RawEvent {
-                    calendar_id: text(cal_id),
+                    calendar_id: text(calendar_id),
                     title: text(title),
                     start: s.timeIntervalSince1970() as i64,
                     end: e.timeIntervalSince1970() as i64,
