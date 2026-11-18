@@ -29,6 +29,8 @@ mod meeting_notes_merge;
 #[cfg(feature = "meetings")]
 mod meeting_notes_pieces;
 #[cfg(feature = "meetings")]
+pub mod meeting_retention;
+#[cfg(feature = "meetings")]
 pub mod meeting_todos;
 #[cfg(all(feature = "meetings", target_os = "macos"))]
 pub mod meetings_tap;
@@ -576,6 +578,11 @@ fn meetings_command_names() -> &'static [&'static str] {
             "confirm_meeting_start",
             "cancel_meeting_consent",
             "stop_meeting",
+            "meeting_retention_state",
+            "change_delete_audio_after_notes_setting",
+            "request_delete_all_meetings",
+            "delete_all_meetings",
+            "change_notes_markdown_folder_setting",
         ]
     }
     #[cfg(not(feature = "meetings"))]
@@ -593,7 +600,12 @@ macro_rules! collect_app_commands {
             meeting_controller::open_meeting_consent,
             meeting_controller::confirm_meeting_start,
             meeting_controller::cancel_meeting_consent,
-            meeting_controller::stop_meeting
+            meeting_controller::stop_meeting,
+            meeting_retention::meeting_retention_state,
+            meeting_retention::change_delete_audio_after_notes_setting,
+            meeting_retention::request_delete_all_meetings,
+            meeting_retention::delete_all_meetings,
+            meeting_retention::change_notes_markdown_folder_setting
         ]
     };
 }
