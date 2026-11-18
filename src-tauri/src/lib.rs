@@ -1,4 +1,5 @@
 mod actions;
+pub mod app_profiles;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
 mod audio_feedback;
@@ -620,6 +621,7 @@ pub fn run(cli_args: CliArgs) {
             shortcut::change_auto_submit_setting,
             shortcut::change_auto_submit_key_setting,
             shortcut::change_post_process_enabled_setting,
+            shortcut::change_filler_word_removal_enabled_setting,
             shortcut::change_iterative_correction_setting,
             shortcut::change_experimental_enabled_setting,
             shortcut::change_post_process_base_url_setting,
@@ -650,8 +652,8 @@ pub fn run(cli_args: CliArgs) {
             shortcut::change_ort_accelerator_setting,
             shortcut::change_transcribe_gpu_device,
             shortcut::get_available_accelerators,
-            shortcut::coco_keys::start_handy_keys_recording,
-            shortcut::coco_keys::stop_handy_keys_recording,
+            shortcut::coco_keys::start_coco_voice_keys_recording,
+            shortcut::coco_keys::stop_coco_voice_keys_recording,
             trigger_update_check,
             show_main_window_command,
             commands::cancel_operation,
@@ -703,6 +705,9 @@ pub fn run(cli_args: CliArgs) {
             commands::history::update_history_limit,
             commands::history::update_history_entry_text,
             commands::history::update_recording_retention_period,
+            app_profiles::get_active_app_info,
+            app_profiles::update_app_profiles,
+            app_profiles::update_blocked_apps,
             helpers::clamshell::is_laptop,
         ])
         .events(collect_events![

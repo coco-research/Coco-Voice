@@ -31,6 +31,7 @@ import { ModelSelect } from "../PostProcessingSettingsApi/ModelSelect";
 import { usePostProcessProviderState } from "../PostProcessingSettingsApi/usePostProcessProviderState";
 import { ShortcutInput } from "../ShortcutInput";
 import { IterativeCorrectionToggle } from "../IterativeCorrectionToggle";
+import { PostProcessingToggle } from "../PostProcessingToggle";
 import { useSettings } from "../../../hooks/useSettings";
 
 /** Same id as `LOCAL_LLM_PROVIDER_ID` in src-tauri/src/settings.rs. */
@@ -765,6 +766,10 @@ export const PostProcessingSettings: React.FC = () => {
   return (
     <div className="max-w-3xl w-full mx-auto space-y-6">
       <CleanupBanner />
+
+      <SettingsGroup title={t("sidebar.postProcessing")}>
+        <PostProcessingToggle descriptionMode="tooltip" grouped={true} />
+      </SettingsGroup>
 
       <SettingsGroup title={t("settings.postProcessing.hotkey.title")}>
         <ShortcutInput

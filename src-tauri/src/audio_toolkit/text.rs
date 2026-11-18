@@ -348,18 +348,36 @@ pub fn filter_transcription_output(
     lang: &str,
     custom_filler_words: &Option<Vec<String>>,
 ) -> String {
+    filter_transcription_output_with_options(text, lang, custom_filler_words, true)
+}
+
+/// Same as [`filter_transcription_output`], gated on `remove_fillers` so the
+/// user can turn filler-word removal off while keeping stutter and whitespace
+/// cleanup intact.
+pub fn filter_transcription_output_with_options(
+    text: &str,
+    lang: &str,
+    custom_filler_words: &Option<Vec<String>>,
+    remove_fillers: bool,
+) -> String {
     let mut filtered = text.to_string();
 
-    // Build filler patterns from custom list or language defaults
-    let patterns: Vec<Regex> = match custom_filler_words {
-        Some(words) => words
-            .iter()
-            .filter_map(|word| Regex::new(&format!(r"(?i)\b{}\b[,.]?", regex::escape(word))).ok())
-            .collect(),
-        None => get_filler_words_for_language(lang)
-            .iter()
-            .map(|word| Regex::new(&format!(r"(?i)\b{}\b[,.]?", regex::escape(word))).unwrap())
-            .collect(),
+    // Build filler patterns from custom list or language defaults when enabled.
+    let patterns: Vec<Regex> = if !remove_fillers {
+        Vec::new()
+    } else {
+        match custom_filler_words {
+            Some(words) => words
+                .iter()
+                .filter_map(|word| {
+                    Regex::new(&format!(r"(?i)\b{}\b[,.]?", regex::escape(word))).ok()
+                })
+                .collect(),
+            None => get_filler_words_for_language(lang)
+                .iter()
+                .map(|word| Regex::new(&format!(r"(?i)\b{}\b[,.]?", regex::escape(word))).unwrap())
+                .collect(),
+        }
     };
 
     // Remove filler words
@@ -697,5 +715,33 @@ mod tests {
             apply_corrections("hello world", &corrections),
             "hello world"
         );
+    }
+
+    #[test]
+    fn test_filler_removal_follows_language_fixtures_and_can_be_turned_off() {
+        let cases = [
+            ("en", "um we should uh ship today", "we should ship today"),
+            (
+                "pt-BR",
+                "um gato bonito ahm dormiu",
+                "um gato bonito dormiu",
+            ),
+            ("es", "ha sido ehm una buena idea", "ha sido una buena idea"),
+            ("fr", "euh nous sommes prêts", "nous sommes prêts"),
+            ("de", "ähm das klappt äh gut", "das klappt gut"),
+            ("ru", "хм это работает ммм хорошо", "это работает хорошо"),
+        ];
+        for (lang, input, expected) in cases {
+            assert_eq!(
+                filter_transcription_output_with_options(input, lang, &None, true),
+                expected,
+                "lang={lang}"
+            );
+            assert_eq!(
+                filter_transcription_output_with_options(input, lang, &None, false),
+                input,
+                "disabled must keep fillers for lang={lang}"
+            );
+        }
     }
 }

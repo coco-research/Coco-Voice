@@ -112,27 +112,27 @@ fn update_gtk_layer_shell_anchors(overlay_window: &tauri::webview::WebviewWindow
     });
 }
 
-/// Returns true when the environment variable is set to a truthy value
-/// (e.g. "1", "true", "yes", "on").
-/// "0", "false", "no", "off" and empty string are treated as falsy (case-insensitive).
-/// Returns false when the variable is not set.
-#[cfg(target_os = "linux")]
-fn env_flag_enabled(name: &str) -> bool {
-    match env::var(name) {
-        Ok(v) => !matches!(
-            v.trim().to_ascii_lowercase().as_str(),
-            "" | "0" | "false" | "no" | "off"
-        ),
-        Err(_) => false,
-    }
+/// Returns true when `COCO_VOICE_NO_GTK_LAYER_SHELL` (or its legacy alias) is
+/// set to a truthy value (e.g. "1", "true", "yes", "on").
+#[cfg(any(test, target_os = "linux"))]
+fn should_skip_gtk_layer_shell_from(lookup: impl Fn(&str) -> Option<String>) -> bool {
+    let truthy = |name: &str| {
+        lookup(name).is_some_and(|v| {
+            !matches!(
+                v.trim().to_ascii_lowercase().as_str(),
+                "" | "0" | "false" | "no" | "off"
+            )
+        })
+    };
+    truthy("COCO_VOICE_NO_GTK_LAYER_SHELL") || truthy("HANDY_NO_GTK_LAYER_SHELL")
 }
 
 /// Initializes GTK layer shell for Linux overlay window
 /// Returns true if layer shell was successfully initialized, false otherwise
 #[cfg(target_os = "linux")]
 fn init_gtk_layer_shell(overlay_window: &tauri::webview::WebviewWindow) -> bool {
-    if env_flag_enabled("HANDY_NO_GTK_LAYER_SHELL") {
-        debug!("Skipping GTK layer shell init (HANDY_NO_GTK_LAYER_SHELL is enabled)");
+    if should_skip_gtk_layer_shell_from(|name| env::var(name).ok()) {
+        debug!("Skipping GTK layer shell init (COCO_VOICE_NO_GTK_LAYER_SHELL is enabled)");
         return false;
     }
 
@@ -575,5 +575,18 @@ mod tests {
         bump_generation(&generation);
         bump_generation(&generation);
         assert_ne!(current_generation(&generation), captured);
+    }
+
+    #[test]
+    fn gtk_layer_shell_skip_accepts_new_var_and_legacy_alias() {
+        assert!(!should_skip_gtk_layer_shell_from(|_| None));
+        assert!(should_skip_gtk_layer_shell_from(|k| {
+            (k == "COCO_VOICE_NO_GTK_LAYER_SHELL").then(|| "1".to_string())
+        }));
+        let legacy = ["HANDY", "_NO_GTK_LAYER_SHELL"].concat();
+        assert!(should_skip_gtk_layer_shell_from(|k| {
+            (k == legacy).then(|| "true".to_string())
+        }));
+        assert!(!should_skip_gtk_layer_shell_from(|_| Some("0".to_string())));
     }
 }

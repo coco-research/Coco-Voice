@@ -31,6 +31,7 @@ static MIGRATIONS: &[M] = &[
     M::up("ALTER TABLE transcription_history ADD COLUMN post_processed_text TEXT;"),
     M::up("ALTER TABLE transcription_history ADD COLUMN post_process_prompt TEXT;"),
     M::up("ALTER TABLE transcription_history ADD COLUMN post_process_requested BOOLEAN NOT NULL DEFAULT 0;"),
+    M::up("ALTER TABLE transcription_history ADD COLUMN app_name TEXT;"),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -63,6 +64,7 @@ pub struct HistoryEntry {
     pub post_processed_text: Option<String>,
     pub post_process_prompt: Option<String>,
     pub post_process_requested: bool,
+    pub app_name: Option<String>,
 }
 
 pub struct HistoryManager {
@@ -92,6 +94,10 @@ impl HistoryManager {
 
         // Initialize database and run migrations synchronously
         manager.init_database()?;
+
+        if let Err(e) = manager.cleanup_old_entries() {
+            log::warn!("Failed to clean up expired history entries at startup: {e}");
+        }
 
         Ok(manager)
     }
@@ -207,6 +213,7 @@ impl HistoryManager {
             post_processed_text: row.get("post_processed_text")?,
             post_process_prompt: row.get("post_process_prompt")?,
             post_process_requested: row.get("post_process_requested")?,
+            app_name: row.get("app_name")?,
         })
     }
 
@@ -223,9 +230,13 @@ impl HistoryManager {
         post_process_requested: bool,
         post_processed_text: Option<String>,
         post_process_prompt: Option<String>,
+        app_name: Option<String>,
     ) -> Result<HistoryEntry> {
         let timestamp = Utc::now().timestamp();
         let title = self.format_timestamp_title(timestamp);
+        let app_name = app_name
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
 
         let conn = self.get_connection()?;
         conn.execute(
@@ -237,8 +248,9 @@ impl HistoryManager {
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                post_process_requested,
+                app_name
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 &file_name,
                 timestamp,
@@ -248,6 +260,7 @@ impl HistoryManager {
                 &post_processed_text,
                 &post_process_prompt,
                 post_process_requested,
+                &app_name,
             ],
         )?;
 
@@ -261,19 +274,22 @@ impl HistoryManager {
             post_processed_text,
             post_process_prompt,
             post_process_requested,
+            app_name,
         };
 
         debug!("Saved history entry with id {}", entry.id);
 
-        self.cleanup_old_entries()?;
+        let deleted_ids = self.cleanup_old_entries_with_ids()?;
 
-        // Emit typed event for real-time frontend updates
-        if let Err(e) = (HistoryUpdatePayload::Added {
-            entry: entry.clone(),
-        })
-        .emit(&self.app_handle)
-        {
-            error!("Failed to emit history-updated event: {}", e);
+        // Only emit Added when the entry survived retention (e.g. history_limit > 0).
+        if !deleted_ids.contains(&entry.id) {
+            if let Err(e) = (HistoryUpdatePayload::Added {
+                entry: entry.clone(),
+            })
+            .emit(&self.app_handle)
+            {
+                error!("Failed to emit history-updated event: {}", e);
+            }
         }
 
         Ok(entry)
@@ -308,7 +324,7 @@ impl HistoryManager {
 
         let entry = conn
             .query_row(
-                "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name
                  FROM transcription_history WHERE id = ?1",
                 params![id],
                 Self::map_history_entry,
@@ -328,125 +344,119 @@ impl HistoryManager {
     }
 
     pub fn cleanup_old_entries(&self) -> Result<()> {
-        let retention_period = crate::settings::get_recording_retention_period(&self.app_handle);
+        let _ = self.cleanup_old_entries_with_ids()?;
+        Ok(())
+    }
 
+    fn cleanup_old_entries_with_ids(&self) -> Result<Vec<i64>> {
+        let retention_period = crate::settings::get_recording_retention_period(&self.app_handle);
+        let limit = crate::settings::get_history_limit(&self.app_handle);
+        let conn = self.get_connection()?;
+        let deleted = Self::apply_retention_with_conn(
+            &conn,
+            &self.recordings_dir,
+            retention_period,
+            limit,
+            Utc::now().timestamp(),
+        )?;
+        for &id in &deleted {
+            if let Err(e) = (HistoryUpdatePayload::Deleted { id }).emit(&self.app_handle) {
+                error!("Failed to emit history-updated event: {}", e);
+            }
+        }
+        Ok(deleted)
+    }
+
+    pub(crate) fn apply_retention_with_conn(
+        conn: &Connection,
+        recordings_dir: &std::path::Path,
+        retention_period: crate::settings::RecordingRetentionPeriod,
+        limit: usize,
+        now: i64,
+    ) -> Result<Vec<i64>> {
         match retention_period {
-            crate::settings::RecordingRetentionPeriod::Never => {
-                // Don't delete anything
-                Ok(())
-            }
+            crate::settings::RecordingRetentionPeriod::Never => Ok(Vec::new()),
             crate::settings::RecordingRetentionPeriod::PreserveLimit => {
-                // Use the old count-based logic with history_limit
-                let limit = crate::settings::get_history_limit(&self.app_handle);
-                self.cleanup_by_count(limit)
+                Self::cleanup_by_count_with_conn(conn, recordings_dir, limit)
             }
-            _ => {
-                // Use time-based logic
-                self.cleanup_by_time(retention_period)
-            }
+            _ => Self::cleanup_by_time_with_conn(conn, recordings_dir, retention_period, now),
         }
     }
 
-    fn delete_entries_and_files(&self, entries: &[(i64, String)]) -> Result<usize> {
+    fn delete_entries_and_files_with_conn(
+        conn: &Connection,
+        recordings_dir: &std::path::Path,
+        entries: &[(i64, String)],
+    ) -> Result<Vec<i64>> {
         if entries.is_empty() {
-            return Ok(0);
+            return Ok(Vec::new());
         }
-
-        let conn = self.get_connection()?;
-        let mut deleted_count = 0;
-
+        let mut deleted_ids = Vec::with_capacity(entries.len());
         for (id, file_name) in entries {
-            // Delete database entry
             conn.execute(
                 "DELETE FROM transcription_history WHERE id = ?1",
                 params![id],
             )?;
+            deleted_ids.push(*id);
 
-            // Delete WAV file
-            let file_path = self.recordings_dir.join(file_name);
+            let file_path = recordings_dir.join(file_name);
             if file_path.exists() {
                 if let Err(e) = fs::remove_file(&file_path) {
                     error!("Failed to delete WAV file {}: {}", file_name, e);
                 } else {
                     debug!("Deleted old WAV file: {}", file_name);
-                    deleted_count += 1;
                 }
             }
         }
-
-        Ok(deleted_count)
+        Ok(deleted_ids)
     }
 
-    fn cleanup_by_count(&self, limit: usize) -> Result<()> {
-        let conn = self.get_connection()?;
-
-        // Get all entries that are not saved, ordered by timestamp desc
+    fn cleanup_by_count_with_conn(
+        conn: &Connection,
+        recordings_dir: &std::path::Path,
+        limit: usize,
+    ) -> Result<Vec<i64>> {
         let mut stmt = conn.prepare(
-            "SELECT id, file_name FROM transcription_history WHERE saved = 0 ORDER BY timestamp DESC"
+            "SELECT id, file_name FROM transcription_history WHERE saved = 0 ORDER BY timestamp DESC, id DESC",
         )?;
-
-        let rows = stmt.query_map([], |row| {
-            Ok((row.get::<_, i64>("id")?, row.get::<_, String>("file_name")?))
-        })?;
-
-        let mut entries: Vec<(i64, String)> = Vec::new();
-        for row in rows {
-            entries.push(row?);
-        }
+        let entries: Vec<(i64, String)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
         if entries.len() > limit {
-            let entries_to_delete = &entries[limit..];
-            let deleted_count = self.delete_entries_and_files(entries_to_delete)?;
-
-            if deleted_count > 0 {
-                debug!("Cleaned up {} old history entries by count", deleted_count);
-            }
+            return Self::delete_entries_and_files_with_conn(
+                conn,
+                recordings_dir,
+                &entries[limit..],
+            );
         }
-
-        Ok(())
+        Ok(Vec::new())
     }
 
-    fn cleanup_by_time(
-        &self,
+    fn cleanup_by_time_with_conn(
+        conn: &Connection,
+        recordings_dir: &std::path::Path,
         retention_period: crate::settings::RecordingRetentionPeriod,
-    ) -> Result<()> {
-        let conn = self.get_connection()?;
-
-        // Calculate cutoff timestamp (current time minus retention period)
-        let now = Utc::now().timestamp();
+        now: i64,
+    ) -> Result<Vec<i64>> {
         let cutoff_timestamp = match retention_period {
-            crate::settings::RecordingRetentionPeriod::Days3 => now - (3 * 24 * 60 * 60), // 3 days in seconds
-            crate::settings::RecordingRetentionPeriod::Weeks2 => now - (2 * 7 * 24 * 60 * 60), // 2 weeks in seconds
-            crate::settings::RecordingRetentionPeriod::Months3 => now - (3 * 30 * 24 * 60 * 60), // 3 months in seconds (approximate)
+            crate::settings::RecordingRetentionPeriod::Days3 => now - (3 * 24 * 60 * 60),
+            crate::settings::RecordingRetentionPeriod::Weeks2 => now - (2 * 7 * 24 * 60 * 60),
+            crate::settings::RecordingRetentionPeriod::Months3 => now - (3 * 30 * 24 * 60 * 60),
             _ => unreachable!("Should not reach here"),
         };
 
-        // Get all unsaved entries older than the cutoff timestamp
         let mut stmt = conn.prepare(
-            "SELECT id, file_name FROM transcription_history WHERE saved = 0 AND timestamp < ?1",
+            "SELECT id, file_name FROM transcription_history WHERE saved = 0 AND timestamp < ?1 ORDER BY timestamp ASC, id ASC",
         )?;
+        let entries_to_delete: Vec<(i64, String)> = stmt
+            .query_map(params![cutoff_timestamp], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
-        let rows = stmt.query_map(params![cutoff_timestamp], |row| {
-            Ok((row.get::<_, i64>("id")?, row.get::<_, String>("file_name")?))
-        })?;
-
-        let mut entries_to_delete: Vec<(i64, String)> = Vec::new();
-        for row in rows {
-            entries_to_delete.push(row?);
-        }
-
-        let deleted_count = self.delete_entries_and_files(&entries_to_delete)?;
-
-        if deleted_count > 0 {
-            debug!(
-                "Cleaned up {} old history entries based on retention period",
-                deleted_count
-            );
-        }
-
-        Ok(())
+        Self::delete_entries_and_files_with_conn(conn, recordings_dir, &entries_to_delete)
     }
-
     pub async fn get_history_entries(
         &self,
         cursor: Option<i64>,
@@ -459,7 +469,7 @@ impl HistoryManager {
             (Some(cursor_id), Some(lim)) => {
                 let fetch_count = (lim + 1) as i64;
                 let mut stmt = conn.prepare(
-                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name
                      FROM transcription_history
                      WHERE id < ?1
                      ORDER BY id DESC
@@ -473,7 +483,7 @@ impl HistoryManager {
             (None, Some(lim)) => {
                 let fetch_count = (lim + 1) as i64;
                 let mut stmt = conn.prepare(
-                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name
                      FROM transcription_history
                      ORDER BY id DESC
                      LIMIT ?1",
@@ -485,7 +495,7 @@ impl HistoryManager {
             }
             (_, None) => {
                 let mut stmt = conn.prepare(
-                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name
                      FROM transcription_history
                      ORDER BY id DESC",
                 )?;
@@ -516,7 +526,8 @@ impl HistoryManager {
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
+                post_process_requested,
+                app_name
              FROM transcription_history
              ORDER BY timestamp DESC
              LIMIT 1",
@@ -543,7 +554,8 @@ impl HistoryManager {
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
+                post_process_requested,
+                app_name
              FROM transcription_history
              WHERE transcription_text != ''
              ORDER BY timestamp DESC
@@ -597,7 +609,8 @@ impl HistoryManager {
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
+                post_process_requested,
+                app_name
              FROM transcription_history
              WHERE id = ?1",
         )?;
@@ -666,7 +679,8 @@ mod tests {
                 transcription_text TEXT NOT NULL,
                 post_processed_text TEXT,
                 post_process_prompt TEXT,
-                post_process_requested BOOLEAN NOT NULL DEFAULT 0
+                post_process_requested BOOLEAN NOT NULL DEFAULT 0,
+                app_name TEXT
             );",
         )
         .expect("create transcription_history table");
@@ -752,7 +766,7 @@ mod tests {
         let conn = Connection::open(&db_path).expect("reopen history db");
         let mut stmt = conn
             .prepare(
-                "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name
                  FROM transcription_history
                  ORDER BY id DESC",
             )
@@ -774,5 +788,172 @@ mod tests {
             .expect("entry exists");
         assert_eq!(latest.timestamp, 200);
         assert_eq!(latest.transcription_text, "second");
+    }
+
+    fn seed(conn: &Connection, dir: &std::path::Path, name: &str, ts: i64, saved: bool) -> i64 {
+        fs::write(dir.join(name), b"RIFF-synthetic").expect("wav");
+        conn.execute(
+            "INSERT INTO transcription_history (file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested)
+             VALUES (?1, ?2, ?3, ?4, ?5, NULL, NULL, 0)",
+            params![name, ts, saved, format!("Rec {ts}"), name],
+        )
+        .expect("insert");
+        conn.last_insert_rowid()
+    }
+
+    fn remaining_ids(conn: &Connection) -> Vec<i64> {
+        conn.prepare("SELECT id FROM transcription_history ORDER BY id ASC")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<std::result::Result<Vec<i64>, _>>()
+            .unwrap()
+    }
+
+    #[test]
+    fn preserve_limit_enforces_exact_count_deletes_wav_files_and_keeps_saved_entries() {
+        use crate::settings::RecordingRetentionPeriod::PreserveLimit;
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let conn = setup_conn();
+        let saved_id = seed(&conn, dir.path(), "saved.wav", 50, true);
+        let old_id = seed(&conn, dir.path(), "one.wav", 100, false);
+        let tie_old = seed(&conn, dir.path(), "two.wav", 200, false);
+        let tie_new = seed(&conn, dir.path(), "three.wav", 200, false);
+
+        assert_eq!(
+            HistoryManager::apply_retention_with_conn(&conn, dir.path(), PreserveLimit, 2, 250)
+                .unwrap(),
+            vec![old_id]
+        );
+        assert_eq!(remaining_ids(&conn), vec![saved_id, tie_old, tie_new]);
+        assert!(!dir.path().join("one.wav").exists());
+        assert!(dir.path().join("two.wav").exists());
+
+        assert_eq!(
+            HistoryManager::apply_retention_with_conn(&conn, dir.path(), PreserveLimit, 1, 250)
+                .unwrap(),
+            vec![tie_old]
+        );
+        assert_eq!(remaining_ids(&conn), vec![saved_id, tie_new]);
+        assert!(!dir.path().join("two.wav").exists());
+        assert!(dir.path().join("three.wav").exists());
+
+        assert_eq!(
+            HistoryManager::apply_retention_with_conn(&conn, dir.path(), PreserveLimit, 0, 250)
+                .unwrap(),
+            vec![tie_new]
+        );
+        assert_eq!(remaining_ids(&conn), vec![saved_id]);
+        assert!(!dir.path().join("three.wav").exists());
+        assert!(dir.path().join("saved.wav").exists());
+    }
+
+    #[test]
+    fn auto_delete_periods_prune_expired_entries_and_wav_files_only() {
+        use crate::settings::RecordingRetentionPeriod::{Days3, Months3, Never, Weeks2};
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let conn = setup_conn();
+        let now = 10_000_000i64;
+        let day = 24 * 60 * 60;
+
+        let saved_old = seed(&conn, dir.path(), "saved-old.wav", now - 120 * day, true);
+        let m4 = seed(&conn, dir.path(), "m4.wav", now - 91 * day, false);
+        let w3 = seed(&conn, dir.path(), "w3.wav", now - 15 * day, false);
+        let d4 = seed(&conn, dir.path(), "d4.wav", now - 4 * day, false);
+        let fresh = seed(&conn, dir.path(), "fresh.wav", now - 2 * day, false);
+
+        assert!(
+            HistoryManager::apply_retention_with_conn(&conn, dir.path(), Never, 1, now)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(remaining_ids(&conn).len(), 5);
+
+        assert_eq!(
+            HistoryManager::apply_retention_with_conn(&conn, dir.path(), Months3, 5, now).unwrap(),
+            vec![m4]
+        );
+        assert!(!dir.path().join("m4.wav").exists());
+
+        assert_eq!(
+            HistoryManager::apply_retention_with_conn(&conn, dir.path(), Weeks2, 5, now).unwrap(),
+            vec![w3]
+        );
+        assert!(!dir.path().join("w3.wav").exists());
+
+        assert_eq!(
+            HistoryManager::apply_retention_with_conn(&conn, dir.path(), Days3, 5, now).unwrap(),
+            vec![d4]
+        );
+        assert!(!dir.path().join("d4.wav").exists());
+        assert_eq!(remaining_ids(&conn), vec![saved_old, fresh]);
+        assert!(dir.path().join("saved-old.wav").exists());
+        assert!(dir.path().join("fresh.wav").exists());
+    }
+
+    #[test]
+    fn v0101_history_db_opens_keeps_every_row_and_stores_app_name() {
+        let dir = tempfile::tempdir().expect("create temp dir");
+        let db_path = dir.path().join("history.db");
+
+        {
+            let mut conn = Connection::open(&db_path).expect("open v0.10.1 history db");
+            let v0101 = super::Migrations::new(super::MIGRATIONS[..4].to_vec());
+            v0101
+                .to_latest(&mut conn)
+                .expect("apply v0.10.1 migrations");
+            insert_entry(&conn, 100, "first legacy take", None);
+            insert_entry(
+                &conn,
+                200,
+                "second legacy take",
+                Some("Cleaned legacy take."),
+            );
+            conn.execute(
+                "UPDATE transcription_history SET saved = 1 WHERE timestamp = 100",
+                [],
+            )
+            .expect("mark first legacy row saved");
+        }
+
+        let mut conn = Connection::open(&db_path).expect("reopen for v5 migration");
+        let latest = super::Migrations::new(super::MIGRATIONS.to_vec());
+        latest.validate().expect("valid migrations");
+        latest.to_latest(&mut conn).expect("migrate v0.10.1 db");
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name
+                 FROM transcription_history ORDER BY id ASC",
+            )
+            .expect("prepare migrated query");
+        let rows = stmt
+            .query_map([], HistoryManager::map_history_entry)
+            .expect("query migrated rows")
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .expect("collect migrated rows");
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].transcription_text, "first legacy take");
+        assert!(rows[0].saved);
+        assert_eq!(rows[0].app_name, None);
+        assert_eq!(
+            rows[1].post_processed_text.as_deref(),
+            Some("Cleaned legacy take.")
+        );
+        assert_eq!(rows[1].app_name, None);
+
+        conn.execute(
+            "INSERT INTO transcription_history (
+                file_name, timestamp, saved, title, transcription_text, post_process_requested, app_name
+            ) VALUES (?1, ?2, 0, ?3, ?4, 1, ?5)",
+            params!["coco-voice-300.wav", 300_i64, "Recording 300", "new take", "Mail"],
+        )
+        .expect("insert take with app_name");
+        let newest = HistoryManager::get_latest_entry_with_conn(&conn)
+            .expect("query newest")
+            .expect("newest exists");
+        assert_eq!(newest.app_name.as_deref(), Some("Mail"));
     }
 }

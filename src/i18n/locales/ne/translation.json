@@ -12,10 +12,43 @@
     "general": "सामान्य",
     "models": "मोडेलहरू",
     "advanced": "उन्नत",
-    "postProcessing": "पोस्ट प्रोसेस",
+    "postProcessing": "क्लिन-अप",
     "history": "हिस्ट्री",
     "debug": "डिबग",
-    "about": "बारेमा"
+    "about": "बारेमा",
+    "home": "गृह",
+    "recordMeeting": "बैठक रेकर्ड गर्नुहोस्",
+    "meetingHistory": "बैठक इतिहास",
+    "askMeetings": "आफ्ना बैठकहरूलाई सोध्नुहोस्",
+    "foldersAndTemplates": "फोल्डर र टेम्प्लेटहरू",
+    "agentAccess": "एजेन्ट पहुँच",
+    "voiceSection": "आवाज",
+    "dictationHistory": "डिक्टेसन इतिहास",
+    "perAppProfiles": "एप अनुसार प्रोफाइल",
+    "wordsAndCleanup": "शब्द र सुधार",
+    "settings": "सेटिङहरू",
+    "sectionPlaceholder": "सक्रिय भएपछि यस खण्डमा उपलब्ध हुन्छ।",
+    "startRecording": "रेकर्डिङ सुरु गर्नुहोस्",
+    "seeAllMeetings": "सबै बैठकहरू →",
+    "dictateHeading": "जताततै बोलेर टाइप गर्नुहोस्",
+    "holdToTalk": "बोल्न थिचिरहनुहोस्",
+    "changeShortcut": "सर्टकट बदल्नुहोस्",
+    "seeAllDictations": "सबै डिक्टेसनहरू →",
+    "dictationSearchPlaceholder": "तपाईंले बोलेका शब्दहरू",
+    "dictationSearchAria": "डिक्टेसन खोज्नुहोस्",
+    "cleanedUp": "सुधारिएको",
+    "emptyDictationSearch": "खोजसँग मिल्ने कुनै डिक्टेसन छैन।",
+    "keptDays": "३० दिन राखिन्छ",
+    "homeHeading": "शुभ प्रभात",
+    "homeMeetingsBody": "नोट र ट्रान्सक्रिप्ट यस Mac मा बनाइन्छ। सुरु थिचेपछि मात्र रेकर्डिङ सुरु हुन्छ।",
+    "recentMeetings": "हालैका बैठकहरू",
+    "dictateBody": "आफ्नो सर्टकट थिचिरहनुहोस्, बोल्नुहोस् र छोड्नुहोस्। कर्सर भएको ठाउँमा शब्दहरू टाइप हुन्छन्।",
+    "recentDictations": "हालैका डिक्टेसनहरू",
+    "more": "थप",
+    "keep": "राख्नुहोस्",
+    "kept": "राखिएको",
+    "editText": "पाठ सम्पादन गर्नुहोस्",
+    "tryAgain": "फेरि प्रयास गर्नुहोस्"
   },
   "onboarding": {
     "subtitle": "सुरु गर्न, एउटा ट्रान्सक्रिप्सन मोडेल छान्नुहोस्",
@@ -161,7 +194,7 @@
     "general": {
       "title": "सामान्य",
       "shortcut": {
-        "title": "Coco Voice सर्टकटहरू",
+        "title": "किबोर्ड सर्टकटहरू",
         "description": "स्पिच-टु-टेक्स्ट रेकर्डिङ सुरु गर्न किबोर्ड सर्टकटहरू सेट अप गर्नुहोस्",
         "loading": "सर्टकटहरू लोड गरिँदैछन्...",
         "none": "कुनै सर्टकट सेट गरिएको छैन",
@@ -169,7 +202,7 @@
         "pressKeys": "किहरू थिच्नुहोस्...",
         "bindings": {
           "transcribe": {
-            "name": "ट्रान्सक्राइब सर्टकट",
+            "name": "डिक्टेसन सर्टकट",
             "description": "तपाईंको आवाज रेकर्ड गरी ट्रान्सक्राइब गर्ने किबोर्ड सर्टकट।"
           },
           "cancel": {
@@ -177,11 +210,11 @@
             "description": "हालको रेकर्डिङ रद्द गर्ने किबोर्ड सर्टकट।"
           },
           "transcribe_with_post_process": {
-            "name": "पोस्ट-प्रोसेसिङ हटकी",
+            "name": "क्लिन-अप सर्टकट",
             "description": "वैकल्पिक: तपाईंको ट्रान्सक्रिप्सनमा सधैँ AI पोस्ट-प्रोसेसिङ लागू गर्ने छुट्टै हटकी।"
           },
           "correction": {
-            "name": "सुधार बोल्नुहोस्",
+            "name": "बोलेर सच्याउने सर्टकट",
             "description": "तपाईंको पछिल्लो श्रुतलेखलाई प्रतिस्थापन गर्ने सुधार बोल्नको लागि किबोर्ड सर्टकट। यसलाई सक्षम गर्न एउटा की तोक्नुहोस्।"
           }
         },
@@ -199,7 +232,7 @@
         "auto": "स्वतः"
       },
       "pushToTalk": {
-        "label": "पुश टु टक",
+        "label": "बोल्न थिचिराख्नुहोस्",
         "description": "रेकर्ड गर्न थिचिराख्नुहोस्, रोक्न छोड्नुहोस्"
       }
     },
@@ -230,7 +263,7 @@
         "loading": "लोड गरिँदैछ..."
       },
       "audioFeedback": {
-        "label": "अडियो फिडब्याक",
+        "label": "रेकर्डिङ आवाज",
         "description": "रेकर्डिङ सुरु र बन्द हुँदा आवाज बजाउनुहोस्"
       },
       "outputDevice": {
@@ -278,7 +311,7 @@
         "description": "विन्डो नखोली सिस्टम ट्रेमा सुरु गर्नुहोस्।"
       },
       "autostart": {
-        "label": "स्टार्टअपमा सुरु गर्नुहोस्",
+        "label": "लगइन हुँदा खोल्नुहोस्",
         "description": "कम्प्युटरमा लगइन गर्दा Coco Voice स्वतः सुरु गर्नुहोस्।"
       },
       "showTrayIcon": {
@@ -287,7 +320,7 @@
       },
       "overlay": {
         "style": {
-          "title": "ओभरले",
+          "title": "रेकर्डिङ पिल",
           "description": "रेकर्डिङ ओभरले छान्नुहोस्: 'कुनै होइन' ले लुकाउँछ, 'मिनिमल' ले सानो पिल देखाउँछ, 'लाइभ' ले बोल्दै गर्दा वास्तविक समयमा ट्रान्सक्रिप्सन देखाउँछ (स्ट्रिमिङ-सक्षम मोडेलहरूमा मात्र — मोडेल पिकरमा स्ट्रिमिङ ब्याज हेर्नुहोस्)। Linux मा 'कुनै होइन' सिफारिस गरिन्छ।",
           "options": {
             "none": "कुनै होइन",
@@ -296,7 +329,7 @@
           }
         },
         "position": {
-          "title": "ओभरले स्थिति",
+          "title": "पिल देखिने ठाउँ",
           "description": "रेकर्डिङ र ट्रान्सक्रिप्सनका बेला ओभरले स्क्रिनमा कहाँ देखिन्छ।",
           "options": {
             "bottom": "तल",
@@ -305,7 +338,7 @@
         }
       },
       "pasteMethod": {
-        "title": "पेस्ट विधि",
+        "title": "शब्द टाइप गर्ने तरिका",
         "description": "टेक्स्ट कसरी घुसाइन्छ छान्नुहोस्। डाइरेक्ट: सिस्टम इनपुटमार्फत टाइपिङ अनुकरण गर्छ। कुनै होइन: पेस्ट नगरी हिस्ट्री/क्लिपबोर्ड मात्र अपडेट गर्छ।",
         "options": {
           "clipboard": "क्लिपबोर्ड ({{modifier}}+V)",
@@ -325,16 +358,16 @@
         }
       },
       "clipboardHandling": {
-        "title": "क्लिपबोर्ड व्यवस्थापन",
+        "title": "पेस्ट गरेपछिको क्लिपबोर्ड",
         "description": "'क्लिपबोर्ड परिवर्तन नगर्नुहोस्' ले ट्रान्सक्रिप्सनपछि तपाईंको हालको क्लिपबोर्ड सामग्री जोगाउँछ। 'क्लिपबोर्डमा कपी गर्नुहोस्' ले पेस्ट गरेपछि ट्रान्सक्रिप्सन नतिजा क्लिपबोर्डमा छोड्छ।",
         "options": {
-          "dontModify": "क्लिपबोर्ड परिवर्तन नगर्नुहोस्",
+          "dontModify": "अघिल्लो क्लिपबोर्ड राख्नुहोस्",
           "copyToClipboard": "क्लिपबोर्डमा कपी गर्नुहोस्"
         },
         "privacyHint": "क्लिपबोर्डमा रहेको पाठ अरू एप र क्लिपबोर्ड उपकरणले देख्न सक्छन्, र Universal Clipboard ले यसलाई तपाईंका अरू Apple उपकरणहरूमा प्रतिलिपि गर्न सक्छ।"
       },
       "autoSubmit": {
-        "title": "स्वतः सबमिट",
+        "title": "पेस्टपछि कुञ्जी थिच्नुहोस्",
         "description": "टेक्स्ट घुसाएपछि चयन गरिएको कि संयोजन स्वतः पठाउनुहोस्। Cmd+Enter macOS मा लागू हुन्छ, भने Windows/Linux ले Super+Enter प्रयोग गर्छ।",
         "options": {
           "off": "अफ",
@@ -370,22 +403,30 @@
         "remove": "{{word}} हटाउनुहोस्",
         "duplicate": "\"{{word}}\" पहिले नै छ"
       },
+      "corrections": {
+        "title": "सुधारहरू",
+        "description": "अन्तिम पाठमा निश्चित शब्द वा वाक्यांशहरूलाई अक्षरको आकार नहेरी बदल्छ।",
+        "fromPlaceholder": "यसबाट",
+        "toPlaceholder": "यसमा",
+        "duplicate": "\"{{word}}\" को सुधार पहिले नै छ",
+        "remove": "{{from}} बाट {{to}} सुधार हटाउनुहोस्"
+      },
       "voiceActivityDetection": {
-        "title": "भ्वाइस एक्टिभिटी डिटेक्सन",
-        "description": "रेकर्डिङबाट मौनता हटाउँछ। स्ट्रिमिङ-सक्षम मोडेलहरूले लामो VAD टेल प्रयोग गर्छन्; VAD अफ गर्दा कच्चा अडियो रेकर्ड हुन्छ।"
+        "title": "मौन भाग छोड्नुहोस्",
+        "description": "रेकर्ड गर्दा मौन रोकावटहरू हटाउँछ। बन्द गर्दा पूरा अडियो रेकर्ड हुन्छ।"
       }
     },
     "postProcessing": {
       "hotkey": {
-        "title": "हटकी"
+        "title": "सर्टकट"
       },
       "correction": {
-        "title": "पुनरावृत्ति सुधार",
-        "toggleLabel": "सुधार बोल्नुहोस्",
+        "title": "बोलेर सच्याउने",
+        "toggleLabel": "बोलेर सच्याउने",
         "toggleDescription": "तपाईंको पछिल्लो श्रुतलेखलाई बोलिएको सुधारले प्रतिस्थापन गर्न थिच्ने स्पष्ट हटकी थप्छ। यो कहिल्यै कुञ्जीशब्दबाट स्वतः चल्दैन। तोकिएको की थिच्नुहोस्, सुधार बोल्नुहोस्, र अघिल्लो आउटपुट ठाउँमै सम्पादन हुन्छ।"
       },
       "api": {
-        "title": "API (OpenAI अनुकूल)",
+        "title": "क्लिन-अप मोडेल",
         "provider": {
           "title": "प्रदायक",
           "description": "OpenAI-अनुकूल प्रदायक चयन गर्नुहोस्।"
@@ -424,22 +465,22 @@
         }
       },
       "prompts": {
-        "title": "प्रम्प्ट",
+        "title": "निर्देशनहरू",
         "selectedPrompt": {
-          "title": "चयन गरिएको प्रम्प्ट",
+          "title": "मिलाउने शैली",
           "description": "ट्रान्सक्रिप्सन परिष्कृत गर्न टेम्प्लेट चयन गर्नुहोस् वा नयाँ बनाउनुहोस्। क्याप्चर गरिएको ट्रान्सक्रिप्ट उल्लेख गर्न प्रम्प्ट टेक्स्टभित्र ${output} प्रयोग गर्नुहोस्।"
         },
         "noPrompts": "कुनै प्रम्प्ट उपलब्ध छैन",
         "selectPrompt": "प्रम्प्ट चयन गर्नुहोस्",
-        "createNew": "नयाँ प्रम्प्ट बनाउनुहोस्",
-        "promptLabel": "प्रम्प्ट लेबल",
+        "createNew": "नयाँ शैली",
+        "promptLabel": "नाम",
         "promptLabelPlaceholder": "प्रम्प्टको नाम लेख्नुहोस्",
-        "promptInstructions": "प्रम्प्ट निर्देशनहरू",
+        "promptInstructions": "निर्देशनहरू",
         "promptInstructionsPlaceholder": "ट्रान्सक्रिप्सनपछि चलाउने निर्देशनहरू लेख्नुहोस्। उदाहरण: निम्न टेक्स्टको व्याकरण र स्पष्टता सुधार गर्नुहोस्: ${output}",
         "promptTip": "सुझाव: प्रम्प्टमा ट्रान्सक्राइब गरिएको टेक्स्ट घुसाउन <code>${output}</code> प्रयोग गर्नुहोस्।",
-        "updatePrompt": "प्रम्प्ट अपडेट गर्नुहोस्",
-        "deletePrompt": "प्रम्प्ट मेटाउनुहोस्",
-        "createPrompt": "प्रम्प्ट बनाउनुहोस्",
+        "updatePrompt": "परिवर्तनहरू सेभ गर्नुहोस्",
+        "deletePrompt": "मेटाउनुहोस्",
+        "createPrompt": "बनाउनुहोस्",
         "cancel": "रद्द गर्नुहोस्",
         "selectToEdit": "विवरण हेर्न र सम्पादन गर्न माथिबाट प्रम्प्ट चयन गर्नुहोस्।",
         "createFirst": "आफ्नो पहिलो पोस्ट-प्रोसेसिङ प्रम्प्ट बनाउन माथिको 'नयाँ प्रम्प्ट बनाउनुहोस्' क्लिक गर्नुहोस्।"
@@ -458,12 +499,17 @@
       "retranscribe": "फेरि ट्रान्सक्राइब गर्नुहोस्",
       "retranscribeError": "फेरि ट्रान्सक्राइब गर्न सकिएन। कृपया फेरि प्रयास गर्नुहोस्।",
       "transcribing": "ट्रान्सक्राइब गरिँदैछ...",
+      "edit": "सम्पादन",
+      "saveEdit": "बचत",
+      "editError": "सम्पादन बचत गर्न सकिएन",
+      "learnedOne": "सिकिएको सुधार: \"{{from}}\" → \"{{to}}\"",
+      "learnedMany": "तपाईंको सम्पादनबाट {{count}} सुधार सिकियो",
       "transcriptionFailed": "ट्रान्सक्रिप्सन गर्न सकिएन। रिट्राई आइकन प्रयोग गरेर फेरि ट्रान्सक्राइब गर्न सक्नुहुन्छ।"
     },
     "debug": {
       "title": "डिबग",
       "logDirectory": {
-        "title": "लग डाइरेक्टरी",
+        "title": "लग फोल्डर",
         "description": "लग फाइलहरू भण्डारण हुने स्थान"
       },
       "logLevel": {
@@ -494,6 +540,7 @@
       },
       "soundTheme": {
         "label": "साउन्ड थिम",
+        "preview": "ध्वनि पूर्वावलोकन",
         "description": "रेकर्डिङ सुरु र बन्द फिडब्याकका लागि साउन्ड थिम छान्नुहोस्"
       },
       "wordCorrectionThreshold": {
@@ -524,8 +571,8 @@
         "description": "ल्यापटपको ढकनी बन्द हुँदा प्रयोग गर्ने माइक्रोफोन"
       },
       "postProcessingToggle": {
-        "label": "पोस्ट प्रोसेसिङ",
-        "description": "ट्रान्सक्रिप्सनपछि AI-आधारित टेक्स्ट परिष्करण अन गर्नुहोस्"
+        "label": "क्लिन-अप",
+        "description": "ट्रान्सक्रिप्सनपछि अनावश्यक शब्द, विराम चिन्ह र सुधारहरू मिलाउनुहोस्"
       },
       "muteWhileRecording": {
         "label": "रेकर्डिङ गर्दा म्युट गर्नुहोस्",
@@ -536,21 +583,23 @@
         "description": "पेस्ट गरिएको ट्रान्सक्रिप्सनपछि खाली ठाउँ थप्नुहोस्"
       },
       "keyboardImplementation": {
-        "title": "किबोर्ड कार्यान्वयन",
+        "title": "किबोर्ड ह्यान्डलर",
         "description": "किबोर्ड सर्टकट ब्याकइन्ड छान्नुहोस्।",
         "bindingsReset": "किबोर्ड सर्टकटहरू असंगत भएकाले डिफल्टमा रिसेट गरियो"
       },
       "paths": {
+        "title": "एपका पथहरू",
+        "description": "समस्या समाधानका लागि आन्तरिक फोल्डर र फाइलहरू",
         "appData": "एप डेटा:",
         "models": "मोडेलहरू:",
         "settings": "सेटिङहरू:"
       },
       "pasteDelay": {
-        "title": "पेस्ट ढिलाइ (अघि)",
+        "title": "पेस्ट गर्नुअघिको प्रतीक्षा",
         "description": "टेक्स्ट कपी गरेपछि, पेस्ट किस्ट्रोक पठाउनुअघिको ढिलाइ (मिलिसेकेन्डमा)। केही पनि पेस्ट नभएमा बढाउनुहोस्।"
       },
       "pasteDelayAfter": {
-        "title": "पेस्ट ढिलाइ (पछि)",
+        "title": "पेस्ट गरेपछिको प्रतीक्षा",
         "description": "पेस्ट किस्ट्रोकपछि, तपाईंको अघिल्लो क्लिपबोर्ड पुनर्स्थापना गर्नुअघिको ढिलाइ (मिलिसेकेन्डमा)। ट्रान्सक्रिप्सनको सट्टा पुरानो क्लिपबोर्ड सामग्री पेस्ट भइरहेको छ भने बढाउनुहोस्।"
       },
       "recordingBuffer": {
@@ -569,7 +618,7 @@
         "description": "Coco Voice अपडेट भएपछि रिलिज नोटहरू देखाउनुहोस्"
       },
       "appDataDirectory": {
-        "title": "एप डेटा डाइरेक्टरी",
+        "title": "एप डेटा फोल्डर",
         "description": "Coco Voice ले आफ्नो डेटा भण्डारण गर्ने स्थान"
       },
       "sourceCode": {
@@ -585,6 +634,32 @@
           "details": "Coco Voice को स्थानीय स्पिच-टु-टेक्स्ट transcribe.cpp र ggml मा आधारित छ। Georgi Gerganov र योगदानकर्ताहरूको उत्कृष्ट कामका लागि धन्यवाद।"
         }
       }
+    },
+    "online": {
+      "eyebrow": "सेटिङहरू",
+      "title": "के अनलाइन जान्छ",
+      "intro": "तपाईंको बोली यस Mac भित्रै पाठमा रूपान्तरण हुन्छ। Coco Voice को यस संस्करणले सम्पर्क गर्न सक्ने ठाउँहरू र प्रत्येकले पाउने विवरण यी हुन्।",
+      "leavesLabel": "तपाईंको Mac बाट बाहिर जान्छ:",
+      "openHeading": "एप खुल्ने प्रत्येक पटक",
+      "githubName": "GitHub (Coco Voice का संस्करणहरू)",
+      "githubWhen": "अपडेट जाँच गर्न एप खुल्ने प्रत्येक पटक। यसलाई रोक्न माथिको बारेमा खण्डमा अपडेट जाँच बन्द गर्नुहोस्। क्लिक गरिएका लिङ्कहरू ब्राउजरमा खुल्छन्।",
+      "githubLeaves": "संस्करण सूचीको अनुरोध र तपाईंले स्थापना गरेमा अपडेट फाइल। कुनै आवाज वा पाठ जाँदैन।",
+      "updateChecksOn": "अपडेट जाँच खुला",
+      "updateChecksOff": "अपडेट जाँच बन्द",
+      "clickHeading": "तपाईंले क्लिक गर्दा मात्र",
+      "modelFilesName": "Coco Voice मोडेल फाइलहरू",
+      "modelFilesWhen": "भित्रै समावेश गरिएको स्पीच मोडेलमा डाउनलोड क्लिक गर्दा।",
+      "modelFilesLeaves": "तपाईंले मागेको मोडेल फाइलको नाम। कुनै आवाज वा पाठ जाँदैन।",
+      "huggingFaceWhen": "क्याटलग मोडेलमा डाउनलोड क्लिक गर्दा वा ब्राउजरमा खोल्न यसको लाइसेन्स क्लिक गर्दा।",
+      "huggingFaceLeaves": "मोडेलको नाम, संस्करण र फाइल नाम, साथै यस Mac मा पहिले नै सेट गरिएको भए Hugging Face टोकन। कुनै आवाज वा पाठ जाँदैन।",
+      "cleanupHeading": "तपाईंले क्लिन-अप प्रदायक छान्दा मात्र",
+      "cloudWhen": "तपाईंले छानेको क्लाउड प्रदायकसँग क्लिन-अप चल्दा।",
+      "cloudLeaves": "तपाईंले बोलेको पाठ, क्लिन-अप निर्देशन र तपाईंको API साँचो। मोडेल सूची हेर्दा API साँचो मात्र पठाइन्छ।",
+      "customName": "कस्टम क्लिन-अप (Ollama)",
+      "customWhen": "प्रदायकका रूपमा कस्टम छानेर क्लिन-अप चल्दा। ठेगाना नबदलेसम्म यसले यसै Mac भित्रको प्रोग्रामसँग कुरा गर्छ।",
+      "customLeaves": "सुरुको ठेगानामा केही पनि बाहिर जाँदैन। बोलेको पाठ र क्लिन-अप निर्देशन यसै Mac को प्रोग्राममा जान्छन्।",
+      "staysOnMac": "यसै Mac मा रहन्छ",
+      "onDeviceNote": "यन्त्रभित्रको क्लिन-अप (Apple Intelligence वा स्थानीय मोडेल) ले यीमध्ये कुनैसँग सम्पर्क गर्दैन।"
     }
   },
   "footer": {
@@ -610,6 +685,11 @@
     "open": "खोल्नुहोस्",
     "copy": "कपी गर्नुहोस्",
     "clear": "खाली गर्नुहोस्",
+    "selectOption": "विकल्प छान्नुहोस्...",
+    "notAvailable": "उपलब्ध छैन",
+    "moreInfo": "थप जानकारी",
+    "play": "बजाउनुहोस्",
+    "pause": "रोक्नुहोस्",
     "noOptionsFound": "कुनै विकल्प भेटिएन"
   },
   "accessibility": {
@@ -660,7 +740,7 @@
   },
   "overlay": {
     "transcribing": "ट्रान्सक्राइब गरिँदैछ...",
-    "processing": "प्रशोधन गरिँदैछ...",
+    "processing": "मिलाइँदैछ...",
     "polishing": "सम्पादन..."
   },
   "cleanupStatus": {
@@ -706,6 +786,55 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "list": {
+      "heading": "All meetings",
+      "countOne": "1 meeting",
+      "countMany": "{{count}} meetings",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Title, notes, or transcript",
+      "searchAria": "Search meetings",
+      "untitled": "Meeting",
+      "dateAndDuration": "{{date}} · {{minutes}} min",
+      "notesReady": "Notes ready",
+      "transcriptOnly": "Transcript only",
+      "exportMarkdown": "Export Markdown",
+      "delete": "Delete",
+      "confirmPrompt": "Delete this meeting?",
+      "confirmDelete": "Confirm delete",
+      "cancelDelete": "Cancel",
+      "emptyList": "No meetings yet. Start notes from the menu bar.",
+      "emptySearch": "No meetings match your search.",
+      "audioLeftWarning": "Meeting deleted, but its audio folder is still on disk.",
+      "loadFailed": "Could not load meetings.",
+      "exportFailed": "Could not export Markdown.",
+      "deleteFailed": "Could not delete the meeting."
     }
+  },
+  "profiles": {
+    "addApp": "Add an app",
+    "subtitle": "How your words are written depends on the app in front. Apps without a profile use the default.",
+    "edit": "Edit",
+    "remove": "Remove",
+    "defaultName": "Default",
+    "defaultDesc": "Every other app",
+    "neverHeading": "Never dictate in",
+    "neverRowDesc": "The shortcut does nothing here",
+    "neverEmpty": "No blocked apps yet.",
+    "useFrontApp": "Use app in front",
+    "appIdPlaceholder": "App name or bundle ID (e.g. Mail or com.apple.mail)",
+    "namePlaceholder": "Display name (e.g. Mail)",
+    "toneLabel": "Style",
+    "toneAuto": "Match app",
+    "toneFormal": "Full sentences",
+    "toneCasual": "Casual",
+    "toneDirect": "Direct",
+    "toneCode": "Code names keep their casing",
+    "capsAndPunct": "capitals and punctuation",
+    "noTrailingStop": "no full stop at the end",
+    "exactWords": "Exactly what you said",
+    "cleanupOn": "clean-up on",
+    "cleanupOff": "clean-up off",
+    "cleanupDefault": "clean-up default"
   }
 }

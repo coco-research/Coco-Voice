@@ -149,7 +149,7 @@ Key libraries: [transcribe-cpp](https://github.com/handy-computer/transcribe.cpp
 | Windows on ARM   | An arm64 `-setup.exe` and `.msi`. The speech engine is CPU-only.                                                                              |
 | Linux            | An AppImage, a `.deb`, and an `.rpm` for x86_64/amd64 and aarch64/arm64. transcribe.cpp uses Vulkan. The recording overlay is off by default. |
 
-On Linux, `HANDY_NO_GTK_LAYER_SHELL=1` skips the GTK layer-shell overlay. Wayland paste depends on a typing tool such as `wtype`, `ydotool`, `dotool`, or `xdotool`. Install notes and the long build troubleshooting (Windows path length, AppImage, Intel Mac ONNX Runtime) are in [BUILD.md](BUILD.md).
+On Linux, `COCO_VOICE_NO_GTK_LAYER_SHELL=1` skips the GTK layer-shell overlay. Wayland paste depends on a typing tool such as `wtype`, `ydotool`, `dotool`, or `xdotool`. Install notes and the long build troubleshooting (Windows path length, AppImage, Intel Mac ONNX Runtime) are in [BUILD.md](BUILD.md).
 
 ### Debug
 

@@ -12,10 +12,43 @@
     "general": "Algemeen",
     "models": "Modellen",
     "advanced": "Geavanceerd",
-    "postProcessing": "Naverwerking",
+    "postProcessing": "Opschonen",
     "history": "Geschiedenis",
     "debug": "Probleemoplossing",
-    "about": "Over Coco Voice"
+    "about": "Over Coco Voice",
+    "home": "Start",
+    "recordMeeting": "Vergadering opnemen",
+    "meetingHistory": "Vergadergeschiedenis",
+    "askMeetings": "Vraag je vergaderingen",
+    "foldersAndTemplates": "Mappen en sjablonen",
+    "agentAccess": "Agenttoegang",
+    "voiceSection": "Spraak",
+    "dictationHistory": "Dicteergeschiedenis",
+    "perAppProfiles": "Profielen per app",
+    "wordsAndCleanup": "Woorden en opschonen",
+    "settings": "Instellingen",
+    "sectionPlaceholder": "Beschikbaar in deze sectie zodra ingeschakeld.",
+    "startRecording": "Opname starten",
+    "seeAllMeetings": "Alle vergaderingen →",
+    "dictateHeading": "Dicteer overal",
+    "holdToTalk": "ingedrukt houden om te spreken",
+    "changeShortcut": "Sneltoets wijzigen",
+    "seeAllDictations": "Alle dictaten →",
+    "dictationSearchPlaceholder": "Gesproken woorden",
+    "dictationSearchAria": "Dictaten doorzoeken",
+    "cleanedUp": "Opgeschoond",
+    "emptyDictationSearch": "Geen dictaten komen overeen met je zoekopdracht.",
+    "keptDays": "30 dagen bewaard",
+    "homeHeading": "Goedemorgen",
+    "homeMeetingsBody": "Notities en transcript worden op deze Mac gemaakt. Opnemen start pas wanneer je op Start drukt.",
+    "recentMeetings": "Recente vergaderingen",
+    "dictateBody": "Houd je sneltoets ingedrukt, spreek en laat los. De woorden verschijnen bij je cursor.",
+    "recentDictations": "Recente dictaten",
+    "more": "Meer",
+    "keep": "Bewaren",
+    "kept": "Bewaard",
+    "editText": "Tekst bewerken",
+    "tryAgain": "Opnieuw proberen"
   },
   "onboarding": {
     "subtitle": "Kies een transcriptiemodel om aan de slag te gaan",
@@ -139,7 +172,7 @@
     "loadingGeneric": "Laden...",
     "modelError": "Modelfout",
     "modelUnloaded": "Model ontladen",
-    "noModelDownloadRequired": "Geen model - Download vereist",
+    "noModelDownloadRequired": "Geen model — download vereist",
     "deleteModel": "{{modelName}} verwijderen",
     "downloadSpeed": "{{speed}} MB/s",
     "cancel": "Annuleren",
@@ -177,11 +210,11 @@
             "description": "De sneltoets om de huidige opname te annuleren."
           },
           "transcribe_with_post_process": {
-            "name": "Sneltoets voor naverwerking",
+            "name": "Sneltoets voor opschonen",
             "description": "Optioneel: Een specifieke sneltoets die altijd AI-naverwerking toepast op je transcriptie."
           },
           "correction": {
-            "name": "Correctie inspreken",
+            "name": "Sneltoets voor gesproken correcties",
             "description": "De sneltoets om een correctie in te spreken die je laatste dictaat vervangt. Wijs een toets toe om dit in te schakelen."
           }
         },
@@ -199,7 +232,7 @@
         "auto": "Automatisch"
       },
       "pushToTalk": {
-        "label": "Push-to-talk",
+        "label": "Ingedrukt houden om te spreken",
         "description": "Ingedrukt houden om op te nemen, loslaten om te stoppen"
       }
     },
@@ -230,7 +263,7 @@
         "loading": "Laden..."
       },
       "audioFeedback": {
-        "label": "Geluidsfeedback",
+        "label": "Opnamegeluiden",
         "description": "Geluid afspelen wanneer de opname start en stopt"
       },
       "outputDevice": {
@@ -278,7 +311,7 @@
         "description": "Start op de achtergrond in het systeemvak zonder het hoofdvenster te openen."
       },
       "autostart": {
-        "label": "Starten bij opstarten",
+        "label": "Openen bij inloggen",
         "description": "Coco Voice automatisch starten zodra je inlogt op je computer."
       },
       "showTrayIcon": {
@@ -287,7 +320,7 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
+          "title": "Opnamepil",
           "description": "Kies de opname-overlay: 'Geen' verbergt deze, 'Minimaal' toont een compacte balk, 'Live' toont de tekst in realtime tijdens het spreken (alleen voor streaming-modellen). Op Linux wordt 'Geen' aanbevolen.",
           "options": {
             "none": "Geen",
@@ -296,7 +329,7 @@
           }
         },
         "position": {
-          "title": "Overlay-positie",
+          "title": "Positie van opnamepil",
           "description": "Waar de overlay op het scherm verschijnt tijdens het opnemen en transcriberen.",
           "options": {
             "bottom": "Onderkant",
@@ -305,7 +338,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Plakmethode",
+        "title": "Hoe woorden worden ingevoerd",
         "description": "Kies hoe tekst wordt ingevoegd. 'Direct' simuleert typen via het systeem. 'Geen' slaat het plakken over en werkt alleen de geschiedenis en het klembord bij.",
         "options": {
           "clipboard": "Klembord ({{modifier}}+V)",
@@ -321,20 +354,20 @@
         "title": "Typgereedschap",
         "description": "Kies welke Linux-typtool gebruikt moet worden voor de 'Directe' plakmethode. 'Automatisch' detecteert zelf de beste optie voor jouw systeem.",
         "options": {
-          "auto": "Automatisch (Aanbevolen)"
+          "auto": "Automatisch (aanbevolen)"
         }
       },
       "clipboardHandling": {
-        "title": "Klembordbeheer",
+        "title": "Klembord na plakken",
         "description": "'Klembord niet aanpassen' behoudt je huidige klembordinhoud na een transcriptie. 'Kopiëren naar klembord' laat de getranscribeerde tekst achter op je klembord.",
         "options": {
-          "dontModify": "Klembord niet aanpassen",
+          "dontModify": "Vorig klembord behouden",
           "copyToClipboard": "Kopiëren naar klembord"
         },
         "privacyHint": "Tekst op het klembord is zichtbaar voor andere apps en klembordhulpmiddelen, en het universele klembord kan de tekst naar je andere Apple-apparaten kopiëren."
       },
       "autoSubmit": {
-        "title": "Automatisch verzenden",
+        "title": "Toets indrukken na plakken",
         "description": "Verzend automatisch de geselecteerde toetsencombinatie na het invoegen van de tekst. Cmd+Enter geldt voor macOS, Windows/Linux gebruiken Super+Enter.",
         "options": {
           "off": "Uit",
@@ -359,7 +392,7 @@
           "min10": "Na 10 minuten",
           "min15": "Na 15 minuten",
           "hour1": "Na 1 uur",
-          "sec15": "Na 15 seconden (Debug)"
+          "sec15": "Na 15 seconden (debug)"
         }
       },
       "customWords": {
@@ -370,9 +403,17 @@
         "remove": "{{word}} verwijderen",
         "duplicate": "\"{{word}}\" bestaat al"
       },
+      "corrections": {
+        "title": "Correcties",
+        "description": "Vervangt specifieke woorden of zinnen in de uiteindelijke tekst, ongeacht hoofdletters.",
+        "fromPlaceholder": "Van",
+        "toPlaceholder": "Naar",
+        "duplicate": "Er bestaat al een correctie voor \"{{word}}\"",
+        "remove": "Correctie van {{from}} naar {{to}} verwijderen"
+      },
       "voiceActivityDetection": {
-        "title": "Spraakactiviteitsdetectie (VAD)",
-        "description": "Filter stilte uit opnames. Streaming-modellen gebruiken een langere VAD-uitloop; het uitschakelen van VAD neemt de ruwe audio op."
+        "title": "Stilte overslaan",
+        "description": "Laat stille pauzes tijdens het opnemen weg. Als je dit uitschakelt, wordt alle audio opgenomen."
       }
     },
     "postProcessing": {
@@ -380,12 +421,12 @@
         "title": "Sneltoets"
       },
       "correction": {
-        "title": "Iteratieve correctie",
-        "toggleLabel": "Correcties inspreken",
+        "title": "Gesproken correcties",
+        "toggleLabel": "Gesproken correcties",
         "toggleDescription": "Voegt een aparte sneltoets toe die je indrukt om je laatste dictaat te vervangen door een ingesproken correctie. Het start nooit automatisch door trefwoorden. Druk op de toegewezen toets, spreek de correctie in, en de vorige uitvoer wordt ter plaatse bewerkt."
       },
       "api": {
-        "title": "API (OpenAI-compatibel)",
+        "title": "Opschoonmodel",
         "provider": {
           "title": "Provider",
           "description": "Selecteer een OpenAI-compatibele provider."
@@ -424,22 +465,22 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Instructies",
         "selectedPrompt": {
-          "title": "Geselecteerde prompt",
+          "title": "Opschoonstijl",
           "description": "Selecteer een sjabloon voor het verfijnen van transcripties of maak een nieuwe aan. Gebruik ${output} in de prompttekst om naar de gemaakte transcriptie te verwijzen."
         },
         "noPrompts": "Geen prompts beschikbaar",
         "selectPrompt": "Selecteer een prompt",
-        "createNew": "Nieuwe prompt maken",
-        "promptLabel": "Promptnaam",
+        "createNew": "Nieuwe stijl",
+        "promptLabel": "Naam",
         "promptLabelPlaceholder": "Voer promptnaam in",
-        "promptInstructions": "Prompt-instructies",
+        "promptInstructions": "Instructies",
         "promptInstructionsPlaceholder": "Schrijf de instructies die na de transcriptie moeten worden uitgevoerd. Voorbeeld: Verbeter de grammatica en helderheid van de volgende tekst: ${output}",
         "promptTip": "Tip: Gebruik <code>${output}</code> om de getranscribeerde tekst in je prompt in te voegen.",
-        "updatePrompt": "Prompt bijwerken",
-        "deletePrompt": "Prompt verwijderen",
-        "createPrompt": "Prompt maken",
+        "updatePrompt": "Wijzigingen opslaan",
+        "deletePrompt": "Verwijderen",
+        "createPrompt": "Maken",
         "cancel": "Annuleren",
         "selectToEdit": "Selecteer hierboven een prompt om de details te bekijken en te bewerken.",
         "createFirst": "Klik hierboven op 'Nieuwe prompt maken' om je eerste naverwerkingsprompt aan te maken."
@@ -458,6 +499,11 @@
       "retranscribe": "Opnieuw transcriberen",
       "retranscribeError": "Opnieuw transcriberen mislukt. Probeer het opnieuw.",
       "transcribing": "Transcriberen...",
+      "edit": "Bewerken",
+      "saveEdit": "Opslaan",
+      "editError": "Wijziging opslaan mislukt",
+      "learnedOne": "Correctie geleerd: \"{{from}}\" → \"{{to}}\"",
+      "learnedMany": "{{count}} correcties geleerd uit je bewerking",
       "transcriptionFailed": "Transcriptie mislukt. Je kunt het opnieuw proberen via het herlaad-pictogram."
     },
     "debug": {
@@ -494,6 +540,7 @@
       },
       "soundTheme": {
         "label": "Geluidsthema",
+        "preview": "Geluidsthema beluisteren",
         "description": "Kies een geluidsthema voor feedback bij het starten en stoppen van opnames"
       },
       "wordCorrectionThreshold": {
@@ -524,33 +571,35 @@
         "description": "Microfoon die gebruikt moet worden wanneer het laptopscherm gesloten is"
       },
       "postProcessingToggle": {
-        "label": "Naverwerking",
-        "description": "Schakel AI-gestuurde tekstverfijning in na transcriptie"
+        "label": "Opschonen",
+        "description": "Vulwoorden, interpunctie en zelfcorrecties na transcriptie opschonen"
       },
       "muteWhileRecording": {
         "label": "Dempen tijdens opname",
         "description": "Systeemgeluid dempen tijdens het opnemen"
       },
       "appendTrailingSpace": {
-        "label": "Spatie achteraan toevoegen",
+        "label": "Spatie aan het einde toevoegen",
         "description": "Voeg een spatie toe na de geplakte transcriptie"
       },
       "keyboardImplementation": {
-        "title": "Toetsenbord-implementatie",
+        "title": "Toetsenbordafhandeling",
         "description": "Kies de backend voor sneltoetsen.",
         "bindingsReset": "Sneltoetsen waren incompatibel en zijn teruggezet naar de standaardwaarden"
       },
       "paths": {
+        "title": "App-paden",
+        "description": "Interne mappen en bestanden voor probleemoplossing",
         "appData": "App-data:",
         "models": "Modellen:",
         "settings": "Instellingen:"
       },
       "pasteDelay": {
-        "title": "Plakvertraging (voor)",
+        "title": "Wachttijd vóór plakken",
         "description": "Vertraging (in milliseconden) na het kopiëren van de tekst, voordat de plak-toetsaanslag wordt verzonden. Verhoog dit als er niets wordt geplakt."
       },
       "pasteDelayAfter": {
-        "title": "Plakvertraging (na)",
+        "title": "Wachttijd na plakken",
         "description": "Vertraging (in milliseconden) na de plak-toetsaanslag, voordat je vorige klembord wordt hersteld. Verhoog dit als de oude klembordinhoud wordt geplakt in plaats van de transcriptie."
       },
       "recordingBuffer": {
@@ -565,7 +614,7 @@
         "description": "Huidige versie van Coco Voice"
       },
       "whatsNewUpdates": {
-        "label": "Toon 'Wat is er nieuw'",
+        "label": "Nieuwigheden tonen",
         "description": "Release-notes tonen nadat Coco Voice is bijgewerkt"
       },
       "appDataDirectory": {
@@ -585,6 +634,32 @@
           "details": "Coco Voice's lokale spraak-naar-tekst is gebouwd op transcribe.cpp en ggml. Met dank aan het geweldige werk van Georgi Gerganov en alle bijdragers."
         }
       }
+    },
+    "online": {
+      "eyebrow": "Instellingen",
+      "title": "Wat online gaat",
+      "intro": "Je spraak wordt op deze Mac omgezet in tekst. Dit zijn de plekken waarmee deze versie van Coco Voice verbinding kan maken en wat elke plek ontvangt.",
+      "leavesLabel": "Verlaat je Mac:",
+      "openHeading": "Elke keer dat de app opent",
+      "githubName": "GitHub (Coco Voice-releases)",
+      "githubWhen": "Elke keer dat de app opent om op updates te controleren. Schakel updatecontroles hierboven uit onder Over om dit te stoppen. Aangeklikte links openen in je browser.",
+      "githubLeaves": "een verzoek om de lijst met versies en het updatebestand als je er een installeert. Geen spraak en geen tekst.",
+      "updateChecksOn": "Updatecontrole aan",
+      "updateChecksOff": "Updatecontrole uit",
+      "clickHeading": "Alleen wanneer je klikt",
+      "modelFilesName": "Coco Voice-modelbestanden",
+      "modelFilesWhen": "Wanneer je op Downloaden klikt bij een ingebouwd spraakmodel.",
+      "modelFilesLeaves": "de naam van het gevraagde modelbestand. Geen spraak en geen tekst.",
+      "huggingFaceWhen": "Wanneer je op Downloaden klikt bij een catalogusmodel of op de licentie klikt om deze in je browser te openen.",
+      "huggingFaceLeaves": "de modelnaam, versie en bestandsnaam, plus een Hugging Face-token als dat al op deze Mac is ingesteld. Geen spraak en geen tekst.",
+      "cleanupHeading": "Alleen wanneer je een opschoonaanbieder kiest",
+      "cloudWhen": "Wanneer opschonen draait met de door jou gekozen cloudaanbieder.",
+      "cloudLeaves": "de tekst van wat je zei, de opschooninstructies en je API-sleutel. Het ophalen van modellen verstuurt alleen je API-sleutel.",
+      "customName": "Aangepast opschonen (Ollama)",
+      "customWhen": "Wanneer opschonen draait met Aangepast als gekozen aanbieder. Het praat met een programma op deze Mac tenzij je het adres wijzigt.",
+      "customLeaves": "niets op het standaardadres. De gesproken tekst en de opschooninstructies gaan naar het programma op deze Mac.",
+      "staysOnMac": "Blijft op deze Mac",
+      "onDeviceNote": "Opschonen op het apparaat (Apple Intelligence of het lokale model) maakt met geen van deze verbinding."
     }
   },
   "footer": {
@@ -610,6 +685,11 @@
     "open": "Openen",
     "copy": "Kopiëren",
     "clear": "Wissen",
+    "selectOption": "Kies een optie...",
+    "notAvailable": "Niet beschikbaar",
+    "moreInfo": "Meer informatie",
+    "play": "Afspelen",
+    "pause": "Pauzeren",
     "noOptionsFound": "Geen opties gevonden"
   },
   "accessibility": {
@@ -660,7 +740,7 @@
   },
   "overlay": {
     "transcribing": "Transcriberen...",
-    "processing": "Verwerken...",
+    "processing": "Opschonen...",
     "polishing": "Redigeren..."
   },
   "cleanupStatus": {
@@ -706,6 +786,55 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "list": {
+      "heading": "All meetings",
+      "countOne": "1 meeting",
+      "countMany": "{{count}} meetings",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Title, notes, or transcript",
+      "searchAria": "Search meetings",
+      "untitled": "Meeting",
+      "dateAndDuration": "{{date}} · {{minutes}} min",
+      "notesReady": "Notes ready",
+      "transcriptOnly": "Transcript only",
+      "exportMarkdown": "Export Markdown",
+      "delete": "Delete",
+      "confirmPrompt": "Delete this meeting?",
+      "confirmDelete": "Confirm delete",
+      "cancelDelete": "Cancel",
+      "emptyList": "No meetings yet. Start notes from the menu bar.",
+      "emptySearch": "No meetings match your search.",
+      "audioLeftWarning": "Meeting deleted, but its audio folder is still on disk.",
+      "loadFailed": "Could not load meetings.",
+      "exportFailed": "Could not export Markdown.",
+      "deleteFailed": "Could not delete the meeting."
     }
+  },
+  "profiles": {
+    "addApp": "Add an app",
+    "subtitle": "How your words are written depends on the app in front. Apps without a profile use the default.",
+    "edit": "Edit",
+    "remove": "Remove",
+    "defaultName": "Default",
+    "defaultDesc": "Every other app",
+    "neverHeading": "Never dictate in",
+    "neverRowDesc": "The shortcut does nothing here",
+    "neverEmpty": "No blocked apps yet.",
+    "useFrontApp": "Use app in front",
+    "appIdPlaceholder": "App name or bundle ID (e.g. Mail or com.apple.mail)",
+    "namePlaceholder": "Display name (e.g. Mail)",
+    "toneLabel": "Style",
+    "toneAuto": "Match app",
+    "toneFormal": "Full sentences",
+    "toneCasual": "Casual",
+    "toneDirect": "Direct",
+    "toneCode": "Code names keep their casing",
+    "capsAndPunct": "capitals and punctuation",
+    "noTrailingStop": "no full stop at the end",
+    "exactWords": "Exactly what you said",
+    "cleanupOn": "clean-up on",
+    "cleanupOff": "clean-up off",
+    "cleanupDefault": "clean-up default"
   }
 }

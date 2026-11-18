@@ -12,17 +12,50 @@
     "general": "通用",
     "models": "模型",
     "advanced": "高级",
-    "postProcessing": "后处理",
+    "postProcessing": "润色",
     "history": "历史记录",
     "debug": "调试",
-    "about": "关于"
+    "about": "关于",
+    "home": "首页",
+    "recordMeeting": "录制会议",
+    "meetingHistory": "会议记录",
+    "askMeetings": "询问会议内容",
+    "foldersAndTemplates": "文件夹与模板",
+    "agentAccess": "智能体访问",
+    "voiceSection": "语音",
+    "dictationHistory": "听写记录",
+    "perAppProfiles": "分应用配置",
+    "wordsAndCleanup": "词库与润色",
+    "settings": "设置",
+    "sectionPlaceholder": "启用后可在此分组中使用。",
+    "startRecording": "开始录制",
+    "seeAllMeetings": "全部会议 →",
+    "dictateHeading": "随处听写",
+    "holdToTalk": "按住说话",
+    "changeShortcut": "更改快捷键",
+    "seeAllDictations": "全部听写 →",
+    "dictationSearchPlaceholder": "你说过的话",
+    "dictationSearchAria": "搜索听写记录",
+    "cleanedUp": "已润色",
+    "emptyDictationSearch": "没有匹配的听写记录。",
+    "keptDays": "保留 30 天",
+    "homeHeading": "早上好",
+    "homeMeetingsBody": "纪要与转写均在此 Mac 本地生成。仅在点击“开始”后才会开始录制。",
+    "recentMeetings": "最近会议",
+    "dictateBody": "按住快捷键说话，松开即输入到光标所在位置。",
+    "recentDictations": "最近听写",
+    "more": "更多",
+    "keep": "保留",
+    "kept": "已保留",
+    "editText": "编辑文本",
+    "tryAgain": "重试"
   },
   "onboarding": {
     "subtitle": "请选择一个转录模型以开始使用",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "兼容的模型",
+    "downloadModelsTitle": "可下载的模型",
+    "showAllModels": "显示全部 {{total}} 个模型",
+    "showFewerModels": "收起部分模型",
     "recommended": "推荐",
     "customModelDescription": "非官方支持",
     "modelCard": {
@@ -96,7 +129,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "无法选择模型"
     },
     "permissions": {
       "title": "需要权限",
@@ -179,7 +212,7 @@
     "general": {
       "title": "通用",
       "shortcut": {
-        "title": "Coco Voice 快捷键",
+        "title": "键盘快捷键",
         "description": "配置启动语音转文字录制的键盘快捷键",
         "loading": "加载快捷键中...",
         "none": "未配置快捷键",
@@ -187,7 +220,7 @@
         "pressKeys": "请按键...",
         "bindings": {
           "transcribe": {
-            "name": "转录快捷键",
+            "name": "听写快捷键",
             "description": "用于录制和转录语音的键盘快捷键。"
           },
           "cancel": {
@@ -195,11 +228,11 @@
             "description": "用于取消当前录制的键盘快捷键。"
           },
           "transcribe_with_post_process": {
-            "name": "后处理快捷键",
+            "name": "润色快捷键",
             "description": "可选：一个专用快捷键，始终对您的转录应用 AI 后处理。"
           },
           "correction": {
-            "name": "说出更正",
+            "name": "语音改错快捷键",
             "description": "用于说出更正以替换上一次听写的键盘快捷键。分配一个按键即可启用。"
           }
         },
@@ -230,7 +263,7 @@
         "loading": "加载中..."
       },
       "audioFeedback": {
-        "label": "音频反馈",
+        "label": "录音提示音",
         "description": "录制开始和停止时播放声音"
       },
       "outputDevice": {
@@ -278,7 +311,7 @@
         "description": "启动到系统托盘而不打开窗口。"
       },
       "autostart": {
-        "label": "开机启动",
+        "label": "登录时打开",
         "description": "登录计算机时自动启动 Coco Voice。"
       },
       "showTrayIcon": {
@@ -287,16 +320,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "录音胶囊",
+          "description": "选择录音胶囊样式：“无”会隐藏它，“精简”显示小胶囊，“实时”在说话时同步显示文字（仅限流式模型）。",
           "options": {
             "none": "无",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "精简",
+            "live": "实时"
           }
         },
         "position": {
-          "title": "悬浮窗位置",
+          "title": "胶囊显示位置",
           "description": "在录制和转录期间显示可视反馈悬浮窗。在 Linux 上建议选择「无」。",
           "options": {
             "bottom": "底部",
@@ -305,7 +338,7 @@
         }
       },
       "pasteMethod": {
-        "title": "粘贴方式",
+        "title": "文字输入方式",
         "description": "选择文字插入方式。直接：通过系统输入模拟打字。无：跳过粘贴，仅更新历史记录/剪贴板。",
         "options": {
           "clipboard": "剪贴板 ({{modifier}}+V)",
@@ -325,16 +358,16 @@
         }
       },
       "clipboardHandling": {
-        "title": "剪贴板处理",
+        "title": "粘贴后的剪贴板",
         "description": "不修改剪贴板将在转录后保留当前剪贴板内容。复制到剪贴板将在粘贴后将转录结果留在剪贴板中。",
         "options": {
-          "dontModify": "不修改剪贴板",
+          "dontModify": "保留原有剪贴板内容",
           "copyToClipboard": "复制到剪贴板"
         },
         "privacyHint": "剪贴板上的文字，其他应用和剪贴板工具都能看到，通用剪贴板还可以将其拷贝到您的其他 Apple 设备。"
       },
       "autoSubmit": {
-        "title": "自动提交",
+        "title": "粘贴后按键",
         "description": "在文本插入后自动发送所选的按键组合。macOS 上使用 Cmd+Enter，Windows/Linux 上使用 Super+Enter。",
         "options": {
           "off": "关闭",
@@ -370,9 +403,17 @@
         "remove": "删除 {{word}}",
         "duplicate": "\"{{word}}\" 已存在"
       },
+      "corrections": {
+        "title": "词句替换",
+        "description": "在最终文本中不区分大小写地替换指定词句。",
+        "fromPlaceholder": "原词",
+        "toPlaceholder": "替换为",
+        "duplicate": "“{{word}}”的替换规则已存在",
+        "remove": "移除从 {{from}} 到 {{to}} 的替换"
+      },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "跳过静音",
+        "description": "录音时自动略过安静停顿；关闭后将录制完整音频。"
       }
     },
     "postProcessing": {
@@ -380,12 +421,12 @@
         "title": "快捷键"
       },
       "correction": {
-        "title": "迭代更正",
-        "toggleLabel": "说出更正",
+        "title": "语音改错",
+        "toggleLabel": "语音改错",
         "toggleDescription": "添加一个显式快捷键，按下后用口述更正替换上一次听写。它绝不会因关键词而自动触发。按下已分配的按键，说出修改，先前的输出会就地编辑。"
       },
       "api": {
-        "title": "API（兼容 OpenAI）",
+        "title": "润色模型",
         "provider": {
           "title": "提供商",
           "description": "选择一个兼容 OpenAI 的提供商。"
@@ -424,22 +465,22 @@
         }
       },
       "prompts": {
-        "title": "提示词",
+        "title": "指令",
         "selectedPrompt": {
-          "title": "已选提示词",
+          "title": "整理风格",
           "description": "选择用于优化转录的模板或创建新模板。在提示词文本中使用 ${output} 来引用捕获的转录。"
         },
         "noPrompts": "没有可用的提示词",
         "selectPrompt": "选择提示词",
-        "createNew": "创建新提示词",
-        "promptLabel": "提示词名称",
+        "createNew": "新建风格",
+        "promptLabel": "名称",
         "promptLabelPlaceholder": "输入提示词名称",
-        "promptInstructions": "提示词指令",
+        "promptInstructions": "说明",
         "promptInstructionsPlaceholder": "编写转录后要执行的指令。示例：改进以下文本的语法和清晰度: ${output}",
         "promptTip": "提示：使用 <code>${output}</code> 将转录文本插入到您的提示词中。",
-        "updatePrompt": "更新提示词",
-        "deletePrompt": "删除提示词",
-        "createPrompt": "创建提示词",
+        "updatePrompt": "保存更改",
+        "deletePrompt": "删除",
+        "createPrompt": "创建",
         "cancel": "取消",
         "selectToEdit": "选择上方的提示词以查看和编辑其详细信息。",
         "createFirst": "点击上方的「创建新提示词」来创建您的第一个后处理提示词。"
@@ -458,12 +499,17 @@
       "retranscribe": "重新转录",
       "retranscribeError": "重新转录失败。请重试。",
       "transcribing": "转录中...",
+      "edit": "编辑",
+      "saveEdit": "保存",
+      "editError": "保存修改失败",
+      "learnedOne": "已学习替换：“{{from}}” → “{{to}}”",
+      "learnedMany": "已从本次修改中学习 {{count}} 条替换",
       "transcriptionFailed": "转录失败。您可以使用重试图标重新转录。"
     },
     "debug": {
       "title": "调试",
       "logDirectory": {
-        "title": "日志目录",
+        "title": "日志文件夹",
         "description": "日志文件的存储位置"
       },
       "logLevel": {
@@ -487,6 +533,7 @@
       },
       "soundTheme": {
         "label": "声音主题",
+        "preview": "试听提示音",
         "description": "选择录制开始和停止反馈的声音主题"
       },
       "wordCorrectionThreshold": {
@@ -517,33 +564,35 @@
         "description": "笔记本电脑盖子关闭时使用的麦克风"
       },
       "postProcessingToggle": {
-        "label": "后处理",
-        "description": "启用转录后的 AI 文本优化"
+        "label": "润色",
+        "description": "在转写后清理语气词、标点符号和口头自我更正"
       },
       "muteWhileRecording": {
         "label": "录制时静音",
         "description": "录制期间静音系统音频"
       },
       "appendTrailingSpace": {
-        "label": "追加尾部空格",
+        "label": "在末尾添加空格",
         "description": "在粘贴的转录后添加空格"
       },
       "keyboardImplementation": {
-        "title": "键盘实现",
+        "title": "键盘处理方式",
         "description": "选择键盘快捷键的后端。",
         "bindingsReset": "键盘快捷键不兼容，已重置为默认值"
       },
       "paths": {
+        "title": "应用路径",
+        "description": "用于排查问题的内部文件夹与文件",
         "appData": "应用数据:",
         "models": "模型:",
         "settings": "设置:"
       },
       "pasteDelay": {
-        "title": "粘贴延迟（前）",
+        "title": "粘贴前延迟",
         "description": "复制文本后、发送粘贴按键前的延迟（毫秒）。如果没有粘贴任何内容，请增加此值。"
       },
       "pasteDelayAfter": {
-        "title": "粘贴延迟（后）",
+        "title": "粘贴后延迟",
         "description": "发送粘贴按键后、恢复先前剪贴板前的延迟（毫秒）。如果粘贴的是旧的剪贴板内容而非转录文本，请增加此值。"
       },
       "recordingBuffer": {
@@ -565,7 +614,7 @@
         "description": "Coco Voice 的当前版本"
       },
       "appDataDirectory": {
-        "title": "应用数据目录",
+        "title": "应用数据文件夹",
         "description": "Coco Voice 存储数据的位置"
       },
       "sourceCode": {
@@ -585,6 +634,32 @@
         "label": "显示新功能",
         "description": "Coco Voice 更新后显示发行说明"
       }
+    },
+    "online": {
+      "eyebrow": "设置",
+      "title": "联网内容说明",
+      "intro": "您的语音会在这台 Mac 上转换为文字。以下是此版本 Coco Voice 可能连接的地址，以及各处会收到的数据。",
+      "leavesLabel": "离开您 Mac 的内容：",
+      "openHeading": "每次打开应用时",
+      "githubName": "GitHub（Coco Voice 版本发布）",
+      "githubWhen": "每次打开应用时检查更新。若要停用，请在上方“关于”中关闭更新检查。点击的链接会在浏览器中打开。",
+      "githubLeaves": "获取版本列表的请求，以及安装更新时的更新文件。不包含语音，也不包含文字。",
+      "updateChecksOn": "更新检查已开启",
+      "updateChecksOff": "更新检查已关闭",
+      "clickHeading": "仅在您点击时",
+      "modelFilesName": "Coco Voice 模型文件",
+      "modelFilesWhen": "当您在内置语音模型上点击“下载”时。",
+      "modelFilesLeaves": "您请求的模型文件名。不包含语音，也不包含文字。",
+      "huggingFaceWhen": "当您在目录模型上点击“下载”，或点击其许可证在浏览器中打开时。",
+      "huggingFaceLeaves": "模型名称、版本和文件名，以及这台 Mac 上已设置时的 Hugging Face 令牌。不包含语音，也不包含文字。",
+      "cleanupHeading": "仅在您选择润色服务商时",
+      "cloudWhen": "当使用您所选的云端服务商运行文本润色时。",
+      "cloudLeaves": "您口述的文字、润色指令以及您的 API 密钥。获取模型列表仅发送您的 API 密钥。",
+      "customName": "自定义润色（Ollama）",
+      "customWhen": "当选择“自定义”作为服务商运行润色时。除非您更改地址，否则它只会与这台 Mac 上的程序通信。",
+      "customLeaves": "默认地址下无任何内容外发。您口述的文字和润色指令会发往这台 Mac 上的程序。",
+      "staysOnMac": "留在本地 Mac",
+      "onDeviceNote": "设备端润色（Apple Intelligence 或本地模型）不会连接以上任何地址。"
     }
   },
   "footer": {
@@ -607,6 +682,11 @@
     "open": "打开",
     "copy": "复制",
     "clear": "清除",
+    "selectOption": "请选择...",
+    "notAvailable": "不可用",
+    "moreInfo": "更多信息",
+    "play": "播放",
+    "pause": "暂停",
     "noOptionsFound": "未找到选项"
   },
   "accessibility": {
@@ -657,7 +737,7 @@
   },
   "overlay": {
     "transcribing": "正在转录...",
-    "processing": "处理中...",
+    "processing": "整理中...",
     "polishing": "润色中..."
   },
   "whatsNew": {
@@ -706,6 +786,55 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "list": {
+      "heading": "All meetings",
+      "countOne": "1 meeting",
+      "countMany": "{{count}} meetings",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Title, notes, or transcript",
+      "searchAria": "Search meetings",
+      "untitled": "Meeting",
+      "dateAndDuration": "{{date}} · {{minutes}} min",
+      "notesReady": "Notes ready",
+      "transcriptOnly": "Transcript only",
+      "exportMarkdown": "Export Markdown",
+      "delete": "Delete",
+      "confirmPrompt": "Delete this meeting?",
+      "confirmDelete": "Confirm delete",
+      "cancelDelete": "Cancel",
+      "emptyList": "No meetings yet. Start notes from the menu bar.",
+      "emptySearch": "No meetings match your search.",
+      "audioLeftWarning": "Meeting deleted, but its audio folder is still on disk.",
+      "loadFailed": "Could not load meetings.",
+      "exportFailed": "Could not export Markdown.",
+      "deleteFailed": "Could not delete the meeting."
     }
+  },
+  "profiles": {
+    "addApp": "Add an app",
+    "subtitle": "How your words are written depends on the app in front. Apps without a profile use the default.",
+    "edit": "Edit",
+    "remove": "Remove",
+    "defaultName": "Default",
+    "defaultDesc": "Every other app",
+    "neverHeading": "Never dictate in",
+    "neverRowDesc": "The shortcut does nothing here",
+    "neverEmpty": "No blocked apps yet.",
+    "useFrontApp": "Use app in front",
+    "appIdPlaceholder": "App name or bundle ID (e.g. Mail or com.apple.mail)",
+    "namePlaceholder": "Display name (e.g. Mail)",
+    "toneLabel": "Style",
+    "toneAuto": "Match app",
+    "toneFormal": "Full sentences",
+    "toneCasual": "Casual",
+    "toneDirect": "Direct",
+    "toneCode": "Code names keep their casing",
+    "capsAndPunct": "capitals and punctuation",
+    "noTrailingStop": "no full stop at the end",
+    "exactWords": "Exactly what you said",
+    "cleanupOn": "clean-up on",
+    "cleanupOff": "clean-up off",
+    "cleanupDefault": "clean-up default"
   }
 }

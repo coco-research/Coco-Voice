@@ -28,11 +28,17 @@ impl CurrentTrayIconState {
     }
 
     pub fn get(&self) -> TrayIconState {
-        *self.0.lock().unwrap()
+        *self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     fn set(&self, state: TrayIconState) {
-        *self.0.lock().unwrap() = state;
+        *self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = state;
     }
 }
 
@@ -112,11 +118,13 @@ pub fn get_icon_path(theme: AppTheme, state: TrayIconState) -> &'static str {
 }
 
 pub fn change_tray_icon(app: &AppHandle, icon: TrayIconState) {
-    let tray = app.state::<TrayIcon>();
+    if let Some(current) = app.try_state::<CurrentTrayIconState>() {
+        current.set(icon);
+    }
+    let Some(tray) = app.try_state::<TrayIcon>() else {
+        return;
+    };
     let theme = get_current_theme(app);
-
-    // Store current state
-    app.state::<CurrentTrayIconState>().set(icon);
 
     let icon_path = get_icon_path(theme, icon);
 
@@ -146,8 +154,10 @@ pub fn change_tray_icon(app: &AppHandle, icon: TrayIconState) {
 /// Re-applies the last known tray state — for when only the *theme* changed
 /// and the state itself (idle/recording/transcribing) should be preserved.
 pub fn refresh_tray_icon(app: &AppHandle) {
-    let icon = app.state::<CurrentTrayIconState>().get();
-    change_tray_icon(app, icon);
+    let Some(current) = app.try_state::<CurrentTrayIconState>() else {
+        return;
+    };
+    change_tray_icon(app, current.get());
 }
 
 fn load_tray_icon(resolved_icon_path: tauri::Result<PathBuf>) -> tauri::Result<Image<'static>> {
@@ -168,80 +178,108 @@ fn version_label() -> String {
 }
 
 pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
-    let state = app.state::<CurrentTrayIconState>().get();
+    let Some(tray) = app.try_state::<TrayIcon>() else {
+        return;
+    };
+    let state = app
+        .try_state::<CurrentTrayIconState>()
+        .map(|s| s.get())
+        .unwrap_or(TrayIconState::Idle);
     let settings = settings::get_settings(app);
 
     let locale = locale.unwrap_or(&settings.app_language);
     let strings = get_tray_translations(Some(locale.to_string()));
+    let model_loaded = app
+        .try_state::<Arc<TranscriptionManager>>()
+        .map(|tm| tm.is_model_loaded())
+        .unwrap_or(false);
 
-    // Platform-specific accelerators
+    let mut downloaded: Vec<_> = app
+        .try_state::<Arc<ModelManager>>()
+        .map(|mm| mm.get_available_models())
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|m| m.is_downloaded)
+        .collect();
+    downloaded.sort_by(|a, b| a.name.cmp(&b.name));
+
+    let version_label = version_label();
+    let menu = match build_tray_menu(
+        app,
+        state,
+        &version_label,
+        &strings,
+        settings.update_checks_enabled,
+        model_loaded,
+        &settings.selected_model,
+        &downloaded,
+    ) {
+        Ok(menu) => menu,
+        Err(err) => {
+            error!("Failed to build tray menu: {err}");
+            return;
+        }
+    };
+
+    let _ = tray.set_menu(Some(menu));
+    let _ = tray.set_icon_as_template(true);
+    let _ = tray.set_tooltip(Some(version_label));
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_tray_menu(
+    app: &AppHandle,
+    state: TrayIconState,
+    version_label: &str,
+    strings: &crate::tray_i18n::TrayStrings,
+    update_checks_enabled: bool,
+    model_loaded: bool,
+    current_model_id: &str,
+    downloaded: &[crate::managers::model::ModelInfo],
+) -> tauri::Result<Menu<tauri::Wry>> {
     #[cfg(target_os = "macos")]
     let (settings_accelerator, quit_accelerator) = (Some("Cmd+,"), Some("Cmd+Q"));
     #[cfg(not(target_os = "macos"))]
     let (settings_accelerator, quit_accelerator) = (Some("Ctrl+,"), Some("Ctrl+Q"));
 
-    // Create common menu items
-    let version_label = version_label();
-    let version_i = MenuItem::with_id(app, "version", &version_label, false, None::<&str>)
-        .expect("failed to create version item");
+    let version_i = MenuItem::with_id(app, "version", version_label, false, None::<&str>)?;
     let settings_i = MenuItem::with_id(
         app,
         "settings",
         &strings.settings,
         true,
         settings_accelerator,
-    )
-    .expect("failed to create settings item");
+    )?;
     let check_updates_i = MenuItem::with_id(
         app,
         "check_updates",
         &strings.check_updates,
-        settings.update_checks_enabled,
+        update_checks_enabled,
         None::<&str>,
-    )
-    .expect("failed to create check updates item");
+    )?;
     let copy_last_transcript_i = MenuItem::with_id(
         app,
         "copy_last_transcript",
         &strings.copy_last_transcript,
         true,
         None::<&str>,
-    )
-    .expect("failed to create copy last transcript item");
-    let model_loaded = app.state::<Arc<TranscriptionManager>>().is_model_loaded();
-    let quit_i = MenuItem::with_id(app, "quit", &strings.quit, true, quit_accelerator)
-        .expect("failed to create quit item");
-    let separator = || PredefinedMenuItem::separator(app).expect("failed to create separator");
-
-    // Build model submenu — label is the active model name
-    let model_manager = app.state::<Arc<ModelManager>>();
-    let models = model_manager.get_available_models();
-    let current_model_id = &settings.selected_model;
-
-    let mut downloaded: Vec<_> = models.into_iter().filter(|m| m.is_downloaded).collect();
-    downloaded.sort_by(|a, b| a.name.cmp(&b.name));
+    )?;
+    let quit_i = MenuItem::with_id(app, "quit", &strings.quit, true, quit_accelerator)?;
 
     let submenu_label = downloaded
         .iter()
-        .find(|m| m.id == *current_model_id)
+        .find(|m| m.id == current_model_id)
         .map(|m| m.name.clone())
         .unwrap_or_else(|| strings.model.clone());
 
-    let model_submenu = {
-        let submenu = Submenu::with_id(app, "model_submenu", &submenu_label, true)
-            .expect("failed to create model submenu");
-
-        for model in &downloaded {
-            let is_active = model.id == *current_model_id;
-            let item_id = format!("model_select:{}", model.id);
-            let item =
-                CheckMenuItem::with_id(app, &item_id, &model.name, true, is_active, None::<&str>)
-                    .expect("failed to create model item");
-            let _ = submenu.append(&item);
-        }
-
-        submenu
-    };
+    let model_submenu = Submenu::with_id(app, "model_submenu", &submenu_label, true)?;
+    for model in downloaded {
+        let is_active = model.id == current_model_id;
+        let item_id = format!("model_select:{}", model.id);
+        let item =
+            CheckMenuItem::with_id(app, &item_id, &model.name, true, is_active, None::<&str>)?;
+        let _ = model_submenu.append(&item);
+    }
 
     let unload_model_i = MenuItem::with_id(
         app,
@@ -249,53 +287,54 @@ pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
         &strings.unload_model,
         model_loaded,
         None::<&str>,
-    )
-    .expect("failed to create unload model item");
+    )?;
 
-    let menu = match state {
+    match state {
         TrayIconState::Recording | TrayIconState::Transcribing => {
-            let cancel_i = MenuItem::with_id(app, "cancel", &strings.cancel, true, None::<&str>)
-                .expect("failed to create cancel item");
+            let cancel_i = MenuItem::with_id(app, "cancel", &strings.cancel, true, None::<&str>)?;
+            let sep1 = PredefinedMenuItem::separator(app)?;
+            let sep2 = PredefinedMenuItem::separator(app)?;
+            let sep3 = PredefinedMenuItem::separator(app)?;
+            let sep4 = PredefinedMenuItem::separator(app)?;
             Menu::with_items(
                 app,
                 &[
                     &version_i,
-                    &separator(),
+                    &sep1,
                     &cancel_i,
-                    &separator(),
+                    &sep2,
                     &copy_last_transcript_i,
-                    &separator(),
+                    &sep3,
                     &settings_i,
                     &check_updates_i,
-                    &separator(),
+                    &sep4,
                     &quit_i,
                 ],
             )
-            .expect("failed to create menu")
         }
-        TrayIconState::Idle => Menu::with_items(
-            app,
-            &[
-                &version_i,
-                &separator(),
-                &copy_last_transcript_i,
-                &separator(),
-                &model_submenu,
-                &unload_model_i,
-                &separator(),
-                &settings_i,
-                &check_updates_i,
-                &separator(),
-                &quit_i,
-            ],
-        )
-        .expect("failed to create menu"),
-    };
-
-    let tray = app.state::<TrayIcon>();
-    let _ = tray.set_menu(Some(menu));
-    let _ = tray.set_icon_as_template(true);
-    let _ = tray.set_tooltip(Some(version_label));
+        TrayIconState::Idle => {
+            let sep1 = PredefinedMenuItem::separator(app)?;
+            let sep2 = PredefinedMenuItem::separator(app)?;
+            let sep3 = PredefinedMenuItem::separator(app)?;
+            let sep4 = PredefinedMenuItem::separator(app)?;
+            Menu::with_items(
+                app,
+                &[
+                    &version_i,
+                    &sep1,
+                    &copy_last_transcript_i,
+                    &sep2,
+                    &model_submenu,
+                    &unload_model_i,
+                    &sep3,
+                    &settings_i,
+                    &check_updates_i,
+                    &sep4,
+                    &quit_i,
+                ],
+            )
+        }
+    }
 }
 
 fn last_transcript_text(entry: &HistoryEntry) -> &str {
@@ -306,7 +345,9 @@ fn last_transcript_text(entry: &HistoryEntry) -> &str {
 }
 
 pub fn set_tray_visibility(app: &AppHandle, visible: bool) {
-    let tray = app.state::<TrayIcon>();
+    let Some(tray) = app.try_state::<TrayIcon>() else {
+        return;
+    };
     if let Err(e) = tray.set_visible(visible) {
         error!("Failed to set tray visibility: {}", e);
     } else {
@@ -315,7 +356,10 @@ pub fn set_tray_visibility(app: &AppHandle, visible: bool) {
 }
 
 pub fn copy_last_transcript(app: &AppHandle) {
-    let history_manager = app.state::<Arc<HistoryManager>>();
+    let Some(history_manager) = app.try_state::<Arc<HistoryManager>>() else {
+        warn!("History manager is not initialized; skipping tray copy.");
+        return;
+    };
     let entry = match history_manager.get_latest_completed_entry() {
         Ok(Some(entry)) => entry,
         Ok(None) => {
@@ -361,6 +405,7 @@ mod tests {
             post_processed_text: post_processed.map(|text| text.to_string()),
             post_process_prompt: None,
             post_process_requested: false,
+            app_name: None,
         }
     }
 
@@ -386,5 +431,56 @@ mod tests {
         let dir = tempfile::tempdir().expect("failed to create tempdir");
         let missing = dir.path().join("does_not_exist.png");
         assert!(load_tray_icon(Ok(missing)).is_err());
+    }
+
+    #[test]
+    fn poisoned_tray_state_recovers_without_panicking() {
+        use super::{CurrentTrayIconState, TrayIconState};
+        use std::sync::Arc;
+
+        let state = Arc::new(CurrentTrayIconState::new());
+        let poisoned = Arc::clone(&state);
+        let _ = std::thread::spawn(move || {
+            let _guard = poisoned.0.lock().unwrap();
+            panic!("poison tray state");
+        })
+        .join();
+
+        assert_eq!(state.get(), TrayIconState::Idle);
+        state.set(TrayIconState::Recording);
+        assert_eq!(state.get(), TrayIconState::Recording);
+    }
+
+    #[test]
+    fn tray_and_runtime_have_no_panics_or_handy_command_leftovers() {
+        let tray_src = include_str!("tray.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap();
+        assert!(!tray_src.contains(".unwrap()"));
+        assert!(!tray_src.contains(".expect("));
+        assert!(!tray_src.contains("app.state::<"));
+
+        let tray_i18n_src = include_str!("tray_i18n.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap();
+        assert!(!tray_i18n_src.contains(".unwrap()"));
+        assert!(!tray_i18n_src.contains(".expect("));
+
+        let coco_keys_src = include_str!("shortcut/coco_keys.rs");
+        assert!(!coco_keys_src.contains("start_handy_keys_recording"));
+        assert!(!coco_keys_src.contains("stop_handy_keys_recording"));
+
+        let transcription_src = include_str!("managers/transcription.rs");
+        assert!(!transcription_src.contains("HANDY_FORCE_TRANSCRIPTION_FAILURE"));
+
+        let overlay_src = include_str!("overlay.rs");
+        let legacy_gtk = ["HANDY", "_NO_GTK_LAYER_SHELL"].concat();
+        assert!(overlay_src.contains("COCO_VOICE_NO_GTK_LAYER_SHELL"));
+        assert_eq!(overlay_src.matches(&legacy_gtk).count(), 1);
+
+        let strings = crate::tray_i18n::get_tray_translations(Some("zz-UNKNOWN".to_string()));
+        assert!(!strings.quit.is_empty());
     }
 }

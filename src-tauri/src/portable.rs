@@ -10,6 +10,9 @@ use tauri::Manager;
 
 static PORTABLE_DATA_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
 
+const PORTABLE_MAGIC: &str = "Coco Voice Portable Mode";
+const LEGACY_PORTABLE_MAGIC: &str = "Handy Portable Mode";
+
 /// Detect portable mode by looking for a `portable` marker file next to the exe.
 /// Must be called once at startup before Tauri initializes.
 pub fn init() {
@@ -27,7 +30,7 @@ pub fn init() {
             // empty/invalid marker alongside an existing Data/ dir, this is a
             // real portable install — upgrade the marker in place.
             eprintln!("[portable] upgrading legacy empty marker to magic string");
-            let _ = std::fs::write(&marker_path, "Handy Portable Mode");
+            let _ = std::fs::write(&marker_path, PORTABLE_MAGIC);
             true
         } else {
             false
@@ -120,7 +123,10 @@ pub fn store_path(relative: &str) -> PathBuf {
 /// Extracted for testability.
 fn is_valid_portable_marker(path: &std::path::Path) -> bool {
     std::fs::read_to_string(path)
-        .map(|s| s.trim().starts_with("Handy Portable Mode"))
+        .map(|s| {
+            let trimmed = s.trim();
+            trimmed.starts_with(PORTABLE_MAGIC) || trimmed.starts_with(LEGACY_PORTABLE_MAGIC)
+        })
         .unwrap_or(false)
 }
 
@@ -135,7 +141,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let marker = dir.join("portable");
         let mut f = std::fs::File::create(&marker).unwrap();
-        write!(f, "Handy Portable Mode").unwrap();
+        write!(f, "{PORTABLE_MAGIC}").unwrap();
         assert!(is_valid_portable_marker(&marker));
         std::fs::remove_dir_all(dir).unwrap();
     }

@@ -752,7 +752,7 @@ jobs:
             local label="$2"
             # Run under a virtual X server: coco-voice initializes GTK on startup even
             # on the headless --list-devices path, which fails without a display.
-            HANDY_NO_GTK_LAYER_SHELL=1 \
+            COCO_VOICE_NO_GTK_LAYER_SHELL=1 \
             LD_LIBRARY_PATH="${root}/usr/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
               xvfb-run -a "${root}/usr/bin/coco-voice" --list-devices >/tmp/coco-voice-package-smoke.log
             echo "${label} --list-devices smoke passed"

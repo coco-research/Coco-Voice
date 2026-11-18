@@ -530,7 +530,7 @@ pub fn unregister_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<
 /// Start key recording mode
 #[tauri::command]
 #[specta::specta]
-pub fn start_handy_keys_recording(app: AppHandle, binding_id: String) -> Result<(), String> {
+pub fn start_coco_voice_keys_recording(app: AppHandle, binding_id: String) -> Result<(), String> {
     let settings = get_settings(&app);
     if settings.keyboard_implementation != settings::KeyboardImplementation::CocoVoiceKeys {
         return Err("coco-keys is not the active keyboard implementation".into());
@@ -545,7 +545,7 @@ pub fn start_handy_keys_recording(app: AppHandle, binding_id: String) -> Result<
 /// Stop key recording mode
 #[tauri::command]
 #[specta::specta]
-pub fn stop_handy_keys_recording(app: AppHandle) -> Result<(), String> {
+pub fn stop_coco_voice_keys_recording(app: AppHandle) -> Result<(), String> {
     let settings = get_settings(&app);
     if settings.keyboard_implementation != settings::KeyboardImplementation::CocoVoiceKeys {
         return Err("coco-keys is not the active keyboard implementation".into());

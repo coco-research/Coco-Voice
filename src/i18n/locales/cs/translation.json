@@ -12,17 +12,50 @@
     "general": "Obecné",
     "models": "Modely",
     "advanced": "Pokročilé",
-    "postProcessing": "Následné zpracování",
+    "postProcessing": "Úprava textu",
     "history": "Historie",
     "debug": "Ladění",
-    "about": "O aplikaci"
+    "about": "O aplikaci",
+    "home": "Domů",
+    "recordMeeting": "Nahrát schůzku",
+    "meetingHistory": "Historie schůzek",
+    "askMeetings": "Zeptat se schůzek",
+    "foldersAndTemplates": "Složky a šablony",
+    "agentAccess": "Přístup agenta",
+    "voiceSection": "Hlas",
+    "dictationHistory": "Historie diktování",
+    "perAppProfiles": "Profily podle aplikací",
+    "wordsAndCleanup": "Slova a úpravy",
+    "settings": "Nastavení",
+    "sectionPlaceholder": "Dostupné v této sekci po zapnutí.",
+    "startRecording": "Spustit nahrávání",
+    "seeAllMeetings": "Všechny schůzky →",
+    "dictateHeading": "Diktujte kdekoli",
+    "holdToTalk": "podržte pro mluvení",
+    "changeShortcut": "Změnit zkratku",
+    "seeAllDictations": "Všechna diktování →",
+    "dictationSearchPlaceholder": "Slova, která jste řekli",
+    "dictationSearchAria": "Hledat v diktování",
+    "cleanedUp": "Upraveno",
+    "emptyDictationSearch": "Žádné diktování neodpovídá hledání.",
+    "keptDays": "Uchováno 30 dní",
+    "homeHeading": "Dobré ráno",
+    "homeMeetingsBody": "Poznámky a přepis vytvořené na tomto Macu. Nahrávání začne až po stisknutí Spustit.",
+    "recentMeetings": "Nedávné schůzky",
+    "dictateBody": "Podržte zkratku, mluvte a pusťte. Slova se napíší tam, kde máte kurzor.",
+    "recentDictations": "Nedávná diktování",
+    "more": "Více",
+    "keep": "Ponechat",
+    "kept": "Ponecháno",
+    "editText": "Upravit text",
+    "tryAgain": "Zkusit znovu"
   },
   "onboarding": {
     "subtitle": "Pro začátek vyberte model pro přepis",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Kompatibilní modely",
+    "downloadModelsTitle": "Dostupné ke stažení",
+    "showAllModels": "Zobrazit všech {{total}} modelů",
+    "showFewerModels": "Zobrazit méně modelů",
     "recommended": "Doporučeno",
     "customModelDescription": "Oficiálně nepodporováno",
     "modelCard": {
@@ -96,7 +129,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Nepodařilo se vybrat model"
     },
     "permissions": {
       "title": "Vyžadována oprávnění",
@@ -179,7 +212,7 @@
     "general": {
       "title": "Obecné",
       "shortcut": {
-        "title": "Zkratky Coco Voice",
+        "title": "Klávesové zkratky",
         "description": "Nastavte klávesové zkratky pro spuštění nahrávání řeči na text",
         "loading": "Načítám zkratky...",
         "none": "Žádné zkratky nejsou nastavené",
@@ -187,7 +220,7 @@
         "pressKeys": "Stiskněte klávesy...",
         "bindings": {
           "transcribe": {
-            "name": "Zkratka přepisu",
+            "name": "Zkratka pro diktování",
             "description": "Klávesová zkratka pro nahrávání a přepis vašeho hlasu."
           },
           "cancel": {
@@ -195,11 +228,11 @@
             "description": "Klávesová zkratka pro zrušení aktuálního nahrávání."
           },
           "transcribe_with_post_process": {
-            "name": "Klávesa pro následné zpracování",
+            "name": "Zkratka pro úpravu textu",
             "description": "Volitelné: Vyhrazená klávesová zkratka, která vždy použije AI následné zpracování na váš přepis."
           },
           "correction": {
-            "name": "Vyslovit opravu",
+            "name": "Zkratka pro hlasové opravy",
             "description": "Klávesová zkratka pro vyslovení opravy, která nahradí váš poslední diktát. Přiřaďte klávesu, abyste ji zapnuli."
           }
         },
@@ -217,7 +250,7 @@
         "auto": "Auto"
       },
       "pushToTalk": {
-        "label": "Stisk a mluv",
+        "label": "Podržet a mluvit",
         "description": "Podržte pro nahrávání, uvolněte pro zastavení"
       }
     },
@@ -230,7 +263,7 @@
         "loading": "Načítání..."
       },
       "audioFeedback": {
-        "label": "Zvuková odezva",
+        "label": "Zvuky nahrávání",
         "description": "Přehrát zvuk při zahájení a ukončení nahrávání"
       },
       "outputDevice": {
@@ -278,7 +311,7 @@
         "description": "Spustit do systémové lišty bez otevření okna."
       },
       "autostart": {
-        "label": "Spouštět při startu",
+        "label": "Spustit při přihlášení",
         "description": "Automaticky spustit Coco Voice po přihlášení do počítače."
       },
       "showTrayIcon": {
@@ -287,16 +320,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Indikátor nahrávání",
+          "description": "Zvolte podobu indikátoru nahrávání: Žádný jej skryje, Minimální zobrazí malou pilulku a Živý ukazuje přepis v reálném čase během řeči.",
           "options": {
             "none": "Žádné",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Kompaktní",
+            "live": "Živý"
           }
         },
         "position": {
-          "title": "Pozice překryvu",
+          "title": "Umístění indikátoru",
           "description": "Zobrazovat vizuální překryv během nahrávání a přepisu. Na Linuxu je doporučeno 'Žádné'.",
           "options": {
             "bottom": "Dole",
@@ -305,7 +338,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Způsob vložení",
+        "title": "Jak se vkládají slova",
         "description": "Vyberte, jak se text vkládá. Přímé: simuluje psaní přes systémový vstup. Žádné: přeskočí vložení a aktualizuje pouze historii/schránku.",
         "options": {
           "clipboard": "Schránka ({{modifier}}+V)",
@@ -321,20 +354,20 @@
         "title": "Nástroj pro psaní",
         "description": "Vyberte, který linuxový nástroj pro psaní použít pro metodu přímého vložení. Auto automaticky zjistí a použije nejlepší dostupný nástroj pro váš systém.",
         "options": {
-          "auto": "Auto (Doporučeno)"
+          "auto": "Auto (doporučeno)"
         }
       },
       "clipboardHandling": {
-        "title": "Práce se schránkou",
+        "title": "Schránka po vložení",
         "description": "'Neměnit schránku' zachová po přepisu aktuální obsah schránky. 'Kopírovat do schránky' ponechá po vložení výsledek přepisu ve schránce.",
         "options": {
-          "dontModify": "Neměnit schránku",
+          "dontModify": "Ponechat původní schránku",
           "copyToClipboard": "Kopírovat do schránky"
         },
         "privacyHint": "Text ve schránce vidí jiné aplikace a nástroje pro schránku a univerzální schránka ho může zkopírovat do vašich dalších zařízení Apple."
       },
       "autoSubmit": {
-        "title": "Automatické odeslání",
+        "title": "Stisknout klávesu po vložení",
         "description": "Automaticky odešle vybranou kombinaci kláves po vložení textu. Cmd+Enter platí pro macOS, zatímco Windows/Linux používají Super+Enter.",
         "options": {
           "off": "Vypnuto",
@@ -359,7 +392,7 @@
           "min10": "Po 10 minutách",
           "min15": "Po 15 minutách",
           "hour1": "Po 1 hodině",
-          "sec15": "Po 15 sekundách (Debug)"
+          "sec15": "Po 15 sekundách (debug)"
         }
       },
       "customWords": {
@@ -370,9 +403,17 @@
         "remove": "Odebrat {{word}}",
         "duplicate": "\"{{word}}\" již existuje"
       },
+      "corrections": {
+        "title": "Opravy",
+        "description": "Nahradí vybraná slova nebo spojení ve výsledném textu bez ohledu na velikost písmen.",
+        "fromPlaceholder": "Z",
+        "toPlaceholder": "Na",
+        "duplicate": "Oprava pro „{{word}}“ již existuje",
+        "remove": "Odebrat opravu z {{from}} na {{to}}"
+      },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Přeskakovat ticho",
+        "description": "Vynechá tiché pauzy během nahrávání. Při vypnutí se nahraje celý zvuk."
       }
     },
     "postProcessing": {
@@ -380,12 +421,12 @@
         "title": "Klávesová zkratka"
       },
       "correction": {
-        "title": "Iterativní oprava",
-        "toggleLabel": "Vyslovovat opravy",
+        "title": "Hlasové opravy",
+        "toggleLabel": "Hlasové opravy",
         "toggleDescription": "Přidá samostatnou klávesovou zkratku, kterou stisknete, abyste nahradili svůj poslední diktát vyslovenou opravou. Nikdy se nespustí automaticky podle klíčových slov. Stiskněte přiřazenou klávesu, vyslovte opravu a předchozí výstup se upraví na místě."
       },
       "api": {
-        "title": "API (kompatibilní s OpenAI)",
+        "title": "Model pro úpravu textu",
         "provider": {
           "title": "Poskytovatel",
           "description": "Vyberte poskytovatele kompatibilního s OpenAI."
@@ -424,22 +465,22 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Pokyny",
         "selectedPrompt": {
-          "title": "Vybraný prompt",
+          "title": "Styl úprav",
           "description": "Vyberte šablonu pro zpřesnění přepisu nebo vytvořte novou. V textu promptu použijte ${output} pro vložení zachyceného přepisu."
         },
         "noPrompts": "Nejsou k dispozici žádné prompty",
         "selectPrompt": "Vyberte prompt",
-        "createNew": "Vytvořit nový prompt",
-        "promptLabel": "Název promptu",
+        "createNew": "Nový styl",
+        "promptLabel": "Název",
         "promptLabelPlaceholder": "Zadejte název promptu",
-        "promptInstructions": "Instrukce promptu",
+        "promptInstructions": "Pokyny",
         "promptInstructionsPlaceholder": "Napište instrukce, které se mají spustit po přepisu. Příklad: Zlepšete gramatiku a srozumitelnost následujícího textu: ${output}",
         "promptTip": "Tip: Použijte <code>${output}</code> pro vložení přepsaného textu do promptu.",
-        "updatePrompt": "Aktualizovat prompt",
-        "deletePrompt": "Smazat prompt",
-        "createPrompt": "Vytvořit prompt",
+        "updatePrompt": "Uložit změny",
+        "deletePrompt": "Smazat",
+        "createPrompt": "Vytvořit",
         "cancel": "Zrušit",
         "selectToEdit": "Vyberte výše prompt, abyste zobrazili a upravili jeho podrobnosti.",
         "createFirst": "Klikněte nahoře na 'Vytvořit nový prompt' a vytvořte svůj první prompt pro následné zpracování."
@@ -458,6 +499,11 @@
       "retranscribe": "Přepsat znovu",
       "retranscribeError": "Opětovný přepis se nezdařil. Zkuste to prosím znovu.",
       "transcribing": "Přepisuji...",
+      "edit": "Upravit",
+      "saveEdit": "Uložit",
+      "editError": "Úpravu se nepodařilo uložit",
+      "learnedOne": "Naučená oprava: „{{from}}“ → „{{to}}“",
+      "learnedMany": "Naučeno {{count}} oprav z vaší úpravy",
       "transcriptionFailed": "Přepis selhal. Můžete zkusit přepis znovu pomocí ikony opakování."
     },
     "debug": {
@@ -487,6 +533,7 @@
       },
       "soundTheme": {
         "label": "Zvukový motiv",
+        "preview": "Přehrát ukázku zvuku",
         "description": "Vyberte zvukový motiv pro odezvu při startu a ukončení nahrávání"
       },
       "wordCorrectionThreshold": {
@@ -517,33 +564,35 @@
         "description": "Mikrofon, který se použije při zavřeném víku notebooku"
       },
       "postProcessingToggle": {
-        "label": "Následné zpracování",
-        "description": "Povolit AI vylepšení textu po přepisu"
+        "label": "Úprava textu",
+        "description": "Upravit výplňová slova, interpunkci a sebeopravy po přepisu"
       },
       "muteWhileRecording": {
         "label": "Ztlumit při nahrávání",
         "description": "Ztlumit systémový zvuk během nahrávání"
       },
       "appendTrailingSpace": {
-        "label": "Přidat koncovou mezeru",
+        "label": "Přidat mezeru na konec",
         "description": "Přidat mezeru po vloženém přepisu"
       },
       "keyboardImplementation": {
-        "title": "Implementace klávesnice",
+        "title": "Obsluha klávesnice",
         "description": "Zvolte backend pro klávesové zkratky.",
         "bindingsReset": "Klávesové zkratky byly nekompatibilní a byly obnoveny na výchozí hodnoty"
       },
       "paths": {
+        "title": "Cesty aplikace",
+        "description": "Interní složky a soubory pro diagnostiku",
         "appData": "Data aplikace:",
         "models": "Modely:",
         "settings": "Nastavení:"
       },
       "pasteDelay": {
-        "title": "Zpoždění vložení (před)",
+        "title": "Prodleva před vložením",
         "description": "Zpoždění (v milisekundách) po zkopírování textu, před odesláním klávesy pro vložení. Zvyšte, pokud se nic nevloží."
       },
       "pasteDelayAfter": {
-        "title": "Zpoždění vložení (po)",
+        "title": "Prodleva po vložení",
         "description": "Zpoždění (v milisekundách) po klávese pro vložení, před obnovením předchozí schránky. Zvyšte, pokud se místo přepisu vkládá starý obsah schránky."
       },
       "recordingBuffer": {
@@ -565,7 +614,7 @@
         "description": "Aktuální verze Coco Voice"
       },
       "appDataDirectory": {
-        "title": "Adresář dat aplikace",
+        "title": "Složka dat aplikace",
         "description": "Umístění, kde Coco Voice ukládá data"
       },
       "sourceCode": {
@@ -585,6 +634,32 @@
         "label": "Zobrazovat novinky",
         "description": "Zobrazovat poznámky k vydání po aktualizacích Coco Voice"
       }
+    },
+    "online": {
+      "eyebrow": "Nastavení",
+      "title": "Co odchází online",
+      "intro": "Vaše řeč se převádí na text na tomto Macu. Toto jsou místa, která může tato verze Coco Voice kontaktovat, a co každé z nich dostane.",
+      "leavesLabel": "Opouští váš Mac:",
+      "openHeading": "Při každém spuštění aplikace",
+      "githubName": "GitHub (vydání Coco Voice)",
+      "githubWhen": "Při každém otevření aplikace kvůli kontrole aktualizací. Chcete-li to zastavit, vypněte kontrolu aktualizací výše v části O aplikaci. Kliknuté odkazy se otevírají v prohlížeči.",
+      "githubLeaves": "požadavek na seznam vydání a soubor aktualizace, pokud ji nainstalujete. Žádná řeč a žádný text.",
+      "updateChecksOn": "Kontrola aktualizací zapnuta",
+      "updateChecksOff": "Kontrola aktualizací vypnuta",
+      "clickHeading": "Pouze když kliknete",
+      "modelFilesName": "Soubory modelů Coco Voice",
+      "modelFilesWhen": "Když kliknete na Stáhnout u vestavěného řečového modelu.",
+      "modelFilesLeaves": "název požadovaného souboru modelu. Žádná řeč a žádný text.",
+      "huggingFaceWhen": "Když kliknete na Stáhnout u katalogového modelu nebo na jeho licenci pro otevření v prohlížeči.",
+      "huggingFaceLeaves": "název modelu, verze a název souboru, plus token Hugging Face, pokud je na tomto Macu již nastaven. Žádná řeč a žádný text.",
+      "cleanupHeading": "Pouze když vyberete poskytovatele úprav",
+      "cloudWhen": "Když úprava textu běží s vybraným cloudovým poskytovatelem.",
+      "cloudLeaves": "text toho, co jste řekli, pokyny k úpravě a váš klíč API. Načtení seznamu modelů odešle pouze váš klíč API.",
+      "customName": "Vlastní úprava (Ollama)",
+      "customWhen": "Když úprava běží s možností Vlastní. Komunikuje s programem na tomto Macu, pokud nezměníte jeho adresu.",
+      "customLeaves": "na výchozí adrese nic. Text vaší řeči a pokyny k úpravě jdou programu na tomto Macu.",
+      "staysOnMac": "Zůstává na tomto Macu",
+      "onDeviceNote": "Úprava v zařízení (Apple Intelligence nebo místní model) nekontaktuje žádné z těchto míst."
     }
   },
   "footer": {
@@ -607,11 +682,16 @@
     "open": "Otevřít",
     "copy": "Kopírovat",
     "clear": "Vymazat",
+    "selectOption": "Vyberte možnost...",
+    "notAvailable": "Není k dispozici",
+    "moreInfo": "Více informací",
+    "play": "Přehrát",
+    "pause": "Pozastavit",
     "noOptionsFound": "Nenalezeny žádné možnosti"
   },
   "accessibility": {
     "permissionsDescription": "Coco Voice potřebuje oprávnění usnadnění přístupu, aby mohlo psát přepsaný text.",
-    "openSettings": "Otevřít Nastavení systému"
+    "openSettings": "Otevřít nastavení systému"
   },
   "errors": {
     "loadDirectory": "Chyba při načítání adresáře: {{error}}",
@@ -657,7 +737,7 @@
   },
   "overlay": {
     "transcribing": "Přepisuji...",
-    "processing": "Zpracovávám...",
+    "processing": "Čistím...",
     "polishing": "Upravuji..."
   },
   "whatsNew": {
@@ -706,6 +786,55 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "list": {
+      "heading": "All meetings",
+      "countOne": "1 meeting",
+      "countMany": "{{count}} meetings",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Title, notes, or transcript",
+      "searchAria": "Search meetings",
+      "untitled": "Meeting",
+      "dateAndDuration": "{{date}} · {{minutes}} min",
+      "notesReady": "Notes ready",
+      "transcriptOnly": "Transcript only",
+      "exportMarkdown": "Export Markdown",
+      "delete": "Delete",
+      "confirmPrompt": "Delete this meeting?",
+      "confirmDelete": "Confirm delete",
+      "cancelDelete": "Cancel",
+      "emptyList": "No meetings yet. Start notes from the menu bar.",
+      "emptySearch": "No meetings match your search.",
+      "audioLeftWarning": "Meeting deleted, but its audio folder is still on disk.",
+      "loadFailed": "Could not load meetings.",
+      "exportFailed": "Could not export Markdown.",
+      "deleteFailed": "Could not delete the meeting."
     }
+  },
+  "profiles": {
+    "addApp": "Add an app",
+    "subtitle": "How your words are written depends on the app in front. Apps without a profile use the default.",
+    "edit": "Edit",
+    "remove": "Remove",
+    "defaultName": "Default",
+    "defaultDesc": "Every other app",
+    "neverHeading": "Never dictate in",
+    "neverRowDesc": "The shortcut does nothing here",
+    "neverEmpty": "No blocked apps yet.",
+    "useFrontApp": "Use app in front",
+    "appIdPlaceholder": "App name or bundle ID (e.g. Mail or com.apple.mail)",
+    "namePlaceholder": "Display name (e.g. Mail)",
+    "toneLabel": "Style",
+    "toneAuto": "Match app",
+    "toneFormal": "Full sentences",
+    "toneCasual": "Casual",
+    "toneDirect": "Direct",
+    "toneCode": "Code names keep their casing",
+    "capsAndPunct": "capitals and punctuation",
+    "noTrailingStop": "no full stop at the end",
+    "exactWords": "Exactly what you said",
+    "cleanupOn": "clean-up on",
+    "cleanupOff": "clean-up off",
+    "cleanupDefault": "clean-up default"
   }
 }

@@ -12,17 +12,50 @@
     "general": "Allmänt",
     "models": "Modeller",
     "advanced": "Avancerat",
-    "postProcessing": "Efterbearbetning",
+    "postProcessing": "Rensning",
     "history": "Historik",
     "debug": "Felsökning",
-    "about": "Om"
+    "about": "Om",
+    "home": "Hem",
+    "recordMeeting": "Spela in ett möte",
+    "meetingHistory": "Möteshistorik",
+    "askMeetings": "Fråga dina möten",
+    "foldersAndTemplates": "Mappar och mallar",
+    "agentAccess": "Agentåtkomst",
+    "voiceSection": "Röst",
+    "dictationHistory": "Dikteringshistorik",
+    "perAppProfiles": "Profiler per app",
+    "wordsAndCleanup": "Ord och putsning",
+    "settings": "Inställningar",
+    "sectionPlaceholder": "Tillgängligt i det här avsnittet när det är aktiverat.",
+    "startRecording": "Starta inspelning",
+    "seeAllMeetings": "Alla möten →",
+    "dictateHeading": "Diktera var som helst",
+    "holdToTalk": "håll in för att tala",
+    "changeShortcut": "Ändra genväg",
+    "seeAllDictations": "Alla dikteringar →",
+    "dictationSearchPlaceholder": "Ord du sa",
+    "dictationSearchAria": "Sök i dikteringar",
+    "cleanedUp": "Putsad",
+    "emptyDictationSearch": "Inga dikteringar matchar din sökning.",
+    "keptDays": "Sparas 30 dagar",
+    "homeHeading": "God morgon",
+    "homeMeetingsBody": "Anteckningar och transkript skapas på den här Mac-datorn. Inspelning startar först när du trycker på Starta.",
+    "recentMeetings": "Senaste möten",
+    "dictateBody": "Håll nere genvägen, tala och släpp. Orden skrivs där markören står.",
+    "recentDictations": "Senaste dikteringar",
+    "more": "Mer",
+    "keep": "Behåll",
+    "kept": "Behållen",
+    "editText": "Redigera text",
+    "tryAgain": "Försök igen"
   },
   "onboarding": {
     "subtitle": "För att komma igång, välj en transkriptionsmodell",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Kompatibla modeller",
+    "downloadModelsTitle": "Tillgängliga för nedladdning",
+    "showAllModels": "Visa alla {{total}} modeller",
+    "showFewerModels": "Visa färre modeller",
     "recommended": "Rekommenderat",
     "customModelDescription": "Stöds inte officiellt",
     "modelCard": {
@@ -96,7 +129,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Kunde inte välja modell"
     },
     "permissions": {
       "title": "Behörigheter krävs",
@@ -137,7 +170,7 @@
     "loadingGeneric": "Laddar...",
     "modelError": "Modellfel",
     "modelUnloaded": "Modell avlastad",
-    "noModelDownloadRequired": "Ingen modell - Nedladdning krävs",
+    "noModelDownloadRequired": "Ingen modell — nedladdning krävs",
     "deleteModel": "Ta bort {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
     "cancel": "Avbryt",
@@ -161,7 +194,7 @@
     "general": {
       "title": "Allmänt",
       "shortcut": {
-        "title": "Coco Voice-kortkommandon",
+        "title": "Kortkommandon",
         "description": "Konfigurera kortkommandon för att starta tal-till-text-inspelning",
         "loading": "Laddar kortkommandon...",
         "none": "Inga kortkommandon konfigurerade",
@@ -169,7 +202,7 @@
         "pressKeys": "Tryck på tangenter...",
         "bindings": {
           "transcribe": {
-            "name": "Kortkommando för transkribering",
+            "name": "Kortkommando för diktering",
             "description": "Kortkommandot för att spela in och transkribera din röst."
           },
           "cancel": {
@@ -177,11 +210,11 @@
             "description": "Kortkommandot för att avbryta den aktuella inspelningen."
           },
           "transcribe_with_post_process": {
-            "name": "Snabbkommando för efterbearbetning",
+            "name": "Genväg för rensning",
             "description": "Valfritt: En dedikerad snabbknapp som alltid tillämpar AI-efterbearbetning på din transkription."
           },
           "correction": {
-            "name": "Säg en rättelse",
+            "name": "Kortkommando för röständringar",
             "description": "Kortkommandot för att säga en rättelse som ersätter din senaste diktering. Tilldela en tangent för att aktivera det."
           }
         },
@@ -199,7 +232,7 @@
         "auto": "Auto"
       },
       "pushToTalk": {
-        "label": "Tryck för att tala",
+        "label": "Håll nere för att prata",
         "description": "Håll ned för att spela in, släpp för att stoppa"
       }
     },
@@ -230,7 +263,7 @@
         "loading": "Laddar..."
       },
       "audioFeedback": {
-        "label": "Ljudåterkoppling",
+        "label": "Inspelningsljud",
         "description": "Spela upp ljud när inspelningen startar och stoppar"
       },
       "outputDevice": {
@@ -278,7 +311,7 @@
         "description": "Starta i systemfältet utan att öppna fönstret."
       },
       "autostart": {
-        "label": "Starta vid uppstart",
+        "label": "Öppna vid inloggning",
         "description": "Starta Coco Voice automatiskt när du loggar in på din dator."
       },
       "showTrayIcon": {
@@ -287,16 +320,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Inspelningsindikator",
+          "description": "Välj inspelningsindikator: Ingen döljer den, Kompakt visar ett litet piller och Live visar texten medan du pratar.",
           "options": {
             "none": "Ingen",
-            "minimal": "Minimal",
+            "minimal": "Kompakt",
             "live": "Live"
           }
         },
         "position": {
-          "title": "Överlagringsposition",
+          "title": "Var indikatorn visas",
           "description": "Visa visuell återkoppling under inspelning och transkription. På Linux rekommenderas 'Ingen'.",
           "options": {
             "bottom": "Nederst",
@@ -305,7 +338,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Klistra-in-metod",
+        "title": "Hur ord skrivs in",
         "description": "Välj hur text infogas. Direkt: simulerar skrivande via systeminmatning. Ingen: hoppar över klistra in, uppdaterar endast historik/urklipp.",
         "options": {
           "clipboard": "Urklipp ({{modifier}}+V)",
@@ -321,20 +354,20 @@
         "title": "Skrivverktyg",
         "description": "Välj vilket Linux-skrivverktyg som ska användas för metoden Direkt klistra in. Auto kommer automatiskt att upptäcka och använda det bästa tillgängliga verktyget för ditt system.",
         "options": {
-          "auto": "Auto (Rekommenderas)"
+          "auto": "Auto (rekommenderas)"
         }
       },
       "clipboardHandling": {
-        "title": "Hantering av urklipp",
+        "title": "Urklipp efter inklistring",
         "description": "Ändra inte urklipp bevarar ditt nuvarande urklippsinnehåll efter transkription. Kopiera till urklipp lämnar transkriptionsresultatet i ditt urklipp efter att ha klistrat in.",
         "options": {
-          "dontModify": "Ändra inte urklipp",
+          "dontModify": "Behåll tidigare urklipp",
           "copyToClipboard": "Kopiera till urklipp"
         },
         "privacyHint": "Text i urklipp kan ses av andra appar och urklippsverktyg, och Universellt urklipp kan kopiera den till dina andra Apple-enheter."
       },
       "autoSubmit": {
-        "title": "Skicka automatiskt",
+        "title": "Tryck på tangent efter inklistring",
         "description": "Skicka automatiskt den valda tangentkombinationen efter textinsättning. Cmd+Enter gäller på macOS, medan Windows/Linux använder Super+Enter.",
         "options": {
           "off": "Av",
@@ -359,7 +392,7 @@
           "min10": "Efter 10 minuter",
           "min15": "Efter 15 minuter",
           "hour1": "Efter 1 timme",
-          "sec15": "Efter 15 sekunder (Felsökning)"
+          "sec15": "Efter 15 sekunder (felsökning)"
         }
       },
       "customWords": {
@@ -370,22 +403,30 @@
         "remove": "Ta bort {{word}}",
         "duplicate": "\"{{word}}\" finns redan"
       },
+      "corrections": {
+        "title": "Ersättningar",
+        "description": "Byter ut valda ord eller fraser i den färdiga texten oavsett versaler och gemener.",
+        "fromPlaceholder": "Från",
+        "toPlaceholder": "Till",
+        "duplicate": "Det finns redan en ersättning för \"{{word}}\"",
+        "remove": "Ta bort ersättning från {{from}} till {{to}}"
+      },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Hoppa över tystnad",
+        "description": "Utelämnar tysta pauser under inspelning. Om du stänger av spelas hela ljudet in."
       }
     },
     "postProcessing": {
       "hotkey": {
-        "title": "Snabbkommando"
+        "title": "Genväg"
       },
       "correction": {
-        "title": "Iterativ rättelse",
-        "toggleLabel": "Säg rättelser",
+        "title": "Röständringar",
+        "toggleLabel": "Röständringar",
         "toggleDescription": "Lägger till ett särskilt kortkommando som du trycker på för att ersätta din senaste diktering med en talad rättelse. Det startar aldrig automatiskt av nyckelord. Tryck på den tilldelade tangenten, säg rättelsen, så redigeras den föregående texten på plats."
       },
       "api": {
-        "title": "API (OpenAI-kompatibelt)",
+        "title": "Rensningsmodell",
         "provider": {
           "title": "Leverantör",
           "description": "Välj en OpenAI-kompatibel leverantör."
@@ -424,22 +465,22 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Instruktioner",
         "selectedPrompt": {
-          "title": "Vald prompt",
+          "title": "Upprensningsstil",
           "description": "Välj en mall för att förfina transkriptioner eller skapa en ny. Använd ${output} inuti prompttexten för att referera till den fångade transkriptionen."
         },
         "noPrompts": "Inga prompter tillgängliga",
         "selectPrompt": "Välj en prompt",
-        "createNew": "Skapa ny prompt",
-        "promptLabel": "Prompt-etikett",
+        "createNew": "Ny stil",
+        "promptLabel": "Namn",
         "promptLabelPlaceholder": "Ange namn på prompt",
-        "promptInstructions": "Prompt-instruktioner",
+        "promptInstructions": "Instruktioner",
         "promptInstructionsPlaceholder": "Skriv instruktionerna som ska köras efter transkription. Exempel: Förbättra grammatik och tydlighet för följande text: ${output}",
         "promptTip": "Tips: Använd <code>${output}</code> för att infoga den transkriberade texten i din prompt.",
-        "updatePrompt": "Uppdatera prompt",
-        "deletePrompt": "Ta bort prompt",
-        "createPrompt": "Skapa prompt",
+        "updatePrompt": "Spara ändringar",
+        "deletePrompt": "Ta bort",
+        "createPrompt": "Skapa",
         "cancel": "Avbryt",
         "selectToEdit": "Välj en prompt ovan för att visa och redigera dess detaljer.",
         "createFirst": "Klicka på 'Skapa ny prompt' ovan för att skapa din första prompt för efterbearbetning."
@@ -458,6 +499,11 @@
       "retranscribe": "Transkribera igen",
       "retranscribeError": "Misslyckades med att transkribera igen. Försök igen.",
       "transcribing": "Transkriberar...",
+      "edit": "Redigera",
+      "saveEdit": "Spara",
+      "editError": "Kunde inte spara ändringen",
+      "learnedOne": "Lärde in ersättning: \"{{from}}\" → \"{{to}}\"",
+      "learnedMany": "Lärde in {{count}} ersättningar från din ändring",
       "transcriptionFailed": "Transkribering misslyckades. Du kan transkribera igen med hjälp av ikonen för nytt försök."
     },
     "debug": {
@@ -487,6 +533,7 @@
       },
       "soundTheme": {
         "label": "Ljudtema",
+        "preview": "Förhandslyssna på ljudtema",
         "description": "Välj ett ljudtema för återkoppling vid start och stopp av inspelning"
       },
       "wordCorrectionThreshold": {
@@ -517,33 +564,35 @@
         "description": "Mikrofon som ska användas när bärbara datorns lock är stängt"
       },
       "postProcessingToggle": {
-        "label": "Efterbearbetning",
-        "description": "Aktivera AI-driven textförfining efter transkription"
+        "label": "Rensning",
+        "description": "Rensa utfyllnadsord, skiljetecken och självrättelser efter transkribering"
       },
       "muteWhileRecording": {
         "label": "Ljudlös under inspelning",
         "description": "Stäng av systemljudet under inspelning"
       },
       "appendTrailingSpace": {
-        "label": "Lägg till avslutande mellanslag",
+        "label": "Lägg till mellanslag i slutet",
         "description": "Lägg till ett mellanslag efter klistrad transkription"
       },
       "keyboardImplementation": {
-        "title": "Tangentbordsimplementering",
+        "title": "Tangentbordshantering",
         "description": "Välj tangentbordsgenvägens implementation.",
         "bindingsReset": "Kortkommandona var inkompatibla och återställdes till standardvärden"
       },
       "paths": {
+        "title": "Appsökvägar",
+        "description": "Interna mappar och filer för felsökning",
         "appData": "Appdata:",
         "models": "Modeller:",
         "settings": "Inställningar:"
       },
       "pasteDelay": {
-        "title": "Fördröjning vid klistra in (före)",
+        "title": "Fördröjning före inklistring",
         "description": "Fördröjning (i millisekunder) efter att text kopierats, innan tangenttryckningen för att klistra in skickas. Öka om ingenting klistras in."
       },
       "pasteDelayAfter": {
-        "title": "Fördröjning vid klistra in (efter)",
+        "title": "Fördröjning efter inklistring",
         "description": "Fördröjning (i millisekunder) efter tangenttryckningen för att klistra in, innan ditt tidigare urklipp återställs. Öka om det gamla urklippsinnehållet klistras in i stället för transkriptionen."
       },
       "recordingBuffer": {
@@ -585,6 +634,32 @@
         "label": "Visa nyheter",
         "description": "Visa versionsinformation efter Coco Voice-uppdateringar"
       }
+    },
+    "online": {
+      "eyebrow": "Inställningar",
+      "title": "Vad som går online",
+      "intro": "Ditt tal omvandlas till text på den här Mac-datorn. Det här är platserna som den här versionen av Coco Voice kan kontakta och vad varje plats får.",
+      "leavesLabel": "Lämnar din Mac:",
+      "openHeading": "Varje gång appen öppnas",
+      "githubName": "GitHub (Coco Voice-utgåvor)",
+      "githubWhen": "Varje gång appen öppnas för att söka efter uppdateringar. Stäng av uppdateringskontroller ovan under Om för att stoppa detta. Länkar du klickar på öppnas i webbläsaren.",
+      "githubLeaves": "en begäran om listan över utgåvor och uppdateringsfilen om du installerar en. Inget tal och ingen text.",
+      "updateChecksOn": "Uppdateringskontroll på",
+      "updateChecksOff": "Uppdateringskontroll av",
+      "clickHeading": "Endast när du klickar",
+      "modelFilesName": "Coco Voice-modellfiler",
+      "modelFilesWhen": "När du klickar på Ladda ner på en inbyggd talmodell.",
+      "modelFilesLeaves": "namnet på modellfilen du bad om. Inget tal och ingen text.",
+      "huggingFaceWhen": "När du klickar på Ladda ner på en katalogmodell eller klickar på dess licens för att öppna den i webbläsaren.",
+      "huggingFaceLeaves": "modellnamn, version och filnamn samt en Hugging Face-token om en redan är inställd på den här Mac-datorn. Inget tal och ingen text.",
+      "cleanupHeading": "Endast när du väljer en rensningsleverantör",
+      "cloudWhen": "När rensning körs med molnleverantören du har valt.",
+      "cloudLeaves": "texten för det du sa, rensningsinstruktionerna och din API-nyckel. Att lista modeller skickar bara din API-nyckel.",
+      "customName": "Anpassad rensning (Ollama)",
+      "customWhen": "När rensning körs med Anpassad som vald leverantör. Den pratar med ett program på den här Mac-datorn om du inte ändrar adressen.",
+      "customLeaves": "ingenting på startadressen. Texten du sa och rensningsinstruktionerna går till programmet på den här Mac-datorn.",
+      "staysOnMac": "Stannar på den här Mac-datorn",
+      "onDeviceNote": "Rensning på enheten (Apple Intelligence eller den lokala modellen) kontaktar ingen av dessa."
     }
   },
   "footer": {
@@ -607,6 +682,11 @@
     "open": "Öppna",
     "copy": "Kopiera",
     "clear": "Rensa",
+    "selectOption": "Välj ett alternativ...",
+    "notAvailable": "Inte tillgänglig",
+    "moreInfo": "Mer information",
+    "play": "Spela",
+    "pause": "Pausa",
     "noOptionsFound": "Inga alternativ hittades"
   },
   "accessibility": {
@@ -643,7 +723,7 @@
     "shortcutRegistrationTryAgain": "Försök igen"
   },
   "appLanguage": {
-    "title": "Applikationsspråk",
+    "title": "Appspråk",
     "description": "Ändra språket i Coco Voice-gränssnittet"
   },
   "theme": {
@@ -657,7 +737,7 @@
   },
   "overlay": {
     "transcribing": "Transkriberar...",
-    "processing": "Bearbetar...",
+    "processing": "Rensar upp...",
     "polishing": "Redigerar..."
   },
   "whatsNew": {
@@ -706,6 +786,55 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "list": {
+      "heading": "All meetings",
+      "countOne": "1 meeting",
+      "countMany": "{{count}} meetings",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Title, notes, or transcript",
+      "searchAria": "Search meetings",
+      "untitled": "Meeting",
+      "dateAndDuration": "{{date}} · {{minutes}} min",
+      "notesReady": "Notes ready",
+      "transcriptOnly": "Transcript only",
+      "exportMarkdown": "Export Markdown",
+      "delete": "Delete",
+      "confirmPrompt": "Delete this meeting?",
+      "confirmDelete": "Confirm delete",
+      "cancelDelete": "Cancel",
+      "emptyList": "No meetings yet. Start notes from the menu bar.",
+      "emptySearch": "No meetings match your search.",
+      "audioLeftWarning": "Meeting deleted, but its audio folder is still on disk.",
+      "loadFailed": "Could not load meetings.",
+      "exportFailed": "Could not export Markdown.",
+      "deleteFailed": "Could not delete the meeting."
     }
+  },
+  "profiles": {
+    "addApp": "Add an app",
+    "subtitle": "How your words are written depends on the app in front. Apps without a profile use the default.",
+    "edit": "Edit",
+    "remove": "Remove",
+    "defaultName": "Default",
+    "defaultDesc": "Every other app",
+    "neverHeading": "Never dictate in",
+    "neverRowDesc": "The shortcut does nothing here",
+    "neverEmpty": "No blocked apps yet.",
+    "useFrontApp": "Use app in front",
+    "appIdPlaceholder": "App name or bundle ID (e.g. Mail or com.apple.mail)",
+    "namePlaceholder": "Display name (e.g. Mail)",
+    "toneLabel": "Style",
+    "toneAuto": "Match app",
+    "toneFormal": "Full sentences",
+    "toneCasual": "Casual",
+    "toneDirect": "Direct",
+    "toneCode": "Code names keep their casing",
+    "capsAndPunct": "capitals and punctuation",
+    "noTrailingStop": "no full stop at the end",
+    "exactWords": "Exactly what you said",
+    "cleanupOn": "clean-up on",
+    "cleanupOff": "clean-up off",
+    "cleanupDefault": "clean-up default"
   }
 }

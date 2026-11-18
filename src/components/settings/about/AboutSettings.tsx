@@ -9,7 +9,9 @@ import { AppDataDirectory } from "../AppDataDirectory";
 import { AppLanguageSelector } from "../AppLanguageSelector";
 import { ShowWhatsNewOnUpdate } from "../ShowWhatsNewOnUpdate";
 import { ThemeSelector } from "../ThemeSelector";
+import { UpdateChecksToggle } from "../UpdateChecksToggle";
 import { LogDirectory } from "../debug";
+import { WhatGoesOnline } from "./WhatGoesOnline";
 
 export const AboutSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -43,6 +45,7 @@ export const AboutSettings: React.FC = () => {
           <span className="text-sm font-mono">v{version}</span>
         </SettingContainer>
 
+        <UpdateChecksToggle descriptionMode="tooltip" grouped={true} />
         <ShowWhatsNewOnUpdate descriptionMode="tooltip" grouped={true} />
 
         <SettingContainer
@@ -64,6 +67,8 @@ export const AboutSettings: React.FC = () => {
         <AppDataDirectory descriptionMode="tooltip" grouped={true} />
         <LogDirectory grouped={true} />
       </SettingsGroup>
+
+      <WhatGoesOnline />
 
       <SettingsGroup title={t("settings.about.acknowledgments.title")}>
         <SettingContainer

@@ -205,6 +205,12 @@ fn should_use_streaming_overlay(style: OverlayStyle, is_streaming: bool) -> bool
     style == OverlayStyle::Live && is_streaming
 }
 
+/// Whether a dictation take runs clean-up: either the dedicated clean-up
+/// shortcut forced it, or "Clean every take" (`post_process_enabled`) is on.
+fn should_post_process_take(action_forces_post_process: bool, post_process_enabled: bool) -> bool {
+    action_forces_post_process || post_process_enabled
+}
+
 /// Whether the overlay stays up after the paste: only for a take whose status row
 /// is showing, so there must be an overlay to show it on.
 fn should_hold_overlay(status_emitted: bool, style: OverlayStyle) -> bool {
@@ -343,12 +349,24 @@ fn provider_configured(settings: &AppSettings, provider_id: &str) -> Result<(), 
     Ok(())
 }
 
+static LOCAL_MODEL_MISSING_NOTIFIED: AtomicBool = AtomicBool::new(false);
+
+fn should_emit_skip_notice(reason: &SkipReason, missing_model_notified: &AtomicBool) -> bool {
+    if *reason == SkipReason::LocalModelNotDownloaded {
+        return !missing_model_notified.swap(true, Ordering::SeqCst);
+    }
+    true
+}
+
 /// Logs why cleanup was skipped and tells the UI. Returns whether the UI was told.
 fn skip_cleanup(app: &AppHandle, reason: &SkipReason) -> bool {
     info!("Post-processing skipped: {reason}");
     let Some(status) = CleanupStatus::status_for_skip(reason) else {
         return false;
     };
+    if !should_emit_skip_notice(reason, &LOCAL_MODEL_MISSING_NOTIFIED) {
+        return false;
+    }
     let _ = status.emit(app);
     true
 }
@@ -910,6 +928,7 @@ async fn post_process_with_local_llm(
 
     match generated {
         Ok(result) => {
+            LOCAL_MODEL_MISSING_NOTIFIED.store(false, Ordering::SeqCst);
             debug!(
                 "Local LLM post-processing succeeded. Output length: {} chars",
                 result.len()
@@ -1030,9 +1049,20 @@ pub(crate) async fn process_transcription_output(
     transcription: &str,
     post_process: bool,
     correction: bool,
+    active_app: Option<&crate::app_profiles::ActiveAppInfo>,
     local_llm_cancel: Option<LocalLlmCancel>,
 ) -> ProcessedTranscription {
-    let settings = get_settings(app);
+    let raw_settings = get_settings(app);
+    let resolved_profile =
+        active_app.map(|info| crate::app_profiles::resolve_for_app(&raw_settings, Some(info)));
+    let settings = resolved_profile
+        .as_ref()
+        .map(|r| &r.settings)
+        .unwrap_or(&raw_settings);
+    let post_process = resolved_profile
+        .as_ref()
+        .and_then(|r| r.post_process_override)
+        .unwrap_or(post_process);
     let mut final_text = transcription.to_string();
     let mut post_processed_text: Option<String> = None;
     let mut post_process_prompt: Option<String> = None;
@@ -1042,7 +1072,7 @@ pub(crate) async fn process_transcription_output(
     // Resolve the language the transcription actually ran in (the persisted
     // intent coerced against the loaded model's capabilities) so OpenCC keys off
     // the effective language rather than a possibly-stale intent.
-    let effective_language = resolve_effective_language(app, &settings);
+    let effective_language = resolve_effective_language(app, settings);
     if let Some(converted_text) =
         maybe_convert_chinese_variant(&effective_language, transcription).await
     {
@@ -1053,7 +1083,7 @@ pub(crate) async fn process_transcription_output(
         // CORRECTION MODE (explicit hotkey): unconditionally treat this utterance
         // as an edit of the last output. We never sniff the words — the dedicated
         // "correction" hotkey is the only trigger.
-        if let Some(prior_output) = refine_base_for_correction(&settings) {
+        if let Some(prior_output) = refine_base_for_correction(settings) {
             // The prior output is what the previous dictation pasted (plus the
             // trailing space `paste` appends when that setting is on), so its
             // grapheme length is how many Backspaces the replace must send before
@@ -1063,7 +1093,7 @@ pub(crate) async fn process_transcription_output(
                 crate::utils::pasted_grapheme_count(&prior_output, settings.append_trailing_space);
             match post_process_transcription(
                 app,
-                &settings,
+                settings,
                 &final_text,
                 Some(&prior_output),
                 local_llm_cancel,
@@ -1105,7 +1135,7 @@ pub(crate) async fn process_transcription_output(
         // dictation is NEVER silently reinterpreted as an edit of a prior output.
         if let Some(processed_text) = post_process_transcription(
             app,
-            &settings,
+            settings,
             &final_text,
             None,
             local_llm_cancel,
@@ -1138,11 +1168,22 @@ pub(crate) async fn process_transcription_output(
         final_text = crate::audio_toolkit::apply_corrections(&final_text, &settings.corrections);
     }
 
+    if let Some(resolved) = &resolved_profile {
+        if !final_text.is_empty() {
+            let styled =
+                crate::app_profiles::apply_surface_style(&final_text, resolved.surface_style);
+            if styled != final_text {
+                final_text = styled;
+                post_processed_text = Some(final_text.clone());
+            }
+        }
+    }
+
     // Remember this dictation so a later correction-hotkey press can edit it.
     // Stored for BOTH plain and post-processed dictations, and updated after a
     // correction too, so the buffer always holds exactly what the user last
     // received and a subsequent correction deletes the right number of chars.
-    store_refine_buffer(&settings, transcription, &final_text);
+    store_refine_buffer(settings, transcription, &final_text);
 
     ProcessedTranscription {
         final_text,
@@ -1157,6 +1198,12 @@ impl ShortcutAction for TranscribeAction {
     fn start(&self, app: &AppHandle, binding_id: &str, _shortcut_str: &str) {
         let start_time = Instant::now();
         debug!("TranscribeAction::start called for binding: {}", binding_id);
+
+        let settings = get_settings(app);
+        if crate::app_profiles::check_active_app_start(&settings).is_blocked() {
+            debug!("Dictation shortcut ignored in blocked frontmost app");
+            return;
+        }
 
         // Load model in the background
         let tm = app.state::<Arc<TranscriptionManager>>();
@@ -1180,7 +1227,6 @@ impl ShortcutAction for TranscribeAction {
 
         // Get the microphone mode to determine audio feedback timing
         let plan_started = Instant::now();
-        let settings = get_settings(app);
         let is_always_on = settings.always_on_microphone;
 
         let selected_model_info = app
@@ -1325,7 +1371,8 @@ impl ShortcutAction for TranscribeAction {
         // the larger panel, but it still switches from listening to a working
         // spinner while the stream finalizes. Non-streaming paths use the
         // compact transcribing pill (None no-ops in show_*).
-        let style = get_settings(app).overlay_style;
+        let current_settings = get_settings(app);
+        let style = current_settings.overlay_style;
         // Capture this before finalizing the stream so every later working state
         // targets the same overlay that was shown for this transcription.
         let use_streaming_overlay = should_use_streaming_overlay(style, tm.is_streaming());
@@ -1342,9 +1389,11 @@ impl ShortcutAction for TranscribeAction {
         play_feedback_sound(app, SoundType::Stop);
 
         let binding_id = binding_id.to_string(); // Clone binding_id for the async task
-        let post_process = self.post_process;
+        let post_process =
+            should_post_process_take(self.post_process, current_settings.post_process_enabled);
         let correction = self.correction;
         let cancel_generation = rm.cancel_generation();
+        let active_app = crate::app_profiles::read_active_app();
 
         tauri::async_runtime::spawn(async move {
             let _guard = FinishGuard(ah.clone());
@@ -1464,6 +1513,7 @@ impl ShortcutAction for TranscribeAction {
                                     &transcription,
                                     post_process,
                                     correction,
+                                    active_app.as_ref(),
                                     Some(local_llm_cancel),
                                 ),
                                 || rm.was_cancelled_since(cancel_generation),
@@ -1492,6 +1542,7 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     processed.post_processed_text.clone(),
                                     processed.post_process_prompt.clone(),
+                                    active_app.as_ref().map(|a| a.app_name.clone()),
                                 ) {
                                     Ok(_) => history_saved = true,
                                     Err(err) => error!("Failed to save history entry: {}", err),
@@ -1613,6 +1664,7 @@ impl ShortcutAction for TranscribeAction {
                                     post_process,
                                     None,
                                     None,
+                                    active_app.as_ref().map(|a| a.app_name.clone()),
                                 ) {
                                     error!("Failed to save failed history entry: {}", save_err);
                                 }
@@ -1720,8 +1772,9 @@ mod tests {
     use super::{
         build_post_process_messages, complete_unless_cancelled, next_cleanup_preview, non_blank,
         note_cancel_if_generation_moved, provider_configured, refine_base_for_correction,
-        should_hold_overlay, should_use_streaming_overlay, store_refine_buffer,
-        streams_cleanup_progress, SkipReason, CLEANUP_PROGRESS_MIN_GAP_MS,
+        should_emit_skip_notice, should_hold_overlay, should_post_process_take,
+        should_use_streaming_overlay, store_refine_buffer, streams_cleanup_progress, SkipReason,
+        CLEANUP_PROGRESS_MIN_GAP_MS,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -1991,5 +2044,52 @@ mod tests {
         assert!(!should_use_streaming_overlay(OverlayStyle::Live, false));
         assert!(!should_use_streaming_overlay(OverlayStyle::Minimal, true));
         assert!(!should_use_streaming_overlay(OverlayStyle::None, true));
+    }
+
+    #[test]
+    fn clean_every_take_runs_post_processing_on_standard_dictation_when_enabled() {
+        assert!(should_post_process_take(false, true));
+        assert!(!should_post_process_take(false, false));
+        assert!(should_post_process_take(true, false));
+        assert!(should_post_process_take(true, true));
+    }
+
+    #[test]
+    fn missing_local_model_skips_without_downloading_and_notifies_once() {
+        let mut settings = crate::settings::get_default_settings();
+        assert!(settings.post_process_enabled);
+        let download_calls = std::cell::Cell::new(0usize);
+        let notified = AtomicBool::new(false);
+        let mut emitted = Vec::new();
+        for provider in [
+            settings.post_process_provider_id.clone(),
+            super::LOCAL_LLM_PROVIDER_ID.to_string(),
+            super::LOCAL_LLM_PROVIDER_ID.to_string(),
+        ] {
+            settings.post_process_provider_id = provider.clone();
+            let decision = super::resolve_cleanup(&provider, |pid| {
+                provider_configured(&settings, pid)?;
+                if pid == crate::settings::APPLE_INTELLIGENCE_PROVIDER_ID {
+                    return Err(SkipReason::AppleIntelligenceUnavailable);
+                }
+                if pid == super::LOCAL_LLM_PROVIDER_ID {
+                    return Err(SkipReason::LocalModelNotDownloaded);
+                }
+                download_calls.set(download_calls.get() + 1);
+                Ok(())
+            });
+            assert_eq!(
+                decision,
+                super::CleanupDecision::Skip {
+                    reason: SkipReason::LocalModelNotDownloaded
+                }
+            );
+            emitted.push(should_emit_skip_notice(
+                &SkipReason::LocalModelNotDownloaded,
+                &notified,
+            ));
+        }
+        assert_eq!(download_calls.get(), 0);
+        assert_eq!(emitted, vec![true, false, false]);
     }
 }

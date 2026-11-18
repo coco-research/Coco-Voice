@@ -216,6 +216,14 @@ async changePostProcessEnabledSetting(enabled: boolean) : Promise<Result<null, s
     else return { status: "error", error: e  as any };
 }
 },
+async changeFillerWordRemovalEnabledSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_filler_word_removal_enabled_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async changeIterativeCorrectionSetting(enabled: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_iterative_correction_setting", { enabled }) };
@@ -473,9 +481,9 @@ async getAvailableAccelerators() : Promise<AvailableAccelerators> {
 /**
  * Start key recording mode
  */
-async startHandyKeysRecording(bindingId: string) : Promise<Result<null, string>> {
+async startCocoVoiceKeysRecording(bindingId: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("start_handy_keys_recording", { bindingId }) };
+    return { status: "ok", data: await TAURI_INVOKE("start_coco_voice_keys_recording", { bindingId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -484,9 +492,9 @@ async startHandyKeysRecording(bindingId: string) : Promise<Result<null, string>>
 /**
  * Stop key recording mode
  */
-async stopHandyKeysRecording() : Promise<Result<null, string>> {
+async stopCocoVoiceKeysRecording() : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("stop_handy_keys_recording") };
+    return { status: "ok", data: await TAURI_INVOKE("stop_coco_voice_keys_recording") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -883,6 +891,30 @@ async updateRecordingRetentionPeriod(period: string) : Promise<Result<null, stri
  * This uses pmset to check for battery information.
  * Returns true if a battery is detected (laptop), false otherwise (desktop)
  */
+async getActiveAppInfo() : Promise<Result<ActiveAppInfo | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_active_app_info") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateAppProfiles(profiles: AppProfile[]) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_app_profiles", { profiles }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateBlockedApps(apps: string[]) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_blocked_apps", { apps }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async isLaptop() : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("is_laptop") };
@@ -941,13 +973,18 @@ bindings?: Partial<{ [key in string]: ShortcutBinding }>; push_to_talk?: boolean
  * upgrading from before this key existed are blanked by the migration so they
  * see the current release's notes — see `apply_settings_migrations`.
  */
-whats_new_last_seen_version?: string; selected_model?: string; onboarding_completed?: boolean; always_on_microphone?: boolean; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; overlay_position?: OverlayPosition; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; corrections?: CorrectionPair[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; paste_method?: PasteMethod; clipboard_handling?: ClipboardHandling; clipboard_handling_user_set?: boolean; clipboard_default_notice_pending?: boolean; auto_submit?: boolean; auto_submit_key?: AutoSubmitKey; post_process_enabled?: boolean; post_process_provider_id?: string; post_process_providers?: PostProcessProvider[]; post_process_api_keys?: SecretMap; post_process_models?: Partial<{ [key in string]: string }>; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; iterative_correction_enabled?: boolean; mute_while_recording?: boolean; append_trailing_space?: boolean; app_language?: string; theme?: Theme; experimental_enabled?: boolean; lazy_stream_close?: boolean; keyboard_implementation?: KeyboardImplementation; show_tray_icon?: boolean; paste_delay_ms?: number; paste_delay_after_ms?: number; typing_tool?: TypingTool; external_script_path?: string | null; custom_filler_words?: string[] | null; transcribe_accelerator?: TranscribeAcceleratorSetting; ort_accelerator?: OrtAcceleratorSetting; transcribe_gpu_device?: number; extra_recording_buffer_ms?: number; vad_enabled?: boolean; 
+whats_new_last_seen_version?: string; selected_model?: string; onboarding_completed?: boolean; always_on_microphone?: boolean; selected_microphone?: string | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; overlay_position?: OverlayPosition; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; corrections?: CorrectionPair[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; paste_method?: PasteMethod; clipboard_handling?: ClipboardHandling; clipboard_handling_user_set?: boolean; clipboard_default_notice_pending?: boolean; auto_submit?: boolean; auto_submit_key?: AutoSubmitKey; post_process_enabled?: boolean; post_process_provider_id?: string; post_process_providers?: PostProcessProvider[]; post_process_api_keys?: SecretMap; post_process_models?: Partial<{ [key in string]: string }>; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; iterative_correction_enabled?: boolean; mute_while_recording?: boolean; append_trailing_space?: boolean; app_language?: string; theme?: Theme; experimental_enabled?: boolean; lazy_stream_close?: boolean; keyboard_implementation?: KeyboardImplementation; show_tray_icon?: boolean; paste_delay_ms?: number; paste_delay_after_ms?: number; typing_tool?: TypingTool; external_script_path?: string | null; filler_word_removal_enabled?: boolean; custom_filler_words?: string[] | null; transcribe_accelerator?: TranscribeAcceleratorSetting; ort_accelerator?: OrtAcceleratorSetting; transcribe_gpu_device?: number; extra_recording_buffer_ms?: number; vad_enabled?: boolean; 
 /**
  * Which recording overlay to show: None / Minimal / Live. Streaming mode is
  * not gated on this — that follows model capability. Migrated from the old
  * `overlay_position` (position `none` → style `None`).
  */
-overlay_style?: OverlayStyle }
+overlay_style?: OverlayStyle; app_profiles?: AppProfile[]; blocked_apps?: string[] }
+export type ActiveAppInfo = { app_name: string; bundle_id: string | null; process_stem: string | null }
+export type AppTone = "default" | "auto" | "casual" | "direct" | "formal" | "code"
+export type CapitalizationStyle = "default" | "sentence" | "lowercase"
+export type PunctuationStyle = "default" | "full" | "drop_trailing_period"
+export type AppProfile = { id: string; name: string; app_identifier: string; blocked?: boolean; tone?: AppTone; capitalization?: CapitalizationStyle; punctuation?: PunctuationStyle; post_process_enabled?: boolean | null; prompt_id?: string | null; provider_id?: string | null; model?: string | null; corrections?: CorrectionPair[] }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
 export type AvailableAccelerators = { transcribe: string[]; ort: string[]; gpu_devices: GpuDeviceOption[] }
@@ -971,7 +1008,7 @@ export type EngineType =
  */
 "LlamaCpp"
 export type GpuDeviceOption = { id: number; name: string; total_vram_mb: number }
-export type HistoryEntry = { id: number; file_name: string; timestamp: number; saved: boolean; title: string; transcription_text: string; post_processed_text: string | null; post_process_prompt: string | null; post_process_requested: boolean }
+export type HistoryEntry = { id: number; file_name: string; timestamp: number; saved: boolean; title: string; transcription_text: string; post_processed_text: string | null; post_process_prompt: string | null; post_process_requested: boolean; app_name: string | null }
 export type HistoryUpdatePayload = { action: "added"; entry: HistoryEntry } | { action: "updated"; entry: HistoryEntry } | { action: "deleted"; id: number } | { action: "toggled"; id: number }
 /**
  * Result of changing keyboard implementation
@@ -981,7 +1018,7 @@ export type ImplementationChangeResult = { success: boolean;
  * List of binding IDs that were reset to defaults due to incompatibility
  */
 reset_bindings: string[] }
-export type KeyboardImplementation = "tauri" | "handy_keys" | "coco_keys"
+export type KeyboardImplementation = "tauri" | "coco_voice_keys" | "coco_keys"
 export type CorrectionPair = { from: string; to: string }
 export type LLMPrompt = { id: string; name: string; prompt: string }
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error"

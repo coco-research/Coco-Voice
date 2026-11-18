@@ -12,17 +12,50 @@
     "general": "Общи",
     "models": "Модели",
     "advanced": "Разширени",
-    "postProcessing": "Постобработка",
+    "postProcessing": "Изчистване",
     "history": "История",
     "debug": "Отстраняване",
-    "about": "За приложението"
+    "about": "За приложението",
+    "home": "Начало",
+    "recordMeeting": "Запиши среща",
+    "meetingHistory": "История на срещите",
+    "askMeetings": "Попитай срещите си",
+    "foldersAndTemplates": "Папки и шаблони",
+    "agentAccess": "Достъп за агенти",
+    "voiceSection": "Глас",
+    "dictationHistory": "История на диктовките",
+    "perAppProfiles": "Профили по приложения",
+    "wordsAndCleanup": "Думи и изчистване",
+    "settings": "Настройки",
+    "sectionPlaceholder": "Достъпно в тази секция след включване.",
+    "startRecording": "Започни запис",
+    "seeAllMeetings": "Всички срещи →",
+    "dictateHeading": "Диктувайте навсякъде",
+    "holdToTalk": "задръжте за говорене",
+    "changeShortcut": "Промени комбинацията",
+    "seeAllDictations": "Всички диктовки →",
+    "dictationSearchPlaceholder": "Думите, които казахте",
+    "dictationSearchAria": "Търсене в диктовките",
+    "cleanedUp": "Изчистено",
+    "emptyDictationSearch": "Няма диктовки за това търсене.",
+    "keptDays": "Пази се 30 дни",
+    "homeHeading": "Добро утро",
+    "homeMeetingsBody": "Бележки и стенограма, създадени на този Mac. Записът започва само когато натиснете Старт.",
+    "recentMeetings": "Скорошни срещи",
+    "dictateBody": "Задръжте клавишната комбинация, говорете и пуснете. Думите се изписват при курсора.",
+    "recentDictations": "Скорошни диктовки",
+    "more": "Още",
+    "keep": "Запази",
+    "kept": "Запазено",
+    "editText": "Редактирай текста",
+    "tryAgain": "Опитай пак"
   },
   "onboarding": {
     "subtitle": "За да започнете, изберете модел за транскрипция",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Съвместими модели",
+    "downloadModelsTitle": "Налични за изтегляне",
+    "showAllModels": "Покажи всички {{total}} модела",
+    "showFewerModels": "Покажи по-малко модели",
     "recommended": "Препоръчан",
     "customModelDescription": "Не се поддържа официално",
     "modelCard": {
@@ -96,7 +129,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Неуспешен избор на модел"
     },
     "permissions": {
       "title": "Необходими разрешения",
@@ -161,7 +194,7 @@
     "general": {
       "title": "Общи",
       "shortcut": {
-        "title": "Бързи клавиши на Coco Voice",
+        "title": "Клавишни комбинации",
         "description": "Настройте клавишни комбинации за стартиране на запис за реч към текст",
         "loading": "Зареждане на бързите клавиши...",
         "none": "Няма настроени бързи клавиши",
@@ -169,7 +202,7 @@
         "pressKeys": "Натиснете клавишите...",
         "bindings": {
           "transcribe": {
-            "name": "Бърз клавиш за транскрипция",
+            "name": "Клавиш за диктуване",
             "description": "Клавишната комбинация за запис и транскрибиране на гласа ви."
           },
           "cancel": {
@@ -177,11 +210,11 @@
             "description": "Клавишната комбинация за отмяна на текущия запис."
           },
           "transcribe_with_post_process": {
-            "name": "Бърз клавиш за постобработка",
+            "name": "Клавишна комбинация за изчистване",
             "description": "По избор: отделна комбинация, която винаги прилага ИИ постобработка върху транскрипцията."
           },
           "correction": {
-            "name": "Изговаряне на корекция",
+            "name": "Клавиш за гласови поправки",
             "description": "Клавишната комбинация, с която изговаряте корекция, заменяща последната ви диктовка. Задайте клавиш, за да я включите."
           }
         },
@@ -199,7 +232,7 @@
         "auto": "Автоматично"
       },
       "pushToTalk": {
-        "label": "Натискане за говорене",
+        "label": "Задръж за говорене",
         "description": "Задръжте за запис, пуснете за спиране"
       }
     },
@@ -230,7 +263,7 @@
         "loading": "Зареждане..."
       },
       "audioFeedback": {
-        "label": "Звукова обратна връзка",
+        "label": "Звуци при запис",
         "description": "Възпроизвеждане на звук при старт и край на записа"
       },
       "outputDevice": {
@@ -278,7 +311,7 @@
         "description": "Стартиране в системната област без отваряне на прозореца."
       },
       "autostart": {
-        "label": "Стартиране със системата",
+        "label": "Отваряне при влизане",
         "description": "Автоматично стартиране на Coco Voice при влизане в профила ви."
       },
       "showTrayIcon": {
@@ -287,16 +320,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Индикатор за запис",
+          "description": "Изберете индикатора за запис: Нищо го скрива, Минимален показва малка капсула, На живо показва текста докато говорите (само за поточни модели).",
           "options": {
             "none": "Няма",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Минимален",
+            "live": "На живо"
           }
         },
         "position": {
-          "title": "Позиция на наслагването",
+          "title": "Място на индикатора",
           "description": "Показване на визуална обратна връзка при запис и транскрипция. На Linux се препоръчва „Няма“.",
           "options": {
             "bottom": "Долу",
@@ -305,7 +338,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Начин на поставяне",
+        "title": "Как се въвеждат думите",
         "description": "Изберете как се вмъква текстът. Директно: симулира писане чрез системния вход. Няма: пропуска поставянето, актуализира само историята/клипборда.",
         "options": {
           "clipboard": "Клипборд ({{modifier}}+V)",
@@ -325,16 +358,16 @@
         }
       },
       "clipboardHandling": {
-        "title": "Работа с клипборда",
+        "title": "Клипборд след поставяне",
         "description": "„Без промяна на клипборда“ запазва съдържанието на клипборда след транскрипция. „Копиране в клипборда“ оставя резултата в клипборда след поставяне.",
         "options": {
-          "dontModify": "Без промяна на клипборда",
+          "dontModify": "Запази предишния клипборд",
           "copyToClipboard": "Копиране в клипборда"
         },
         "privacyHint": "Текстът в клипборда се вижда от други приложения и инструменти за клипборд, а Universal Clipboard може да го копира на другите ви устройства Apple."
       },
       "autoSubmit": {
-        "title": "Автоматично изпращане",
+        "title": "Натисни клавиш след поставяне",
         "description": "Автоматично изпращане на избраната клавишна комбинация след вмъкване на текста. Cmd+Enter важи за macOS, а Windows/Linux използват Super+Enter.",
         "options": {
           "off": "Изкл.",
@@ -370,22 +403,30 @@
         "remove": "Премахване на {{word}}",
         "duplicate": "„{{word}}“ вече съществува"
       },
+      "corrections": {
+        "title": "Корекции",
+        "description": "Заменя определени думи или изрази в крайния текст без значение от главни и малки букви.",
+        "fromPlaceholder": "От",
+        "toPlaceholder": "Към",
+        "duplicate": "Вече съществува корекция за „{{word}}“",
+        "remove": "Премахване на корекцията от {{from}} към {{to}}"
+      },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Пропускане на тишината",
+        "description": "Пропуска тихите паузи по време на запис. При изключване се записва целият звук."
       }
     },
     "postProcessing": {
       "hotkey": {
-        "title": "Бърз клавиш"
+        "title": "Клавишна комбинация"
       },
       "correction": {
-        "title": "Итеративна корекция",
-        "toggleLabel": "Изговаряне на корекции",
+        "title": "Гласови поправки",
+        "toggleLabel": "Гласови поправки",
         "toggleDescription": "Добавя отделна клавишна комбинация, която натискате, за да замените последната си диктовка с изговорена корекция. Никога не се задейства автоматично от ключови думи. Натиснете зададения клавиш, изговорете поправката и предишният резултат се редактира на място."
       },
       "api": {
-        "title": "API (съвместим с OpenAI)",
+        "title": "Модел за изчистване",
         "provider": {
           "title": "Доставчик",
           "description": "Изберете доставчик, съвместим с OpenAI."
@@ -424,22 +465,22 @@
         }
       },
       "prompts": {
-        "title": "Подкана",
+        "title": "Инструкции",
         "selectedPrompt": {
-          "title": "Избрана подкана",
+          "title": "Стил на изчистване",
           "description": "Изберете шаблон за подобряване на транскрипции или създайте нов. Използвайте ${output} в текста на подканата, за да препратите към уловения транскрипт."
         },
         "noPrompts": "Няма налични подкани",
         "selectPrompt": "Изберете подкана",
-        "createNew": "Нова подкана",
-        "promptLabel": "Етикет на подканата",
+        "createNew": "Нов стил",
+        "promptLabel": "Име",
         "promptLabelPlaceholder": "Въведете име на подканата",
-        "promptInstructions": "Инструкции за подканата",
+        "promptInstructions": "Инструкции",
         "promptInstructionsPlaceholder": "Напишете инструкциите за изпълнение след транскрипция. Пример: Подобрете граматиката и яснотата на следния текст: ${output}",
         "promptTip": "Съвет: Използвайте <code>${output}</code>, за да вмъкнете транскрибирания текст в подканата.",
-        "updatePrompt": "Обновяване на подканата",
-        "deletePrompt": "Изтриване на подканата",
-        "createPrompt": "Създаване на подкана",
+        "updatePrompt": "Запази промените",
+        "deletePrompt": "Изтрий",
+        "createPrompt": "Създай",
         "cancel": "Отказ",
         "selectToEdit": "Изберете подкана по-горе, за да видите и редактирате подробностите ѝ.",
         "createFirst": "Натиснете „Нова подкана“ по-горе, за да създадете първата си подкана за постобработка."
@@ -458,6 +499,11 @@
       "retranscribe": "Повторна транскрипция",
       "retranscribeError": "Повторната транскрипция не бе успешна. Опитайте отново.",
       "transcribing": "Транскрибиране...",
+      "edit": "Редактиране",
+      "saveEdit": "Запази",
+      "editError": "Неуспешно запазване на редакцията",
+      "learnedOne": "Научена корекция: „{{from}}“ → „{{to}}“",
+      "learnedMany": "Научени са {{count}} корекции от вашата редакция",
       "transcriptionFailed": "Транскрипцията не бе успешна. Можете да опитате отново с иконата за повторен опит."
     },
     "debug": {
@@ -487,6 +533,7 @@
       },
       "soundTheme": {
         "label": "Звукова тема",
+        "preview": "Прослушване на звуковата тема",
         "description": "Избор на звукова тема за сигнал при старт и край на записа"
       },
       "wordCorrectionThreshold": {
@@ -517,33 +564,35 @@
         "description": "Микрофон за използване, когато капакът на лаптопа е затворен"
       },
       "postProcessingToggle": {
-        "label": "Постобработка",
-        "description": "Включване на подобряване на текста с ИИ след транскрипция"
+        "label": "Изчистване",
+        "description": "Изчистване на пълнежни думи, пунктуация и самокорекции след транскрибиране"
       },
       "muteWhileRecording": {
         "label": "Заглушаване при запис",
         "description": "Заглушаване на системния звук по време на запис"
       },
       "appendTrailingSpace": {
-        "label": "Интервал в края",
+        "label": "Добавяне на интервал в края",
         "description": "Добавяне на интервал след поставената транскрипция"
       },
       "keyboardImplementation": {
-        "title": "Реализация на клавиатурата",
+        "title": "Обработка на клавишите",
         "description": "Избор на бекенд за глобалните бързи клавиши.",
         "bindingsReset": "Бързите клавиши бяха несъвместими и са нулирани към подразбираните"
       },
       "paths": {
+        "title": "Пътища на приложението",
+        "description": "Вътрешни папки и файлове за диагностика",
         "appData": "Данни на приложението:",
         "models": "Модели:",
         "settings": "Настройки:"
       },
       "pasteDelay": {
-        "title": "Забавяне при поставяне (преди)",
+        "title": "Изчакване преди поставяне",
         "description": "Забавяне (в милисекунди) след копиране на текста, преди изпращане на клавиша за поставяне. Увеличете, ако нищо не се поставя."
       },
       "pasteDelayAfter": {
-        "title": "Забавяне при поставяне (след)",
+        "title": "Изчакване след поставяне",
         "description": "Забавяне (в милисекунди) след клавиша за поставяне, преди възстановяване на предишния клипборд. Увеличете, ако вместо транскрипцията се поставя старото съдържание на клипборда."
       },
       "recordingBuffer": {
@@ -585,6 +634,32 @@
         "label": "Показвай новостите",
         "description": "Показвай бележки към изданието след актуализации на Coco Voice"
       }
+    },
+    "online": {
+      "eyebrow": "Настройки",
+      "title": "Какво се свързва онлайн",
+      "intro": "Речта ви се превръща в текст на този Mac. Това са местата, с които тази версия на Coco Voice може да се свърже, и какво получава всяко от тях.",
+      "leavesLabel": "Напуска вашия Mac:",
+      "openHeading": "При всяко отваряне на приложението",
+      "githubName": "GitHub (издания на Coco Voice)",
+      "githubWhen": "При всяко отваряне на приложението за проверка за обновления. За да го спрете, изключете проверката за обновления по-горе в За приложението. Връзките се отварят в браузъра ви.",
+      "githubLeaves": "заявка за списъка с издания и файла с обновлението, ако инсталирате такова. Без реч и без текст.",
+      "updateChecksOn": "Проверката за обновления е включена",
+      "updateChecksOff": "Проверката за обновления е изключена",
+      "clickHeading": "Само когато щракнете",
+      "modelFilesName": "Файлове на модели на Coco Voice",
+      "modelFilesWhen": "Когато щракнете върху Изтегли за вграден говорен модел.",
+      "modelFilesLeaves": "името на поискания файл на модела. Без реч и без текст.",
+      "huggingFaceWhen": "Когато щракнете върху Изтегли за модел от каталога или върху лиценза му, за да го отворите в браузъра.",
+      "huggingFaceLeaves": "името на модела, версията и името на файла, плюс токен за Hugging Face, ако вече е зададен на този Mac. Без реч и без текст.",
+      "cleanupHeading": "Само когато изберете доставчик за обработка",
+      "cloudWhen": "Когато обработката работи с избрания от вас облачен доставчик.",
+      "cloudLeaves": "текста на казаното, инструкциите за обработка и вашия API ключ. Извличането на модели изпраща само API ключа.",
+      "customName": "Персонализирана обработка (Ollama)",
+      "customWhen": "Когато обработката работи с Персонализиран доставчик. Свързва се с програма на този Mac, освен ако не промените адреса.",
+      "customLeaves": "нищо при началния адрес. Текстът и инструкциите за обработка отиват към програмата на този Mac.",
+      "staysOnMac": "Остава на този Mac",
+      "onDeviceNote": "Обработката на устройството (Apple Intelligence или локалният модел) не се свързва с никое от тях."
     }
   },
   "footer": {
@@ -607,6 +682,11 @@
     "open": "Отваряне",
     "copy": "Копиране",
     "clear": "Изчистване",
+    "selectOption": "Изберете опция...",
+    "notAvailable": "Не е налично",
+    "moreInfo": "Повече информация",
+    "play": "Пусни",
+    "pause": "Пауза",
     "noOptionsFound": "Няма намерени опции"
   },
   "accessibility": {
@@ -657,7 +737,7 @@
   },
   "overlay": {
     "transcribing": "Транскрибиране...",
-    "processing": "Обработка...",
+    "processing": "Изчистване...",
     "polishing": "Редакция..."
   },
   "whatsNew": {
@@ -706,6 +786,55 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "list": {
+      "heading": "All meetings",
+      "countOne": "1 meeting",
+      "countMany": "{{count}} meetings",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Title, notes, or transcript",
+      "searchAria": "Search meetings",
+      "untitled": "Meeting",
+      "dateAndDuration": "{{date}} · {{minutes}} min",
+      "notesReady": "Notes ready",
+      "transcriptOnly": "Transcript only",
+      "exportMarkdown": "Export Markdown",
+      "delete": "Delete",
+      "confirmPrompt": "Delete this meeting?",
+      "confirmDelete": "Confirm delete",
+      "cancelDelete": "Cancel",
+      "emptyList": "No meetings yet. Start notes from the menu bar.",
+      "emptySearch": "No meetings match your search.",
+      "audioLeftWarning": "Meeting deleted, but its audio folder is still on disk.",
+      "loadFailed": "Could not load meetings.",
+      "exportFailed": "Could not export Markdown.",
+      "deleteFailed": "Could not delete the meeting."
     }
+  },
+  "profiles": {
+    "addApp": "Add an app",
+    "subtitle": "How your words are written depends on the app in front. Apps without a profile use the default.",
+    "edit": "Edit",
+    "remove": "Remove",
+    "defaultName": "Default",
+    "defaultDesc": "Every other app",
+    "neverHeading": "Never dictate in",
+    "neverRowDesc": "The shortcut does nothing here",
+    "neverEmpty": "No blocked apps yet.",
+    "useFrontApp": "Use app in front",
+    "appIdPlaceholder": "App name or bundle ID (e.g. Mail or com.apple.mail)",
+    "namePlaceholder": "Display name (e.g. Mail)",
+    "toneLabel": "Style",
+    "toneAuto": "Match app",
+    "toneFormal": "Full sentences",
+    "toneCasual": "Casual",
+    "toneDirect": "Direct",
+    "toneCode": "Code names keep their casing",
+    "capsAndPunct": "capitals and punctuation",
+    "noTrailingStop": "no full stop at the end",
+    "exactWords": "Exactly what you said",
+    "cleanupOn": "clean-up on",
+    "cleanupOff": "clean-up off",
+    "cleanupDefault": "clean-up default"
   }
 }

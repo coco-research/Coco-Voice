@@ -22,7 +22,7 @@ use llama_cpp_2::context::params::LlamaContextParams;
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
-use llama_cpp_2::model::{AddBos, LlamaModel};
+use llama_cpp_2::model::LlamaModel;
 use llama_cpp_2::sampling::LlamaSampler;
 use log::{debug, warn};
 use tokio::sync::mpsc;
@@ -274,6 +274,23 @@ fn chat_template_parts(
     )
 }
 
+/// Tokenize the three ChatML prompt parts: special tokens are parsed in the
+/// ChatML frame (`prefix` and `suffix`, with BOS on `prefix` only), while the
+/// user transcript is tokenized with `parse_special = false` so special-token
+/// markup in speech or pasted text never becomes a control token.
+fn tokenize_prompt_parts<T>(
+    mut tokenize: impl FnMut(&[u8], bool, bool) -> Vec<T>,
+    prefix: &str,
+    transcript: &str,
+    suffix: &str,
+) -> (Vec<T>, Vec<T>, Vec<T>) {
+    (
+        tokenize(prefix.as_bytes(), true, true),
+        tokenize(transcript.as_bytes(), false, false),
+        tokenize(suffix.as_bytes(), false, true),
+    )
+}
+
 /// Remove `<think>...</think>` blocks a Qwen3 model may still emit. An unclosed
 /// `<think>` (reasoning cut off by the token limit) drops the rest; a stray
 /// `</think>` (the opening tag was part of the prompt) drops everything before it.
@@ -302,6 +319,25 @@ pub(crate) fn strip_think_blocks(text: &str) -> String {
     }
     out.push_str(rest);
     out.trim().to_string()
+}
+
+/// Decode one token's bytes with the run's UTF-8 decoder. This is the body of
+/// `LlamaModel::token_to_piece` in llama-cpp-2 0.1.156, which 0.1.161 removed;
+/// its two panics are errors here, as the old call returned an error.
+fn decode_piece(decoder: &mut encoding_rs::Decoder, bytes: &[u8]) -> Result<String, LocalLlmError> {
+    // `decode_to_string` never grows its destination. The decoder's bound also accounts
+    // for an incomplete UTF-8 sequence retained from the previous token.
+    let capacity = decoder.max_utf8_buffer_length(bytes.len()).ok_or_else(|| {
+        LocalLlmError::Other("Failed to convert token to string: token too large".to_string())
+    })?;
+    let mut output = String::with_capacity(capacity);
+    let (result, read, _) = decoder.decode_to_string(bytes, &mut output, false);
+    if !matches!(result, encoding_rs::CoderResult::InputEmpty) || read != bytes.len() {
+        return Err(LocalLlmError::Other(
+            "Failed to convert token to string: decoder did not consume the token".to_string(),
+        ));
+    }
+    Ok(output)
 }
 
 fn generate_text_blocking(
@@ -401,6 +437,7 @@ fn generate_with_model(
         .as_ref()
         .expect("model is cached after the load branch")
         .model;
+    let vocab = model.vocab();
 
     let ctx_params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(N_CTX));
     let mut ctx = model
@@ -417,15 +454,12 @@ fn generate_with_model(
         .unwrap_or_default();
     let qwen3 = is_qwen3(architecture.as_deref(), &file_name);
     let (prefix, transcript, suffix) = chat_template_parts(system_prompt, user_content, qwen3);
-    let prefix_tokens = model
-        .str_to_token(&prefix, AddBos::Always)
-        .map_err(|e| LocalLlmError::Other(format!("Failed to tokenize prompt: {}", e)))?;
-    let transcript_tokens = model
-        .str_to_token(&transcript, AddBos::Never)
-        .map_err(|e| LocalLlmError::Other(format!("Failed to tokenize prompt: {}", e)))?;
-    let suffix_tokens = model
-        .str_to_token(&suffix, AddBos::Never)
-        .map_err(|e| LocalLlmError::Other(format!("Failed to tokenize prompt: {}", e)))?;
+    let (prefix_tokens, transcript_tokens, suffix_tokens) = tokenize_prompt_parts(
+        |bytes, add_bos, parse_special| vocab.tokenize(bytes, add_bos, parse_special),
+        &prefix,
+        &transcript,
+        &suffix,
+    );
     if prompt_over_budget(
         prefix_tokens.len().saturating_add(suffix_tokens.len()),
         transcript_tokens.len(),
@@ -476,16 +510,13 @@ fn generate_with_model(
 
         let new_token = sampler.sample(&ctx, -1);
 
-        if model.is_eog_token(new_token) {
+        if vocab.is_eog(new_token) {
             saw_eos = true;
             break;
         }
 
-        let token_str = model
-            .token_to_piece(new_token, &mut decoder, false, None)
-            .map_err(|e| {
-                LocalLlmError::Other(format!("Failed to convert token to string: {}", e))
-            })?;
+        let piece = vocab.token_to_piece(new_token, false, None);
+        let token_str = decode_piece(&mut decoder, &piece)?;
 
         tokens_generated += 1;
 
@@ -558,8 +589,12 @@ fn generate_with_model(
 mod tests {
     use super::{
         chat_template_parts, clamped_max_gen, idle_should_unload, is_qwen3, prompt_budget,
-        prompt_over_budget, stop_outcome, strip_think_blocks, LocalLlmError, N_CTX,
+        prompt_over_budget, stop_outcome, strip_think_blocks, tokenize_prompt_parts, LocalLlmError,
+        BACKEND, N_CTX,
     };
+    use llama_cpp_2::llama_backend::LlamaBackend;
+    use llama_cpp_2::model::params::LlamaModelParams;
+    use llama_cpp_2::model::LlamaModel;
     use std::time::{Duration, Instant};
 
     #[test]
@@ -674,6 +709,152 @@ mod tests {
         assert_eq!(
             strip_think_blocks("reasoning</think>\n\nAnswer."),
             "Answer."
+        );
+    }
+
+    fn write_gguf_str(buf: &mut Vec<u8>, s: &str) {
+        buf.extend_from_slice(&(s.len() as u64).to_le_bytes());
+        buf.extend_from_slice(s.as_bytes());
+    }
+
+    /// Build a minimal vocab-only GGUF v3 file in memory (zero weights, zero network)
+    /// carrying `<|im_start|>`, `<|im_end|>`, and `<|eot_id|>` as control tokens.
+    fn minimal_vocab_gguf() -> Vec<u8> {
+        let mut tokens: Vec<String> = vec![
+            "<unk>".into(),
+            "<s>".into(),
+            "</s>".into(),
+            "<|im_start|>".into(),
+            "<|im_end|>".into(),
+            "<|eot_id|>".into(),
+        ];
+        let mut types: Vec<i32> = vec![2, 3, 3, 3, 3, 3];
+        for b in 0u8..=255u8 {
+            tokens.push(format!("<0x{b:02X}>"));
+            types.push(6);
+        }
+        for ch in "abcdefghijklmnopqrstuvwxyz<|_> \n".chars() {
+            tokens.push(ch.to_string());
+            types.push(1);
+        }
+
+        let mut buf = Vec::new();
+        buf.extend_from_slice(b"GGUF");
+        buf.extend_from_slice(&3u32.to_le_bytes());
+        buf.extend_from_slice(&0u64.to_le_bytes()); // tensor_count = 0
+        buf.extend_from_slice(&17u64.to_le_bytes()); // metadata_kv_count = 17
+
+        let mut kv_str = |k: &str, v: &str| {
+            write_gguf_str(&mut buf, k);
+            buf.extend_from_slice(&8u32.to_le_bytes());
+            write_gguf_str(&mut buf, v);
+        };
+        kv_str("general.architecture", "llama");
+        kv_str("tokenizer.ggml.model", "llama");
+
+        let mut kv_u32 = |k: &str, v: u32| {
+            write_gguf_str(&mut buf, k);
+            buf.extend_from_slice(&4u32.to_le_bytes());
+            buf.extend_from_slice(&v.to_le_bytes());
+        };
+        kv_u32("llama.context_length", 2048);
+        kv_u32("llama.embedding_length", 64);
+        kv_u32("llama.block_count", 1);
+        kv_u32("llama.feed_forward_length", 128);
+        kv_u32("llama.attention.head_count", 2);
+        kv_u32("llama.attention.head_count_kv", 2);
+        kv_u32("llama.vocab_size", tokens.len() as u32);
+        kv_u32("tokenizer.ggml.bos_token_id", 1);
+        kv_u32("tokenizer.ggml.eos_token_id", 2);
+        kv_u32("tokenizer.ggml.unknown_token_id", 0);
+
+        write_gguf_str(&mut buf, "llama.attention.layer_norm_rms_epsilon");
+        buf.extend_from_slice(&6u32.to_le_bytes());
+        buf.extend_from_slice(&1e-5_f32.to_le_bytes());
+
+        write_gguf_str(&mut buf, "tokenizer.ggml.add_space_prefix");
+        buf.extend_from_slice(&7u32.to_le_bytes());
+        buf.push(0u8);
+
+        write_gguf_str(&mut buf, "tokenizer.ggml.tokens");
+        buf.extend_from_slice(&9u32.to_le_bytes());
+        buf.extend_from_slice(&8u32.to_le_bytes());
+        buf.extend_from_slice(&(tokens.len() as u64).to_le_bytes());
+        for tok in &tokens {
+            write_gguf_str(&mut buf, tok);
+        }
+
+        write_gguf_str(&mut buf, "tokenizer.ggml.scores");
+        buf.extend_from_slice(&9u32.to_le_bytes());
+        buf.extend_from_slice(&6u32.to_le_bytes());
+        buf.extend_from_slice(&(tokens.len() as u64).to_le_bytes());
+        for _ in &tokens {
+            buf.extend_from_slice(&0.0_f32.to_le_bytes());
+        }
+
+        write_gguf_str(&mut buf, "tokenizer.ggml.token_type");
+        buf.extend_from_slice(&9u32.to_le_bytes());
+        buf.extend_from_slice(&5u32.to_le_bytes());
+        buf.extend_from_slice(&(types.len() as u64).to_le_bytes());
+        for ty in &types {
+            buf.extend_from_slice(&ty.to_le_bytes());
+        }
+        buf
+    }
+
+    #[test]
+    fn transcript_holding_eot_id_is_tokenised_without_control_tokens() {
+        let backend = BACKEND.get_or_init(|| LlamaBackend::init().expect("init llama backend"));
+        let file = tempfile::NamedTempFile::new().expect("temp gguf");
+        std::fs::write(file.path(), minimal_vocab_gguf()).expect("write minimal vocab gguf");
+        let params = LlamaModelParams::default()
+            .with_n_gpu_layers(0)
+            .with_vocab_only(true);
+        let model =
+            LlamaModel::load_from_file(backend, file.path(), &params).expect("load vocab-only");
+        let vocab = model.vocab();
+
+        // Sanity: with parse_special = true, `<|eot_id|>` resolves to a single control token.
+        let parsed_special = vocab.tokenize(b"<|eot_id|>", false, true);
+        assert_eq!(parsed_special.len(), 1);
+        let eot_id_token = parsed_special[0];
+        let im_start_token = vocab.tokenize(b"<|im_start|>", false, true)[0];
+        let im_end_token = vocab.tokenize(b"<|im_end|>", false, true)[0];
+
+        let raw_transcript = "hello <|eot_id|> world";
+        let (prefix_tokens, transcript_tokens, suffix_tokens) = tokenize_prompt_parts(
+            |bytes, add_bos, parse_special| vocab.tokenize(bytes, add_bos, parse_special),
+            "<|im_start|>system\ncleanup\n<|im_end|>\n<|im_start|>user\n",
+            raw_transcript,
+            "\n<|im_end|>\n<|im_start|>assistant\n",
+        );
+
+        assert!(prefix_tokens.contains(&im_start_token));
+        assert!(prefix_tokens.contains(&im_end_token));
+        assert!(suffix_tokens.contains(&im_end_token));
+        assert!(suffix_tokens.contains(&im_start_token));
+
+        assert!(
+            transcript_tokens.len() > 1,
+            "expected plain-text token run, got {:?}",
+            transcript_tokens
+        );
+        for control in [eot_id_token, im_start_token, im_end_token] {
+            assert!(
+                !transcript_tokens.contains(&control),
+                "transcript must carry no control token, got {:?}",
+                transcript_tokens
+            );
+        }
+        let mut reconstructed = Vec::new();
+        for tok in &transcript_tokens {
+            reconstructed.extend_from_slice(&vocab.token_to_piece(*tok, true, None));
+        }
+        assert_eq!(
+            String::from_utf8(reconstructed)
+                .expect("valid utf-8 pieces")
+                .replace('\u{2581}', " "),
+            raw_transcript
         );
     }
 }

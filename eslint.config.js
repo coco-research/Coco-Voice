@@ -16,21 +16,27 @@ export default [
       i18next,
     },
     rules: {
-      // Catch text in JSX that should be translated
       "i18next/no-literal-string": [
         "error",
         {
-          markupOnly: true, // Only check JSX content, not all strings
-          ignoreAttribute: [
-            "className",
-            "style",
-            "type",
-            "id",
-            "name",
-            "key",
-            "data-*",
-            "aria-*",
-          ], // Ignore common non-translatable attributes
+          mode: "jsx-only",
+          "jsx-attributes": {
+            include: [
+              "title",
+              "placeholder",
+              "aria-label",
+              "ariaLabel",
+              "label",
+              "description",
+              "alt",
+            ],
+          },
+          callees: {
+            exclude: ["i18n(ext)?", "t", "isUpdating", "renderSettingsContent"],
+          },
+          "object-properties": {
+            exclude: [".*"],
+          },
         },
       ],
     },

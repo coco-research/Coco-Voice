@@ -194,8 +194,11 @@ pub enum AutoSubmitKey {
 pub enum RecordingRetentionPeriod {
     Never,
     PreserveLimit,
+    #[serde(alias = "days3")]
     Days3,
+    #[serde(alias = "weeks2")]
     Weeks2,
+    #[serde(alias = "months3")]
     Months3,
 }
 
@@ -455,7 +458,7 @@ pub struct AppSettings {
     pub post_process_models: HashMap<String, String>,
     #[serde(default = "default_post_process_prompts")]
     pub post_process_prompts: Vec<LLMPrompt>,
-    #[serde(default)]
+    #[serde(default = "default_post_process_selected_prompt_id")]
     pub post_process_selected_prompt_id: Option<String>,
     /// Enables the explicit iterative-correction feature. When on, the dedicated
     /// "correction" hotkey (empty by default; assigned in settings) lets the user
@@ -490,6 +493,8 @@ pub struct AppSettings {
     pub typing_tool: TypingTool,
     #[serde(default)]
     pub external_script_path: Option<String>,
+    #[serde(default = "default_filler_word_removal_enabled")]
+    pub filler_word_removal_enabled: bool,
     #[serde(default)]
     pub custom_filler_words: Option<Vec<String>>,
     #[serde(default)]
@@ -507,6 +512,10 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    #[serde(default)]
+    pub app_profiles: Vec<crate::app_profiles::AppProfile>,
+    #[serde(default)]
+    pub blocked_apps: Vec<String>,
     /// Beta switch for Meetings. Only present when the crate is built with
     /// `--features meetings`. A default build has no field, so a stored
     /// `meetings_enabled` key is ignored.
@@ -633,6 +642,10 @@ fn default_vad_enabled() -> bool {
     true
 }
 
+fn default_filler_word_removal_enabled() -> bool {
+    true
+}
+
 fn default_debug_mode() -> bool {
     false
 }
@@ -686,15 +699,21 @@ fn default_theme() -> Theme {
     Theme::System
 }
 
+pub const DEFAULT_POST_PROCESS_PROMPT_ID: &str = "default_improve_transcriptions";
+
+fn default_post_process_selected_prompt_id() -> Option<String> {
+    Some(DEFAULT_POST_PROCESS_PROMPT_ID.to_string())
+}
+
 fn default_post_process_enabled() -> bool {
-    // Coco: on-device post-processing is ON by default on Apple Silicon (uses the
-    // local Apple Intelligence provider — nothing leaves the machine). Off on other
-    // targets so the default never triggers an accidental cloud call.
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    // On-device post-processing is ON by default on macOS (Apple Intelligence on
+    // Apple Silicon, or the local llama.cpp model — nothing leaves the machine).
+    // Off on other targets so the default never triggers an accidental cloud call.
+    #[cfg(target_os = "macos")]
     {
         true
     }
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    #[cfg(not(target_os = "macos"))]
     {
         false
     }
@@ -724,13 +743,16 @@ fn default_show_tray_icon() -> bool {
 }
 
 fn default_post_process_provider_id() -> String {
-    // Coco: default to the on-device Apple Intelligence provider on Apple Silicon so
-    // the default post-processing path never leaves the machine.
+    // Default to an on-device provider on macOS so clean-up never leaves the machine.
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     {
         APPLE_INTELLIGENCE_PROVIDER_ID.to_string()
     }
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    #[cfg(all(target_os = "macos", not(target_arch = "aarch64")))]
+    {
+        LOCAL_LLM_PROVIDER_ID.to_string()
+    }
+    #[cfg(not(target_os = "macos"))]
     {
         "openai".to_string()
     }
@@ -1050,6 +1072,19 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
         }
     }
 
+    if settings.post_process_selected_prompt_id.is_none() {
+        let fallback_id = settings
+            .post_process_prompts
+            .iter()
+            .find(|p| p.id == DEFAULT_POST_PROCESS_PROMPT_ID)
+            .or_else(|| settings.post_process_prompts.first())
+            .map(|p| p.id.clone());
+        if fallback_id.is_some() {
+            settings.post_process_selected_prompt_id = fallback_id;
+            changed = true;
+        }
+    }
+
     changed
 }
 
@@ -1171,7 +1206,7 @@ pub fn get_default_settings() -> AppSettings {
         post_process_api_keys: default_post_process_api_keys(),
         post_process_models: default_post_process_models(),
         post_process_prompts: default_post_process_prompts(),
-        post_process_selected_prompt_id: None,
+        post_process_selected_prompt_id: default_post_process_selected_prompt_id(),
         iterative_correction_enabled: default_iterative_correction_enabled(),
         mute_while_recording: false,
         append_trailing_space: false,
@@ -1185,6 +1220,7 @@ pub fn get_default_settings() -> AppSettings {
         paste_delay_after_ms: default_paste_delay_after_ms(),
         typing_tool: default_typing_tool(),
         external_script_path: None,
+        filler_word_removal_enabled: default_filler_word_removal_enabled(),
         custom_filler_words: None,
         transcribe_accelerator: TranscribeAcceleratorSetting::default(),
         ort_accelerator: OrtAcceleratorSetting::default(),
@@ -1192,6 +1228,8 @@ pub fn get_default_settings() -> AppSettings {
         extra_recording_buffer_ms: 0,
         vad_enabled: default_vad_enabled(),
         overlay_style: default_overlay_style(),
+        app_profiles: Vec::new(),
+        blocked_apps: Vec::new(),
         #[cfg(feature = "meetings")]
         meetings_enabled: default_meetings_enabled(),
     }
@@ -2714,5 +2752,65 @@ mod tests {
                 .get("meetings_enabled")
                 .is_none());
         }
+    }
+
+    #[test]
+    fn fresh_settings_enable_cleanup_and_select_default_prompt_out_of_the_box() {
+        let defaults = get_default_settings();
+        #[cfg(target_os = "macos")]
+        assert!(defaults.post_process_enabled);
+        assert_eq!(
+            defaults.post_process_selected_prompt_id.as_deref(),
+            Some(DEFAULT_POST_PROCESS_PROMPT_ID)
+        );
+
+        let prompt = crate::cleanup_resolver::check_global_preconditions(
+            "um hello world",
+            defaults.post_process_selected_prompt_id.as_deref(),
+            |id| {
+                defaults
+                    .post_process_prompts
+                    .iter()
+                    .find(|p| p.id == id)
+                    .map(|p| p.prompt.as_str())
+            },
+        )
+        .expect("fresh settings must pass cleanup preconditions out of the box");
+        assert!(prompt.contains(SPOKEN_SELF_CORRECTION_RULE));
+
+        let empty_parsed: AppSettings =
+            serde_json::from_value(serde_json::json!({})).expect("parse empty store");
+        assert_eq!(
+            empty_parsed.post_process_selected_prompt_id.as_deref(),
+            Some(DEFAULT_POST_PROCESS_PROMPT_ID)
+        );
+
+        let mut legacy = get_default_settings();
+        legacy.post_process_selected_prompt_id = None;
+        assert!(ensure_post_process_defaults(&mut legacy));
+        assert_eq!(
+            legacy.post_process_selected_prompt_id.as_deref(),
+            Some(DEFAULT_POST_PROCESS_PROMPT_ID)
+        );
+    }
+
+    #[test]
+    fn stored_coco_keys_loads_as_coco_voice_keys() {
+        let parsed: KeyboardImplementation = serde_json::from_value(serde_json::json!("coco_keys"))
+            .expect("legacy coco_keys alias must deserialize");
+        assert_eq!(parsed, KeyboardImplementation::CocoVoiceKeys);
+
+        let settings: AppSettings = serde_json::from_value(serde_json::json!({
+            "keyboard_implementation": "coco_keys"
+        }))
+        .expect("stored settings with coco_keys must load");
+        assert_eq!(
+            settings.keyboard_implementation,
+            KeyboardImplementation::CocoVoiceKeys
+        );
+        assert_eq!(
+            serde_json::to_value(settings.keyboard_implementation).unwrap(),
+            serde_json::json!("coco_voice_keys")
+        );
     }
 }
