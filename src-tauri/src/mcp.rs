@@ -207,19 +207,94 @@ fn call_tool(data_dir: &Path, client: &str, name: &str, args: &Value) -> Value {
     };
     match res {
         Ok((target, payload)) => {
-            let mut text = payload.to_string();
-            if text.len() > MAX_TEXT_BYTES {
-                let mut end = MAX_TEXT_BYTES;
-                while end > 0 && !text.is_char_boundary(end) {
-                    end -= 1;
-                }
-                text.truncate(end);
+            if let Err(err) = record_read(data_dir, client, name, &target) {
+                log::warn!("mcp: failed to record audit entry for '{name}': {err}");
+                return tool_err("refused: audit_log_failed");
             }
-            let _ = record_read(data_dir, client, name, &target);
+            let text = serialize_bounded_payload(payload);
             json!({ "content": [{ "type": "text", "text": text }], "isError": false })
         }
         Err(code) => tool_err(code),
     }
+}
+
+fn utf8_prefix(s: &str, max_bytes: usize) -> &str {
+    if s.len() <= max_bytes {
+        return s;
+    }
+    let mut end = max_bytes;
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
+}
+
+/// Ensures the serialized tool payload never exceeds `MAX_TEXT_BYTES` while remaining
+/// syntactically valid JSON (`"truncated": true` when items or text had to be trimmed).
+fn serialize_bounded_payload(payload: Value) -> String {
+    let raw = payload.to_string();
+    if raw.len() <= MAX_TEXT_BYTES {
+        return raw;
+    }
+    let Value::Object(mut map) = payload else {
+        return json!({ "truncated": true }).to_string();
+    };
+    map.insert("truncated".to_string(), json!(true));
+    const ARRAY_KEYS: &[&str] = &[
+        "segments",
+        "meetings",
+        "entries",
+        "notes",
+        "notepad",
+        "custom_words",
+    ];
+    loop {
+        let encoded = Value::Object(map.clone()).to_string();
+        if encoded.len() <= MAX_TEXT_BYTES {
+            return encoded;
+        }
+        let best_key = ARRAY_KEYS
+            .iter()
+            .copied()
+            .filter_map(|k| {
+                let len = map.get(k)?.as_array()?.len();
+                (len > 0).then_some((k, len))
+            })
+            .max_by_key(|(_, len)| *len);
+        let Some((key, len)) = best_key else {
+            break;
+        };
+        if len == 1 {
+            if let Some(item_obj) = map
+                .get_mut(key)
+                .and_then(Value::as_array_mut)
+                .and_then(|arr| arr.first_mut())
+                .and_then(Value::as_object_mut)
+            {
+                if let Some(t) = item_obj.get("text").and_then(Value::as_str) {
+                    let overhead = encoded.len().saturating_sub(t.len()) + 64;
+                    if overhead < MAX_TEXT_BYTES && t.len() > MAX_TEXT_BYTES - overhead {
+                        let clipped = format!("{}…", utf8_prefix(t, MAX_TEXT_BYTES - overhead));
+                        if clipped.len() < t.len() {
+                            item_obj.insert("text".to_string(), json!(clipped));
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(arr) = map.get_mut(key).and_then(Value::as_array_mut) {
+            let new_len = if len > 8 && encoded.len() > MAX_TEXT_BYTES * 2 {
+                len / 2
+            } else {
+                len - 1
+            };
+            arr.truncate(new_len);
+        }
+    }
+    let fallback = json!({ "truncated": true }).to_string();
+    debug_assert!(fallback.len() <= MAX_TEXT_BYTES);
+    fallback
 }
 
 fn tool_err(code: &str) -> Value {
@@ -387,5 +462,119 @@ mod tests {
             (&json!(8), &json!({}))
         );
         assert_eq!(MAX_TEXT_BYTES, 65_536);
+    }
+
+    #[test]
+    fn tool_specs_expose_real_argument_property_names() {
+        let specs = tool_specs();
+        let by_name = |n: &str| {
+            specs
+                .iter()
+                .find(|s| s["name"] == json!(n))
+                .expect("tool spec")
+        };
+        let live_props = by_name("live_meeting_transcript")["inputSchema"]["properties"]
+            .as_object()
+            .unwrap();
+        assert_eq!(live_props["after_segment_id"]["type"], json!("integer"));
+        assert!(!live_props.contains_key("k"));
+
+        let list_props = by_name("list_meetings")["inputSchema"]["properties"]
+            .as_object()
+            .unwrap();
+        assert_eq!(list_props["query"]["type"], json!("string"));
+        assert!(!list_props.contains_key("k"));
+
+        let get_spec = by_name("get_meeting");
+        let get_props = get_spec["inputSchema"]["properties"].as_object().unwrap();
+        assert_eq!(get_props["meeting_id"]["type"], json!("integer"));
+        assert_eq!(get_spec["inputSchema"]["required"], json!(["meeting_id"]));
+        assert!(!get_props.contains_key("k"));
+    }
+
+    #[test]
+    fn oversized_tool_payload_truncates_at_item_boundaries_and_stays_valid_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        seed_stores(p);
+        fs::write(
+            p.join("settings_store.json"),
+            r#"{"settings":{"agent_access_enabled":true}}"#,
+        )
+        .unwrap();
+
+        let mc = Connection::open(p.join("meetings/meetings.db")).unwrap();
+        let line_500b = format!("Transcript segment body — café {}", "w".repeat(480));
+        for seg_id in 100..300 {
+            mc.execute(
+                "INSERT INTO meeting_segments VALUES (?1, 1, ?2, ?3, 'others', ?4)",
+                rusqlite::params![seg_id, seg_id * 1000, seg_id * 1000 + 900, &line_500b],
+            )
+            .unwrap();
+        }
+        let res = call(
+            p,
+            11,
+            "tools/call",
+            json!({"name": "get_meeting", "arguments": {"meeting_id": 1}}),
+        );
+        assert_eq!(res["result"]["isError"], json!(false));
+        let raw_text = res["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(raw_text.len() <= MAX_TEXT_BYTES);
+        let parsed: Value =
+            serde_json::from_str(raw_text).expect("truncated tool output must be valid JSON");
+        assert_eq!(parsed["truncated"], json!(true));
+        let segs = parsed["segments"].as_array().unwrap();
+        assert!(!segs.is_empty() && segs.len() < 200);
+
+        // Single huge segment (> 64 KiB) also clips cleanly inside valid JSON.
+        mc.execute("DELETE FROM meeting_segments WHERE meeting_id = 1", [])
+            .unwrap();
+        let single_huge = format!("中{}", "a".repeat(80_000));
+        mc.execute(
+            "INSERT INTO meeting_segments VALUES (1, 1, 0, 1000, 'me', ?1)",
+            rusqlite::params![&single_huge],
+        )
+        .unwrap();
+        let res_single = call(
+            p,
+            12,
+            "tools/call",
+            json!({"name": "get_meeting", "arguments": {"meeting_id": 1}}),
+        );
+        let single_text = res_single["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(single_text.len() <= MAX_TEXT_BYTES);
+        let parsed_single: Value = serde_json::from_str(single_text)
+            .expect("single oversized segment output must remain valid JSON");
+        assert_eq!(parsed_single["truncated"], json!(true));
+        assert_eq!(parsed_single["segments"].as_array().unwrap().len(), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn audit_log_failure_refuses_tool_read_fail_closed() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        seed_stores(p);
+        fs::write(
+            p.join("settings_store.json"),
+            r#"{"settings":{"agent_access_enabled":true,"custom_words":["SecretTerm"]}}"#,
+        )
+        .unwrap();
+        let victim = p.join("victim.txt");
+        fs::write(&victim, "untouched").unwrap();
+        std::os::unix::fs::symlink(&victim, p.join("agent_reads.jsonl")).unwrap();
+
+        let res = call(
+            p,
+            15,
+            "tools/call",
+            json!({"name": "custom_words", "arguments": {}}),
+        );
+        assert_eq!(res["result"]["isError"], json!(true));
+        let err_text = res["result"]["content"][0]["text"].as_str().unwrap();
+        assert_eq!(err_text, "refused: audit_log_failed");
+        assert!(!err_text.contains("SecretTerm"));
+        assert_eq!(fs::read_to_string(&victim).unwrap(), "untouched");
     }
 }

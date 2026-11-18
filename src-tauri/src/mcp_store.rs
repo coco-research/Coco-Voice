@@ -134,12 +134,12 @@ pub fn read_past_list(data_dir: &Path, query: &str) -> Result<(String, Value), &
     };
     let needle = query.trim().to_lowercase();
     let sql = format!(
-        "SELECT id, started_at, ended_at, title, status FROM meetings WHERE status != 'recording'{} ORDER BY started_at DESC, id DESC LIMIT ?1",
+        "SELECT id, started_at, ended_at, title, status FROM meetings WHERE status != 'recording'{} ORDER BY started_at DESC, id DESC",
         active_clause(&conn)
     );
     let mut st = conn.prepare(&sql).map_err(|_| "refused: store_error")?;
     let rows = st
-        .query_map(params![MAX_ITEMS as i64], |r| {
+        .query_map([], |r| {
             Ok::<PastRow, _>((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
         })
         .map_err(|_| "refused: store_error")?;
@@ -147,6 +147,9 @@ pub fn read_past_list(data_dir: &Path, query: &str) -> Result<(String, Value), &
     for (id, started_at, ended_at, title, status) in rows.flatten() {
         if needle.is_empty() || meeting_matches(&conn, id, &title, &needle) {
             out.push(json!({ "id": id, "title": title, "started_at": started_at, "ended_at": ended_at, "status": status }));
+            if out.len() >= MAX_ITEMS {
+                break;
+            }
         }
     }
     Ok(("meetings".into(), json!({ "meetings": out })))
@@ -281,12 +284,7 @@ pub fn record_read(data_dir: &Path, client: &str, tool: &str, target: &str) -> i
     {
         use std::os::unix::fs::OpenOptionsExt;
         opts.mode(0o600);
-        #[cfg(target_os = "macos")]
-        opts.custom_flags(0x0100); // O_NOFOLLOW
-        #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-        opts.custom_flags(0o100000); // O_NOFOLLOW
-        #[cfg(all(target_os = "linux", not(target_arch = "aarch64")))]
-        opts.custom_flags(0o400000); // O_NOFOLLOW
+        opts.custom_flags(libc::O_NOFOLLOW);
     }
     let mut fh = opts.open(&path)?;
     #[cfg(unix)]
@@ -362,5 +360,41 @@ mod tests {
         assert_eq!(listed["meetings"].as_array().unwrap().len(), 1);
         assert_eq!(listed["meetings"][0]["id"], json!(1));
         assert_eq!(read_past_meeting(p, 2), Err("refused: not_found"));
+    }
+
+    #[test]
+    fn list_meetings_query_searches_beyond_newest_fifty_meetings() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        fs::create_dir_all(p.join("meetings")).unwrap();
+        let mc = Connection::open(p.join("meetings/meetings.db")).unwrap();
+        mc.execute_batch(
+            "CREATE TABLE meetings (id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, ended_at INTEGER, title TEXT NOT NULL, status TEXT NOT NULL, model_id TEXT NOT NULL, saved INTEGER NOT NULL DEFAULT 0);
+             CREATE TABLE meeting_segments (id INTEGER PRIMARY KEY, meeting_id INTEGER NOT NULL, start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL, channel TEXT NOT NULL, text TEXT NOT NULL);",
+        )
+        .unwrap();
+        mc.execute(
+            "INSERT INTO meetings VALUES (1, 100, 200, 'Quarter four retrospective', 'notes_ready', 'local', 0)",
+            [],
+        )
+        .unwrap();
+        for idx in 2..=60 {
+            mc.execute(
+                "INSERT INTO meetings VALUES (?1, ?2, ?3, ?4, 'notes_ready', 'local', 0)",
+                params![
+                    idx,
+                    idx * 1000,
+                    idx * 1000 + 500,
+                    format!("Daily standup {idx}")
+                ],
+            )
+            .unwrap();
+        }
+        let unfiltered = read_past_list(p, "").unwrap().1;
+        assert_eq!(unfiltered["meetings"].as_array().unwrap().len(), MAX_ITEMS);
+        let filtered = read_past_list(p, "retrospective").unwrap().1;
+        let hits = filtered["meetings"].as_array().unwrap();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0]["id"], json!(1));
     }
 }
