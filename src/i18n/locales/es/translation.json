@@ -151,6 +151,14 @@
     },
     "cancel": "Cancelar",
     "cancelDownload": "Cancelar descarga",
+    "downloadFailed": {
+      "network": "Error en la descarga: comprueba tu conexión a internet.",
+      "diskSpace": "Error en la descarga: no hay suficiente espacio en disco.",
+      "checksum": "Error en la descarga: el archivo no superó la comprobación de integridad.",
+      "other": "Error en la descarga.",
+      "retry": "Reintentar",
+      "skip": "Omitir por ahora"
+    },
     "legacy": "Heredado",
     "licence": "Licencia: {{licence}}"
   },
