@@ -300,3 +300,169 @@ pub fn delete_all_meetings(
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     delete_all_with_token(&store, confirmation_token.as_deref())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::managers::meetings::StoredNote;
+
+    fn seed_meeting_with_audio(
+        store: &MeetingsStore,
+        root: &Path,
+        title: &str,
+    ) -> (i64, i64, PathBuf) {
+        let id = store.start_meeting(title, "model").unwrap();
+        let seg_id = store
+            .insert_segment(id, 5_000, 9_000, "me", "Ship the homepage on Friday")
+            .unwrap();
+        store.add_notepad_point(id, 5_500, "ship Friday").unwrap();
+        let audio = root.join("meetings").join(id.to_string());
+        fs::create_dir_all(&audio).unwrap();
+        fs::write(audio.join("mic.wav"), b"mic-bytes").unwrap();
+        fs::write(audio.join("system.wav"), b"sys-bytes").unwrap();
+        (id, seg_id, audio)
+    }
+
+    #[test]
+    fn default_retention_and_markdown_folder_settings_are_safe() {
+        let defaults = crate::settings::get_default_settings();
+        assert!(crate::settings::default_delete_audio_after_notes());
+        assert!(defaults.delete_audio_after_notes);
+        assert!(!defaults.save_notes_as_markdown);
+        assert_eq!(defaults.notes_markdown_folder, None);
+        assert_eq!(defaults.meeting_audio_retention_secs, None);
+    }
+
+    #[test]
+    fn audio_kept_when_disabled_and_removed_only_after_notes_save_when_enabled() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let (id, seg_id, audio_dir) = seed_meeting_with_audio(&store, dir.path(), "Sync");
+
+        // When delete_after_notes is false, saving notes keeps the audio directory.
+        save_notes_with_retention(
+            &store,
+            id,
+            &[StoredNote {
+                kind: "summary".to_string(),
+                text: "Draft ready".to_string(),
+                owner: None,
+                citations: vec![seg_id],
+            }],
+            false,
+        )
+        .unwrap();
+        assert!(audio_dir.join("mic.wav").exists());
+        assert!(audio_dir.join("system.wav").exists());
+
+        // When delete_after_notes is true, saving notes removes the audio directory while DB rows stay.
+        save_notes_with_retention(
+            &store,
+            id,
+            &[StoredNote {
+                kind: "summary".to_string(),
+                text: "Final ready".to_string(),
+                owner: None,
+                citations: vec![seg_id],
+            }],
+            true,
+        )
+        .unwrap();
+        assert!(!audio_dir.exists());
+        assert_eq!(store.notes(id).unwrap().len(), 1);
+        assert_eq!(store.segments(id).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn fake_clock_retention_two_step_delete_all_and_markdown_folder_sync() {
+        let _lock = crate::managers::meetings::test_lock();
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let (old_m, _, old_audio) = seed_meeting_with_audio(&store, dir.path(), "Old sync");
+        let (new_m, seg_new, new_audio) =
+            seed_meeting_with_audio(&store, dir.path(), "Product sync");
+
+        let conn = rusqlite::Connection::open(store.db_path()).unwrap();
+        conn.execute(
+            "UPDATE meetings SET started_at = 1700000000, ended_at = 1700001000, status = 'notes_ready' WHERE id = ?1",
+            [old_m],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE meetings SET started_at = 1700008000, ended_at = 1700009000, status = 'notes_ready' WHERE id = ?1",
+            [new_m],
+        )
+        .unwrap();
+        drop(conn);
+
+        assert_eq!(
+            purge_expired_audio_at(&store, 3_600, 1_700_010_000).unwrap(),
+            1
+        );
+        assert!(!old_audio.exists());
+        assert!(new_audio.exists());
+        assert_eq!(store.segments(old_m).unwrap().len(), 1);
+
+        // Delete all fails without a valid second confirmation token.
+        assert!(delete_all_with_token(&store, None).is_err());
+        assert!(delete_all_with_token(&store, Some("forged")).is_err());
+        assert_eq!(store.meeting_count().unwrap(), 2);
+
+        store
+            .save_notes(
+                new_m,
+                &[StoredNote {
+                    kind: "summary".to_string(),
+                    text: "Ship Friday.".to_string(),
+                    owner: None,
+                    citations: vec![seg_new],
+                }],
+            )
+            .unwrap();
+
+        let notes_dir = dir.path().join("notes-folder");
+        assert!(
+            sync_meeting_markdown_file(&store, new_m, false, Some(&notes_dir))
+                .unwrap()
+                .is_none()
+        );
+        fs::create_dir_all(&notes_dir).unwrap();
+        let foreign = notes_dir.join("2023-11-15-product-sync.md");
+        fs::write(&foreign, "foreign text").unwrap();
+
+        let written = sync_meeting_markdown_file(&store, new_m, true, Some(&notes_dir))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            written.file_name().unwrap().to_str(),
+            Some("2023-11-15-product-sync-2.md")
+        );
+        assert_eq!(fs::read_to_string(&foreign).unwrap(), "foreign text");
+        assert_eq!(
+            fs::read(&written).unwrap(),
+            render_meeting_markdown(&store, new_m).unwrap().as_bytes()
+        );
+        assert_eq!(
+            detect_sync_service(Path::new("/srv/Dropbox/Notes")),
+            Some("Dropbox")
+        );
+        assert_eq!(
+            detect_sync_service(Path::new("/srv/Library/Mobile Documents/Notes")),
+            Some("iCloud Drive")
+        );
+        assert_eq!(detect_sync_service(&notes_dir), None);
+
+        store.delete_meeting(new_m).unwrap();
+        assert!(written.exists());
+
+        let tok = request_delete_all_confirmation(&store).unwrap();
+        assert_eq!(
+            delete_all_with_token(&store, Some(&tok))
+                .unwrap()
+                .deleted_count,
+            1
+        );
+        assert_eq!(store.meeting_count().unwrap(), 0);
+        assert!(delete_all_with_token(&store, Some(&tok)).is_err());
+    }
+}
