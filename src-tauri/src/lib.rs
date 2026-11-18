@@ -10,6 +10,7 @@ mod cleanup_resolver;
 pub mod cli;
 mod clipboard;
 mod commands;
+pub mod first_run_and_updates;
 mod helpers;
 mod input;
 mod llm_client;
