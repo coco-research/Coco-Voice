@@ -158,8 +158,8 @@ pub fn is_code_editor_app(app_name_or_bundle_id: &str) -> bool {
 
 fn norm_key(s: &str) -> String {
     s.chars()
-        .filter(|c| c.is_alphanumeric())
-        .flat_map(|c| c.to_lowercase())
+        .filter(|c| c.is_ascii_alphanumeric())
+        .map(|c| c.to_ascii_lowercase())
         .collect()
 }
 
@@ -252,19 +252,10 @@ pub fn format_code_editor_identifiers(
 }
 
 fn split_punct(word: &str) -> (&str, &str) {
-    let p = word
-        .chars()
-        .take_while(|c| !c.is_alphanumeric() && *c != '_')
-        .count();
-    let s = word
-        .char_indices()
-        .rev()
-        .take_while(|(_, c)| !c.is_alphanumeric() && *c != '_')
-        .count();
-    (
-        if p > 0 { &word[..p] } else { "" },
-        if s > 0 { &word[word.len() - s..] } else { "" },
-    )
+    let trimmed = word.trim_start_matches(|c: char| !c.is_alphanumeric() && c != '_');
+    let prefix = &word[..word.len() - trimmed.len()];
+    let core = trimmed.trim_end_matches(|c: char| !c.is_alphanumeric() && c != '_');
+    (prefix, &trimmed[core.len()..])
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -375,6 +366,9 @@ pub fn apply_repo_symbols(text: &str, symbols: &[String], threshold: f64) -> Str
         let mut hit: Option<(usize, &String)> = None;
         for n in (1..=5).rev() {
             if i + n <= words.len() {
+                if norm_key(words[i]).is_empty() || norm_key(words[i + n - 1]).is_empty() {
+                    continue;
+                }
                 let cand: String = words[i..i + n].iter().map(|w| norm_key(w)).collect();
                 if let Some((_, sym)) = sym_keys.iter().find(|(k, _)| *k == cand) {
                     hit = Some((n, *sym));
@@ -586,5 +580,29 @@ mod tests {
         assert_eq!(baseline_errors, 8);
         assert_eq!(biased_errors, 0);
         assert!(biased_errors * 2 <= baseline_errors);
+    }
+
+    #[test]
+    fn multibyte_punctuation_and_non_ascii_words_preserve_boundaries_without_panicking() {
+        let symbols = vec![
+            "getUserById".to_string(),
+            "TranscriptionCoordinator".to_string(),
+        ];
+        assert_eq!(
+            format_code_editor_identifiers("Call “get user by id”—now…", true, &symbols),
+            "Call “getUserById”—now…"
+        );
+        assert_eq!(
+            format_code_editor_identifiers(
+                "camel case get user id… — café aé éa 中",
+                true,
+                &symbols
+            ),
+            "getUserId… — café aé éa 中"
+        );
+        assert_eq!(
+            apply_repo_symbols("— transcription coordinator —", &symbols, 0.24),
+            "— TranscriptionCoordinator —"
+        );
     }
 }
