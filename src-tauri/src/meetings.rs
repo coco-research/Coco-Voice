@@ -71,10 +71,6 @@ pub struct MeetingOffer {
 #[derive(Default)]
 struct OfferState {
     suppressed: HashSet<String>,
-    /// Stays 0. There is no meetings table in this module.
-    meeting_rows: u32,
-    /// Stays 0. There is no wav writer in this module.
-    audio_files: u32,
 }
 
 impl OfferState {
@@ -96,10 +92,18 @@ impl OfferState {
     }
 
     fn native_offer(&self, input: &DetectInput<'_>) -> Option<MeetingOffer> {
-        if let Some(app) = find_app(input.apps, ZOOM_BUNDLE) {
-            if !self.suppressed.contains(ZOOM_BUNDLE) {
-                let in_call = title_has(app, input.accessibility_granted, "Zoom Meeting");
-                return Some(native("zoom", ZOOM_BUNDLE, in_call));
+        let mut first_open: Option<MeetingOffer> = None;
+        if !self.suppressed.contains(ZOOM_BUNDLE) {
+            if let Some(app) = find_app(input.apps, ZOOM_BUNDLE) {
+                let offer = native(
+                    "zoom",
+                    ZOOM_BUNDLE,
+                    title_has(app, input.accessibility_granted, "Zoom Meeting"),
+                );
+                if offer.in_call {
+                    return Some(offer);
+                }
+                first_open = Some(offer);
             }
         }
         for bundle_id in TEAMS_BUNDLES {
@@ -107,11 +111,20 @@ impl OfferState {
                 continue;
             }
             if let Some(app) = find_app(input.apps, bundle_id) {
-                let in_call = title_has(app, input.accessibility_granted, TEAMS_CALL_MARK);
-                return Some(native("teams", bundle_id, in_call));
+                let offer = native(
+                    "teams",
+                    bundle_id,
+                    title_has(app, input.accessibility_granted, TEAMS_CALL_MARK),
+                );
+                if offer.in_call {
+                    return Some(offer);
+                }
+                if first_open.is_none() {
+                    first_open = Some(offer);
+                }
             }
         }
-        None
+        first_open
     }
 
     fn meet_offer(&self, input: &DetectInput<'_>) -> Option<MeetingOffer> {
@@ -151,7 +164,7 @@ fn title_has(app: &RunningApp, accessibility_granted: bool, mark: &str) -> bool 
 }
 
 fn meet_title(title: &str) -> bool {
-    title.contains("Meet -") || title.contains("Google Meet")
+    title.starts_with("Meet - ") || title.contains("Google Meet")
 }
 
 fn native(app: &str, bundle_id: &str, in_call: bool) -> MeetingOffer {
@@ -235,20 +248,57 @@ fn publish(app: &AppHandle) {
     publish_locked(app, &runtime);
 }
 
+fn is_recording_for_state(
+    controller_state: Option<crate::meeting_controller::MeetingState>,
+) -> bool {
+    meeting_is_recording()
+        || matches!(
+            controller_state,
+            Some(
+                crate::meeting_controller::MeetingState::Recording
+                    | crate::meeting_controller::MeetingState::Stopping
+            )
+        )
+}
+
 fn publish_locked(app: &AppHandle, runtime: &OfferRuntime) {
     let enabled = settings::get_settings(app).meetings_enabled;
-    let recording = meeting_is_recording();
     let os = tauri_plugin_os::platform();
     let version = tauri_plugin_os::version().to_string();
-    if recording || !settings::meetings_visible(enabled, os, &version) {
+    publish_with(
+        app,
+        runtime,
+        enabled,
+        crate::meeting_controller::state(app),
+        os,
+        &version,
+        snapshot_running_apps,
+    );
+}
+
+fn publish_with<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    runtime: &OfferRuntime,
+    enabled: bool,
+    controller_state: Option<crate::meeting_controller::MeetingState>,
+    os: &str,
+    version: &str,
+    snapshot: impl FnOnce() -> (bool, Vec<RunningApp>),
+) {
+    let state = controller_state.or_else(|| {
+        app.try_state::<std::sync::Arc<crate::meeting_controller::MeetingController>>()
+            .map(|controller| controller.state())
+    });
+    let recording = is_recording_for_state(state);
+    if recording || !settings::meetings_visible(enabled, os, version) {
         emit_if_changed(app, runtime, None);
         return;
     }
-    let (accessibility_granted, apps) = snapshot_running_apps();
+    let (accessibility_granted, apps) = snapshot();
     let offer = lock(&runtime.state).decide(&DetectInput {
         meetings_enabled: enabled,
         os,
-        os_version: &version,
+        os_version: version,
         recording,
         accessibility_granted,
         apps: &apps,
@@ -256,7 +306,11 @@ fn publish_locked(app: &AppHandle, runtime: &OfferRuntime) {
     emit_if_changed(app, runtime, offer);
 }
 
-fn emit_if_changed(app: &AppHandle, runtime: &OfferRuntime, next: Option<MeetingOffer>) {
+fn emit_if_changed<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    runtime: &OfferRuntime,
+    next: Option<MeetingOffer>,
+) {
     if *lock(&runtime.last) == next {
         return;
     }
@@ -320,11 +374,15 @@ mod macos {
 
     #[link(name = "CoreFoundation", kind = "framework")]
     extern "C" {
+        fn CFGetTypeID(cf: *const c_void) -> usize;
+        fn CFStringGetTypeID() -> usize;
         fn CFStringCreateWithCString(
             alloc: *const c_void,
             c_str: *const c_char,
             encoding: u32,
         ) -> *const c_void;
+        fn CFStringGetLength(the_string: *const c_void) -> isize;
+        fn CFStringGetMaximumSizeForEncoding(length: isize, encoding: u32) -> isize;
         fn CFStringGetCString(
             the_string: *const c_void,
             buffer: *mut c_char,
@@ -340,6 +398,7 @@ mod macos {
     extern "C" {
         fn AXIsProcessTrusted() -> u8;
         fn AXUIElementCreateApplication(pid: i32) -> *mut c_void;
+        fn AXUIElementSetMessagingTimeout(element: *mut c_void, timeout_in_seconds: f32) -> i32;
         fn AXUIElementCopyAttributeValue(
             element: *mut c_void,
             attribute: *const c_void,
@@ -401,11 +460,23 @@ mod macos {
         }
     }
 
-    fn cf_string(value: *const c_void) -> Option<String> {
+    pub(super) fn cf_string(value: *const c_void) -> Option<String> {
         if value.is_null() {
             return None;
         }
-        let mut buf = [0u8; 2048];
+        if unsafe { CFGetTypeID(value) != CFStringGetTypeID() } {
+            return None;
+        }
+        let char_len = unsafe { CFStringGetLength(value) };
+        if char_len <= 0 {
+            return None;
+        }
+        let max_bytes =
+            unsafe { CFStringGetMaximumSizeForEncoding(char_len, UTF8) }.checked_add(1)?;
+        if max_bytes <= 1 {
+            return None;
+        }
+        let mut buf = vec![0u8; max_bytes as usize];
         let ok = unsafe {
             CFStringGetCString(
                 value,
@@ -456,6 +527,7 @@ mod macos {
                 CFRelease(ax_title);
                 return Vec::new();
             }
+            let _ = AXUIElementSetMessagingTimeout(element, 0.5);
             let mut windows: *const c_void = std::ptr::null();
             let err = AXUIElementCopyAttributeValue(element, ax_windows, &mut windows);
             CFRelease(element);
@@ -475,8 +547,10 @@ mod macos {
                 let title_err =
                     AXUIElementCopyAttributeValue(window as *mut c_void, ax_title, &mut title);
                 if title_err == 0 && !title.is_null() {
-                    if let Some(text) = cf_string(title) {
-                        titles.push(text);
+                    if CFGetTypeID(title) == CFStringGetTypeID() {
+                        if let Some(text) = cf_string(title) {
+                            titles.push(text);
+                        }
                     }
                     CFRelease(title);
                 }
@@ -567,8 +641,6 @@ mod tests {
         assert_eq!(offer.body, "Zoom is in a call.");
         assert!(offer.in_call);
         assert!(!offer.starts_capture);
-        assert_eq!(state.meeting_rows, 0);
-        assert_eq!(state.audio_files, 0);
 
         // Accessibility not already granted: do not read the call title, and do not ask.
         let open = state
@@ -595,8 +667,6 @@ mod tests {
                 .is_none(),
             "not now suppresses that bundle id while the process is still running"
         );
-        assert_eq!(state.meeting_rows, 0);
-        assert_eq!(state.audio_files, 0);
 
         let gone: Vec<RunningApp> = Vec::new();
         assert!(state
@@ -607,8 +677,6 @@ mod tests {
             .expect("suppression lifts once the bundle id leaves the process list");
         assert_eq!(again.bundle_id, ZOOM_BUNDLE);
         assert!(!again.starts_capture);
-        assert_eq!(state.meeting_rows, 0);
-        assert_eq!(state.audio_files, 0);
     }
 
     #[test]
@@ -670,8 +738,6 @@ mod tests {
             .decide(&input(true, "14.4", true, true, &zoom))
             .is_none());
         assert!(state.suppressed.is_empty());
-        assert_eq!(state.meeting_rows, 0);
-        assert_eq!(state.audio_files, 0);
         assert!(state
             .decide(&input(true, "14.4", false, true, &zoom))
             .is_some());
@@ -682,5 +748,178 @@ mod tests {
     fn macos_window_titles_and_snapshot_link_without_ax_statics() {
         let _ = unsafe { macos::window_titles(std::process::id() as i32) };
         let _ = macos::snapshot();
+    }
+
+    #[test]
+    fn recording_controller_emits_no_offer_and_clears_active_offer() {
+        use crate::meeting_controller::{MeetingController, MeetingState};
+        use std::sync::Arc;
+        use tauri::Listener;
+
+        let mock = tauri::test::mock_builder()
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let controller = Arc::new(MeetingController::default());
+        mock.manage(controller.clone());
+
+        let emitted: Arc<Mutex<Vec<Option<MeetingOffer>>>> = Arc::new(Mutex::new(Vec::new()));
+        let emitted_sink = emitted.clone();
+        mock.listen("meetings-offer", move |event| {
+            let payload: Option<MeetingOffer> =
+                serde_json::from_str(event.payload()).expect("offer payload");
+            emitted_sink.lock().unwrap().push(payload);
+        });
+
+        let zoom = vec![app(ZOOM_BUNDLE, &["Zoom Meeting"])];
+
+        // 1. Fresh runtime while controller is Recording: never snapshots, emits nothing.
+        controller.open_consent();
+        controller.confirm_start().expect("start meeting");
+        assert_eq!(controller.state(), MeetingState::Recording);
+
+        let fresh_runtime = OfferRuntime::new();
+        let mut snapshot_calls = 0usize;
+        publish_with(
+            mock.handle(),
+            &fresh_runtime,
+            true,
+            None,
+            "macos",
+            "14.4",
+            || {
+                snapshot_calls += 1;
+                (true, zoom.clone())
+            },
+        );
+        assert_eq!(snapshot_calls, 0, "must not poll apps while recording");
+        assert!(
+            emitted.lock().unwrap().is_empty(),
+            "no offer may be emitted while MeetingController is Recording"
+        );
+        assert!(lock(&fresh_runtime.last).is_none());
+
+        // 2. An already-shown offer clears to None as soon as Recording begins.
+        controller.stop();
+        assert_eq!(controller.state(), MeetingState::Idle);
+        let active_runtime = OfferRuntime::new();
+        publish_with(
+            mock.handle(),
+            &active_runtime,
+            true,
+            None,
+            "macos",
+            "14.4",
+            || (true, zoom.clone()),
+        );
+        assert_eq!(emitted.lock().unwrap().len(), 1);
+        assert!(emitted.lock().unwrap()[0].is_some());
+
+        controller.open_consent();
+        controller.confirm_start().expect("start second meeting");
+        publish_with(
+            mock.handle(),
+            &active_runtime,
+            true,
+            None,
+            "macos",
+            "14.4",
+            || (true, zoom.clone()),
+        );
+        assert_eq!(emitted.lock().unwrap().len(), 2);
+        assert_eq!(emitted.lock().unwrap()[1], None);
+        assert!(is_recording_for_state(Some(MeetingState::Stopping)));
+        assert!(!is_recording_for_state(Some(MeetingState::ConsentOpen)));
+        controller.stop();
+    }
+
+    #[test]
+    fn in_call_offer_outranks_idle_open_app() {
+        let mut state = OfferState::default();
+        let idle_zoom_and_teams_call = vec![
+            app(ZOOM_BUNDLE, &["Zoom"]),
+            app(
+                "com.microsoft.teams2",
+                &["Sprint Review | Microsoft Teams Meeting"],
+            ),
+        ];
+        let offer = state
+            .decide(&input(true, "14.4", false, true, &idle_zoom_and_teams_call))
+            .expect("active Teams call should be offered");
+        assert_eq!(offer.app, "teams");
+        assert_eq!(offer.bundle_id, "com.microsoft.teams2");
+        assert!(offer.in_call);
+        assert_eq!(offer.body, "Teams is in a call.");
+
+        let both_teams = vec![
+            app("com.microsoft.teams2", &["Chat"]),
+            app("com.microsoft.teams", &["Daily Sync Meeting"]),
+        ];
+        let second = state
+            .decide(&input(true, "14.4", false, true, &both_teams))
+            .expect("classic Teams in call outranks idle new Teams");
+        assert_eq!(second.bundle_id, "com.microsoft.teams");
+        assert!(second.in_call);
+    }
+
+    #[test]
+    fn meet_title_requires_trailing_space_after_meet_dash() {
+        let mut state = OfferState::default();
+        let unrelated = vec![app("com.google.Chrome", &["Let's Meet - notes"])];
+        assert!(
+            state
+                .decide(&input(true, "14.4", false, true, &unrelated))
+                .is_none(),
+            "unrelated page containing 'Meet -' must not trigger Meet offer"
+        );
+        let bare = vec![app("com.google.Chrome", &["Meet -"])];
+        assert!(state
+            .decide(&input(true, "14.4", false, true, &bare))
+            .is_none());
+        let real = vec![app("com.google.Chrome", &["Meet - abc-defg-hij"])];
+        let offer = state
+            .decide(&input(true, "14.4", false, true, &real))
+            .expect("real Google Meet tab title matches");
+        assert_eq!(offer.app, "meet");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn cf_string_handles_long_titles_and_rejects_non_strings() {
+        use std::ffi::{c_char, c_void, CString};
+
+        #[link(name = "CoreFoundation", kind = "framework")]
+        extern "C" {
+            fn CFStringCreateWithCString(
+                alloc: *const c_void,
+                c_str: *const c_char,
+                encoding: u32,
+            ) -> *const c_void;
+            fn CFArrayCreate(
+                allocator: *const c_void,
+                values: *const *const c_void,
+                num_values: isize,
+                callbacks: *const c_void,
+            ) -> *const c_void;
+            fn CFRelease(cf: *const c_void);
+        }
+
+        let long_title = format!("Zoom Meeting {}", "x".repeat(4096));
+        let c_long = CString::new(long_title.clone()).unwrap();
+        let cf_long =
+            unsafe { CFStringCreateWithCString(std::ptr::null(), c_long.as_ptr(), 0x0800_0100) };
+        assert!(!cf_long.is_null());
+        let decoded = macos::cf_string(cf_long);
+        unsafe { CFRelease(cf_long) };
+        assert_eq!(decoded.as_deref(), Some(long_title.as_str()));
+
+        let non_string =
+            unsafe { CFArrayCreate(std::ptr::null(), std::ptr::null(), 0, std::ptr::null()) };
+        assert!(!non_string.is_null());
+        let rejected = macos::cf_string(non_string);
+        unsafe { CFRelease(non_string) };
+        assert!(
+            rejected.is_none(),
+            "non-CFString must be rejected via CFGetTypeID"
+        );
     }
 }
