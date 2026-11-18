@@ -852,6 +852,13 @@ pub fn change_ptt_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
 
 #[tauri::command]
 #[specta::specta]
+pub fn change_double_tap_hands_free_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+    settings::update_settings(&app, |s| s.double_tap_hands_free = enabled);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_audio_feedback_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     settings::update_settings(&app, |s| s.audio_feedback = enabled);
     Ok(())
@@ -1109,6 +1116,19 @@ pub fn update_corrections(
     corrections: Vec<settings::CorrectionPair>,
 ) -> Result<(), String> {
     settings::update_settings(&app, |s| s.corrections = corrections);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn update_saved_blocks(
+    app: AppHandle,
+    blocks: Vec<settings::SavedBlock>,
+) -> Result<(), String> {
+    if blocks.iter().any(|b| b.cue.trim().is_empty()) {
+        return Err("Saved block cue cannot be empty".to_string());
+    }
+    settings::update_settings(&app, |s| s.saved_blocks = blocks);
     Ok(())
 }
 

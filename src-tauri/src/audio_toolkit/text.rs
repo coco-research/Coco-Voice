@@ -1,6 +1,7 @@
 use natural::phonetics::soundex;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::{Arc, Mutex, PoisonError};
 use strsim::levenshtein;
 
 /// Builds an n-gram string by cleaning and concatenating words
@@ -285,6 +286,262 @@ pub fn apply_corrections(text: &str, corrections: &[crate::settings::CorrectionP
     }
 
     result
+}
+
+fn clean_spelling_token(tok: &str) -> &str {
+    tok.trim_matches(|c: char| !c.is_alphanumeric() && !matches!(c, '\'' | '-' | '&'))
+}
+
+fn is_common_stopword(w: &str) -> bool {
+    const STOPS: &[&str] = &[
+        "a", "an", "the", "in", "on", "at", "to", "for", "of", "and", "or", "is", "are", "was",
+        "were", "it", "this", "that",
+    ];
+    STOPS.contains(&w.to_ascii_lowercase().as_str())
+}
+
+/// Extracts spelling-fix offers from a post-paste / history user edit (`original` -> `edited`),
+/// filtering out punctuation-only tweaks, sentence-start capitalization, stopword swaps,
+/// unrelated semantic edits, words already in `existing_custom_words`, and pairs already in
+/// `existing_corrections`.
+pub(crate) fn suggest_spelling_corrections(
+    original: &str,
+    edited: &str,
+    existing_custom_words: &[String],
+    existing_corrections: &[crate::settings::CorrectionPair],
+) -> Vec<crate::settings::CorrectionPair> {
+    fn tokenize(s: &str) -> Vec<&str> {
+        s.split_whitespace()
+            .map(clean_spelling_token)
+            .filter(|t| !t.is_empty())
+            .collect()
+    }
+    let (orig, edit) = (tokenize(original), tokenize(edited));
+    if orig.is_empty() || edit.is_empty() || orig == edit {
+        return Vec::new();
+    }
+
+    let (m, n) = (orig.len(), edit.len());
+    let mut dp = vec![vec![0usize; n + 1]; m + 1];
+    for i in (0..m).rev() {
+        for j in (0..n).rev() {
+            dp[i][j] = if orig[i].eq_ignore_ascii_case(edit[j]) {
+                1 + dp[i + 1][j + 1]
+            } else {
+                dp[i + 1][j].max(dp[i][j + 1])
+            };
+        }
+    }
+
+    let (mut anchors, mut i, mut j) = (Vec::new(), 0, 0);
+    while i < m && j < n {
+        if orig[i] == edit[j]
+            || (orig[i].eq_ignore_ascii_case(edit[j]) && dp[i][j] == 1 + dp[i + 1][j + 1])
+        {
+            anchors.push((i, j));
+            i += 1;
+            j += 1;
+        } else if dp[i + 1][j] >= dp[i][j + 1] {
+            i += 1;
+        } else {
+            j += 1;
+        }
+    }
+    anchors.push((m, n));
+
+    let mut out: Vec<crate::settings::CorrectionPair> = Vec::new();
+    let mut push_new = |from: &str, to: &str| {
+        let to_trimmed = to.trim();
+        let in_custom_words = existing_custom_words
+            .iter()
+            .any(|w| w.trim().eq_ignore_ascii_case(to_trimmed));
+        let in_corrections = existing_corrections
+            .iter()
+            .chain(out.iter())
+            .any(|p| p.from.trim().eq_ignore_ascii_case(from.trim()));
+        if !in_custom_words && !in_corrections {
+            out.push(crate::settings::CorrectionPair {
+                from: from.to_string(),
+                to: to.to_string(),
+            });
+        }
+    };
+
+    let (mut prev_i, mut prev_j) = (0usize, 0usize);
+    for (ai, aj) in anchors {
+        if ai < m && aj < n && orig[ai] != edit[aj] {
+            let (from, to) = (orig[ai], edit[aj]);
+            let start_cap = ai == 0
+                && from.eq_ignore_ascii_case(to)
+                && !to.chars().skip(1).any(|c| c.is_uppercase());
+            if !start_cap {
+                push_new(from, to);
+            }
+        }
+        let (o_span, e_span) = (&orig[prev_i..ai], &edit[prev_j..aj]);
+        if (1..=2).contains(&o_span.len()) && (1..=2).contains(&e_span.len()) {
+            let (from, to) = (o_span.join(" "), e_span.join(" "));
+            let (k_from, k_to) = (build_match_key(&from), build_match_key(&to));
+            let ratio =
+                levenshtein(&k_from, &k_to) as f64 / k_from.len().max(k_to.len()).max(1) as f64;
+            let stop_swap = o_span.len() == 1
+                && e_span.len() == 1
+                && is_common_stopword(&from)
+                && is_common_stopword(&to);
+            if !k_from.is_empty()
+                && !k_to.is_empty()
+                && from != to
+                && !stop_swap
+                && (k_from == k_to || (soundex(&k_from, &k_to) && ratio <= 0.55) || ratio <= 0.45)
+            {
+                push_new(&from, &to);
+            }
+        }
+        prev_i = ai + 1;
+        prev_j = aj + 1;
+    }
+    out
+}
+
+/// Persists an accepted spelling fix into local `settings` (`corrections` + `custom_words`)
+/// so future takes apply it automatically.
+pub(crate) fn remember_spelling_correction(
+    settings: &mut crate::settings::AppSettings,
+    from: &str,
+    to: &str,
+) -> bool {
+    let (from, to) = (from.trim(), to.trim());
+    if from.is_empty() || to.is_empty() || from == to {
+        return false;
+    }
+    if let Some(existing) = settings
+        .corrections
+        .iter_mut()
+        .find(|p| p.from.eq_ignore_ascii_case(from))
+    {
+        existing.to = to.to_string();
+    } else {
+        settings.corrections.push(crate::settings::CorrectionPair {
+            from: from.to_string(),
+            to: to.to_string(),
+        });
+    }
+    if !from.contains(' ')
+        && !to.contains(' ')
+        && !settings
+            .custom_words
+            .iter()
+            .any(|w| w.eq_ignore_ascii_case(to))
+    {
+        settings.custom_words.push(to.to_string());
+    }
+    true
+}
+
+struct CompiledSavedBlock {
+    cue_key: String,
+    insert_key: String,
+    inline_re: Regex,
+    content: String,
+}
+
+#[derive(Default)]
+struct SavedBlocksCache {
+    entry: Option<(
+        Vec<crate::settings::SavedBlock>,
+        Arc<Vec<CompiledSavedBlock>>,
+    )>,
+}
+
+impl SavedBlocksCache {
+    fn get_or_compile(
+        &mut self,
+        blocks: &[crate::settings::SavedBlock],
+    ) -> Arc<Vec<CompiledSavedBlock>> {
+        if let Some((cached_blocks, compiled)) = self.entry.as_ref() {
+            if cached_blocks.as_slice() == blocks {
+                return Arc::clone(compiled);
+            }
+        }
+
+        let mut ordered: Vec<&crate::settings::SavedBlock> = blocks
+            .iter()
+            .filter(|b| !b.cue.trim().is_empty() && !b.content.is_empty())
+            .collect();
+        ordered.sort_by_key(|b| std::cmp::Reverse(b.cue.len()));
+
+        let compiled: Vec<CompiledSavedBlock> = ordered
+            .into_iter()
+            .filter_map(|block| {
+                let pat = format!(r"(?i)\binsert\s+{}\b[,.]?", regex::escape(block.cue.trim()));
+                let inline_re = Regex::new(&pat).ok()?;
+                Some(CompiledSavedBlock {
+                    cue_key: build_match_key(&block.cue),
+                    insert_key: build_match_key(&format!("insert {}", block.cue)),
+                    inline_re,
+                    content: block.content.clone(),
+                })
+            })
+            .collect();
+
+        let arc = Arc::new(compiled);
+        self.entry = Some((blocks.to_vec(), Arc::clone(&arc)));
+        arc
+    }
+}
+
+static SAVED_BLOCKS_CACHE: Lazy<Mutex<SavedBlocksCache>> =
+    Lazy::new(|| Mutex::new(SavedBlocksCache::default()));
+
+fn compiled_saved_blocks(blocks: &[crate::settings::SavedBlock]) -> Arc<Vec<CompiledSavedBlock>> {
+    SAVED_BLOCKS_CACHE
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get_or_compile(blocks)
+}
+
+/// Expands saved blocks stored locally on this Mac when the user speaks either
+/// the standalone `<cue>` (whole utterance) or `"insert <cue>"` inline.
+pub(crate) fn expand_saved_blocks(text: &str, blocks: &[crate::settings::SavedBlock]) -> String {
+    if blocks.is_empty() || text.trim().is_empty() {
+        return text.to_string();
+    }
+    let compiled = compiled_saved_blocks(blocks);
+    if compiled.is_empty() {
+        return text.to_string();
+    }
+
+    let norm_whole = build_match_key(text);
+    for block in compiled.iter() {
+        if !block.cue_key.is_empty()
+            && (norm_whole == block.cue_key || norm_whole == block.insert_key)
+        {
+            return block.content.clone();
+        }
+    }
+
+    let mut spans: Vec<(usize, usize, &str)> = Vec::new();
+    for block in compiled.iter() {
+        for m in block.inline_re.find_iter(text) {
+            let (s, e) = (m.start(), m.end());
+            if !spans.iter().any(|&(os, oe, _)| s < oe && os < e) {
+                spans.push((s, e, block.content.as_str()));
+            }
+        }
+    }
+    if spans.is_empty() {
+        return text.to_string();
+    }
+    spans.sort_by_key(|&(s, _, _)| s);
+    let mut out = String::with_capacity(text.len());
+    let mut cursor = 0;
+    for (s, e, replacement) in spans {
+        out.push_str(&text[cursor..s]);
+        out.push_str(replacement);
+        cursor = e;
+    }
+    out.push_str(&text[cursor..]);
+    out
 }
 
 static MULTI_SPACE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s{2,}").unwrap());
@@ -696,6 +953,144 @@ mod tests {
         assert_eq!(
             apply_corrections("hello world", &corrections),
             "hello world"
+        );
+    }
+
+    #[test]
+    fn post_paste_correction_offers_spelling_fix_and_applies_on_next_take() {
+        let mut settings = crate::settings::get_default_settings();
+        let offers = suggest_spelling_corrections(
+            "Deploy it to kubernettis with Charge B.",
+            "Deploy it to Kubernetes with ChargeBee!",
+            &settings.custom_words,
+            &settings.corrections,
+        );
+        assert_eq!(offers.len(), 2);
+        assert_eq!(
+            (offers[0].from.as_str(), offers[0].to.as_str()),
+            ("kubernettis", "Kubernetes")
+        );
+        assert_eq!(
+            (offers[1].from.as_str(), offers[1].to.as_str()),
+            ("Charge B", "ChargeBee")
+        );
+
+        // Punctuation-only edits, sentence-start capitals, and unrelated word swaps make no offer.
+        assert!(suggest_spelling_corrections("hello world", "Hello world!", &[], &[]).is_empty());
+        assert!(
+            suggest_spelling_corrections("ship on Monday", "ship on Friday", &[], &[]).is_empty()
+        );
+
+        for o in &offers {
+            assert!(remember_spelling_correction(&mut settings, &o.from, &o.to));
+        }
+        // Already-remembered pair is not re-offered.
+        assert!(suggest_spelling_corrections(
+            "Deploy it to kubernettis",
+            "Deploy it to Kubernetes",
+            &settings.custom_words,
+            &settings.corrections,
+        )
+        .is_empty());
+
+        // Subsequent take automatically applies both custom_words and corrections.
+        let next_raw = "kubernettis and charge b are live";
+        let after_words = apply_custom_words(next_raw, &settings.custom_words, 0.18);
+        let next_final = apply_corrections(&after_words, &settings.corrections);
+        assert_eq!(next_final, "Kubernetes and ChargeBee are live");
+    }
+
+    #[test]
+    fn spoken_cue_inserts_saved_block_and_leaves_ordinary_mentions_intact() {
+        let blocks = vec![
+            crate::settings::SavedBlock {
+                id: "b1".into(),
+                cue: "calendar link".into(),
+                content: "https://example.com/team".into(),
+            },
+            crate::settings::SavedBlock {
+                id: "b2".into(),
+                cue: "sign off".into(),
+                content: "Best,\nTeam".into(),
+            },
+        ];
+        assert_eq!(
+            expand_saved_blocks("Calendar link.", &blocks),
+            "https://example.com/team"
+        );
+        assert_eq!(
+            expand_saved_blocks("Pick a slot here: insert calendar link.", &blocks),
+            "Pick a slot here: https://example.com/team"
+        );
+        // Ordinary prose mentioning the words without "insert" is untouched.
+        assert_eq!(
+            expand_saved_blocks("Check the calendar link on page two.", &blocks),
+            "Check the calendar link on page two."
+        );
+        assert!(crate::settings::get_default_settings()
+            .saved_blocks
+            .is_empty());
+    }
+
+    #[test]
+    fn existing_custom_words_suppresses_duplicate_spelling_offer() {
+        let custom_words = vec!["  kubernetes  ".to_string()];
+        let offers = suggest_spelling_corrections(
+            "Deploy it to kubernettis with Charge B.",
+            "Deploy it to Kubernetes with ChargeBee!",
+            &custom_words,
+            &[],
+        );
+        assert_eq!(offers.len(), 1);
+        assert_eq!(
+            (offers[0].from.as_str(), offers[0].to.as_str()),
+            ("Charge B", "ChargeBee")
+        );
+    }
+
+    #[test]
+    fn saved_block_content_is_preserved_verbatim_after_word_and_correction_rewrites() {
+        let custom_words = vec!["Calendar".to_string()];
+        let corrections = vec![pair("team", "squad"), pair("kalendar", "calendar")];
+        let blocks = vec![crate::settings::SavedBlock {
+            id: "b1".into(),
+            cue: "calendar link".into(),
+            content: "Meet the team at https://example.com/team".into(),
+        }];
+
+        // Mirrors the dictation pipeline order: apply_custom_words -> apply_corrections -> expand_saved_blocks.
+        let raw = "Talk to the team and insert kalendar link.";
+        let after_words = apply_custom_words(raw, &custom_words, 0.18);
+        let after_corrections = apply_corrections(&after_words, &corrections);
+        let final_text = expand_saved_blocks(&after_corrections, &blocks);
+        assert_eq!(
+            final_text,
+            "Talk to the squad and Meet the team at https://example.com/team"
+        );
+    }
+
+    #[test]
+    fn saved_blocks_regex_cache_reuses_compiled_rules_until_blocks_change() {
+        let mut cache = SavedBlocksCache::default();
+        let blocks_a = vec![crate::settings::SavedBlock {
+            id: "cache-1".into(),
+            cue: "status link".into(),
+            content: "https://example.com/status".into(),
+        }];
+        let first = cache.get_or_compile(&blocks_a);
+        let second = cache.get_or_compile(&blocks_a);
+        assert!(Arc::ptr_eq(&first, &second));
+
+        let blocks_b = vec![crate::settings::SavedBlock {
+            id: "cache-1".into(),
+            cue: "status link".into(),
+            content: "https://example.com/status-v2".into(),
+        }];
+        let rebuilt = cache.get_or_compile(&blocks_b);
+        assert!(!Arc::ptr_eq(&first, &rebuilt));
+        assert_eq!(
+            expand_saved_blocks("Check insert status link.", &blocks_b),
+            "Check https://example.com/status-v2"
         );
     }
 }
