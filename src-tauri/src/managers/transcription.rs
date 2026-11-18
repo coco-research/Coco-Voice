@@ -329,6 +329,9 @@ pub struct TranscriptionManager<R: tauri::Runtime = tauri::Wry> {
     /// Speech model pinned for the meeting. `None` when no meeting is pinned.
     #[cfg(feature = "meetings")]
     meeting_pin: Arc<Mutex<Option<String>>>,
+    /// Optional per-meeting language override (`None` inherits `settings.meeting_language`).
+    #[cfg(feature = "meetings")]
+    meeting_language_override: Arc<Mutex<Option<String>>>,
     /// Test-only: runs after the lease check and before dispatch, so a test can
     /// simulate a live stream taking the engine lease back in that window.
     #[cfg(all(test, feature = "meetings"))]
@@ -370,6 +373,8 @@ impl<R: tauri::Runtime> Clone for TranscriptionManager<R> {
             meeting_lock: Arc::clone(&self.meeting_lock),
             #[cfg(feature = "meetings")]
             meeting_pin: Arc::clone(&self.meeting_pin),
+            #[cfg(feature = "meetings")]
+            meeting_language_override: Arc::clone(&self.meeting_language_override),
             #[cfg(all(test, feature = "meetings"))]
             after_lease_check_hook: Arc::clone(&self.after_lease_check_hook),
             #[cfg(all(test, feature = "meetings"))]
@@ -404,6 +409,8 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             meeting_lock: Arc::new(Mutex::new(())),
             #[cfg(feature = "meetings")]
             meeting_pin: Arc::new(Mutex::new(None)),
+            #[cfg(feature = "meetings")]
+            meeting_language_override: Arc::new(Mutex::new(None)),
             #[cfg(all(test, feature = "meetings"))]
             after_lease_check_hook: Arc::new(Mutex::new(None)),
             #[cfg(all(test, feature = "meetings"))]
@@ -459,6 +466,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             active_engine_lease: Arc::new(AtomicU64::new(0)),
             meeting_lock: Arc::new(Mutex::new(())),
             meeting_pin: Arc::new(Mutex::new(None)),
+            meeting_language_override: Arc::new(Mutex::new(None)),
             after_lease_check_hook: Arc::new(Mutex::new(None)),
             test_unload_timeout: Arc::new(Mutex::new(None)),
             fake_seq: Arc::new(AtomicU64::new(0)),
@@ -514,10 +522,39 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         crate::managers::meetings::set_meeting_active(true);
     }
 
+    /// Set or clear an explicit language override for the active meeting.
+    #[cfg(feature = "meetings")]
+    #[allow(dead_code)]
+    pub fn set_meeting_language_override(&self, language: Option<&str>) {
+        *self
+            .meeting_language_override
+            .lock()
+            .unwrap_or_else(|err| err.into_inner()) =
+            language.map(crate::meeting_language::normalize_meeting_language);
+    }
+
+    #[cfg(feature = "meetings")]
+    pub fn resolved_meeting_language(&self) -> String {
+        if let Some(override_lang) = self
+            .meeting_language_override
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .clone()
+        {
+            return override_lang;
+        }
+        let settings = get_settings(&self.app_handle);
+        crate::meeting_language::normalize_meeting_language(&settings.meeting_language)
+    }
+
     #[cfg(feature = "meetings")]
     pub fn clear_meeting_pin(&self) {
         *self
             .meeting_pin
+            .lock()
+            .unwrap_or_else(|err| err.into_inner()) = None;
+        *self
+            .meeting_language_override
             .lock()
             .unwrap_or_else(|err| err.into_inner()) = None;
         crate::managers::meetings::set_meeting_active(false);
@@ -532,6 +569,11 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
     /// stream holds the lease.
     #[cfg(feature = "meetings")]
     pub fn transcribe_with_meeting_lock(&self, audio: Vec<f32>) -> Result<String> {
+        self.transcribe_locked(audio, false)
+    }
+
+    #[cfg(feature = "meetings")]
+    fn transcribe_locked(&self, audio: Vec<f32>, is_meeting_chunk: bool) -> Result<String> {
         let _guard = self
             .meeting_lock
             .lock()
@@ -560,7 +602,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         if self.engine_is_fake() {
             return self.transcribe_fake(audio);
         }
-        self.transcribe(audio)
+        self.transcribe_inner(audio, is_meeting_chunk)
     }
 
     /// A meeting chunk. Never calls `transcribe()` without the meeting lock.
@@ -573,9 +615,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
     #[cfg(feature = "meetings")]
     pub fn transcribe_meeting_chunk(&self, audio: Vec<f32>) -> Result<String> {
         loop {
-            // ponytail: the chunk audio is copied once per attempt; pass a
-            // slice through if chunk copies ever show up in a profile.
-            match self.transcribe_with_meeting_lock(audio.clone()) {
+            match self.transcribe_locked(audio.clone(), true) {
                 Err(err) if err.is::<EngineLeased>() => {
                     if !crate::managers::meetings::meeting_is_active() {
                         return Err(err.context(
@@ -1591,6 +1631,10 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
     }
 
     pub fn transcribe(&self, audio: Vec<f32>) -> Result<String> {
+        self.transcribe_inner(audio, false)
+    }
+
+    fn transcribe_inner(&self, audio: Vec<f32>, is_meeting_chunk: bool) -> Result<String> {
         #[cfg(debug_assertions)]
         if std::env::var("HANDY_FORCE_TRANSCRIPTION_FAILURE").is_ok() {
             return Err(anyhow::anyhow!(
@@ -1643,16 +1687,25 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         let active_model = self
             .get_current_model()
             .unwrap_or_else(|| settings.selected_model.clone());
-        // Resolve the persisted language *intent* into the language this model
-        // will actually use. The coercion is capability-aware (a must-pick model
-        // never receives "auto") and computed fresh here — it is never written
-        // back to settings, so the intent survives switching models and back.
-        let validated_language =
-            effective_language_for_model(&settings, self.model_manager.as_ref(), &active_model);
-        if validated_language != settings.selected_language {
+        #[cfg(feature = "meetings")]
+        let language_intent = if is_meeting_chunk {
+            self.resolved_meeting_language()
+        } else {
+            settings.selected_language.clone()
+        };
+        #[cfg(not(feature = "meetings"))]
+        let language_intent = settings.selected_language.clone();
+        let translate_to_english = settings.translate_to_english && !is_meeting_chunk;
+
+        let validated_language = effective_language_for_intent(
+            &language_intent,
+            self.model_manager.as_ref(),
+            &active_model,
+        );
+        if validated_language != language_intent {
             debug!(
                 "Language intent '{}' resolved to '{}' for model '{}'",
-                settings.selected_language, validated_language, active_model
+                language_intent, validated_language, active_model
             );
         }
 
@@ -1728,7 +1781,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
                         };
 
                         let run_plan = transcribe_cpp_run_plan(
-                            settings.translate_to_english,
+                            translate_to_english,
                             &validated_language,
                             &model_languages,
                             model_supports_translate,
@@ -1806,7 +1859,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
                         };
                         let options = TranscribeOptions {
                             language: lang,
-                            translate: settings.translate_to_english,
+                            translate: translate_to_english,
                             ..Default::default()
                         };
                         canary_engine
@@ -1889,7 +1942,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         let filtered_result = post_process_transcription_text(result, &settings, model_is_whisper);
 
         let et = std::time::Instant::now();
-        let translation_note = if settings.translate_to_english {
+        let translation_note = if translate_to_english {
             " (translated)"
         } else {
             ""
@@ -2045,18 +2098,27 @@ fn normalize_cjk_language(language: &str) -> &str {
 
 /// Resolve the persisted language intent into the language a specific model can
 /// use without writing the coerced value back to settings.
+#[allow(dead_code)]
 fn effective_language_for_model(
     settings: &AppSettings,
     model_manager: &ModelManager,
     model_id: &str,
 ) -> String {
+    effective_language_for_intent(&settings.selected_language, model_manager, model_id)
+}
+
+fn effective_language_for_intent(
+    language_intent: &str,
+    model_manager: &ModelManager,
+    model_id: &str,
+) -> String {
     match model_manager.get_model_info(model_id) {
         Some(info) => crate::managers::model::effective_language(
-            &settings.selected_language,
+            language_intent,
             &info.supported_languages,
             info.supports_language_detection,
         ),
-        None => settings.selected_language.clone(),
+        None => language_intent.to_string(),
     }
 }
 
