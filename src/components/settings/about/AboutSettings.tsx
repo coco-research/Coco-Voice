@@ -10,6 +10,7 @@ import { AppLanguageSelector } from "../AppLanguageSelector";
 import { ShowWhatsNewOnUpdate } from "../ShowWhatsNewOnUpdate";
 import { ThemeSelector } from "../ThemeSelector";
 import { LogDirectory } from "../debug";
+import { WhatGoesOnline } from "./WhatGoesOnline";
 
 export const AboutSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -64,6 +65,8 @@ export const AboutSettings: React.FC = () => {
         <AppDataDirectory descriptionMode="tooltip" grouped={true} />
         <LogDirectory grouped={true} />
       </SettingsGroup>
+
+      <WhatGoesOnline />
 
       <SettingsGroup title={t("settings.about.acknowledgments.title")}>
         <SettingContainer
