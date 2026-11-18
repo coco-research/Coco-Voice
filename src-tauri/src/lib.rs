@@ -1,4 +1,5 @@
 mod actions;
+pub mod agent_ask;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
 mod audio_feedback;
@@ -606,6 +607,10 @@ macro_rules! collect_app_commands {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run(cli_args: CliArgs) {
+    if cli_args.mcp_ask_user {
+        std::process::exit(agent_ask::run_stdio(None));
+    }
+
     // --cleanup-eval scores the on-device cleanup model and exits before any
     // window, tray, or single-instance plugin exists: that plugin would hand
     // the flag to a running app and show its window.
