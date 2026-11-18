@@ -23,6 +23,8 @@ pub mod meeting_ask_index;
 #[cfg(feature = "meetings")]
 mod meeting_controller;
 #[cfg(feature = "meetings")]
+mod meeting_feed;
+#[cfg(feature = "meetings")]
 mod meeting_notes;
 #[cfg(feature = "meetings")]
 mod meeting_notes_merge;
@@ -576,6 +578,8 @@ fn meetings_command_names() -> &'static [&'static str] {
             "confirm_meeting_start",
             "cancel_meeting_consent",
             "stop_meeting",
+            "meeting_status",
+            "meeting_segments",
         ]
     }
     #[cfg(not(feature = "meetings"))]
@@ -593,7 +597,9 @@ macro_rules! collect_app_commands {
             meeting_controller::open_meeting_consent,
             meeting_controller::confirm_meeting_start,
             meeting_controller::cancel_meeting_consent,
-            meeting_controller::stop_meeting
+            meeting_controller::stop_meeting,
+            meeting_controller::meeting_status,
+            meeting_controller::meeting_segments
         ]
     };
 }
@@ -1077,6 +1083,8 @@ mod meetings_gate_tests {
                 "a meetings build registers the meetings setting command"
             );
             assert!(names.contains(&"change_meetings_enabled_setting"));
+            assert!(names.contains(&"meeting_status"));
+            assert!(names.contains(&"meeting_segments"));
         }
     }
 }

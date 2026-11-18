@@ -6,7 +6,7 @@
 
 use crate::audio_toolkit::vad::{SileroVad, VoiceActivityDetector};
 use crate::catalog::find_model;
-use crate::managers::meetings::{set_meeting_active, MeetingsStore};
+use crate::managers::meetings::{set_meeting_active, MeetingChannel, MeetingsStore};
 use crate::managers::model::EngineType;
 use crate::managers::transcription::TranscriptionManager;
 use anyhow::{anyhow, Result};
@@ -120,6 +120,12 @@ impl ChannelChunker {
         Ok(Self::new(channel, Box::new(SileroSpeech::new(model_path)?)))
     }
 
+    /// Peak-energy cuts for meeting tests without VAD weights.
+    #[cfg(test)]
+    pub(crate) fn energy(channel: &'static str) -> Self {
+        Self::new(channel, Box::new(EnergySpeech))
+    }
+
     pub fn push(&mut self, samples: &[f32]) -> Vec<FinishedChunk> {
         self.pending.extend_from_slice(samples);
         let mut done = Vec::new();
@@ -225,13 +231,9 @@ pub fn commit_chunk<R: tauri::Runtime>(
             return Err(err);
         }
     };
-    store.insert_segment(
-        meeting_id,
-        chunk.start_ms,
-        chunk.end_ms,
-        chunk.channel,
-        &text,
-    )?;
+    let channel = MeetingChannel::from_label(chunk.channel)
+        .ok_or_else(|| anyhow!("unknown meeting channel"))?;
+    store.insert_segment(meeting_id, chunk.start_ms, chunk.end_ms, channel, &text)?;
     if !tm.is_engine_available() {
         return Err(anyhow!("engine still out after a meeting chunk"));
     }
