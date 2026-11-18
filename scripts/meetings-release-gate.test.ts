@@ -236,3 +236,22 @@ test("meetings_config_adds_system_audio_key", () => {
     plistString(plist, "NSMicrophoneUsageDescription")?.trim(),
   ).toBeTruthy();
 });
+
+const calendarUsage =
+  "Coco reads your calendar on this Mac to show upcoming meetings. It never changes your calendar or sends it anywhere.";
+
+test("meetings_plist_has_exact_calendar_usage_strings", () => {
+  const plist = readFileSync(
+    join(root, "src-tauri/Info.meetings.plist"),
+    "utf8",
+  );
+  expect(plistString(plist, "NSCalendarsFullAccessUsageDescription")).toBe(
+    calendarUsage,
+  );
+  expect(plistString(plist, "NSCalendarsUsageDescription")).toBe(calendarUsage);
+});
+
+test("default_info_plist_has_no_calendar_keys", () => {
+  const plist = readFileSync(join(root, "src-tauri/Info.plist"), "utf8");
+  expect(plist).not.toContain("NSCalendars");
+});
