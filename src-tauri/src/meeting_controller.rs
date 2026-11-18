@@ -443,4 +443,26 @@ mod tests {
         assert_eq!(controller.on_system_sleep().state, MeetingState::Idle);
         assert_eq!(log.0.stops.lock().unwrap().len(), 1);
     }
+
+    #[test]
+    fn stop_finalises_a_recording_meeting() {
+        let (controller, log) = controller_with_fake();
+        controller.open_consent();
+        controller.confirm_start().unwrap();
+        assert!(controller.pill_visible());
+
+        let status = controller.stop();
+        assert_eq!(status.state, MeetingState::Idle);
+        assert!(!controller.pill_visible());
+
+        let meeting_id = log.0.starts.lock().unwrap()[0].clone();
+        assert_eq!(
+            log.0.stops.lock().unwrap().as_slice(),
+            &[(meeting_id, MeetingEnd::Stopped)]
+        );
+
+        // Nothing is left to stop a second time.
+        assert_eq!(controller.stop().state, MeetingState::Idle);
+        assert_eq!(log.0.stops.lock().unwrap().len(), 1);
+    }
 }
