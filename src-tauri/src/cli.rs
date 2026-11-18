@@ -84,4 +84,8 @@ pub struct CliArgs {
     /// Markdown report path for --cleanup-eval. Omit to write the report to stdout.
     #[arg(long, value_name = "REPORT.md", requires = "cleanup_eval")]
     pub eval_out: Option<PathBuf>,
+
+    /// Run the local stdio MCP server for the `ask_user` voice question tool.
+    #[arg(long)]
+    pub mcp_ask_user: bool,
 }
