@@ -175,3 +175,35 @@ test("macOS DMG and Windows NSIS installer art match Tauri bundle config and BMP
   checkBmp(join(root, "src-tauri", nsisHeaderRel), 150, 57);
   checkBmp(join(root, "src-tauri", nsisSidebarRel), 164, 314);
 });
+
+test("README light/dark picture banner, 1280x640 social preview, and cross-OS INSTALL guide match brand spec", () => {
+  expect(pngDimensions(join(root, "assets/branding/banner-dark.png"))).toEqual({
+    width: 1500,
+    height: 500,
+  });
+  expect(pngDimensions(join(root, "assets/branding/banner-light.png"))).toEqual(
+    {
+      width: 1500,
+      height: 500,
+    },
+  );
+  expect(
+    pngDimensions(join(root, "assets/branding/social-preview-1280x640.png")),
+  ).toEqual({
+    width: 1280,
+    height: 640,
+  });
+
+  const readme = readFileSync(join(root, "README.md"), "utf8");
+  expect(readme.includes("<picture>")).toBe(true);
+  expect(readme.includes("assets/branding/banner-dark.png")).toBe(true);
+  expect(readme.includes("assets/branding/banner-light.png")).toBe(true);
+  expect(readme.includes("0.20.0")).toBe(true);
+  expect(readme.toLowerCase().includes("parrot")).toBe(false);
+
+  const install = readFileSync(join(root, "INSTALL.md"), "utf8");
+  expect(install.includes("Get-FileHash")).toBe(true);
+  expect(install.includes("SmartScreen")).toBe(true);
+  expect(install.includes("AppImage")).toBe(true);
+  expect(install.includes("SHA256SUMS")).toBe(true);
+});
