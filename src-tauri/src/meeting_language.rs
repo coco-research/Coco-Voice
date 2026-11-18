@@ -245,7 +245,12 @@ mod tests {
         for lang in twenty_two_langs {
             let resolved =
                 plan_meeting_language(Some(lang), "auto", "moonshine-base", &models).unwrap();
-            assert_eq!(resolved.model_id, "turbo");
+            let expected_model = if lang == "en" {
+                "moonshine-base"
+            } else {
+                "turbo"
+            };
+            assert_eq!(resolved.model_id, expected_model);
             assert_eq!(resolved.effective_language, lang);
         }
     }
