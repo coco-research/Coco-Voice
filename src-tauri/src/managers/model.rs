@@ -48,6 +48,71 @@ impl EngineType {
     }
 }
 
+/// Why a model download failed, so the UI can say what to do next.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum DownloadFailureCause {
+    Network,
+    DiskSpace,
+    Checksum,
+    Other,
+}
+
+/// Payload of the `model-download-failed` event.
+#[derive(Debug, Clone, Serialize, Type)]
+pub struct ModelDownloadFailed {
+    pub model_id: String,
+    pub error: String,
+    pub cause: DownloadFailureCause,
+}
+
+/// The downloaded bytes do not match the catalog's SHA-256.
+#[derive(Debug)]
+struct ChecksumMismatch(String);
+
+impl std::fmt::Display for ChecksumMismatch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for ChecksumMismatch {}
+
+/// Maps a download error to its cause by walking the error's source chain.
+pub fn download_failure_cause(err: &anyhow::Error) -> DownloadFailureCause {
+    cause_in(err.as_ref()).unwrap_or(DownloadFailureCause::Other)
+}
+
+fn cause_in(err: &(dyn std::error::Error + 'static)) -> Option<DownloadFailureCause> {
+    let mut next = Some(err);
+    while let Some(e) = next {
+        if e.downcast_ref::<std::io::Error>()
+            .is_some_and(|io| io.kind() == std::io::ErrorKind::StorageFull)
+        {
+            return Some(DownloadFailureCause::DiskSpace);
+        }
+        if e.is::<ChecksumMismatch>() {
+            return Some(DownloadFailureCause::Checksum);
+        }
+        if e.is::<reqwest::Error>() {
+            return Some(DownloadFailureCause::Network);
+        }
+        if let Some(api_err) = e.downcast_ref::<hf_hub::api::tokio::ApiError>() {
+            return match api_err {
+                // hf-hub pins its own reqwest minor version, so match RequestError directly.
+                hf_hub::api::tokio::ApiError::RequestError(_) => {
+                    Some(DownloadFailureCause::Network)
+                }
+                // hf-hub boxes the last chunk error here without exposing it as a source.
+                hf_hub::api::tokio::ApiError::TooManyRetries(inner) => cause_in(inner.as_ref()),
+                _ => None,
+            };
+        }
+        next = e.source();
+    }
+    None
+}
+
 /// Where a model comes from and how Coco Voice obtains it — the routing discriminant
 /// for downloading and on-disk resolution.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -2322,10 +2387,11 @@ impl ModelManager {
                     model_id, expected, actual
                 );
                 Self::remove_corrupt(path, expected.trim(), &stamp);
-                Err(anyhow::anyhow!(
+                Err(ChecksumMismatch(format!(
                     "Download verification failed for model {}: file is corrupt (expected {}, got {}). Please delete the model and download again.",
                     model_id, expected, actual
                 ))
+                .into())
             }
             Err(e) => Err(anyhow::anyhow!(
                 "Failed to verify download for model {}: {}. Please retry.",
@@ -2643,7 +2709,9 @@ impl ModelManager {
                 return Ok(());
             }
             Err(e) => {
-                return Err(anyhow::anyhow!("Hugging Face download failed: {}", e));
+                // Keep `e` as the source so the failure cause can be read from it.
+                let message = format!("Hugging Face download failed: {}", e);
+                return Err(anyhow::Error::new(e).context(message));
             }
         }
 
@@ -3283,6 +3351,67 @@ mod tests {
     use super::*;
     use std::io::Write;
     use tempfile::TempDir;
+
+    #[test]
+    fn download_failures_map_to_a_typed_cause() {
+        let full = anyhow::Error::new(std::io::Error::from(std::io::ErrorKind::StorageFull))
+            .context("writing the partial file");
+        assert_eq!(
+            download_failure_cause(&full),
+            DownloadFailureCause::DiskSpace
+        );
+
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("model.bin");
+        fs::write(&path, b"not the model").unwrap();
+        let mismatch = ModelManager::verify_sha256(&path, Some(&"0".repeat(64)), "m").unwrap_err();
+        assert_eq!(
+            download_failure_cause(&mismatch),
+            DownloadFailureCause::Checksum
+        );
+
+        // Builder errors fail URL parsing synchronously with zero network I/O.
+        let request = reqwest::Client::new().get("not a url").build().unwrap_err();
+        assert_eq!(
+            download_failure_cause(&anyhow::Error::new(request)),
+            DownloadFailureCause::Network
+        );
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let make_hf_req_err = || {
+            rt.block_on(async {
+                ApiBuilder::new()
+                    .with_endpoint("not a url".to_string())
+                    .with_progress(false)
+                    .build()
+                    .unwrap()
+                    .model("org/repo".to_string())
+                    .info()
+                    .await
+                    .unwrap_err()
+            })
+        };
+        assert_eq!(
+            download_failure_cause(
+                &anyhow::Error::new(make_hf_req_err()).context("Hugging Face download")
+            ),
+            DownloadFailureCause::Network
+        );
+        let retries = hf_hub::api::tokio::ApiError::TooManyRetries(Box::new(make_hf_req_err()));
+        assert_eq!(
+            download_failure_cause(&anyhow::Error::new(retries).context("Hugging Face download")),
+            DownloadFailureCause::Network
+        );
+
+        let other = anyhow::Error::new(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+        assert_eq!(download_failure_cause(&other), DownloadFailureCause::Other);
+        assert_eq!(
+            download_failure_cause(&anyhow::anyhow!("Model not found: x")),
+            DownloadFailureCause::Other
+        );
+    }
 
     #[test]
     fn verified_marker_is_one_file_in_the_models_dir() {
