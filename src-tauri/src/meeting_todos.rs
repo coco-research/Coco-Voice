@@ -430,3 +430,150 @@ pub fn run_todos_json(app_data_dir: &Path, include_done: bool) -> Result<String>
         &store.list(include_done, None)?,
     )?)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::managers::meetings::MeetingsStore;
+
+    fn seed(dir: &Path, started: i64, title: &str, segs: &[(i64, i64, &str, &str)]) -> i64 {
+        let ms = MeetingsStore::open(dir).unwrap();
+        let conn = Connection::open(ms.db_path()).unwrap();
+        conn.execute(
+            "INSERT INTO meetings (started_at, ended_at, title, status, model_id, saved)
+             VALUES (?1, ?2, ?3, 'transcript_ready', 'parakeet', 1)",
+            params![started, started + 900, title],
+        )
+        .unwrap();
+        let mid = conn.last_insert_rowid();
+        for (s, e, ch, text) in segs {
+            conn.execute(
+                "INSERT INTO meeting_segments (meeting_id, start_ms, end_ms, channel, text)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![mid, s, e, ch, text],
+            )
+            .unwrap();
+        }
+        mid
+    }
+
+    #[test]
+    fn commitment_extractor_normalizes_clauses_and_matches_completions() {
+        assert!(is_user_channel("Me") && is_user_channel("mic"));
+        assert!(!is_user_channel("Others"));
+        assert_eq!(format_timestamp_ms(588_000), "09:48");
+        assert_eq!(format_timestamp_ms(3_723_000), "01:02:03");
+
+        let extracted = extract_commitments(
+            "Okay, I'll send the empty-state copy. I'll be ruthless about the agenda.",
+        );
+        assert_eq!(extracted.len(), 1);
+        assert_eq!(extracted[0].1, "Send the empty-state copy");
+
+        let repeat = extract_commitments("Let me send the empty-state copy");
+        assert_eq!(repeat[0].0, extracted[0].0);
+
+        let done_sets = extract_completion_token_sets("I sent the empty-state copy this morning.");
+        assert_eq!(done_sets.len(), 1);
+        assert!(completion_matches(&extracted[0].0, &done_sets[0]));
+    }
+
+    #[test]
+    fn todos_across_four_meetings_resolve_deduplicate_and_keep_done() {
+        let dir = tempfile::tempdir().unwrap();
+        let m1 = seed(
+            dir.path(),
+            1_700_000_000,
+            "Product sync",
+            &[
+                (588_000, 594_000, "me", "I'll send the empty-state copy."),
+                (610_000, 615_000, "others", "I'll update the pricing slide."),
+                (760_000, 766_000, "me", "Let me list the open questions."),
+            ],
+        );
+        let m2 = seed(
+            dir.path(),
+            1_700_086_400,
+            "Design critique",
+            &[(
+                1_865_000,
+                1_871_000,
+                "me",
+                "Remind me to book the design review.",
+            )],
+        );
+        let m3 = seed(
+            dir.path(),
+            1_700_172_800,
+            "Friday check-in",
+            &[
+                (42_000, 47_000, "me", "I sent the empty-state copy."),
+                (
+                    95_000,
+                    100_000,
+                    "me",
+                    "I need to rotate the staging webhook key.",
+                ),
+            ],
+        );
+
+        let store = MeetingTodoStore::open(dir.path()).unwrap();
+        let after_three = store.sync().unwrap();
+        assert_eq!(after_three.len(), 4);
+        assert!(after_three
+            .iter()
+            .all(|t| store.resolve_moment(&t.origin).unwrap()));
+
+        let copy_item = after_three
+            .iter()
+            .find(|t| t.text == "Send the empty-state copy")
+            .unwrap();
+        assert_eq!(
+            (copy_item.status, copy_item.origin.meeting_id),
+            (TodoStatus::Done, m1)
+        );
+        assert_eq!(copy_item.origin.timestamp, "09:48");
+        assert_eq!(copy_item.completed_meeting_id, Some(m3));
+
+        let book = after_three
+            .iter()
+            .find(|t| t.text == "Book the design review")
+            .unwrap();
+        assert_eq!(
+            (book.origin.meeting_id, book.origin.timestamp.as_str()),
+            (m2, "31:05")
+        );
+        store.set_status(book.id, TodoStatus::Done).unwrap();
+
+        let m4 = seed(
+            dir.path(),
+            1_700_259_200,
+            "Monday standup",
+            &[
+                (15_000, 20_000, "me", "Let me book the design review."),
+                (
+                    30_000,
+                    36_000,
+                    "me",
+                    "I will share the pilot onboarding checklist.",
+                ),
+            ],
+        );
+        let after_four = store.sync().unwrap();
+        assert_eq!(after_four.len(), 5);
+        let book_after = after_four.iter().find(|t| t.id == book.id).unwrap();
+        assert_eq!(
+            (book_after.status, book_after.origin.meeting_id),
+            (TodoStatus::Done, m2)
+        );
+        let added = after_four
+            .iter()
+            .find(|t| t.origin.meeting_id == m4)
+            .unwrap();
+        assert!(store.resolve_moment(&added.origin).unwrap());
+
+        let open_only: Vec<MeetingTodo> =
+            serde_json::from_str(&run_todos_json(dir.path(), false).unwrap()).unwrap();
+        assert_eq!(open_only.len(), 3);
+    }
+}
