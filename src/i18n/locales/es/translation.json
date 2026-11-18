@@ -707,6 +707,20 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "upcoming": {
+      "title": "Coming up",
+      "noneSelected": "Pick calendars in Settings > Advanced > Meetings to see what is coming up.",
+      "empty": "Nothing coming up in the calendars you picked.",
+      "with": "With {{names}}",
+      "startNotes": "Start notes",
+      "startUnavailable": "Starting notes is not available yet."
+    },
+    "calendar": {
+      "title": "Calendars for Coming up",
+      "description": "Choose which calendars Coco may read on this Mac. None are chosen until you pick them. Coco only reads them, and what it reads stays on this Mac and is dropped when you leave Meetings, unless you start notes for that meeting.",
+      "empty": "No calendars found on this Mac.",
+      "blockedWork": "Coco never reads this calendar because it looks like a work calendar."
     }
   }
 }
