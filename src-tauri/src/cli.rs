@@ -1,9 +1,21 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::path::PathBuf;
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum CliCommand {
+    /// Run the opt-in local stdio MCP server for meeting and dictation text reads.
+    Mcp {
+        /// Override the local Coco Voice data directory.
+        #[arg(long, value_name = "DIR")]
+        data_dir: Option<PathBuf>,
+    },
+}
 
 #[derive(Parser, Debug, Clone, Default)]
 #[command(name = "coco-voice", about = "Coco Voice - Speech to Text")]
 pub struct CliArgs {
+    #[command(subcommand)]
+    pub command: Option<CliCommand>,
     /// Start with the main window hidden
     #[arg(long)]
     pub start_hidden: bool,

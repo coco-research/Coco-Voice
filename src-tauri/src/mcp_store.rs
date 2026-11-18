@@ -312,3 +312,55 @@ pub fn recent_reads(data_dir: &Path) -> Vec<AgentReadEntry> {
     rows
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn policy_defaults_off_and_audit_log_is_private_without_transcript_text() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        assert_eq!(AgentAccessPolicy::load(p), AgentAccessPolicy::default());
+        let sf = p.join("settings_store.json");
+        fs::write(&sf, r#"{"settings":{"agent_access_enabled":false,"agent_access_live":true,"agent_access_past":true}}"#).unwrap();
+        let off = AgentAccessPolicy::load(p);
+        assert!(!off.enabled && !off.live && !off.past);
+
+        fs::write(&sf, r#"{"settings":{"agent_access_enabled":true,"agent_access_live":false,"custom_words":["Parakeet"]}}"#).unwrap();
+        let sc = AgentAccessPolicy::load(p);
+        assert!(sc.enabled && !sc.live && sc.past && sc.custom_words == vec!["Parakeet"]);
+
+        record_read(p, "Local Editor", "get_meeting", "Product sync").unwrap();
+        let got = recent_reads(p);
+        assert_eq!(got.len(), 1);
+        assert_eq!(
+            (&*got[0].client, &*got[0].target),
+            ("Local Editor", "Product sync")
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let md = fs::metadata(p.join("agent_reads.jsonl")).unwrap();
+            assert_eq!(md.permissions().mode() & 0o777, 0o600);
+            let victim = p.join("victim.txt");
+            fs::write(&victim, "keep-intact").unwrap();
+            fs::remove_file(p.join("agent_reads.jsonl")).unwrap();
+            std::os::unix::fs::symlink(&victim, p.join("agent_reads.jsonl")).unwrap();
+            assert!(record_read(p, "Local Editor", "get_meeting", "Product sync").is_err());
+            assert_eq!(fs::read_to_string(&victim).unwrap(), "keep-intact");
+            assert!(recent_reads(p).is_empty());
+        }
+        fs::create_dir_all(p.join("meetings")).unwrap();
+        let mc = Connection::open(p.join("meetings/meetings.db")).unwrap();
+        mc.execute_batch(
+            "CREATE TABLE meetings (id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, ended_at INTEGER, title TEXT NOT NULL, status TEXT NOT NULL, model_id TEXT NOT NULL, saved INTEGER NOT NULL DEFAULT 0);
+             CREATE TABLE meeting_trash (meeting_id INTEGER PRIMARY KEY, trashed_at INTEGER NOT NULL);
+             INSERT INTO meetings VALUES (1, 100, 200, 'Kept sync', 'notes_ready', 'local', 0), (2, 300, 400, 'Trashed sync', 'notes_ready', 'local', 0);
+             INSERT INTO meeting_trash VALUES (2, 500);",
+        ).unwrap();
+        let listed = read_past_list(p, "").unwrap().1;
+        assert_eq!(listed["meetings"].as_array().unwrap().len(), 1);
+        assert_eq!(listed["meetings"][0]["id"], json!(1));
+        assert_eq!(read_past_meeting(p, 2), Err("refused: not_found"));
+    }
+}
