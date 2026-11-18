@@ -24,6 +24,7 @@
     "showAllModels": "Toon alle {{total}} modellen",
     "showFewerModels": "Minder modellen tonen",
     "recommended": "Aanbevolen",
+    "measuredReason": "Fewest words wrong of {{compared}} models measured on our clip set: {{wrong}} per 100 words, {{speed}}× faster than real time, {{memory}} MB of memory.",
     "customModelDescription": "Niet officieel ondersteund",
     "modelCard": {
       "accuracy": "nauwkeurigheid",
