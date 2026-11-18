@@ -737,6 +737,8 @@ pub fn run(cli_args: CliArgs) {
             commands::history::retry_history_entry_transcription,
             commands::history::update_history_limit,
             commands::history::update_history_entry_text,
+            commands::history::suggest_corrections_from_edit,
+            commands::history::remember_spelling_fix,
             commands::history::update_recording_retention_period,
             helpers::clamshell::is_laptop,
         ])

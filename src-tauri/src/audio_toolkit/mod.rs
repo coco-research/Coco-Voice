@@ -9,5 +9,6 @@ pub use audio::{
     read_wav_samples, save_wav_file, verify_wav_file, AudioRecorder, CpalDeviceInfo, VadPolicy,
 };
 pub use text::{apply_corrections, apply_custom_words, filter_transcription_output};
+pub(crate) use text::{remember_spelling_correction, suggest_spelling_corrections};
 pub use utils::get_cpal_host;
 pub use vad::{SileroVad, VoiceActivityDetector};
