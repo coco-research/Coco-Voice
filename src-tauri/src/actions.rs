@@ -1060,13 +1060,18 @@ fn resolve_effective_language(app: &AppHandle, settings: &AppSettings) -> String
     let active_model = tm
         .get_current_model()
         .unwrap_or_else(|| settings.selected_model.clone());
-    match model_manager.get_model_info(&active_model) {
+    let resolved = match model_manager.get_model_info(&active_model) {
         Some(info) => crate::managers::model::effective_language(
             &settings.selected_language,
             &info.supported_languages,
             info.supports_language_detection,
         ),
         None => settings.selected_language.clone(),
+    };
+    if resolved == "auto" {
+        tm.last_detected_language().unwrap_or(resolved)
+    } else {
+        resolved
     }
 }
 
@@ -1531,12 +1536,13 @@ impl ShortcutAction for TranscribeAction {
                             // Save to history if WAV was saved
                             let mut history_saved = false;
                             if wav_saved {
-                                match hm.save_entry(
+                                match hm.save_entry_with_language(
                                     file_name,
                                     transcription,
                                     post_process,
                                     processed.post_processed_text.clone(),
                                     processed.post_process_prompt.clone(),
+                                    tm.last_detected_language(),
                                 ) {
                                     Ok(_) => history_saved = true,
                                     Err(err) => error!("Failed to save history entry: {}", err),

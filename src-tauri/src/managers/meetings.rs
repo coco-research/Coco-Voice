@@ -624,14 +624,14 @@ mod tests {
         {
             let mut conn = Connection::open(&history_path).unwrap();
             let sqls = history_migration_sql(include_str!("history.rs"));
-            assert_eq!(sqls.len(), 4, "history.rs migration list changed");
+            assert_eq!(sqls.len(), 5, "history.rs migration list changed");
             assert!(sqls[0].contains("transcription_history"));
             let migrations = Migrations::new(sqls.into_iter().map(M::up).collect());
             migrations.to_latest(&mut conn).unwrap();
             let version: i32 = conn
                 .pragma_query_value(None, "user_version", |row| row.get(0))
                 .unwrap();
-            assert_eq!(version, 4);
+            assert_eq!(version, 5);
         }
         let before = fs::read(&history_path).unwrap();
 
@@ -646,7 +646,7 @@ mod tests {
         let version: i32 = history
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 4);
+        assert_eq!(version, 5);
         let meetings_in_history: i64 = history
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'meetings'",
