@@ -346,4 +346,104 @@ mod tests {
         assert_eq!(*src.calls.lock().unwrap(), 0);
     }
 
+    #[test]
+    fn a_selected_work_calendar_is_never_read() {
+        let src = FakeCalendar::new(
+            vec![home(), cal("w", "Work", "x", "Exchange")],
+            vec![
+                ev("h", "Dentist", 100, 200, &[]),
+                ev("w", "Board prep", 100, 200, &["Boss"]),
+            ],
+        );
+        let store = UpcomingStore::default();
+        let sel = vec!["h".to_string(), "w".to_string()];
+        let out = store.refresh(&src, &sel, 0, 1000).unwrap();
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].title, "Dentist");
+        assert_eq!(*src.asked.lock().unwrap(), vec!["h".to_string()]);
+    }
+
+    #[test]
+    fn only_selected_calendars_in_the_window_are_kept_in_start_order() {
+        let src = FakeCalendar::new(
+            vec![home(), cal("f", "Family", "iCloud", "iCloud")],
+            vec![
+                ev("h", "Later", 500, 600, &["Ann", "", "Ann", "Bo"]),
+                ev("h", "Sooner", 100, 200, &[]),
+                ev("h", "Past", 10, 20, &[]),
+                ev("h", "Too far", 5000, 6000, &[]),
+                ev("f", "Not picked", 100, 200, &[]),
+            ],
+        );
+        let store = UpcomingStore::default();
+        let out = store.refresh(&src, &["h".to_string()], 50, 1000).unwrap();
+        let titles: Vec<&str> = out.iter().map(|e| e.title.as_str()).collect();
+        assert_eq!(titles, ["Sooner", "Later"]);
+        assert_eq!(out[1].calendar_name, "Home");
+        assert_eq!(out[1].attendee_display_names, ["Ann", "Bo"]);
+    }
+
+    #[test]
+    fn closing_drops_the_list_but_keeps_the_meeting_notes_started_for() {
+        let src = FakeCalendar::new(
+            vec![home()],
+            vec![
+                ev("h", "A", 100, 200, &["Ann"]),
+                ev("h", "B", 300, 400, &[]),
+            ],
+        );
+        let store = UpcomingStore::default();
+        store.refresh(&src, &["h".to_string()], 0, 1000).unwrap();
+        let started = store.start_notes(100, "A", "Home").expect("known meeting");
+        assert_eq!(started.title, "A");
+        assert!(store.start_notes(999, "Nope", "Home").is_none());
+        store.close();
+        let (upcoming, kept) = store.held();
+        assert!(upcoming.is_empty());
+        assert_eq!(kept.map(|e| e.title), Some("A".to_string()));
+        store.end_notes();
+        assert!(store.held().1.is_none());
+    }
+
+    #[test]
+    fn closing_without_notes_leaves_nothing_in_memory() {
+        let src = FakeCalendar::new(vec![home()], vec![ev("h", "A", 100, 200, &[])]);
+        let store = UpcomingStore::default();
+        store.refresh(&src, &["h".to_string()], 0, 1000).unwrap();
+        store.close();
+        let (upcoming, kept) = store.held();
+        assert!(upcoming.is_empty() && kept.is_none());
+    }
+
+    #[test]
+    fn calendar_data_never_shows_up_in_debug_output_or_logs() {
+        let e = UpcomingEvent {
+            title: "Secret merger".into(),
+            start: 1,
+            end: 2,
+            calendar_name: "Home".into(),
+            attendee_display_names: vec!["Ann".into()],
+        };
+        // No Debug on the types, so a stray `{:?}` or `error!("{e:?}")` cannot compile.
+        // This asserts the module source stays free of log, network and model code.
+        let src = include_str!("calendar_upcoming.rs");
+        let body = src.split("#[cfg(test)]").next().unwrap();
+        for banned in [
+            "log::",
+            "println!",
+            "eprintln!",
+            "tracing",
+            "reqwest",
+            "llm_client",
+            "std::fs",
+            "dbg!",
+        ] {
+            assert!(
+                !body.contains(banned),
+                "calendar module must not use {banned}"
+            );
+        }
+        assert!(!body.contains("derive(Debug") && !body.contains(", Debug"));
+        let _ = e;
+    }
 }
