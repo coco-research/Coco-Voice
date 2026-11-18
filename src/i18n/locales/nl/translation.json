@@ -144,6 +144,14 @@
     "downloadSpeed": "{{speed}} MB/s",
     "cancel": "Annuleren",
     "cancelDownload": "Download annuleren",
+    "downloadFailed": {
+      "network": "Download mislukt: controleer je internetverbinding.",
+      "diskSpace": "Download mislukt: niet genoeg schijfruimte.",
+      "checksum": "Download mislukt: het bestand heeft de integriteitscontrole niet doorstaan.",
+      "other": "Download mislukt.",
+      "retry": "Opnieuw proberen",
+      "skip": "Nu overslaan"
+    },
     "capabilities": {
       "languageSelection": "Ondersteunt meerdere invoertalen",
       "singleLanguage": "Ondersteunt alleen deze taal",
