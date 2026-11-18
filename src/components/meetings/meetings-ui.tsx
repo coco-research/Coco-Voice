@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Users } from "lucide-react";
 import { platform, version } from "@tauri-apps/plugin-os";
 import { MeetingsToggle } from "../settings/MeetingsToggle";
+import { MeetingsRetention } from "../settings/MeetingsRetention";
 import { commands } from "../../bindings.meetings";
 import type { MeetingsUi } from "./gate";
 
@@ -157,6 +158,7 @@ export const meetingsUi = {
   MEETINGS_UI_SENTINEL,
   MeetingsToggle,
   ConsentDialog,
+  MeetingsRetention,
   MeetingsView,
   icon: Users,
   sidebarVisible,

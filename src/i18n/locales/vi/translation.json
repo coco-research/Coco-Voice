@@ -805,6 +805,20 @@
         "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
         "dictation": "Dictation still works during a meeting."
       }
+    },
+    "retention": {
+      "title": "Cuộc họp · Lưu trữ",
+      "deleteAudioLabel": "Xóa âm thanh sau khi tạo ghi chú",
+      "deleteAudioDescription": "Bật theo mặc định. Tệp âm thanh được xóa ngay khi ghi chú sẵn sàng.",
+      "keepTranscriptsLabel": "Giữ bản chép lời trên máy Mac này",
+      "keepTranscriptsDescription": "Bản chép lời được lưu tại đây cho đến khi bạn xóa.",
+      "onThisMac": "Trên máy Mac này",
+      "deleteAll": "Xóa tất cả",
+      "confirmPrompt": "Xóa mọi cuộc họp, bản chép lời, ghi chú và bản ghi âm?",
+      "confirmDeleteAll": "Xác nhận xóa tất cả",
+      "cancel": "Hủy",
+      "audioLeftWarning": "Đã xóa các cuộc họp nhưng không thể xóa một hoặc nhiều thư mục âm thanh.",
+      "actionFailed": "Không thể cập nhật cài đặt lưu trữ cuộc họp."
     }
   }
 }

@@ -517,6 +517,22 @@ pub struct AppSettings {
     #[cfg(feature = "meetings")]
     #[serde(default = "default_meetings_enabled")]
     pub meetings_enabled: bool,
+    /// Remove a meeting's audio folder once notes save succeeds. On by default.
+    #[cfg(feature = "meetings")]
+    #[serde(default = "default_delete_audio_after_notes")]
+    pub delete_audio_after_notes: bool,
+    /// Save each finished meeting's notes as a Markdown file in `notes_markdown_folder`. Off by default.
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub save_notes_as_markdown: bool,
+    /// User-chosen folder for per-meeting Markdown files; `None` until picked.
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub notes_markdown_folder: Option<String>,
+    /// Optional scheduled audio retention window in seconds.
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub meeting_audio_retention_secs: Option<i64>,
 }
 
 fn default_model() -> String {
@@ -595,6 +611,11 @@ fn default_overlay_style() -> OverlayStyle {
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn default_meetings_enabled() -> bool {
     false
+}
+
+#[cfg(feature = "meetings")]
+pub(crate) fn default_delete_audio_after_notes() -> bool {
+    true
 }
 
 /// Meetings UI shows only when the setting is on and `os` is macOS 14.4 or newer.
@@ -1215,6 +1236,14 @@ pub fn get_default_settings() -> AppSettings {
         agents_can_ask_enabled: false,
         #[cfg(feature = "meetings")]
         meetings_enabled: default_meetings_enabled(),
+        #[cfg(feature = "meetings")]
+        delete_audio_after_notes: default_delete_audio_after_notes(),
+        #[cfg(feature = "meetings")]
+        save_notes_as_markdown: false,
+        #[cfg(feature = "meetings")]
+        notes_markdown_folder: None,
+        #[cfg(feature = "meetings")]
+        meeting_audio_retention_secs: None,
     }
 }
 

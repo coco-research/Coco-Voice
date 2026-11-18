@@ -7,6 +7,7 @@ export interface MeetingsUi {
     grouped?: boolean;
   }>;
   ConsentDialog: ComponentType;
+  MeetingsRetention: ComponentType;
   MeetingsView: ComponentType;
   icon: ComponentType<{
     width?: number | string;

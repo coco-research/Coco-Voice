@@ -805,6 +805,20 @@
         "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
         "dictation": "Dictation still works during a meeting."
       }
+    },
+    "retention": {
+      "title": "회의 · 보관",
+      "deleteAudioLabel": "노트 생성 후 오디오 삭제",
+      "deleteAudioDescription": "기본값 켜짐. 노트가 준비되면 오디오 파일이 제거됩니다.",
+      "keepTranscriptsLabel": "전사 내용을 이 Mac에 보관",
+      "keepTranscriptsDescription": "직접 삭제할 때까지 전사 내용이 여기에 유지됩니다.",
+      "onThisMac": "이 Mac에 보관",
+      "deleteAll": "모두 삭제",
+      "confirmPrompt": "모든 회의, 전사 내용, 노트, 녹음을 삭제하시겠습니까?",
+      "confirmDeleteAll": "모두 삭제 확인",
+      "cancel": "취소",
+      "audioLeftWarning": "회의는 삭제되었지만 일부 오디오 폴더를 제거하지 못했습니다.",
+      "actionFailed": "회의 보관 설정을 업데이트하지 못했습니다."
     }
   }
 }
