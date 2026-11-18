@@ -6,7 +6,8 @@
     "unloadModel": "Model ontladen",
     "model": "Model",
     "quit": "Afsluiten",
-    "cancel": "Annuleren"
+    "cancel": "Annuleren",
+    "startNotes": "Notities starten..."
   },
   "sidebar": {
     "general": "Algemeen",

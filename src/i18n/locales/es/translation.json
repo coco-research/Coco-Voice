@@ -6,7 +6,8 @@
     "unloadModel": "Descargar modelo",
     "model": "Modelo",
     "quit": "Salir",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "startNotes": "Iniciar notas..."
   },
   "sidebar": {
     "general": "General",

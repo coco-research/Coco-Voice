@@ -298,6 +298,11 @@ fn initialize_core_logic(app_handle: &AppHandle) {
             "quit" => {
                 app.exit(0);
             }
+            #[cfg(feature = "meetings")]
+            "start_notes" => {
+                // Same path as the meeting shortcut: consent only, never a recording.
+                let _ = crate::meeting_controller::open_meeting_consent(app.clone());
+            }
             id if id.starts_with("model_select:") => {
                 let model_id = id.strip_prefix("model_select:").unwrap().to_string();
                 let current_model = settings::get_settings(app).selected_model;

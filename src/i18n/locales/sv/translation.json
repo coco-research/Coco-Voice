@@ -6,7 +6,8 @@
     "unloadModel": "Avlasta modell",
     "model": "Modell",
     "quit": "Avsluta",
-    "cancel": "Avbryt"
+    "cancel": "Avbryt",
+    "startNotes": "Starta anteckningar..."
   },
   "sidebar": {
     "general": "Allmänt",

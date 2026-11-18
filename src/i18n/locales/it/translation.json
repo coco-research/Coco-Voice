@@ -6,7 +6,8 @@
     "unloadModel": "Rilascia modello",
     "model": "Modello",
     "quit": "Esci",
-    "cancel": "Annulla"
+    "cancel": "Annulla",
+    "startNotes": "Avvia note..."
   },
   "sidebar": {
     "general": "Generale",
