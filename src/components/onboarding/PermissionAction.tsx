@@ -1,8 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Check, Loader2 } from "lucide-react";
+import AccessibilityStaleNotice from "./AccessibilityStaleNotice";
 
 export type PermissionStatus =
-  "checking" | "needed" | "waiting" | "granted" | "error";
+  "checking" | "needed" | "waiting" | "granted" | "error" | "stale";
 
 interface PermissionActionProps {
   status: PermissionStatus;
@@ -39,6 +40,10 @@ const PermissionAction: React.FC<PermissionActionProps> = ({
         {t("onboarding.permissions.waiting")}
       </div>
     );
+  }
+
+  if (status === "stale") {
+    return <AccessibilityStaleNotice onCheckAgain={onRetry} />;
   }
 
   if (status === "error") {
