@@ -15,7 +15,33 @@
     "postProcessing": "후처리",
     "history": "히스토리",
     "debug": "디버그",
-    "about": "정보"
+    "about": "정보",
+    "navigation": "Primary navigation",
+    "home": "홈",
+    "voiceSection": "음성",
+    "recordMeeting": "회의 녹음",
+    "meetingHistory": "회의 기록",
+    "askMeetings": "회의에 질문하기",
+    "foldersAndTemplates": "폴더 및 템플릿",
+    "agentAccess": "에이전트 접근",
+    "dictationHistory": "받아쓰기 기록",
+    "perAppProfiles": "앱별 프로필",
+    "wordsAndCleanup": "단어 및 다듬기",
+    "settings": "설정",
+    "dictateHeading": "어디서나 받아쓰기",
+    "dictateBody": "단축키를 누른 채 말하고 놓으세요. 커서가 있는 곳에 텍스트가 입력됩니다.",
+    "changeShortcut": "단축키 변경",
+    "recentDictations": "최근 받아쓰기",
+    "seeAllDictations": "모든 받아쓰기 →",
+    "seeAllMeetings": "모든 회의 →",
+    "startRecording": "녹음 시작",
+    "meetingReady": "Meeting recording is not available yet.",
+    "meetingsUnavailable": "Meetings is not available on this configuration.",
+    "profilesReady": "Per-app profiles are not available yet.",
+    "cleanupSettings": "Open Settings to enable clean-up",
+    "loadingRecent": "Loading recent dictations…",
+    "recentFailed": "Recent dictations could not be loaded.",
+    "shortcutNotSet": "Shortcut not set"
   },
   "onboarding": {
     "subtitle": "시작하려면 음성 인식 모델을 선택하세요",
@@ -759,6 +785,31 @@
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
       "notNow": "Not now"
+    },
+    "view": {
+      "title": "Meeting, {{time}}",
+      "channels": "Me and Others",
+      "channel": {
+        "me": "Me",
+        "others": "Others"
+      },
+      "recording": "Recording",
+      "finished": "Finished",
+      "stop": "Stop",
+      "autoScrolling": "Auto-scrolling",
+      "scrollPaused": "Scroll paused",
+      "mic": "Me: {{name}}",
+      "noMeeting": "No meeting is open. Start notes from the menu bar.",
+      "loadFailed": "Could not load the saved lines.",
+      "stopFailed": "Could not stop the meeting.",
+      "warnings": {
+        "systemAudioSilent": "No call audio heard yet. Check that System Audio Recording is allowed for Coco Voice in System Settings.",
+        "micFellBackToDefault": "Your selected microphone was not found, so Me uses the default microphone."
+      },
+      "hints": {
+        "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
+        "dictation": "Dictation still works during a meeting."
+      }
     }
   }
 }

@@ -15,7 +15,33 @@
     "postProcessing": "Nachbearbeitung",
     "history": "Verlauf",
     "debug": "Debug",
-    "about": "Info"
+    "about": "Info",
+    "navigation": "Primary navigation",
+    "home": "Start",
+    "voiceSection": "Sprache",
+    "recordMeeting": "Meeting aufnehmen",
+    "meetingHistory": "Meeting-Verlauf",
+    "askMeetings": "Meetings fragen",
+    "foldersAndTemplates": "Ordner und Vorlagen",
+    "agentAccess": "Agentenzugriff",
+    "dictationHistory": "Diktatverlauf",
+    "perAppProfiles": "App-Profile",
+    "wordsAndCleanup": "Wörter und Bereinigung",
+    "settings": "Einstellungen",
+    "dictateHeading": "Überall diktieren",
+    "dictateBody": "Kurzbefehl gedrückt halten, sprechen, loslassen. Der Text erscheint dort, wo der Cursor steht.",
+    "changeShortcut": "Kurzbefehl ändern",
+    "recentDictations": "Letzte Diktate",
+    "seeAllDictations": "Alle Diktate →",
+    "seeAllMeetings": "Alle Meetings →",
+    "startRecording": "Aufnahme starten",
+    "meetingReady": "Meeting recording is not available yet.",
+    "meetingsUnavailable": "Meetings is not available on this configuration.",
+    "profilesReady": "Per-app profiles are not available yet.",
+    "cleanupSettings": "Open Settings to enable clean-up",
+    "loadingRecent": "Loading recent dictations…",
+    "recentFailed": "Recent dictations could not be loaded.",
+    "shortcutNotSet": "Shortcut not set"
   },
   "onboarding": {
     "subtitle": "Wähle ein Transkriptionsmodell, um loszulegen",
@@ -759,6 +785,31 @@
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
       "notNow": "Not now"
+    },
+    "view": {
+      "title": "Meeting, {{time}}",
+      "channels": "Me and Others",
+      "channel": {
+        "me": "Me",
+        "others": "Others"
+      },
+      "recording": "Recording",
+      "finished": "Finished",
+      "stop": "Stop",
+      "autoScrolling": "Auto-scrolling",
+      "scrollPaused": "Scroll paused",
+      "mic": "Me: {{name}}",
+      "noMeeting": "No meeting is open. Start notes from the menu bar.",
+      "loadFailed": "Could not load the saved lines.",
+      "stopFailed": "Could not stop the meeting.",
+      "warnings": {
+        "systemAudioSilent": "No call audio heard yet. Check that System Audio Recording is allowed for Coco Voice in System Settings.",
+        "micFellBackToDefault": "Your selected microphone was not found, so Me uses the default microphone."
+      },
+      "hints": {
+        "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
+        "dictation": "Dictation still works during a meeting."
+      }
     }
   }
 }
