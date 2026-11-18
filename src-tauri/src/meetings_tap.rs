@@ -139,7 +139,7 @@ fn map_os(err: os::Error) -> TapError {
 }
 
 /// The caller's sink. Owned by the worker thread, never called from the IO thread.
-type TapSink = Box<dyn FnMut(&[f32]) + Send>;
+pub type TapSink = Box<dyn FnMut(&[f32]) + Send>;
 
 /// All the IO thread touches: the pool, a bounded queue, two counters and the stop flag.
 /// No locks, no sink. `shutdown` is the worker's flag, shared so IO can see it after a stop.
@@ -400,6 +400,9 @@ pub struct StartedAggregate {
     rate: usize,
 }
 
+// Core Audio aggregate device IDs are process-wide handles not bound to the creation thread.
+unsafe impl Send for StartedAggregate {}
+
 impl SystemAudioDevice for StartedAggregate {
     fn sample_rate_hz(&self) -> usize {
         self.rate
@@ -440,6 +443,11 @@ pub struct SystemAudioSession<D: SystemAudioDevice = StartedAggregate> {
     heard: Arc<AtomicBool>,
     shutdown: Arc<AtomicBool>,
 }
+
+// The IO proc's state pointer is only used until `stop` returns, and Core Audio
+// calls are not tied to the thread that created the tap. The session moves this
+// owner from the start command to Stop or the sleep watcher.
+unsafe impl<D: SystemAudioDevice + Send> Send for SystemAudioSession<D> {}
 
 impl SystemAudioSession<StartedAggregate> {
     pub fn start(plist_text: &str, sink: TapSink) -> Result<Self, TapError> {
