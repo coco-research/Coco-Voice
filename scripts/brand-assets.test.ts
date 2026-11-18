@@ -146,3 +146,32 @@ test("Coco Research pure-orb app and web icons exist with expected dimensions an
       .includes("parrot"),
   ).toBe(false);
 });
+
+test("macOS DMG and Windows NSIS installer art match Tauri bundle config and BMP specs", () => {
+  const tauriConf = JSON.parse(
+    readFileSync(join(root, "src-tauri/tauri.conf.json"), "utf8"),
+  );
+  const dmgBgRel = tauriConf.bundle?.macOS?.dmg?.background;
+  const nsisHeaderRel = tauriConf.bundle?.windows?.nsis?.headerImage;
+  const nsisSidebarRel = tauriConf.bundle?.windows?.nsis?.sidebarImage;
+
+  expect(dmgBgRel).toBe("../assets/branding/dmg-background.png");
+  expect(nsisHeaderRel).toBe("../assets/branding/nsis-header.bmp");
+  expect(nsisSidebarRel).toBe("../assets/branding/nsis-sidebar.bmp");
+
+  const dmg1x = join(root, "src-tauri", dmgBgRel);
+  const dmg2x = join(root, "assets/branding/dmg-background@2x.png");
+  expect(pngDimensions(dmg1x)).toEqual({ width: 660, height: 400 });
+  expect(pngDimensions(dmg2x)).toEqual({ width: 1320, height: 800 });
+
+  const checkBmp = (p: string, w: number, h: number) => {
+    const buf = readFileSync(p);
+    expect(buf.subarray(0, 2).toString("ascii")).toBe("BM");
+    expect(buf.readInt32LE(18)).toBe(w);
+    expect(Math.abs(buf.readInt32LE(22))).toBe(h);
+    expect(buf.readUInt16LE(28)).toBe(24);
+    expect(buf.readUInt32LE(30)).toBe(0);
+  };
+  checkBmp(join(root, "src-tauri", nsisHeaderRel), 150, 57);
+  checkBmp(join(root, "src-tauri", nsisSidebarRel), 164, 314);
+});
