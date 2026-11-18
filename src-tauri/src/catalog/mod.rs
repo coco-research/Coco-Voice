@@ -18,6 +18,8 @@ use log::error;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 
+pub mod measured;
+
 use crate::managers::model::{
     default_quant_file, EngineType, ModelDescriptor, ModelSource, QuantFile,
 };
