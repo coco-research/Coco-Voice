@@ -15,7 +15,33 @@
     "postProcessing": "Son İşlem",
     "history": "Geçmiş",
     "debug": "Hata Ayıklama",
-    "about": "Hakkında"
+    "about": "Hakkında",
+    "navigation": "Primary navigation",
+    "home": "Ana Sayfa",
+    "voiceSection": "Ses",
+    "recordMeeting": "Toplantı kaydet",
+    "meetingHistory": "Toplantı geçmişi",
+    "askMeetings": "Toplantılarına sor",
+    "foldersAndTemplates": "Klasörler ve şablonlar",
+    "agentAccess": "Aracı erişimi",
+    "dictationHistory": "Dikte geçmişi",
+    "perAppProfiles": "Uygulama profilleri",
+    "wordsAndCleanup": "Sözcükler ve düzeltme",
+    "settings": "Ayarlar",
+    "dictateHeading": "Her yerde dikte edin",
+    "dictateBody": "Kısayolunuzu basılı tutun, konuşun ve bırakın. Sözcükler imlecin olduğu yere yazılır.",
+    "changeShortcut": "Kısayolu değiştir",
+    "recentDictations": "Son dikteler",
+    "seeAllDictations": "Tüm dikteler →",
+    "seeAllMeetings": "Tüm toplantılar →",
+    "startRecording": "Kaydı başlat",
+    "meetingReady": "Meeting recording is not available yet.",
+    "meetingsUnavailable": "Meetings is not available on this configuration.",
+    "profilesReady": "Per-app profiles are not available yet.",
+    "cleanupSettings": "Open Settings to enable clean-up",
+    "loadingRecent": "Loading recent dictations…",
+    "recentFailed": "Recent dictations could not be loaded.",
+    "shortcutNotSet": "Shortcut not set"
   },
   "onboarding": {
     "subtitle": "Başlamak için bir transkripsiyon modeli seçin",
@@ -747,6 +773,31 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "view": {
+      "title": "Meeting, {{time}}",
+      "channels": "Me and Others",
+      "channel": {
+        "me": "Me",
+        "others": "Others"
+      },
+      "recording": "Recording",
+      "finished": "Finished",
+      "stop": "Stop",
+      "autoScrolling": "Auto-scrolling",
+      "scrollPaused": "Scroll paused",
+      "mic": "Me: {{name}}",
+      "noMeeting": "No meeting is open. Start notes from the menu bar.",
+      "loadFailed": "Could not load the saved lines.",
+      "stopFailed": "Could not stop the meeting.",
+      "warnings": {
+        "systemAudioSilent": "No call audio heard yet. Check that System Audio Recording is allowed for Coco Voice in System Settings.",
+        "micFellBackToDefault": "Your selected microphone was not found, so Me uses the default microphone."
+      },
+      "hints": {
+        "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
+        "dictation": "Dictation still works during a meeting."
+      }
     }
   }
 }
