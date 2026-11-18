@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_imports)]
 //! Cross-meeting spoken to-dos extracted from the user's meeting track.
 //!
 //! Parses first-person spoken commitments and completion phrases from the
@@ -201,3 +200,233 @@ pub fn completion_matches(dedup_key: &str, completion_tokens: &HashSet<String>) 
 }
 
 type SegRow = (i64, String, i64, i64, i64, i64, String, String);
+
+pub struct MeetingTodoStore {
+    meetings_db_path: PathBuf,
+    todos_db_path: PathBuf,
+}
+
+impl MeetingTodoStore {
+    pub fn open(app_data_dir: &Path) -> Result<Self> {
+        let dir = app_data_dir.join("meetings");
+        fs::create_dir_all(&dir)?;
+        let store = Self {
+            meetings_db_path: dir.join("meetings.db"),
+            todos_db_path: dir.join("todos.db"),
+        };
+        store.init()?;
+        Ok(store)
+    }
+
+    #[allow(dead_code)]
+    pub fn open_app(app: &AppHandle) -> Result<Self> {
+        Self::open(&crate::portable::app_data_dir(app)?)
+    }
+
+    fn init(&self) -> Result<()> {
+        let mut conn = Connection::open(&self.todos_db_path)?;
+        conn.busy_timeout(Duration::from_secs(1))?;
+        let migrations = Migrations::new(MIGRATIONS.to_vec());
+        #[cfg(debug_assertions)]
+        migrations
+            .validate()
+            .expect("invalid meeting_todos migrations");
+        migrations.to_latest(&mut conn)?;
+        let mode: String =
+            conn.pragma_update_and_check(None, "journal_mode", "WAL", |r| r.get(0))?;
+        if !mode.eq_ignore_ascii_case("wal") {
+            anyhow::bail!("todos.db journal mode is {mode}, expected wal");
+        }
+        Ok(())
+    }
+
+    fn todos_conn(&self) -> Result<Connection> {
+        let conn = Connection::open(&self.todos_db_path)?;
+        conn.busy_timeout(Duration::from_secs(1))?;
+        Ok(conn)
+    }
+
+    fn read_segments(&self) -> Result<Vec<SegRow>> {
+        if !self.meetings_db_path.exists() {
+            return Ok(Vec::new());
+        }
+        let conn = Connection::open(&self.meetings_db_path)?;
+        conn.busy_timeout(Duration::from_secs(1))?;
+        if conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'meetings'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .optional()?
+            .is_none()
+        {
+            return Ok(Vec::new());
+        }
+        let mut st = conn.prepare(
+            "SELECT m.id, m.title, m.started_at, s.id, s.start_ms, s.end_ms, s.channel, s.text
+             FROM meetings m JOIN meeting_segments s ON s.meeting_id = m.id
+             WHERE m.status != 'trashed'
+             ORDER BY m.started_at ASC, m.id ASC, s.start_ms ASC, s.id ASC",
+        )?;
+        let rows = st
+            .query_map([], |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                    r.get(7)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    }
+
+    pub fn sync(&self) -> Result<Vec<MeetingTodo>> {
+        let segments = self.read_segments()?;
+        let (mut earliest, mut completions) = (HashMap::new(), HashMap::new());
+        let mut ordered_keys: Vec<String> = Vec::new();
+
+        for seg in &segments {
+            if !is_user_channel(&seg.6) {
+                continue;
+            }
+            for (key, display) in extract_commitments(&seg.7) {
+                let k_copy = key.clone();
+                earliest.entry(key).or_insert_with(|| {
+                    ordered_keys.push(k_copy);
+                    (display, seg.clone())
+                });
+            }
+            for comp_set in extract_completion_token_sets(&seg.7) {
+                for key in &ordered_keys {
+                    let (_, o) = &earliest[key];
+                    let after = (seg.2, seg.0, seg.4, seg.3) > (o.2, o.0, o.4, o.3);
+                    if after && completion_matches(key, &comp_set) {
+                        completions
+                            .entry(key.clone())
+                            .or_insert_with(|| seg.clone());
+                    }
+                }
+            }
+        }
+
+        let mut conn = self.todos_conn()?;
+        let tx = conn.transaction()?;
+        {
+            let existing: Vec<String> = tx
+                .prepare("SELECT dedup_key FROM meeting_todos")?
+                .query_map([], |r| r.get(0))?
+                .collect::<rusqlite::Result<_>>()?;
+            for k in existing {
+                if !earliest.contains_key(&k) {
+                    tx.execute("DELETE FROM meeting_todos WHERE dedup_key = ?1", params![k])?;
+                }
+            }
+            for key in &ordered_keys {
+                let (display, o) = &earliest[key];
+                tx.execute(
+                    "INSERT INTO meeting_todos (dedup_key, text, status, origin_meeting_id, origin_meeting_title, origin_started_at, origin_segment_id, origin_start_ms, origin_end_ms)
+                     VALUES (?1, ?2, 'open', ?3, ?4, ?5, ?6, ?7, ?8)
+                     ON CONFLICT(dedup_key) DO UPDATE SET origin_meeting_id = excluded.origin_meeting_id, origin_meeting_title = excluded.origin_meeting_title,
+                     origin_started_at = excluded.origin_started_at, origin_segment_id = excluded.origin_segment_id, origin_start_ms = excluded.origin_start_ms, origin_end_ms = excluded.origin_end_ms",
+                    params![key, display, o.0, o.1, o.2, o.3, o.4, o.5],
+                )?;
+                if let Some(d) = completions.get(key) {
+                    tx.execute(
+                        "UPDATE meeting_todos SET status = 'done', completed_meeting_id = ?1, completed_segment_id = ?2, completed_start_ms = ?3 WHERE dedup_key = ?4 AND status = 'open'",
+                        params![d.0, d.3, d.4, key],
+                    )?;
+                }
+            }
+        }
+        tx.commit()?;
+        self.list(true, None)
+    }
+
+    pub fn list(
+        &self,
+        include_done: bool,
+        since_started_at: Option<i64>,
+    ) -> Result<Vec<MeetingTodo>> {
+        let conn = self.todos_conn()?;
+        let mut st = conn.prepare(
+            "SELECT id, text, status, origin_meeting_id, origin_meeting_title,
+                    origin_started_at, origin_segment_id, origin_start_ms, origin_end_ms,
+                    completed_meeting_id, completed_segment_id, completed_start_ms
+             FROM meeting_todos
+             WHERE (?1 != 0 OR status = 'open') AND origin_started_at >= ?2
+             ORDER BY origin_started_at DESC, origin_start_ms ASC, id ASC",
+        )?;
+        let out = st
+            .query_map(
+                params![
+                    i32::from(include_done),
+                    since_started_at.unwrap_or(i64::MIN)
+                ],
+                |r| {
+                    let start_ms: i64 = r.get(7)?;
+                    Ok(MeetingTodo {
+                        id: r.get(0)?,
+                        text: r.get(1)?,
+                        status: TodoStatus::from_db(&r.get::<_, String>(2)?),
+                        origin: TodoMoment {
+                            meeting_id: r.get(3)?,
+                            meeting_title: r.get(4)?,
+                            meeting_started_at: r.get(5)?,
+                            segment_id: r.get(6)?,
+                            start_ms,
+                            end_ms: r.get(8)?,
+                            timestamp: format_timestamp_ms(start_ms),
+                        },
+                        completed_meeting_id: r.get(9)?,
+                        completed_segment_id: r.get(10)?,
+                        completed_start_ms: r.get(11)?,
+                    })
+                },
+            )?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(out)
+    }
+
+    pub fn set_status(&self, todo_id: i64, status: TodoStatus) -> Result<()> {
+        let conn = self.todos_conn()?;
+        if conn.execute(
+            "UPDATE meeting_todos SET status = ?1 WHERE id = ?2",
+            params![status.as_str(), todo_id],
+        )? == 0
+        {
+            return Err(anyhow!("meeting todo {todo_id} not found"));
+        }
+        Ok(())
+    }
+
+    pub fn resolve_moment(&self, moment: &TodoMoment) -> Result<bool> {
+        if !self.meetings_db_path.exists() {
+            return Ok(false);
+        }
+        let conn = Connection::open(&self.meetings_db_path)?;
+        Ok(conn
+            .query_row(
+                "SELECT s.id FROM meetings m JOIN meeting_segments s ON s.meeting_id = m.id
+                 WHERE m.id = ?1 AND s.id = ?2 AND s.start_ms = ?3 AND m.status != 'trashed'",
+                params![moment.meeting_id, moment.segment_id, moment.start_ms],
+                |r| r.get::<_, i64>(0),
+            )
+            .optional()?
+            .is_some())
+    }
+}
+
+// ponytail: ceiling = deterministic local SQLite + spoken cues (0 sockets); upgrade path = on-device LLM pass when precision <90%.
+pub fn run_todos_json(app_data_dir: &Path, include_done: bool) -> Result<String> {
+    let store = MeetingTodoStore::open(app_data_dir)?;
+    let _ = store.sync()?;
+    Ok(serde_json::to_string_pretty(
+        &store.list(include_done, None)?,
+    )?)
+}
