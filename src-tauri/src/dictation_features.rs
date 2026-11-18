@@ -350,26 +350,56 @@ fn collect_repo_symbols_rec(
     }
 }
 
+fn is_span_sep(c: char) -> bool {
+    c.is_whitespace() || matches!(c, '—' | '–')
+}
+
+fn split_symbol_spans(text: &str) -> (&str, Vec<(&str, &str)>) {
+    let trimmed = text.trim_start_matches(is_span_sep);
+    let leading = &text[..text.len() - trimmed.len()];
+    let mut rest = trimmed;
+    let mut spans = Vec::new();
+    while !rest.is_empty() {
+        let after_word = rest.trim_start_matches(|c| !is_span_sep(c));
+        let word = &rest[..rest.len() - after_word.len()];
+        let after_sep = after_word.trim_start_matches(is_span_sep);
+        let sep = &after_word[..after_word.len() - after_sep.len()];
+        spans.push((word, sep));
+        rest = after_sep;
+    }
+    (leading, spans)
+}
+
 pub fn apply_repo_symbols(text: &str, symbols: &[String], threshold: f64) -> String {
     if symbols.is_empty() {
         return text.to_string();
     }
-    let words: Vec<&str> = text.split_whitespace().collect();
+    let (leading, spans) = split_symbol_spans(text);
+    if spans.is_empty() {
+        return text.to_string();
+    }
     let sym_keys: Vec<(String, &String)> = symbols
         .iter()
         .map(|s| (norm_key(s), s))
         .filter(|(k, _)| !k.is_empty())
         .collect();
-    let mut joined = Vec::with_capacity(words.len());
+    let mut out = String::with_capacity(text.len());
+    out.push_str(leading);
     let mut i = 0;
-    while i < words.len() {
+    while i < spans.len() {
         let mut hit: Option<(usize, &String)> = None;
         for n in (1..=5).rev() {
-            if i + n <= words.len() {
-                if norm_key(words[i]).is_empty() || norm_key(words[i + n - 1]).is_empty() {
+            if i + n <= spans.len() {
+                if !spans[i..i + n - 1]
+                    .iter()
+                    .all(|(_, sep)| sep.chars().all(char::is_whitespace))
+                {
                     continue;
                 }
-                let cand: String = words[i..i + n].iter().map(|w| norm_key(w)).collect();
+                if norm_key(spans[i].0).is_empty() || norm_key(spans[i + n - 1].0).is_empty() {
+                    continue;
+                }
+                let cand: String = spans[i..i + n].iter().map(|(w, _)| norm_key(w)).collect();
                 if let Some((_, sym)) = sym_keys.iter().find(|(k, _)| *k == cand) {
                     hit = Some((n, *sym));
                     break;
@@ -378,10 +408,19 @@ pub fn apply_repo_symbols(text: &str, symbols: &[String], threshold: f64) -> Str
         }
         if hit.is_none() {
             for n in (1..=4).rev() {
-                if i + n <= words.len() {
-                    let first_k = norm_key(words[i]);
-                    let last_k = norm_key(words[i + n - 1]);
-                    let cand: String = words[i..i + n].iter().map(|w| norm_key(w)).collect();
+                if i + n <= spans.len() {
+                    if n == 1 && has_identifier_casing(spans[i].0) {
+                        continue;
+                    }
+                    if !spans[i..i + n - 1]
+                        .iter()
+                        .all(|(_, sep)| sep.chars().all(char::is_whitespace))
+                    {
+                        continue;
+                    }
+                    let first_k = norm_key(spans[i].0);
+                    let last_k = norm_key(spans[i + n - 1].0);
+                    let cand: String = spans[i..i + n].iter().map(|(w, _)| norm_key(w)).collect();
                     if cand.len() < 4 || first_k.len() < 2 || last_k.len() < 2 {
                         continue;
                     }
@@ -406,16 +445,18 @@ pub fn apply_repo_symbols(text: &str, symbols: &[String], threshold: f64) -> Str
             }
         }
         if let Some((n, sym)) = hit {
-            let (prefix, _) = split_punct(words[i]);
-            let (_, suffix) = split_punct(words[i + n - 1]);
-            joined.push(format!("{prefix}{sym}{suffix}"));
+            let (prefix, _) = split_punct(spans[i].0);
+            let (_, suffix) = split_punct(spans[i + n - 1].0);
+            let trailing_sep = spans[i + n - 1].1;
+            out.push_str(&format!("{prefix}{sym}{suffix}{trailing_sep}"));
             i += n;
         } else {
-            joined.push(words[i].to_string());
+            out.push_str(spans[i].0);
+            out.push_str(spans[i].1);
             i += 1;
         }
     }
-    joined.join(" ")
+    out
 }
 
 #[cfg(test)]
