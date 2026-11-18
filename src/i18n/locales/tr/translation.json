@@ -24,6 +24,7 @@
     "showAllModels": "Show all {{total}} models",
     "showFewerModels": "Show fewer models",
     "recommended": "Önerilen",
+    "measuredReason": "Fewest words wrong of {{compared}} models measured on our clip set: {{wrong}} per 100 words, {{speed}}× faster than real time, {{memory}} MB of memory.",
     "customModelDescription": "Resmi olarak desteklenmiyor",
     "modelCard": {
       "accuracy": "doğruluk",
