@@ -428,6 +428,7 @@ function App() {
       >
         <WhatsNewGate />
         {showMeetings && meetingsUi ? <meetingsUi.OfferPanel /> : null}
+        {meetingsUi && <meetingsUi.ConsentDialog />}
         {/* Main content area that takes remaining space */}
         <div className="flex-1 flex overflow-hidden">
           <Sidebar

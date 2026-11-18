@@ -585,6 +585,32 @@
         "label": "新機能を表示",
         "description": "Coco Voice のアップデート後にリリースノートを表示"
       }
+    },
+    "online": {
+      "eyebrow": "設定",
+      "title": "オンライン通信の内容",
+      "intro": "音声はこの Mac 上でテキストに変換されます。以下は、このバージョンの Coco Voice が接続し得る相手と、それぞれに送信される内容です。",
+      "leavesLabel": "この Mac から送信されるもの:",
+      "openHeading": "アプリの起動時毎回",
+      "githubName": "GitHub（Coco Voice リリース）",
+      "githubWhen": "アプリを開くたびに更新を確認します。停止するにはデバッグ設定（Cmd+Shift+D）で更新確認をオフにしてください。クリックしたリンクはブラウザで開きます。",
+      "githubLeaves": "リリース一覧のリクエスト、およびインストールする場合は更新ファイル。音声もテキストも送信されません。",
+      "updateChecksOn": "更新確認オン",
+      "updateChecksOff": "更新確認オフ",
+      "clickHeading": "クリックしたときのみ",
+      "modelFilesName": "Coco Voice モデルファイル",
+      "modelFilesWhen": "内蔵の音声モデルで「ダウンロード」をクリックしたとき。",
+      "modelFilesLeaves": "要求したモデルファイルの名前。音声もテキストも送信されません。",
+      "huggingFaceWhen": "カタログモデルで「ダウンロード」をクリックしたとき、またはライセンスをクリックしてブラウザで開くとき。",
+      "huggingFaceLeaves": "モデル名・バージョン・ファイル名、およびこの Mac に設定済みの場合は Hugging Face トークン。音声もテキストも送信されません。",
+      "cleanupHeading": "整形プロバイダを選択したときのみ",
+      "cloudWhen": "選択したクラウドプロバイダでテキスト整形を実行したとき。",
+      "cloudLeaves": "発話のテキスト、整形指示、および API キー。モデル一覧の取得時は API キーのみを送信します。",
+      "customName": "カスタム整形（Ollama）",
+      "customWhen": "プロバイダとしてカスタムを選択して整形を実行したとき。アドレスを変更しない限り、この Mac 上のプログラムと通信します。",
+      "customLeaves": "初期アドレスでは外部送信なし。発話のテキストと整形指示はこの Mac 上のプログラムに渡されます。",
+      "staysOnMac": "この Mac 内で完結",
+      "onDeviceNote": "オンデバイス整形（Apple Intelligence またはローカルモデル）はこれらのいずれにも接続しません。"
     }
   },
   "footer": {
@@ -703,6 +729,20 @@
     "clipboardDefault": "貼り付けのあと、音声入力したテキストはクリップボードに残るので、もう一度貼り付けできます。前にコピーしていた内容は置き換わります。設定 > 詳細設定 > クリップボードの処理 でオフにできます。"
   },
   "meetings": {
+    "consent": {
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
     "sidebar": "Meetings",
     "toggle": {
       "label": "Meetings",

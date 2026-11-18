@@ -585,6 +585,32 @@
         "label": "Показывать новинки",
         "description": "Показывать примечания к выпуску после обновлений Coco Voice"
       }
+    },
+    "online": {
+      "eyebrow": "Настройки",
+      "title": "Что выходит в сеть",
+      "intro": "Ваша речь преобразуется в текст на этом Mac. Ниже перечислены адреса, к которым может обращаться эта версия Coco Voice, и данные, которые получает каждый из них.",
+      "leavesLabel": "Уходит с вашего Mac:",
+      "openHeading": "При каждом запуске приложения",
+      "githubName": "GitHub (выпуски Coco Voice)",
+      "githubWhen": "При каждом открытии приложения для проверки обновлений. Чтобы отключить это, выключите проверку обновлений в настройках отладки (Cmd+Shift+D). Ссылки при нажатии открываются в браузере.",
+      "githubLeaves": "запрос списка выпусков и файл обновления, если вы его устанавливаете. Без речи и без текста.",
+      "updateChecksOn": "Проверка обновлений включена",
+      "updateChecksOff": "Проверка обновлений выключена",
+      "clickHeading": "Только по вашему нажатию",
+      "modelFilesName": "Файлы моделей Coco Voice",
+      "modelFilesWhen": "Когда вы нажимаете «Скачать» для встроенной речевой модели.",
+      "modelFilesLeaves": "имя запрошенного файла модели. Без речи и без текста.",
+      "huggingFaceWhen": "Когда вы нажимаете «Скачать» для модели из каталога или нажимаете на её лицензию, чтобы открыть в браузере.",
+      "huggingFaceLeaves": "имя модели, версия и имя файла, а также токен Hugging Face, если он уже задан на этом Mac. Без речи и без текста.",
+      "cleanupHeading": "Только при выборе провайдера постобработки",
+      "cloudWhen": "Когда очистка текста выполняется через выбранного вами облачного провайдера.",
+      "cloudLeaves": "текст сказанного, инструкции по очистке и ваш API-ключ. Запрос списка моделей отправляет только ваш API-ключ.",
+      "customName": "Свой провайдер (Ollama)",
+      "customWhen": "Когда очистка выполняется с выбранным вариантом «Свой». Обращается к программе на этом Mac, если вы не изменили адрес.",
+      "customLeaves": "ничего при исходном адресе. Текст сказанного и инструкции передаются программе на этом Mac.",
+      "staysOnMac": "Остаётся на этом Mac",
+      "onDeviceNote": "Обработка на устройстве (Apple Intelligence или локальная модель) не обращается ни к одному из этих адресов."
     }
   },
   "footer": {
@@ -703,6 +729,20 @@
     "clipboardDefault": "После вставки продиктованный текст остаётся в буфере обмена, чтобы его можно было вставить ещё раз. Он заменяет то, что вы копировали раньше. Это можно выключить в Настройки > Продвинутые > Обработка буфера обмена."
   },
   "meetings": {
+    "consent": {
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
     "sidebar": "Meetings",
     "toggle": {
       "label": "Meetings",

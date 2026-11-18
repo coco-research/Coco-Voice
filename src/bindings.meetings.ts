@@ -2,14 +2,6 @@
 
 /** user-defined commands **/
 
-export type MeetingOffer = {
-  bundleId: string;
-  app: string;
-  inCall: boolean;
-  body: string;
-  startsCapture: boolean;
-};
-
 export const commands = {
   async changeMeetingsEnabledSetting(
     enabled: boolean,
@@ -20,6 +12,50 @@ export const commands = {
         data: await TAURI_INVOKE("change_meetings_enabled_setting", {
           enabled,
         }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async openMeetingConsent(): Promise<Result<MeetingStatus, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("open_meeting_consent"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async confirmMeetingStart(): Promise<Result<MeetingStatus, MeetingRefusal>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("confirm_meeting_start"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async cancelMeetingConsent(): Promise<Result<MeetingStatus, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("cancel_meeting_consent"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async stopMeeting(): Promise<Result<MeetingStatus, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("stop_meeting"),
       };
     } catch (e) {
       if (e instanceof Error) throw e;
@@ -50,9 +86,23 @@ export const commands = {
   },
 };
 
+/** user-defined types **/
+
+export type MeetingOffer = {
+  bundleId: string;
+  app: string;
+  inCall: boolean;
+  body: string;
+  startsCapture: boolean;
+};
+export type MeetingRefusal = "already_recording";
+export type MeetingState = "idle" | "consent_open" | "recording" | "stopping";
+export type MeetingStatus = { state: MeetingState; elapsed_secs: number };
+
 /** tauri-specta globals **/
 
 import { invoke as TAURI_INVOKE } from "@tauri-apps/api/core";
 
 export type Result<T, E> =
-  { status: "ok"; data: T } | { status: "error"; error: E };
+  | { status: "ok"; data: T }
+  | { status: "error"; error: E };

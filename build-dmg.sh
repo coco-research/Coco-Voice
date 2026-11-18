@@ -8,7 +8,7 @@ echo "cargo: $(cargo --version 2>&1)"
 echo "bun:   $(bun --version 2>&1)"
 echo "date:  $(date)"
 echo "=== tauri build (dmg only, no updater artifacts) ==="
-bun run tauri build --bundles dmg --config '{"bundle":{"createUpdaterArtifacts":false}}' 2>&1
+VITE_MEETINGS=1 bun run tauri build --features meetings --config src-tauri/tauri.meetings.conf.json --bundles dmg --config '{"bundle":{"createUpdaterArtifacts":false}}' 2>&1
 echo "TAURI_EXIT=$?"
 echo "=== resulting DMG(s) ==="
 find src-tauri/target -name "*.dmg" 2>/dev/null

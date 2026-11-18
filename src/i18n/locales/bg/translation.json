@@ -585,6 +585,32 @@
         "label": "Показвай новостите",
         "description": "Показвай бележки към изданието след актуализации на Coco Voice"
       }
+    },
+    "online": {
+      "eyebrow": "Настройки",
+      "title": "Какво се свързва онлайн",
+      "intro": "Речта ви се превръща в текст на този Mac. Това са местата, с които тази версия на Coco Voice може да се свърже, и какво получава всяко от тях.",
+      "leavesLabel": "Напуска вашия Mac:",
+      "openHeading": "При всяко отваряне на приложението",
+      "githubName": "GitHub (издания на Coco Voice)",
+      "githubWhen": "При всяко отваряне на приложението за проверка за обновления. За да го спрете, изключете проверката за обновления в настройките за отстраняване на грешки (Cmd+Shift+D). Връзките се отварят в браузъра ви.",
+      "githubLeaves": "заявка за списъка с издания и файла с обновлението, ако инсталирате такова. Без реч и без текст.",
+      "updateChecksOn": "Проверката за обновления е включена",
+      "updateChecksOff": "Проверката за обновления е изключена",
+      "clickHeading": "Само когато щракнете",
+      "modelFilesName": "Файлове на модели на Coco Voice",
+      "modelFilesWhen": "Когато щракнете върху Изтегли за вграден говорен модел.",
+      "modelFilesLeaves": "името на поискания файл на модела. Без реч и без текст.",
+      "huggingFaceWhen": "Когато щракнете върху Изтегли за модел от каталога или върху лиценза му, за да го отворите в браузъра.",
+      "huggingFaceLeaves": "името на модела, версията и името на файла, плюс токен за Hugging Face, ако вече е зададен на този Mac. Без реч и без текст.",
+      "cleanupHeading": "Само когато изберете доставчик за обработка",
+      "cloudWhen": "Когато обработката работи с избрания от вас облачен доставчик.",
+      "cloudLeaves": "текста на казаното, инструкциите за обработка и вашия API ключ. Извличането на модели изпраща само API ключа.",
+      "customName": "Персонализирана обработка (Ollama)",
+      "customWhen": "Когато обработката работи с Персонализиран доставчик. Свързва се с програма на този Mac, освен ако не промените адреса.",
+      "customLeaves": "нищо при началния адрес. Текстът и инструкциите за обработка отиват към програмата на този Mac.",
+      "staysOnMac": "Остава на този Mac",
+      "onDeviceNote": "Обработката на устройството (Apple Intelligence или локалният модел) не се свързва с никое от тях."
     }
   },
   "footer": {
@@ -703,6 +729,20 @@
     "clipboardDefault": "След поставяне продиктуваният текст остава в клипборда, за да го поставите отново. Той замества това, което сте копирали преди. Можете да го изключите от Настройки > Разширени > Работа с клипборда."
   },
   "meetings": {
+    "consent": {
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
     "sidebar": "Meetings",
     "toggle": {
       "label": "Meetings",
