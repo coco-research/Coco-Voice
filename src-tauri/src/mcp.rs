@@ -234,3 +234,158 @@ fn rpc_err(id: Value, code: i64, message: &str) -> Value {
     json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } })
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mcp_store::recent_reads;
+    use rusqlite::Connection;
+    use std::fs;
+    use std::io::Cursor;
+
+    fn seed_stores(dir: &Path) {
+        fs::create_dir_all(dir.join("meetings/1")).unwrap();
+        fs::write(dir.join("meetings/1/mic.wav"), b"RIFF-audio-secret").unwrap();
+        let mc = Connection::open(dir.join("meetings/meetings.db")).unwrap();
+        mc.execute_batch(
+            "CREATE TABLE meetings (id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, ended_at INTEGER, title TEXT NOT NULL, status TEXT NOT NULL, model_id TEXT NOT NULL, saved INTEGER NOT NULL DEFAULT 0);
+             CREATE TABLE meeting_segments (id INTEGER PRIMARY KEY, meeting_id INTEGER NOT NULL, start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL, channel TEXT NOT NULL, text TEXT NOT NULL);
+             CREATE TABLE meeting_notes (id INTEGER PRIMARY KEY, meeting_id INTEGER NOT NULL, kind TEXT NOT NULL, text TEXT NOT NULL, owner TEXT, citations TEXT NOT NULL, position INTEGER NOT NULL);
+             INSERT INTO meetings VALUES (1, 1700000100, 1700001900, 'Product sync', 'notes_ready', 'whisper-small', 0);
+             INSERT INTO meeting_segments VALUES (10, 1, 0, 4000, 'me', 'Ship the homepage on Thursday');
+             INSERT INTO meeting_notes VALUES (1, 1, 'decision', 'Ship the homepage on Thursday', 'Me', '[10]', 0);
+             INSERT INTO meetings VALUES (2, 1700003000, NULL, 'Live design review', 'recording', 'whisper-small', 0);
+             INSERT INTO meeting_segments VALUES (20, 2, 0, 3000, 'others', 'First live line');",
+        )
+        .unwrap();
+        let hc = Connection::open(dir.join("history.db")).unwrap();
+        hc.execute_batch(
+            "CREATE TABLE transcription_history (id INTEGER PRIMARY KEY AUTOINCREMENT, file_name TEXT NOT NULL, timestamp INTEGER NOT NULL, saved BOOLEAN NOT NULL DEFAULT 0, title TEXT NOT NULL, transcription_text TEXT NOT NULL, post_processed_text TEXT);
+             INSERT INTO transcription_history VALUES (1, 'take-secret.wav', 1700002500, 0, 'Quick take', 'raw words', 'Clean dictated words');",
+        )
+        .unwrap();
+    }
+
+    fn call(dir: &Path, id: i64, method: &str, params: Value) -> Value {
+        let mut client = String::from("Local Editor");
+        let req =
+            json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }).to_string();
+        serde_json::from_str(&handle_json_line(&req, dir, &mut client).unwrap()).unwrap()
+    }
+
+    fn parse_lines(out: Vec<u8>) -> Vec<Value> {
+        let s = String::from_utf8(out).unwrap();
+        s.lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn mcp_client_enforces_off_by_default_no_audio_live_deltas_past_notes_and_revocation() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        seed_stores(p);
+        let tc = |t: &str, a: Value| call(p, 9, "tools/call", json!({"name": t, "arguments": a}));
+        let is_err = |t: &str, a: Value| tc(t, a)["result"]["isError"] == json!(true);
+        let listed = call(p, 1, "tools/list", json!({}));
+        let names: Vec<&str> = listed["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            names.join(","),
+            "live_meeting_transcript,list_meetings,get_meeting,dictation_history,custom_words"
+        );
+        assert!(names
+            .iter()
+            .all(|n| !n.contains("audio") && !n.contains("wav")));
+        let (prod, _) = include_str!("mcp.rs").split_once("#[cfg(test)]").unwrap();
+        assert!(["TcpListener", "UdpSocket", "reqwest"]
+            .iter()
+            .all(|k| !prod.contains(k)));
+        for tool in &names {
+            assert!(is_err(tool, json!({"meeting_id": 1})), "{tool}");
+        }
+        assert!(recent_reads(p).is_empty());
+
+        let sf = p.join("settings_store.json");
+        fs::write(
+            &sf,
+            r#"{"settings":{"agent_access_enabled":true,"custom_words":["CocoVoice"]}}"#,
+        )
+        .unwrap();
+        let stream = [
+            json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"Local Editor"}}}),
+            json!({"jsonrpc":"2.0","method":"notifications/initialized"}),
+            json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"live_meeting_transcript","arguments":{}}}),
+            json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_meeting","arguments":{"meeting_id":1}}}),
+            json!({"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"dictation_history","arguments":{}}}),
+            json!({"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"custom_words","arguments":{}}}),
+        ]
+        .iter()
+        .map(Value::to_string)
+        .collect::<Vec<_>>()
+        .join("\n");
+        let mut out = Vec::new();
+        serve_stdio(Cursor::new(stream), &mut out, p).unwrap();
+        let replies = parse_lines(out);
+        assert_eq!(replies.len(), 5);
+        let txt = |v: &Value| {
+            v["result"]["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .to_string()
+        };
+
+        let live1: Value = serde_json::from_str(&txt(&replies[1])).unwrap();
+        let after = live1["next_after_segment_id"].as_i64().unwrap();
+        let ins =
+            "INSERT INTO meeting_segments VALUES (21, 2, 3000, 6000, 'me', 'Second live line')";
+        Connection::open(p.join("meetings/meetings.db"))
+            .unwrap()
+            .execute(ins, [])
+            .unwrap();
+        let delta = tc(
+            "live_meeting_transcript",
+            json!({"after_segment_id": after}),
+        );
+        let live2: Value = serde_json::from_str(&txt(&delta)).unwrap();
+        assert_eq!(live2["segments"].as_array().unwrap().len(), 1);
+        assert_eq!(live2["segments"][0]["text"], json!("Second live line"));
+
+        let past_txt = txt(&replies[2]);
+        assert!(!past_txt.contains("mic.wav") && !past_txt.contains("RIFF"));
+        let past: Value = serde_json::from_str(&past_txt).unwrap();
+        assert_eq!(
+            past["notes"][0]["text"],
+            json!("Ship the homepage on Thursday")
+        );
+        let dict_txt = txt(&replies[3]);
+        assert!(dict_txt.contains("Clean dictated words") && !dict_txt.contains("take-secret.wav"));
+        assert!(txt(&replies[4]).contains("CocoVoice"));
+        assert!(is_err("get_meeting", json!({"meeting_id": 2})));
+
+        fs::write(&sf, r#"{"settings":{"agent_access_enabled":false}}"#).unwrap();
+        assert!(is_err("list_meetings", json!({})));
+    }
+
+    #[test]
+    fn oversized_stdio_line_returns_minus_32600_drains_and_serves_next_request() {
+        let dir = tempfile::tempdir().unwrap();
+        let big = format!(
+            "{{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"ping\",\"pad\":\"{}\"}}\n{{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"ping\"}}\n",
+            "x".repeat(70_000)
+        );
+        let mut out = Vec::new();
+        serve_stdio(Cursor::new(big), &mut out, dir.path()).unwrap();
+        let rows = parse_lines(out);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["error"]["code"], json!(-32600));
+        assert_eq!(
+            (&rows[1]["id"], &rows[1]["result"]),
+            (&json!(8), &json!({}))
+        );
+        assert_eq!(MAX_TEXT_BYTES, 65_536);
+    }
+}
