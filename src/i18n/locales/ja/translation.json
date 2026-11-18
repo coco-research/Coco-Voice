@@ -50,6 +50,7 @@
     "showAllModels": "すべての{{total}}個のモデルを表示",
     "showFewerModels": "表示を減らす",
     "recommended": "おすすめ",
+    "measuredReason": "Fewest words wrong of {{compared}} models measured on our clip set: {{wrong}} per 100 words, {{speed}}× faster than real time, {{memory}} MB of memory.",
     "customModelDescription": "公式サポート対象外",
     "modelCard": {
       "accuracy": "精度",
