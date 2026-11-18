@@ -248,9 +248,7 @@ test("meetings_plist_has_exact_calendar_usage_strings", () => {
   expect(plistString(plist, "NSCalendarsFullAccessUsageDescription")).toBe(
     calendarUsage,
   );
-  expect(plistString(plist, "NSCalendarsUsageDescription")).toBe(
-    calendarUsage,
-  );
+  expect(plistString(plist, "NSCalendarsUsageDescription")).toBe(calendarUsage);
 });
 
 test("default_info_plist_has_no_calendar_keys", () => {
