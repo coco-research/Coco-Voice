@@ -20,6 +20,8 @@ pub mod meeting_ask;
 #[cfg(feature = "meetings")]
 pub mod meeting_ask_index;
 #[cfg(feature = "meetings")]
+mod meeting_controller;
+#[cfg(feature = "meetings")]
 mod meeting_notes;
 #[cfg(feature = "meetings")]
 mod meeting_notes_merge;
@@ -217,6 +219,8 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     app_handle.manage(transcription_manager.clone());
     app_handle.manage(history_manager.clone());
     app_handle.manage(tray::CurrentTrayIconState::new());
+    #[cfg(feature = "meetings")]
+    app_handle.manage(Arc::new(meeting_controller::MeetingController::default()));
 
     // Note: Shortcuts are NOT initialized here.
     // The frontend is responsible for calling the `initialize_shortcuts` command
@@ -563,7 +567,13 @@ fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
 fn meetings_command_names() -> &'static [&'static str] {
     #[cfg(feature = "meetings")]
     {
-        &["change_meetings_enabled_setting"]
+        &[
+            "change_meetings_enabled_setting",
+            "open_meeting_consent",
+            "confirm_meeting_start",
+            "cancel_meeting_consent",
+            "stop_meeting",
+        ]
     }
     #[cfg(not(feature = "meetings"))]
     {
@@ -574,7 +584,14 @@ fn meetings_command_names() -> &'static [&'static str] {
 #[cfg(feature = "meetings")]
 macro_rules! collect_app_commands {
     ($($($seg:ident)::+),* $(,)?) => {
-        collect_commands![$($($seg)::+,)* shortcut::change_meetings_enabled_setting]
+        collect_commands![
+            $($($seg)::+,)*
+            shortcut::change_meetings_enabled_setting,
+            meeting_controller::open_meeting_consent,
+            meeting_controller::confirm_meeting_start,
+            meeting_controller::cancel_meeting_consent,
+            meeting_controller::stop_meeting
+        ]
     };
 }
 
