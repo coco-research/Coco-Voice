@@ -76,6 +76,50 @@ export const AboutSettings: React.FC = () => {
             {t("settings.about.acknowledgments.ggml.details")}
           </div>
         </SettingContainer>
+        {[
+          {
+            id: "wespeaker",
+            title: "WeSpeaker (wespeaker_en_voxceleb_resnet34.onnx)",
+            license: "CC-BY-4.0",
+            authors:
+              "Hongji Wang, Chengdong Liang, Binbin Zhang, Zhengyang Chen, Yanmin Qian, Kong Aik Lee, and WeSpeaker contributors",
+            url: "https://github.com/wenet-e2e/wespeaker",
+            details: t(
+              "settings.about.acknowledgments.wespeakerDetails",
+              "Speaker embedding model for per-meeting grouping (https://github.com/wenet-e2e/wespeaker).",
+            ),
+          },
+          {
+            id: "pyannote",
+            title: "pyannote-segmentation-3.0",
+            license: "MIT",
+            authors: "Hervé Bredin and pyannote.audio contributors",
+            url: "https://huggingface.co/pyannote/segmentation-3.0",
+            details: t(
+              "settings.about.acknowledgments.pyannoteDetails",
+              "On-device speaker turn segmentation model (https://huggingface.co/pyannote/segmentation-3.0).",
+            ),
+          },
+        ].map((credit) => (
+          <SettingContainer
+            key={credit.id}
+            title={`${credit.title} (${credit.license})`}
+            description={credit.authors}
+            grouped={true}
+            layout="stacked"
+          >
+            <div className="text-sm text-mid-gray flex items-center justify-between gap-3">
+              <span>{credit.details}</span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => openUrl(credit.url)}
+              >
+                {credit.license}
+              </Button>
+            </div>
+          </SettingContainer>
+        ))}
       </SettingsGroup>
     </div>
   );
