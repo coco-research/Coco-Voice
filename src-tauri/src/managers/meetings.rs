@@ -38,7 +38,7 @@ pub(crate) fn test_lock() -> std::sync::MutexGuard<'static, ()> {
 
 use crate::audio_toolkit::audio::AppendWav;
 
-/// Two migrations. `rusqlite_migration` stores them as `user_version` 2.
+/// Three migrations. `rusqlite_migration` stores them as `user_version` 3.
 /// A newer meetings.db is refused (`DatabaseTooFarAhead`); dictation is a
 /// different file and is unaffected. The first public meetings binary has to
 /// carry every migration already on disk; a later meetings migration takes the
@@ -81,6 +81,15 @@ static MIGRATIONS: &[M] = &[
             text TEXT NOT NULL
         );
         CREATE INDEX meeting_notepad_meeting ON meeting_notepad(meeting_id, at_ms);",
+    ),
+    M::up(
+        "ALTER TABLE meeting_segments ADD COLUMN speaker_label TEXT NOT NULL DEFAULT '';
+        CREATE TABLE IF NOT EXISTS meeting_speaker_names (
+            meeting_id INTEGER NOT NULL,
+            speaker_label TEXT NOT NULL,
+            custom_name TEXT NOT NULL,
+            PRIMARY KEY (meeting_id, speaker_label)
+        );",
     ),
 ];
 
@@ -480,7 +489,7 @@ impl MeetingsStore {
         Ok(())
     }
 
-    fn connection(&self) -> Result<Connection> {
+    pub(crate) fn connection(&self) -> Result<Connection> {
         let conn = Connection::open(&self.db_path)?;
         conn.busy_timeout(Duration::from_secs(1))?;
         Ok(conn)
@@ -660,7 +669,7 @@ mod tests {
         let meetings_version: i32 = meetings
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(meetings_version, 2);
+        assert_eq!(meetings_version, 3);
         let mode: String = meetings
             .pragma_query_value(None, "journal_mode", |row| row.get(0))
             .unwrap();
@@ -828,9 +837,45 @@ mod tests {
         let version: i32 = conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 2);
+        assert_eq!(version, 3);
         let row = store.meeting(1).unwrap();
         assert_eq!(row.title, "Old");
+    }
+
+    #[test]
+    fn v2_meetings_db_upgrades_cleanly_to_v3_speaker_schema() {
+        let dir = tempfile::tempdir().unwrap();
+        let meetings_dir = dir.path().join("meetings");
+        fs::create_dir_all(&meetings_dir).unwrap();
+        {
+            let mut conn = Connection::open(meetings_dir.join("meetings.db")).unwrap();
+            Migrations::new(MIGRATIONS[..2].to_vec())
+                .to_latest(&mut conn)
+                .unwrap();
+            conn.execute(
+                "INSERT INTO meetings (id, started_at, ended_at, title, status, model_id, saved) VALUES (1, 1700000000, 1700000600, 'V2', 'transcript_ready', 'parakeet', 0)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO meeting_segments (id, meeting_id, start_ms, end_ms, channel, text) VALUES (10, 1, 0, 2000, 'Others', 'Hello from v2')",
+                [],
+            )
+            .unwrap();
+        }
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let conn = store.connection().unwrap();
+        let ver: i32 = conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        let (lbl, txt): (String, String) = conn
+            .query_row(
+                "SELECT speaker_label, text FROM meeting_segments WHERE id = 10",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((ver, lbl.as_str(), txt.as_str()), (3, "", "Hello from v2"));
     }
 
     fn audio_dir(app_dir: &Path, id: i64) -> PathBuf {
@@ -989,7 +1034,7 @@ mod tests {
         let path = meetings_dir.join("meetings.db");
         {
             let conn = Connection::open(&path).unwrap();
-            conn.pragma_update(None, "user_version", 3).unwrap();
+            conn.pragma_update(None, "user_version", 4).unwrap();
         }
 
         let result = MeetingsStore::open(dir.path());
