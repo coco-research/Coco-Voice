@@ -16,6 +16,8 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
+use crate::managers::model::ModelInfo;
+
 /// The only clip set whose runs count. Runs on any other set are ignored.
 pub const CLIP_SET: &str = "wer-dev-40";
 
@@ -85,6 +87,15 @@ pub fn measured_best(runs: &[MeasuredRun]) -> HashMap<String, MeasuredReason> {
             models_compared: compared,
         },
     )])
+}
+
+/// Set `measured_best` on the speech models in `models` that won in `runs`, and
+/// clear it on every other one, so only a measured winner can carry the tag.
+pub fn tag_measured_best(models: &mut [ModelInfo], runs: &[MeasuredRun]) {
+    let best = measured_best(runs);
+    for model in models.iter_mut() {
+        model.measured_best = best.get(&model.id).cloned();
+    }
 }
 
 /// A run with all three measurements present and sensible.
@@ -233,5 +244,63 @@ mod tests {
         ]);
         assert!(best.contains_key("b"));
         assert!(!best.contains_key("a"));
+    }
+
+    fn speech_infos(n: usize) -> Vec<ModelInfo> {
+        crate::catalog::CATALOG
+            .iter()
+            .filter(|d| d.engine_type.is_speech())
+            .take(n)
+            .map(|d| d.to_model_info(&Default::default()))
+            .collect()
+    }
+
+    #[test]
+    fn only_the_measured_winner_in_the_model_list_is_tagged() {
+        let mut models = speech_infos(4);
+        assert_eq!(models.len(), 4, "catalog has at least four speech models");
+        for m in models.iter_mut() {
+            // A catalog flag or a stale tag must not survive without a measurement.
+            m.is_recommended = true;
+            m.measured_best = Some(MeasuredReason {
+                clip_set: CLIP_SET.into(),
+                words_wrong_per_100: 0.0,
+                speed_x_realtime: 1.0,
+                peak_memory_mb: 1,
+                models_compared: 2,
+            });
+        }
+        let runs = [
+            run(&models[0].id, 6.0, 20.0, 900.0),
+            run(&models[1].id, 4.5, 8.0, 1500.0),
+        ];
+        tag_measured_best(&mut models, &runs);
+        assert!(models[0].measured_best.is_none(), "beaten");
+        assert_eq!(
+            models[1]
+                .measured_best
+                .as_ref()
+                .unwrap()
+                .words_wrong_per_100,
+            4.5
+        );
+        assert!(models[2].measured_best.is_none(), "untested");
+        assert!(models[3].measured_best.is_none(), "untested");
+    }
+
+    #[test]
+    fn bundled_records_only_name_catalog_speech_models() {
+        let speech: std::collections::HashSet<String> = crate::catalog::CATALOG
+            .iter()
+            .filter(|d| d.engine_type.is_speech())
+            .map(|d| d.id.clone())
+            .collect();
+        for r in BUNDLED_RUNS.iter() {
+            assert!(
+                speech.contains(&r.model_id),
+                "{} is not a catalog speech model",
+                r.model_id
+            );
+        }
     }
 }
