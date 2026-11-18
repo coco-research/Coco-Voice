@@ -23,6 +23,11 @@ import { useSettings } from "./hooks/useSettings";
 import { useSettingsStore } from "./stores/settingsStore";
 import { commands, events } from "@/bindings";
 import { getLanguageDirection, initializeRTL } from "@/lib/utils/rtl";
+import {
+  runPermissionCheck,
+  windowsMicrophoneAccess,
+  type PermissionCheckResult,
+} from "@/lib/utils/permissions";
 
 type OnboardingStep = "accessibility" | "model" | "done";
 
@@ -332,39 +337,27 @@ function App() {
         // Returning user - check if they need to grant permissions first
         setIsReturningUser(true);
 
+        // A check that can't complete counts as not granted (runPermissionCheck).
+        const checks: Promise<PermissionCheckResult>[] = [];
         if (currentPlatform === "macos") {
-          try {
-            const [hasAccessibility, hasMicrophone] = await Promise.all([
-              checkAccessibilityPermission(),
-              checkMicrophonePermission(),
-            ]);
-            if (!hasAccessibility || !hasMicrophone) {
-              await revealMainWindowForPermissions();
-              setOnboardingStep("accessibility");
-              return;
-            }
-          } catch (e) {
-            console.warn("Failed to check macOS permissions:", e);
-            // If we can't check, proceed to main app and let them fix it there
-          }
+          checks.push(
+            runPermissionCheck(checkAccessibilityPermission),
+            runPermissionCheck(checkMicrophonePermission),
+          );
+        } else if (currentPlatform === "windows") {
+          checks.push(
+            runPermissionCheck(async () =>
+              windowsMicrophoneAccess(
+                await commands.getWindowsMicrophonePermissionStatus(),
+              ),
+            ),
+          );
         }
-
-        if (currentPlatform === "windows") {
-          try {
-            const microphoneStatus =
-              await commands.getWindowsMicrophonePermissionStatus();
-            if (
-              microphoneStatus.supported &&
-              microphoneStatus.overall_access === "denied"
-            ) {
-              await revealMainWindowForPermissions();
-              setOnboardingStep("accessibility");
-              return;
-            }
-          } catch (e) {
-            console.warn("Failed to check Windows microphone permissions:", e);
-            // If we can't check, proceed to main app and let them fix it there
-          }
+        const results = await Promise.all(checks);
+        if (results.some((result) => result !== "granted")) {
+          await revealMainWindowForPermissions();
+          setOnboardingStep("accessibility");
+          return;
         }
 
         setOnboardingStep("done");

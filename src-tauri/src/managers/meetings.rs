@@ -7,24 +7,45 @@
 
 #![cfg(feature = "meetings")]
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use log::info;
 use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::AppHandle;
 
+/// One meeting at a time. Mute and the meeting controller read this.
+static MEETING_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+/// Whether a meeting is recording. Dictation mute checks this and returns.
+pub fn meeting_is_active() -> bool {
+    MEETING_ACTIVE.load(Ordering::Acquire)
+}
+
+pub fn set_meeting_active(active: bool) {
+    MEETING_ACTIVE.store(active, Ordering::Release);
+}
+
+#[cfg(test)]
+pub(crate) fn test_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock().unwrap_or_else(|err| err.into_inner())
+}
+
 use crate::audio_toolkit::audio::AppendWav;
 
-/// One migration. `rusqlite_migration` stores it as `user_version` 1.
+/// Two migrations. `rusqlite_migration` stores them as `user_version` 2.
 /// A newer meetings.db is refused (`DatabaseTooFarAhead`); dictation is a
 /// different file and is unaffected. The first public meetings binary has to
-/// carry every migration already on disk.
-static MIGRATIONS: &[M] = &[M::up(
-    "CREATE TABLE meetings (
+/// carry every migration already on disk; a later meetings migration takes the
+/// next number.
+static MIGRATIONS: &[M] = &[
+    M::up(
+        "CREATE TABLE meetings (
         id INTEGER PRIMARY KEY,
         started_at INTEGER NOT NULL,
         ended_at INTEGER,
@@ -41,7 +62,37 @@ static MIGRATIONS: &[M] = &[M::up(
         channel TEXT NOT NULL,
         text TEXT NOT NULL
     );",
-)];
+    ),
+    M::up(
+        "CREATE TABLE meeting_notes (
+            id INTEGER PRIMARY KEY,
+            meeting_id INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            text TEXT NOT NULL,
+            owner TEXT,
+            citations TEXT NOT NULL,
+            position INTEGER NOT NULL
+        );
+        CREATE INDEX meeting_notes_meeting ON meeting_notes(meeting_id, position);
+        CREATE TABLE meeting_notepad (
+            id INTEGER PRIMARY KEY,
+            meeting_id INTEGER NOT NULL,
+            at_ms INTEGER NOT NULL,
+            text TEXT NOT NULL
+        );
+        CREATE INDEX meeting_notepad_meeting ON meeting_notepad(meeting_id, at_ms);",
+    ),
+];
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MeetingSegment {
+    pub id: i64,
+    pub meeting_id: i64,
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub channel: String,
+    pub text: String,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Meeting {
@@ -52,6 +103,59 @@ pub struct Meeting {
     pub status: String,
     pub model_id: String,
     pub saved: i64,
+}
+
+/// One cited note line of a meeting.
+///
+/// `kind` is the note kind, `text` the line itself, `owner` an optional
+/// person the note is attributed to, and `citations` the segment ids the
+/// line is grounded in.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StoredNote {
+    pub kind: String,
+    pub text: String,
+    pub owner: Option<String>,
+    pub citations: Vec<i64>,
+}
+
+/// Map one `meetings` row; shared by every `Meeting` query.
+fn meeting_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Meeting> {
+    Ok(Meeting {
+        id: row.get(0)?,
+        started_at: row.get(1)?,
+        ended_at: row.get(2)?,
+        title: row.get(3)?,
+        status: row.get(4)?,
+        model_id: row.get(5)?,
+        saved: row.get(6)?,
+    })
+}
+
+/// Escape `%`, `_` and `\` so the query is a plain substring, not a pattern.
+fn like_pattern(query: &str) -> String {
+    let mut out = String::with_capacity(query.len() + 2);
+    out.push('%');
+    for c in query.chars() {
+        if c == '%' || c == '_' || c == '\\' {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out.push('%');
+    out
+}
+
+/// What [`MeetingsStore::delete_meeting`] managed to remove.
+///
+/// `Deleted` means every row and the meeting's audio directory are gone.
+/// `DeletedAudioLeft` means the rows are gone but `dir` is still on disk, with
+/// `error` saying why. The row deletion is final either way, so the caller must
+/// tell the user about the leftover audio instead of retrying blindly.
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, PartialEq, Eq)]
+pub enum DeleteOutcome {
+    Deleted,
+    DeletedAudioLeft { dir: PathBuf, error: String },
 }
 
 pub struct MeetingsStore {
@@ -93,25 +197,257 @@ impl MeetingsStore {
         Ok(conn.last_insert_rowid())
     }
 
+    pub fn meeting_count(&self) -> Result<i64> {
+        let conn = self.connection()?;
+        Ok(conn.query_row("SELECT COUNT(*) FROM meetings", [], |row| row.get(0))?)
+    }
+
+    /// One finished chunk, one transaction. Times are milliseconds from the
+    /// meeting start. `channel` is `me` or `others`.
+    pub fn insert_segment(
+        &self,
+        meeting_id: i64,
+        start_ms: i64,
+        end_ms: i64,
+        channel: &str,
+        text: &str,
+    ) -> Result<i64> {
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        tx.execute(
+            "INSERT INTO meeting_segments (meeting_id, start_ms, end_ms, channel, text)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![meeting_id, start_ms, end_ms, channel, text],
+        )?;
+        let id = tx.last_insert_rowid();
+        tx.commit()?;
+        Ok(id)
+    }
+
+    pub fn segments(&self, meeting_id: i64) -> Result<Vec<MeetingSegment>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, meeting_id, start_ms, end_ms, channel, text
+             FROM meeting_segments
+             WHERE meeting_id = ?1
+             ORDER BY id",
+        )?;
+        let rows = stmt.query_map(params![meeting_id], |row| {
+            Ok(MeetingSegment {
+                id: row.get(0)?,
+                meeting_id: row.get(1)?,
+                start_ms: row.get(2)?,
+                end_ms: row.get(3)?,
+                channel: row.get(4)?,
+                text: row.get(5)?,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|err| anyhow!(err))
+    }
+
     pub fn meeting(&self, id: i64) -> Result<Meeting> {
         let conn = self.connection()?;
         conn.query_row(
             "SELECT id, started_at, ended_at, title, status, model_id, saved
              FROM meetings WHERE id = ?1",
             params![id],
-            |row| {
-                Ok(Meeting {
-                    id: row.get(0)?,
-                    started_at: row.get(1)?,
-                    ended_at: row.get(2)?,
-                    title: row.get(3)?,
-                    status: row.get(4)?,
-                    model_id: row.get(5)?,
-                    saved: row.get(6)?,
-                })
-            },
+            meeting_from_row,
         )
         .map_err(|e| anyhow!("meeting {id}: {e}"))
+    }
+
+    /// Every meeting, newest first.
+    pub fn list_meetings(&self) -> Result<Vec<Meeting>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, started_at, ended_at, title, status, model_id, saved
+             FROM meetings ORDER BY started_at DESC, id DESC",
+        )?;
+        let rows = stmt.query_map([], meeting_from_row)?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
+    }
+
+    /// Meetings with `query` in the title, any segment, or any note text or owner; blank lists all.
+    pub fn search_meetings(&self, query: &str) -> Result<Vec<Meeting>> {
+        let trimmed = query.trim();
+        if trimmed.is_empty() {
+            return self.list_meetings();
+        }
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT m.id, m.started_at, m.ended_at, m.title, m.status, m.model_id, m.saved
+             FROM meetings m
+             WHERE m.title LIKE ?1 ESCAPE '\\'
+                OR EXISTS (SELECT 1 FROM meeting_segments s
+                           WHERE s.meeting_id = m.id AND s.text LIKE ?1 ESCAPE '\\')
+                OR EXISTS (SELECT 1 FROM meeting_notes n
+                           WHERE n.meeting_id = m.id
+                             AND (n.text LIKE ?1 ESCAPE '\\'
+                                  OR n.owner LIKE ?1 ESCAPE '\\'))
+             ORDER BY m.started_at DESC, m.id DESC",
+        )?;
+        let rows = stmt.query_map(params![like_pattern(trimmed)], meeting_from_row)?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
+    }
+
+    /// Replace every note of `meeting_id` with `notes`, in one transaction.
+    ///
+    /// `position` is the index of the note in `notes`. `citations` is stored
+    /// as a JSON array of segment ids. On error nothing is written.
+    pub fn save_notes(&self, meeting_id: i64, notes: &[StoredNote]) -> Result<()> {
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        tx.execute(
+            "DELETE FROM meeting_notes WHERE meeting_id = ?1",
+            params![meeting_id],
+        )?;
+        {
+            let mut stmt = tx.prepare(
+                "INSERT INTO meeting_notes
+                 (meeting_id, kind, text, owner, citations, position)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            )?;
+            for (position, note) in notes.iter().enumerate() {
+                let citations = serde_json::to_string(&note.citations)?;
+                stmt.execute(params![
+                    meeting_id,
+                    &note.kind,
+                    &note.text,
+                    note.owner.as_deref(),
+                    citations,
+                    position as i64
+                ])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Every note of `meeting_id`, ordered by `position` ascending.
+    pub fn notes(&self, meeting_id: i64) -> Result<Vec<StoredNote>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT kind, text, owner, citations FROM meeting_notes
+             WHERE meeting_id = ?1 ORDER BY position",
+        )?;
+        let rows = stmt.query_map(params![meeting_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+                row.get::<_, String>(3)?,
+            ))
+        })?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (kind, text, owner, citations) = row?;
+            let citations = serde_json::from_str(&citations)
+                .with_context(|| format!("meeting {meeting_id}: invalid citations JSON"))?;
+            out.push(StoredNote {
+                kind,
+                text,
+                owner,
+                citations,
+            });
+        }
+        Ok(out)
+    }
+
+    /// Append one notepad point at `at_ms` and return the new row id.
+    pub fn add_notepad_point(&self, meeting_id: i64, at_ms: i64, text: &str) -> Result<i64> {
+        let conn = self.connection()?;
+        conn.execute(
+            "INSERT INTO meeting_notepad (meeting_id, at_ms, text) VALUES (?1, ?2, ?3)",
+            params![meeting_id, at_ms, text],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    /// Notepad points of `meeting_id` as `(at_ms, text)`, ordered by `at_ms`
+    /// ascending and then by row id ascending.
+    pub fn notepad(&self, meeting_id: i64) -> Result<Vec<(i64, String)>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT at_ms, text FROM meeting_notepad
+             WHERE meeting_id = ?1 ORDER BY at_ms, id",
+        )?;
+        let rows = stmt.query_map(params![meeting_id], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
+    }
+
+    /// Delete `id` completely: rows first in one transaction, files after the commit.
+    ///
+    /// The transaction removes the meeting's segments, notes, notepad points and
+    /// the meeting row. A missing meeting row rolls back and returns an error, so
+    /// nothing changes. There is no foreign key, so every table is cleared here
+    /// by hand.
+    ///
+    /// The audio directory `{meetings dir}/<id>` is removed with
+    /// `fs::remove_dir_all` only after the commit: a file error cannot be rolled
+    /// back, and rows that disagree with the files on disk are worse than audio
+    /// that lingers while the rows are already gone. A missing directory counts as
+    /// success. Any other file failure keeps the committed deletion, logs it, and
+    /// returns [`DeleteOutcome::DeletedAudioLeft`] so the caller can report it;
+    /// [`DeleteOutcome::Deleted`] is never returned while files remain. The only
+    /// path touched is the directory named exactly by `id` inside the meetings
+    /// dir; `meetings.db` and other meetings' dirs are never touched.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn delete_meeting(&self, id: i64) -> Result<DeleteOutcome> {
+        let meetings_dir = self
+            .db_path
+            .parent()
+            .ok_or_else(|| anyhow!("no meetings dir for {}", self.db_path.display()))?;
+        let name = id.to_string();
+        let dir = meetings_dir.join(&name);
+        if dir.file_name().and_then(|n| n.to_str()) != Some(name.as_str()) {
+            return Err(anyhow!("refusing to delete {}", dir.display()));
+        }
+
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        tx.execute(
+            "DELETE FROM meeting_segments WHERE meeting_id = ?1",
+            params![id],
+        )?;
+        tx.execute(
+            "DELETE FROM meeting_notes WHERE meeting_id = ?1",
+            params![id],
+        )?;
+        tx.execute(
+            "DELETE FROM meeting_notepad WHERE meeting_id = ?1",
+            params![id],
+        )?;
+        if tx.execute("DELETE FROM meetings WHERE id = ?1", params![id])? == 0 {
+            tx.rollback()?;
+            return Err(anyhow!("meeting {id} not found"));
+        }
+        tx.commit()?;
+
+        match fs::remove_dir_all(&dir) {
+            Ok(()) => Ok(DeleteOutcome::Deleted),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(DeleteOutcome::Deleted),
+            Err(e) => {
+                let error = e.to_string();
+                log::warn!(
+                    "meeting {id}: rows deleted but {} was left on disk: {error}",
+                    dir.display()
+                );
+                Ok(DeleteOutcome::DeletedAudioLeft { dir, error })
+            }
+        }
     }
 
     /// Append PCM. On a write error the writer is stopped, this meeting is
@@ -324,7 +660,7 @@ mod tests {
         let meetings_version: i32 = meetings
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(meetings_version, 1);
+        assert_eq!(meetings_version, 2);
         let mode: String = meetings
             .pragma_query_value(None, "journal_mode", |row| row.get(0))
             .unwrap();
@@ -400,5 +736,358 @@ mod tests {
         let again = store.meeting(id).unwrap();
         assert_eq!(again.status, "transcript_ready");
         assert_eq!(again.ended_at, ended);
+    }
+
+    fn note(kind: &str, text: &str, owner: Option<&str>, citations: Vec<i64>) -> StoredNote {
+        StoredNote {
+            kind: kind.to_string(),
+            text: text.to_string(),
+            owner: owner.map(str::to_string),
+            citations,
+        }
+    }
+
+    #[test]
+    fn notes_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = store.start_meeting("Planning", "model").unwrap();
+        let first = note("decision", "Ship on Friday", Some("Priya"), vec![1, 3]);
+        let second = note("action", "Book the room", None, vec![2]);
+        store
+            .save_notes(id, &[first.clone(), second.clone()])
+            .unwrap();
+        assert_eq!(store.notes(id).unwrap(), vec![first, second]);
+    }
+
+    #[test]
+    fn save_notes_replaces_and_is_per_meeting() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let a = store.start_meeting("A", "model").unwrap();
+        let b = store.start_meeting("B", "model").unwrap();
+        let a1 = note("decision", "A one", None, vec![1]);
+        let a2 = note("action", "A two", None, vec![2]);
+        let b1 = note("decision", "B one", None, vec![3]);
+        store.save_notes(a, &[a1, a2]).unwrap();
+        store.save_notes(b, &[b1.clone()]).unwrap();
+
+        let replacement = note("risk", "A only", Some("Sam"), vec![4]);
+        store.save_notes(a, &[replacement.clone()]).unwrap();
+        assert_eq!(store.notes(a).unwrap(), vec![replacement]);
+        assert_eq!(store.notes(b).unwrap(), vec![b1]);
+    }
+
+    #[test]
+    fn notepad_points_ordered() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = store.start_meeting("Standup", "model").unwrap();
+        store.add_notepad_point(id, 5000, "b").unwrap();
+        store.add_notepad_point(id, 1000, "a").unwrap();
+        store.add_notepad_point(id, 5000, "c").unwrap();
+        assert_eq!(
+            store.notepad(id).unwrap(),
+            vec![
+                (1000, "a".to_string()),
+                (5000, "b".to_string()),
+                (5000, "c".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn version_1_db_upgrades_to_2() {
+        let dir = tempfile::tempdir().unwrap();
+        let meetings_dir = dir.path().join("meetings");
+        fs::create_dir_all(&meetings_dir).unwrap();
+        let path = meetings_dir.join("meetings.db");
+        {
+            let mut conn = Connection::open(&path).unwrap();
+            let migrations = Migrations::new(vec![MIGRATIONS[0].clone()]);
+            migrations.to_latest(&mut conn).unwrap();
+            conn.execute(
+                "INSERT INTO meetings
+                 (id, started_at, ended_at, title, status, model_id, saved)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    1i64,
+                    1_700_000_000i64,
+                    1_700_000_100i64,
+                    "Old",
+                    "transcript_ready",
+                    "m",
+                    0
+                ],
+            )
+            .unwrap();
+        }
+
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let conn = Connection::open(store.db_path()).unwrap();
+        let version: i32 = conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, 2);
+        let row = store.meeting(1).unwrap();
+        assert_eq!(row.title, "Old");
+    }
+
+    fn audio_dir(app_dir: &Path, id: i64) -> PathBuf {
+        app_dir.join("meetings").join(id.to_string())
+    }
+
+    fn child_rows(store: &MeetingsStore, table: &str, id: i64) -> i64 {
+        store
+            .connection()
+            .unwrap()
+            .query_row(
+                &format!("SELECT COUNT(*) FROM {table} WHERE meeting_id = ?1"),
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap()
+    }
+
+    fn meeting_rows(store: &MeetingsStore, id: i64) -> i64 {
+        store
+            .connection()
+            .unwrap()
+            .query_row(
+                "SELECT COUNT(*) FROM meetings WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap()
+    }
+
+    /// A meeting with one segment, one note, one notepad point and both WAVs.
+    fn full_meeting(store: &MeetingsStore, app_dir: &Path, title: &str) -> i64 {
+        let id = store.start_meeting(title, "model").unwrap();
+        store
+            .connection()
+            .unwrap()
+            .execute(
+                "INSERT INTO meeting_segments (meeting_id, start_ms, end_ms, channel, text)
+                 VALUES (?1, 0, 1000, 'mic', ?2)",
+                params![id, format!("{title} line")],
+            )
+            .unwrap();
+        store
+            .save_notes(id, &[note("decision", "ship", None, vec![1])])
+            .unwrap();
+        store.add_notepad_point(id, 1000, "point").unwrap();
+        let audio = audio_dir(app_dir, id);
+        fs::create_dir_all(&audio).unwrap();
+        fs::write(audio.join("mic.wav"), b"mic").unwrap();
+        fs::write(audio.join("system.wav"), b"system").unwrap();
+        id
+    }
+
+    fn assert_full(store: &MeetingsStore, app_dir: &Path, id: i64) {
+        assert_eq!(meeting_rows(store, id), 1, "meeting {id} row missing");
+        assert_eq!(child_rows(store, "meeting_segments", id), 1);
+        assert_eq!(child_rows(store, "meeting_notes", id), 1);
+        assert_eq!(child_rows(store, "meeting_notepad", id), 1);
+        let audio = audio_dir(app_dir, id);
+        assert_eq!(fs::read(audio.join("mic.wav")).unwrap(), b"mic");
+        assert_eq!(fs::read(audio.join("system.wav")).unwrap(), b"system");
+    }
+
+    fn assert_gone(store: &MeetingsStore, app_dir: &Path, id: i64) {
+        assert_eq!(meeting_rows(store, id), 0, "meeting {id} row survived");
+        assert_eq!(child_rows(store, "meeting_segments", id), 0);
+        assert_eq!(child_rows(store, "meeting_notes", id), 0);
+        assert_eq!(child_rows(store, "meeting_notepad", id), 0);
+        assert!(!audio_dir(app_dir, id).exists(), "audio dir survived");
+    }
+
+    #[test]
+    fn delete_meeting_removes_rows_and_files_only_of_that_meeting() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let a = full_meeting(&store, dir.path(), "A");
+        let b = full_meeting(&store, dir.path(), "B");
+
+        assert_eq!(store.delete_meeting(a).unwrap(), DeleteOutcome::Deleted);
+
+        assert_gone(&store, dir.path(), a);
+        assert_full(&store, dir.path(), b);
+        assert_eq!(store.notes(b).unwrap().len(), 1);
+        assert_eq!(store.notepad(b).unwrap().len(), 1);
+        assert!(store.meeting(b).is_ok());
+        assert!(dir.path().join("meetings").join("meetings.db").exists());
+    }
+
+    #[test]
+    fn delete_missing_meeting_changes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let b = full_meeting(&store, dir.path(), "B");
+
+        let err = store
+            .delete_meeting(b + 100)
+            .expect_err("missing id deleted");
+        assert!(
+            err.to_string().contains("not found"),
+            "unexpected error: {err}"
+        );
+
+        assert_full(&store, dir.path(), b);
+    }
+
+    #[test]
+    fn delete_meeting_without_audio_dir_succeeds() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = full_meeting(&store, dir.path(), "A");
+        fs::remove_dir_all(audio_dir(dir.path(), id)).unwrap();
+
+        assert_eq!(store.delete_meeting(id).unwrap(), DeleteOutcome::Deleted);
+        assert_gone(&store, dir.path(), id);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn failed_audio_delete_reports_left_dir_and_keeps_rows_gone() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = full_meeting(&store, dir.path(), "A");
+        let audio = audio_dir(dir.path(), id);
+        fs::create_dir_all(audio.join("sub")).unwrap();
+        fs::write(audio.join("sub").join("mic.wav"), b"mic").unwrap();
+        // Unlinking inside the meeting dir needs write on that dir. 0o555 denies
+        // it while the parent meetings dir stays writable, so remove_dir_all fails.
+        fs::set_permissions(&audio, fs::Permissions::from_mode(0o555)).unwrap();
+
+        let outcome = store.delete_meeting(id);
+
+        // Restore before asserting: a failed assert must not block tempdir cleanup.
+        fs::set_permissions(&audio, fs::Permissions::from_mode(0o755)).unwrap();
+
+        match outcome.unwrap() {
+            DeleteOutcome::DeletedAudioLeft { dir: left, error } => {
+                assert_eq!(left, audio);
+                assert!(!error.is_empty(), "no reason given for the leftover dir");
+            }
+            other => panic!("expected DeletedAudioLeft, got {other:?}"),
+        }
+        assert_eq!(meeting_rows(&store, id), 0);
+        assert_eq!(child_rows(&store, "meeting_segments", id), 0);
+        assert_eq!(child_rows(&store, "meeting_notes", id), 0);
+        assert_eq!(child_rows(&store, "meeting_notepad", id), 0);
+        assert!(audio.exists());
+    }
+
+    #[test]
+    fn newer_db_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let meetings_dir = dir.path().join("meetings");
+        fs::create_dir_all(&meetings_dir).unwrap();
+        let path = meetings_dir.join("meetings.db");
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.pragma_update(None, "user_version", 3).unwrap();
+        }
+
+        let result = MeetingsStore::open(dir.path());
+        assert!(result.is_err(), "a newer meetings.db was accepted");
+    }
+
+    fn segment(store: &MeetingsStore, meeting_id: i64, text: &str) {
+        store
+            .connection()
+            .unwrap()
+            .execute(
+                "INSERT INTO meeting_segments (meeting_id, start_ms, end_ms, channel, text)
+                 VALUES (?1, 0, 0, 'mic', ?2)",
+                params![meeting_id, text],
+            )
+            .unwrap();
+    }
+
+    fn ids(meetings: &[Meeting]) -> Vec<i64> {
+        meetings.iter().map(|m| m.id).collect()
+    }
+
+    #[test]
+    fn search_matches_transcript_segment() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let a = store.start_meeting("Standup", "model").unwrap();
+        let b = store.start_meeting("Planning", "model").unwrap();
+        segment(&store, a, "a zebra crossed the car park");
+        segment(&store, b, "nothing unusual happened");
+        assert_eq!(ids(&store.search_meetings("zebra").unwrap()), vec![a]);
+    }
+
+    #[test]
+    fn search_matches_action_item_note() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let _ = store.start_meeting("Standup", "model").unwrap();
+        let b = store.start_meeting("Planning", "model").unwrap();
+        store
+            .save_notes(b, &[note("action", "Email the zebra report", None, vec![])])
+            .unwrap();
+        assert_eq!(ids(&store.search_meetings("zebra").unwrap()), vec![b]);
+    }
+
+    #[test]
+    fn blank_query_lists_all_newest_first() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let a = store.start_meeting("Older", "model").unwrap();
+        let b = store.start_meeting("Newer", "model").unwrap();
+        assert_eq!(ids(&store.list_meetings().unwrap()), vec![b, a]);
+        assert_eq!(ids(&store.search_meetings("").unwrap()), vec![b, a]);
+        assert_eq!(ids(&store.search_meetings("   ").unwrap()), vec![b, a]);
+    }
+
+    #[test]
+    fn search_is_case_insensitive() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let a = store.start_meeting("Standup", "model").unwrap();
+        segment(&store, a, "Zebra crossing closed");
+        assert_eq!(ids(&store.search_meetings("ZEBRA").unwrap()), vec![a]);
+    }
+
+    #[test]
+    fn wildcards_are_literal() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let sale = store.start_meeting("50% off", "model").unwrap();
+        let plain = store.start_meeting("5000", "model").unwrap();
+        assert_eq!(ids(&store.search_meetings("50%").unwrap()), vec![sale]);
+        assert_eq!(ids(&store.search_meetings("5000").unwrap()), vec![plain]);
+
+        let snake = store.start_meeting("snake_case plan", "model").unwrap();
+        let camel = store.start_meeting("snakeXcase plan", "model").unwrap();
+        assert_eq!(
+            ids(&store.search_meetings("snake_case").unwrap()),
+            vec![snake]
+        );
+        assert_eq!(
+            ids(&store.search_meetings("snakeXcase").unwrap()),
+            vec![camel]
+        );
+    }
+
+    #[test]
+    fn meeting_matching_twice_appears_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let first = store.start_meeting("Zebra review", "model").unwrap();
+        let second = store.start_meeting("Standup", "model").unwrap();
+        segment(&store, first, "the zebra is back");
+        segment(&store, first, "another zebra line");
+        segment(&store, second, "zebra again");
+        assert_eq!(
+            ids(&store.search_meetings("zebra").unwrap()),
+            vec![second, first]
+        );
     }
 }

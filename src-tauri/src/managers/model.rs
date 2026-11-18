@@ -177,6 +177,9 @@ pub struct ModelDescriptor {
     pub description: String,
     pub engine_type: EngineType,
     pub caps: CapabilityProbe,
+    /// Catalog `family` (`voxtral`, `parakeet`, …). `None` when the row omits it.
+    #[cfg_attr(not(feature = "meetings"), allow(dead_code))]
+    pub family: Option<String>,
     pub files: Vec<QuantFile>,
     pub default_quant: Option<String>,
     pub speed_score: f32,
@@ -908,8 +911,20 @@ impl<'a> Drop for DownloadCleanup<'a> {
     }
 }
 
+/// Production always stores the handle. Meeting tests build a manager that
+/// never reads it, so the slot can be empty there.
+struct AppSlot(Option<AppHandle>);
+
+impl std::ops::Deref for AppSlot {
+    type Target = AppHandle;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref().expect("model manager has no app handle")
+    }
+}
+
 pub struct ModelManager {
-    app_handle: AppHandle,
+    app_handle: AppSlot,
     models_dir: PathBuf,
     available_models: Mutex<HashMap<String, ModelInfo>>,
     cancel_flags: Arc<Mutex<HashMap<String, DownloadCancel>>>,
@@ -924,17 +939,20 @@ pub struct ModelManager {
     recovery_attempted: Mutex<HashSet<String>>,
 }
 
+/// The hard-coded non-catalog models: the Whisper `.bin` files and the ONNX
+/// engines, which no catalog entry describes. Pure: no app handle, no disk and
+/// no network, so tests can read the table `new` registers.
+/// Sorted by `id` so the order is stable; callers still key by `id`.
+#[cfg(test)]
+pub(crate) fn builtin_models() -> Vec<ModelInfo> {
+    let mut models: Vec<ModelInfo> = ModelManager::builtin_table().into_values().collect();
+    models.sort_by(|a, b| a.id.cmp(&b.id));
+    models
+}
+
 impl ModelManager {
-    pub fn new(app_handle: &AppHandle) -> Result<Self> {
-        // Create models directory in app data
-        let models_dir = crate::portable::app_data_dir(app_handle)
-            .map_err(|e| anyhow::anyhow!("Failed to get app data dir: {}", e))?
-            .join("models");
-
-        if !models_dir.exists() {
-            fs::create_dir_all(&models_dir)?;
-        }
-
+    /// The table behind `builtin_models`, keyed by id.
+    fn builtin_table() -> HashMap<String, ModelInfo> {
         let mut available_models = HashMap::new();
 
         // Whisper supported languages (99 languages from tokenizer)
@@ -1477,6 +1495,21 @@ impl ModelManager {
             },
         );
 
+        available_models
+    }
+
+    pub fn new(app_handle: &AppHandle) -> Result<Self> {
+        // Create models directory in app data
+        let models_dir = crate::portable::app_data_dir(app_handle)
+            .map_err(|e| anyhow::anyhow!("Failed to get app data dir: {}", e))?
+            .join("models");
+
+        if !models_dir.exists() {
+            fs::create_dir_all(&models_dir)?;
+        }
+
+        let mut available_models = Self::builtin_table();
+
         // Seed the bundled offline catalog before the on-disk scans, so a model
         // already in the HF cache dedups onto its richer catalog entry (the scans
         // only insert ids not already present) instead of showing as a bare cache
@@ -1493,7 +1526,7 @@ impl ModelManager {
         Self::discover_hf_cache_models(&mut available_models);
 
         let manager = Self {
-            app_handle: app_handle.clone(),
+            app_handle: AppSlot(Some(app_handle.clone())),
             models_dir,
             available_models: Mutex::new(available_models),
             cancel_flags: Arc::new(Mutex::new(HashMap::new())),
@@ -1516,6 +1549,22 @@ impl ModelManager {
         manager.auto_select_model_if_needed()?;
 
         Ok(manager)
+    }
+
+    /// Empty registry for tests. Does not scan disk or the network.
+    /// The app slot stays empty: meeting tests never call a method that emits.
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn for_test() -> Self {
+        Self {
+            app_handle: AppSlot(None),
+            models_dir: std::env::temp_dir(),
+            available_models: Mutex::new(HashMap::new()),
+            cancel_flags: Arc::new(Mutex::new(HashMap::new())),
+            next_download_generation: AtomicU64::new(1),
+            extracting_models: Arc::new(Mutex::new(HashSet::new())),
+            is_rescanning: Arc::new(AtomicBool::new(false)),
+            recovery_attempted: Mutex::new(HashSet::new()),
+        }
     }
 
     pub fn get_available_models(&self) -> Vec<ModelInfo> {
