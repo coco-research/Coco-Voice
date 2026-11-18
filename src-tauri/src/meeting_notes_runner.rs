@@ -195,7 +195,7 @@ impl NotesGenerator for LocalLlmNotes {
             None,
             None,
         ))
-        .map_err(anyhow::Error::from)
+        .map_err(|err| anyhow!("{}", err))
     }
 }
 
