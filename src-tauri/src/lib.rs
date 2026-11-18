@@ -15,6 +15,7 @@ mod llm_client;
 #[cfg(target_os = "macos")]
 mod local_llm;
 mod managers;
+pub mod mcp_store;
 #[cfg(feature = "meetings")]
 mod meeting_notes;
 #[cfg(feature = "meetings")]
