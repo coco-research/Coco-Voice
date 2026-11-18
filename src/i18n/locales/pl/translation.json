@@ -6,7 +6,8 @@
     "unloadModel": "Zwolnij model",
     "model": "Model",
     "quit": "Zamknij",
-    "cancel": "Anuluj"
+    "cancel": "Anuluj",
+    "startNotes": "Rozpocznij notatki..."
   },
   "sidebar": {
     "general": "Ogólne",

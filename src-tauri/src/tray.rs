@@ -252,10 +252,54 @@ pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
     )
     .expect("failed to create unload model item");
 
+    #[cfg(feature = "meetings")]
+    let start_notes_i = settings.meetings_enabled.then(|| {
+        MenuItem::with_id(app, "start_notes", &strings.start_notes, true, None::<&str>)
+            .expect("failed to create start notes item")
+    });
+
     let menu = match state {
         TrayIconState::Recording | TrayIconState::Transcribing => {
             let cancel_i = MenuItem::with_id(app, "cancel", &strings.cancel, true, None::<&str>)
                 .expect("failed to create cancel item");
+            #[cfg(feature = "meetings")]
+            if let Some(start_notes_i) = start_notes_i.as_ref() {
+                Menu::with_items(
+                    app,
+                    &[
+                        &version_i,
+                        &separator(),
+                        &cancel_i,
+                        &separator(),
+                        &copy_last_transcript_i,
+                        &separator(),
+                        start_notes_i,
+                        &settings_i,
+                        &check_updates_i,
+                        &separator(),
+                        &quit_i,
+                    ],
+                )
+                .expect("failed to create menu")
+            } else {
+                Menu::with_items(
+                    app,
+                    &[
+                        &version_i,
+                        &separator(),
+                        &cancel_i,
+                        &separator(),
+                        &copy_last_transcript_i,
+                        &separator(),
+                        &settings_i,
+                        &check_updates_i,
+                        &separator(),
+                        &quit_i,
+                    ],
+                )
+                .expect("failed to create menu")
+            }
+            #[cfg(not(feature = "meetings"))]
             Menu::with_items(
                 app,
                 &[
@@ -273,23 +317,66 @@ pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
             )
             .expect("failed to create menu")
         }
-        TrayIconState::Idle => Menu::with_items(
-            app,
-            &[
-                &version_i,
-                &separator(),
-                &copy_last_transcript_i,
-                &separator(),
-                &model_submenu,
-                &unload_model_i,
-                &separator(),
-                &settings_i,
-                &check_updates_i,
-                &separator(),
-                &quit_i,
-            ],
-        )
-        .expect("failed to create menu"),
+        TrayIconState::Idle => {
+            #[cfg(feature = "meetings")]
+            let menu = if let Some(start_notes_i) = start_notes_i.as_ref() {
+                Menu::with_items(
+                    app,
+                    &[
+                        &version_i,
+                        &separator(),
+                        &copy_last_transcript_i,
+                        &separator(),
+                        &model_submenu,
+                        &unload_model_i,
+                        &separator(),
+                        start_notes_i,
+                        &settings_i,
+                        &check_updates_i,
+                        &separator(),
+                        &quit_i,
+                    ],
+                )
+                .expect("failed to create menu")
+            } else {
+                Menu::with_items(
+                    app,
+                    &[
+                        &version_i,
+                        &separator(),
+                        &copy_last_transcript_i,
+                        &separator(),
+                        &model_submenu,
+                        &unload_model_i,
+                        &separator(),
+                        &settings_i,
+                        &check_updates_i,
+                        &separator(),
+                        &quit_i,
+                    ],
+                )
+                .expect("failed to create menu")
+            };
+            #[cfg(not(feature = "meetings"))]
+            let menu = Menu::with_items(
+                app,
+                &[
+                    &version_i,
+                    &separator(),
+                    &copy_last_transcript_i,
+                    &separator(),
+                    &model_submenu,
+                    &unload_model_i,
+                    &separator(),
+                    &settings_i,
+                    &check_updates_i,
+                    &separator(),
+                    &quit_i,
+                ],
+            )
+            .expect("failed to create menu");
+            menu
+        }
     };
 
     let tray = app.state::<TrayIcon>();
@@ -386,5 +473,17 @@ mod tests {
         let dir = tempfile::tempdir().expect("failed to create tempdir");
         let missing = dir.path().join("does_not_exist.png");
         assert!(load_tray_icon(Ok(missing)).is_err());
+    }
+
+    #[test]
+    fn start_notes_label_in_every_language() {
+        let english = crate::tray_i18n::get_tray_translations(Some("en".to_string()));
+        assert_eq!(english.start_notes, "Start notes...");
+        for (lang, strings) in crate::tray_i18n::TRANSLATIONS.iter() {
+            assert!(
+                !strings.start_notes.trim().is_empty(),
+                "{lang} is missing the start notes tray label"
+            );
+        }
     }
 }

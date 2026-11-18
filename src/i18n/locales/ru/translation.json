@@ -6,7 +6,8 @@
     "unloadModel": "Выгрузить модель",
     "model": "Модель",
     "quit": "Выход",
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "startNotes": "Начать заметки..."
   },
   "sidebar": {
     "general": "Общие",

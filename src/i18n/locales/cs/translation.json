@@ -6,7 +6,8 @@
     "unloadModel": "Uvolnit model",
     "model": "Model",
     "quit": "Ukončit",
-    "cancel": "Zrušit"
+    "cancel": "Zrušit",
+    "startNotes": "Spustit poznámky..."
   },
   "sidebar": {
     "general": "Obecné",
