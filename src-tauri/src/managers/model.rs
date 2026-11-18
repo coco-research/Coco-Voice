@@ -89,9 +89,12 @@ pub struct ModelInfo {
     pub speed_score: f32,           // 0.0 to 1.0, higher is faster
     pub supports_translation: bool, // Whether the model supports translating to English
     pub is_recommended: bool,       // Whether this is the recommended model for new users
+    /// Set only when the model was measured best in the bundled benchmark
+    /// records; this alone decides the "Recommended" tag in the UI.
+    pub measured_best: Option<crate::catalog::measured::MeasuredReason>,
     pub supported_languages: Vec<String>, // Languages this model can transcribe
     pub supports_language_selection: bool, // Whether the user can explicitly pick a language
-    pub is_custom: bool,            // Whether this is a user-provided custom model
+    pub is_custom: bool,                  // Whether this is a user-provided custom model
     pub supports_streaming: bool, // Whether this model supports live streaming preview (transcribe-cpp)
     pub supports_language_detection: bool, // Whether the model can auto-detect language (gates the "Auto" option)
 }
@@ -222,6 +225,7 @@ impl ModelDescriptor {
             speed_score: self.speed_score,
             supports_translation: self.caps.supports_translation.unwrap_or(false),
             is_recommended: self.recommended,
+            measured_best: None,
             supports_language_selection: languages.len() > 1,
             supported_languages: languages,
             // Catalog models are always HF-sourced downloads, never user-dropped
@@ -994,6 +998,7 @@ impl ModelManager {
                 speed_score: 0.85,
                 supports_translation: true,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: whisper_languages.clone(),
                 supports_language_selection: true,
                 is_custom: false,
@@ -1027,6 +1032,7 @@ impl ModelManager {
                 speed_score: 0.60,
                 supports_translation: true,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: whisper_languages.clone(),
                 supports_language_selection: true,
                 is_custom: false,
@@ -1059,6 +1065,7 @@ impl ModelManager {
                 speed_score: 0.40,
                 supports_translation: false, // Turbo doesn't support translation
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: whisper_languages.clone(),
                 supports_language_selection: true,
                 is_custom: false,
@@ -1091,6 +1098,7 @@ impl ModelManager {
                 speed_score: 0.30,
                 supports_translation: true,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: whisper_languages.clone(),
                 supports_language_selection: true,
                 is_custom: false,
@@ -1124,6 +1132,7 @@ impl ModelManager {
                 speed_score: 0.35,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: whisper_languages,
                 supports_language_selection: true,
                 is_custom: false,
@@ -1157,6 +1166,7 @@ impl ModelManager {
                 speed_score: 0.85,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: vec!["en".to_string()],
                 supports_language_selection: false,
                 is_custom: false,
@@ -1199,6 +1209,7 @@ impl ModelManager {
                 speed_score: 0.85,
                 supports_translation: false,
                 is_recommended: true,
+                measured_best: None,
                 supported_languages: parakeet_v3_languages,
                 supports_language_selection: false,
                 is_custom: false,
@@ -1231,6 +1242,7 @@ impl ModelManager {
                 speed_score: 0.90,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: vec!["en".to_string()],
                 supports_language_selection: false,
                 is_custom: false,
@@ -1264,6 +1276,7 @@ impl ModelManager {
                 speed_score: 0.95,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: vec!["en".to_string()],
                 supports_language_selection: false,
                 is_custom: false,
@@ -1297,6 +1310,7 @@ impl ModelManager {
                 speed_score: 0.90,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: vec!["en".to_string()],
                 supports_language_selection: false,
                 is_custom: false,
@@ -1330,6 +1344,7 @@ impl ModelManager {
                 speed_score: 0.80,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: vec!["en".to_string()],
                 supports_language_selection: false,
                 is_custom: false,
@@ -1365,6 +1380,7 @@ impl ModelManager {
                 speed_score: 0.75,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: gigaam_languages,
                 supports_language_selection: false,
                 is_custom: false,
@@ -1404,6 +1420,7 @@ impl ModelManager {
                 speed_score: 0.85,
                 supports_translation: true,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: canary_flash_languages,
                 supports_language_selection: true,
                 is_custom: false,
@@ -1447,6 +1464,7 @@ impl ModelManager {
                 speed_score: 0.70,
                 supports_translation: true,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: canary_1b_languages,
                 supports_language_selection: true,
                 is_custom: false,
@@ -1487,6 +1505,7 @@ impl ModelManager {
                 speed_score: 0.60,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: cohere_languages,
                 supports_language_selection: true,
                 is_custom: false,
@@ -1572,6 +1591,11 @@ impl ModelManager {
             let models = self.available_models.lock().unwrap();
             Self::speech_models(&models)
         };
+        // Only a model measured best in the bundled benchmark records is tagged.
+        crate::catalog::measured::tag_measured_best(
+            &mut list,
+            &crate::catalog::measured::BUNDLED_RUNS,
+        );
         // Stable, reasonable order: catalog editorial rank first (lower = higher
         // priority), then any other recommended model, then by accuracy, speed,
         // and name. `ModelInfo` doesn't carry rank, so resolve it by id from the
@@ -2136,6 +2160,7 @@ impl ModelManager {
                     speed_score: 0.0,
                     supports_translation: caps.supports_translation,
                     is_recommended: false,
+                    measured_best: None,
                     supported_languages: caps.supported_languages,
                     supports_language_selection: caps.supports_language_selection,
                     is_custom: true,
@@ -2269,6 +2294,7 @@ impl ModelManager {
                         speed_score: 0.0,
                         supports_translation: caps.supports_translation,
                         is_recommended: false,
+                        measured_best: None,
                         supported_languages: caps.supported_languages,
                         supports_language_selection: caps.supports_language_selection,
                         is_custom: false,
@@ -3799,6 +3825,7 @@ mod tests {
                 speed_score: 0.5,
                 supports_translation: true,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: vec!["en".to_string()],
                 supports_language_selection: true,
                 is_custom: false,
@@ -3908,6 +3935,7 @@ mod tests {
             speed_score: 0.5,
             supports_translation: false,
             is_recommended: false,
+            measured_best: None,
             supported_languages: vec!["en".to_string()],
             supports_language_selection: false,
             is_custom: false,
