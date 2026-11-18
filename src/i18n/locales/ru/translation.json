@@ -612,7 +612,9 @@
           "title": "ggml",
           "description": "Высокопроизводительная модель автоматического распознавания речи OpenAI Whisper",
           "details": "Coco Voice использует ggml для быстрого локального преобразования речи в текст. Спасибо великолепной работе Георгия Герганова и участников."
-        }
+        },
+        "wespeakerDetails": "Speaker embedding model for per-meeting grouping (https://github.com/wenet-e2e/wespeaker).",
+        "pyannoteDetails": "On-device speaker turn segmentation model (https://huggingface.co/pyannote/segmentation-3.0)."
       },
       "whatsNewUpdates": {
         "label": "Показывать новинки",
@@ -805,6 +807,12 @@
         "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
         "dictation": "Dictation still works during a meeting."
       }
-    }
+    },
+    "speakersMeta": "Names in this meeting only.",
+    "speakersUnnamedDesc": "No name typed for this meeting.",
+    "speakersRenamedDesc": "Renamed in this meeting.",
+    "speakersUnnamedBadge": "Unnamed",
+    "speakersAriaPrefix": "Name for",
+    "speakersLegal": "Speaker labels are worked out per meeting and nothing about anyone's voice is saved."
   }
 }

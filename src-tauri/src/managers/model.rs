@@ -1515,6 +1515,7 @@ impl ModelManager {
         // only insert ids not already present) instead of showing as a bare cache
         // find. Additive — see `seed_catalog_models`.
         Self::seed_catalog_models(&mut available_models);
+        Self::seed_speaker_models(&mut available_models);
 
         // Auto-discover custom transcribe-cpp models (.bin / .gguf) in the models directory
         if let Err(e) = Self::discover_custom_transcribe_models(&models_dir, &mut available_models)
@@ -1626,6 +1627,76 @@ impl ModelManager {
             }
         }
         info!("Seeded {} catalog model(s) into the registry", added);
+    }
+
+    pub const PYANNOTE_SEGMENTATION_MODEL_ID: &'static str = "pyannote-segmentation-3-0";
+    pub const PYANNOTE_SEGMENTATION_URL: &'static str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2";
+    pub const PYANNOTE_SEGMENTATION_ARCHIVE_SHA256: &'static str =
+        "24615ee884c897d9d2ba09bb4d30da6bb1b15e685065962db5b02e76e4996488";
+    pub const PYANNOTE_SEGMENTATION_ONNX_SHA256: &'static str =
+        "220ad67ca923bef2fa91f2390c786097bf305bceb5e261d4af67b38e938e1079";
+    pub const WESPEAKER_EMBEDDING_MODEL_ID: &'static str = "wespeaker-voxceleb-resnet34";
+    pub const WESPEAKER_EMBEDDING_URL: &'static str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/wespeaker_en_voxceleb_resnet34.onnx";
+    pub const WESPEAKER_EMBEDDING_SHA256: &'static str =
+        "5ef208a9da1453335308a6b6f4e6dfbd7e183a38b604de0a57664f45d257fe94";
+
+    pub(crate) fn seed_speaker_models(available_models: &mut HashMap<String, ModelInfo>) {
+        let base = ModelDescriptor {
+            id: String::new(),
+            source: ModelSource::Local,
+            name: String::new(),
+            description: String::new(),
+            engine_type: EngineType::LlamaCpp,
+            caps: CapabilityProbe::default(),
+            family: None,
+            files: Vec::new(),
+            default_quant: None,
+            speed_score: 0.0,
+            accuracy_score: 0.0,
+            recommended_rank: None,
+            recommended: false,
+        }
+        .to_model_info(&DiskStatus::default());
+        for (id, name, filename, url, sha, size_mb, is_dir) in [
+            (
+                Self::PYANNOTE_SEGMENTATION_MODEL_ID,
+                "pyannote-segmentation-3.0",
+                "sherpa-onnx-pyannote-segmentation-3-0",
+                Self::PYANNOTE_SEGMENTATION_URL,
+                Self::PYANNOTE_SEGMENTATION_ARCHIVE_SHA256,
+                6,
+                true,
+            ),
+            (
+                Self::WESPEAKER_EMBEDDING_MODEL_ID,
+                "WeSpeaker ResNet34",
+                "wespeaker_en_voxceleb_resnet34.onnx",
+                Self::WESPEAKER_EMBEDDING_URL,
+                Self::WESPEAKER_EMBEDDING_SHA256,
+                25,
+                false,
+            ),
+        ] {
+            let mut m = base.clone();
+            m.id = id.into();
+            m.name = name.into();
+            m.filename = filename.into();
+            m.source = ModelSource::Url {
+                url: url.into(),
+                sha256: Some(sha.into()),
+            };
+            m.size_mb = size_mb;
+            m.is_directory = is_dir;
+            available_models.insert(m.id.clone(), m);
+        }
+    }
+
+    pub(crate) fn verify_speaker_model_file(
+        path: &Path,
+        expected_sha256: &str,
+        model_id: &str,
+    ) -> Result<()> {
+        Self::verify_sha256(path, Some(expected_sha256), model_id).map(|_| ())
     }
 
     /// Claim the single rescan slot. Returns a guard that releases it on drop,
@@ -2950,13 +3021,23 @@ impl ModelManager {
             // Create temporary extraction directory
             fs::create_dir_all(&temp_extract_dir)?;
 
-            // Open the downloaded tar.gz file
-            let tar_gz = File::open(&partial_path)?;
-            let tar = GzDecoder::new(tar_gz);
-            let mut archive = Archive::new(tar);
-
             // Extract to the temporary directory first
-            archive.unpack(&temp_extract_dir).map_err(|e| {
+            let unpack_res: std::io::Result<()> = if url.ends_with(".tar.bz2") {
+                std::process::Command::new("tar")
+                    .args(["-xjf"])
+                    .arg(&partial_path)
+                    .arg("-C")
+                    .arg(&temp_extract_dir)
+                    .status()
+                    .and_then(|s| {
+                        s.success()
+                            .then_some(())
+                            .ok_or_else(|| std::io::Error::other("tar failed"))
+                    })
+            } else {
+                Archive::new(GzDecoder::new(File::open(&partial_path)?)).unpack(&temp_extract_dir)
+            };
+            unpack_res.map_err(|e| {
                 let error_msg = format!("Failed to extract archive: {}", e);
                 // Clean up failed extraction
                 let _ = fs::remove_dir_all(&temp_extract_dir);
