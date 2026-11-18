@@ -517,6 +517,15 @@ pub struct AppSettings {
     #[cfg(feature = "meetings")]
     #[serde(default = "default_meetings_enabled")]
     pub meetings_enabled: bool,
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub agent_access_enabled: bool,
+    #[cfg(feature = "meetings")]
+    #[serde(default = "default_agent_scope_enabled")]
+    pub agent_access_live: bool,
+    #[cfg(feature = "meetings")]
+    #[serde(default = "default_agent_scope_enabled")]
+    pub agent_access_past: bool,
 }
 
 fn default_model() -> String {
@@ -595,6 +604,11 @@ fn default_overlay_style() -> OverlayStyle {
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn default_meetings_enabled() -> bool {
     false
+}
+
+#[cfg(feature = "meetings")]
+fn default_agent_scope_enabled() -> bool {
+    true
 }
 
 /// Meetings UI shows only when the setting is on and `os` is macOS 14.4 or newer.
@@ -1215,6 +1229,12 @@ pub fn get_default_settings() -> AppSettings {
         agents_can_ask_enabled: false,
         #[cfg(feature = "meetings")]
         meetings_enabled: default_meetings_enabled(),
+        #[cfg(feature = "meetings")]
+        agent_access_enabled: false,
+        #[cfg(feature = "meetings")]
+        agent_access_live: default_agent_scope_enabled(),
+        #[cfg(feature = "meetings")]
+        agent_access_past: default_agent_scope_enabled(),
     }
 }
 
