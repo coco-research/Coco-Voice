@@ -27,6 +27,8 @@ mod meeting_notes;
 mod meeting_notes_merge;
 #[cfg(feature = "meetings")]
 mod meeting_notes_pieces;
+#[cfg(feature = "meetings")]
+pub mod meeting_todos;
 #[cfg(all(feature = "meetings", target_os = "macos"))]
 pub mod meetings_tap;
 mod overlay;
