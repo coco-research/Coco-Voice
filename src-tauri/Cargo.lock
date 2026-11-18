@@ -892,6 +892,7 @@ dependencies = [
  "once_cell",
  "plist",
  "regex",
+ "reqwest 0.12.28",
  "reqwest 0.13.2",
  "rodio",
  "rubato",
