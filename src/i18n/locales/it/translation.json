@@ -3,6 +3,7 @@
     "settings": "Impostazioni...",
     "checkUpdates": "Verifica aggiornamenti...",
     "copyLastTranscript": "Copia l'ultima trascrizione",
+    "pasteLastTake": "Incolla l'ultima registrazione",
     "unloadModel": "Rilascia modello",
     "model": "Modello",
     "quit": "Esci",

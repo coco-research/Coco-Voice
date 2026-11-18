@@ -3,6 +3,7 @@
     "settings": "Instellingen...",
     "checkUpdates": "Controleren op updates...",
     "copyLastTranscript": "Laatste transcriptie kopiëren",
+    "pasteLastTake": "Laatste opname plakken",
     "unloadModel": "Model ontladen",
     "model": "Model",
     "quit": "Afsluiten",

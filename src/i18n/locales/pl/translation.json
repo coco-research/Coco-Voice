@@ -3,6 +3,7 @@
     "settings": "Ustawienia...",
     "checkUpdates": "Sprawdź aktualizacje...",
     "copyLastTranscript": "Kopiuj ostatnią transkrypcję",
+    "pasteLastTake": "Wklej ostatnie nagranie",
     "unloadModel": "Zwolnij model",
     "model": "Model",
     "quit": "Zamknij",

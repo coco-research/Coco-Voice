@@ -3,6 +3,7 @@
     "settings": "Paramètres...",
     "checkUpdates": "Rechercher des mises à jour...",
     "copyLastTranscript": "Copier la dernière transcription",
+    "pasteLastTake": "Coller la dernière prise",
     "unloadModel": "Décharger le modèle",
     "model": "Modèle",
     "quit": "Quitter",

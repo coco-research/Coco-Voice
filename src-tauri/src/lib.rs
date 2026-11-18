@@ -10,6 +10,7 @@ mod cleanup_resolver;
 pub mod cli;
 mod clipboard;
 mod commands;
+pub mod first_run_and_updates;
 mod helpers;
 mod input;
 mod llm_client;
@@ -274,6 +275,9 @@ fn initialize_core_logic(app_handle: &AppHandle) {
                     show_main_window(app);
                     let _ = app.emit("check-for-updates", ());
                 }
+            }
+            "paste_last_transcript" => {
+                tray::paste_last_transcript(app);
             }
             "copy_last_transcript" => {
                 tray::copy_last_transcript(app);
@@ -745,7 +749,9 @@ pub fn run(cli_args: CliArgs) {
             managers::transcription::StreamPhaseEvent,
             cleanup_resolver::CleanupStatus,
             actions::CleanupProgress,
-        ]);
+        ])
+        // Emitted with a plain `emit`, registered so bindings.ts carries its type.
+        .typ::<managers::model::ModelDownloadFailed>();
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
     {

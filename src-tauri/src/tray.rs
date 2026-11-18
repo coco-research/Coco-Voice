@@ -208,6 +208,14 @@ pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
         None::<&str>,
     )
     .expect("failed to create copy last transcript item");
+    let paste_last_transcript_i = MenuItem::with_id(
+        app,
+        "paste_last_transcript",
+        &strings.paste_last_take,
+        true,
+        None::<&str>,
+    )
+    .expect("failed to create paste last transcript item");
     let model_loaded = app.state::<Arc<TranscriptionManager>>().is_model_loaded();
     let quit_i = MenuItem::with_id(app, "quit", &strings.quit, true, quit_accelerator)
         .expect("failed to create quit item");
@@ -263,6 +271,7 @@ pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
                     &separator(),
                     &cancel_i,
                     &separator(),
+                    &paste_last_transcript_i,
                     &copy_last_transcript_i,
                     &separator(),
                     &settings_i,
@@ -278,6 +287,7 @@ pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
             &[
                 &version_i,
                 &separator(),
+                &paste_last_transcript_i,
                 &copy_last_transcript_i,
                 &separator(),
                 &model_submenu,
@@ -314,6 +324,162 @@ pub fn set_tray_visibility(app: &AppHandle, visible: bool) {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PasteLastTakeError {
+    BlockedApp,
+    FrontmostAppUnknown,
+    NoCompletedTake,
+    EmptyTake,
+}
+
+impl std::fmt::Display for PasteLastTakeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let code = match self {
+            Self::BlockedApp => "blocked_app",
+            Self::FrontmostAppUnknown => "frontmost_app_unknown",
+            Self::NoCompletedTake => "no_completed_take",
+            Self::EmptyTake => "empty_take",
+        };
+        f.write_str(code)
+    }
+}
+
+fn has_blocked_apps(blocked_apps: &[String]) -> bool {
+    blocked_apps.iter().any(|b| !b.trim().is_empty())
+}
+
+/// Parses an exact bundle identifier from `lsappinfo info -only bundleid` output
+/// (`"CFBundleIdentifier"="com.apple.Notes"` or `"bundleID"="com.apple.Notes"`),
+/// returning `None` on non-zero exit status, `[ NULL ]`, or malformed lines.
+pub fn parse_lsappinfo_bundle_id(status_ok: bool, stdout: &str) -> Option<String> {
+    if !status_ok {
+        return None;
+    }
+    for line in stdout.lines() {
+        let Some((lhs, rhs)) = line.split_once('=') else {
+            continue;
+        };
+        let key = lhs.trim().trim_matches('"');
+        if !key.eq_ignore_ascii_case("CFBundleIdentifier") && !key.eq_ignore_ascii_case("bundleID")
+        {
+            continue;
+        }
+        let quoted = rhs.trim();
+        let inner = quoted.strip_prefix('"')?.strip_suffix('"')?.trim();
+        if inner.is_empty()
+            || inner.eq_ignore_ascii_case("null")
+            || inner.chars().any(|c| c.is_whitespace() || c == '"')
+        {
+            return None;
+        }
+        return Some(inner.to_string());
+    }
+    None
+}
+
+pub fn is_app_blocked_for_paste(active_bundle_id: Option<&str>, blocked_apps: &[String]) -> bool {
+    if !has_blocked_apps(blocked_apps) {
+        return false;
+    }
+    let Some(bundle_id) = active_bundle_id.map(str::trim).filter(|s| !s.is_empty()) else {
+        // Fail closed when a block list is configured and the frontmost app cannot be identified.
+        return true;
+    };
+    blocked_apps.iter().any(|entry| {
+        let candidate = entry.trim();
+        !candidate.is_empty() && bundle_id.eq_ignore_ascii_case(candidate)
+    })
+}
+
+pub fn resolve_last_take_for_paste_in_app(
+    entry: Option<&HistoryEntry>,
+    active_bundle_id: Option<&str>,
+    blocked_apps: &[String],
+) -> Result<String, PasteLastTakeError> {
+    if has_blocked_apps(blocked_apps) {
+        let Some(bundle_id) = active_bundle_id.map(str::trim).filter(|s| !s.is_empty()) else {
+            return Err(PasteLastTakeError::FrontmostAppUnknown);
+        };
+        if is_app_blocked_for_paste(Some(bundle_id), blocked_apps) {
+            return Err(PasteLastTakeError::BlockedApp);
+        }
+    }
+    let entry = entry.ok_or(PasteLastTakeError::NoCompletedTake)?;
+    let text = last_transcript_text(entry);
+    if text.trim().is_empty() {
+        return Err(PasteLastTakeError::EmptyTake);
+    }
+    Ok(text.to_string())
+}
+
+pub fn resolve_last_take_for_paste(
+    entry: Option<&HistoryEntry>,
+) -> Result<String, PasteLastTakeError> {
+    resolve_last_take_for_paste_in_app(entry, None, &[])
+}
+
+fn frontmost_app_identifier() -> Option<String> {
+    #[cfg(target_os = "macos")]
+    {
+        let front = std::process::Command::new("lsappinfo")
+            .arg("front")
+            .output()
+            .ok()?;
+        if !front.status.success() {
+            return None;
+        }
+        let asn = std::str::from_utf8(&front.stdout).ok()?.trim();
+        if asn.is_empty() || !asn.starts_with("ASN:") {
+            return None;
+        }
+        let info = std::process::Command::new("lsappinfo")
+            .args(["info", "-only", "bundleid", asn])
+            .output()
+            .ok()?;
+        let stdout = String::from_utf8(info.stdout).ok()?;
+        parse_lsappinfo_bundle_id(info.status.success(), &stdout)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
+}
+
+pub fn paste_last_transcript(app: &AppHandle) {
+    let app_clone = app.clone();
+    std::thread::spawn(move || {
+        let settings = settings::get_settings(&app_clone);
+        let active_app = if has_blocked_apps(&settings.never_dictate_apps) {
+            frontmost_app_identifier()
+        } else {
+            None
+        };
+        let history_manager = app_clone.state::<Arc<HistoryManager>>();
+        let entry = match history_manager.get_latest_completed_entry() {
+            Ok(entry) => entry,
+            Err(err) => {
+                error!("Failed to fetch last completed transcription entry for paste: {err}");
+                return;
+            }
+        };
+        let text = match resolve_last_take_for_paste_in_app(
+            entry.as_ref(),
+            active_app.as_deref(),
+            &settings.never_dictate_apps,
+        ) {
+            Ok(text) => text,
+            Err(reason) => {
+                warn!("Skipping tray paste_last_transcript: {reason}");
+                return;
+            }
+        };
+        match crate::utils::replace_previous(0, text, app_clone) {
+            Ok(_) => info!("Pasted last transcript via tray."),
+            Err(err) => error!("Failed to paste last transcript via tray: {err}"),
+        }
+    });
+}
+
 pub fn copy_last_transcript(app: &AppHandle) {
     let history_manager = app.state::<Arc<HistoryManager>>();
     let entry = match history_manager.get_latest_completed_entry() {
@@ -347,7 +513,10 @@ pub fn copy_last_transcript(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::{last_transcript_text, load_tray_icon};
+    use super::{
+        is_app_blocked_for_paste, last_transcript_text, load_tray_icon, parse_lsappinfo_bundle_id,
+        resolve_last_take_for_paste, resolve_last_take_for_paste_in_app, PasteLastTakeError,
+    };
     use crate::managers::history::HistoryEntry;
 
     fn build_entry(transcription: &str, post_processed: Option<&str>) -> HistoryEntry {
@@ -386,5 +555,120 @@ mod tests {
         let dir = tempfile::tempdir().expect("failed to create tempdir");
         let missing = dir.path().join("does_not_exist.png");
         assert!(load_tray_icon(Ok(missing)).is_err());
+    }
+
+    #[test]
+    fn paste_last_take_prefers_cleaned_text_and_rejects_missing_or_empty_entry() {
+        assert_eq!(
+            resolve_last_take_for_paste(None),
+            Err(PasteLastTakeError::NoCompletedTake)
+        );
+        let empty = build_entry("   ", None);
+        assert_eq!(
+            resolve_last_take_for_paste(Some(&empty)),
+            Err(PasteLastTakeError::EmptyTake)
+        );
+        let raw_only = build_entry("raw spoken words", None);
+        assert_eq!(
+            resolve_last_take_for_paste(Some(&raw_only)),
+            Ok("raw spoken words".to_string())
+        );
+        let cleaned = build_entry("raw spoken words", Some("Cleaned spoken words."));
+        assert_eq!(
+            resolve_last_take_for_paste(Some(&cleaned)),
+            Ok("Cleaned spoken words.".to_string())
+        );
+        let blocked = vec!["com.1password.1password".to_string()];
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(
+                Some(&cleaned),
+                Some("com.1password.1password"),
+                &blocked
+            ),
+            Err(PasteLastTakeError::BlockedApp)
+        );
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(Some(&cleaned), Some("com.apple.Notes"), &blocked),
+            Ok("Cleaned spoken words.".to_string())
+        );
+    }
+
+    #[test]
+    fn block_list_matches_exact_bundle_id_and_fails_closed_when_frontmost_unknown() {
+        let cleaned = build_entry("raw", Some("Cleaned spoken words."));
+        let notes_blocked = vec!["com.apple.notes".to_string(), "note".to_string()];
+
+        assert!(is_app_blocked_for_paste(
+            Some("com.apple.Notes"),
+            &notes_blocked
+        ));
+        assert!(!is_app_blocked_for_paste(
+            Some("com.somevendor.notesplus"),
+            &notes_blocked
+        ));
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(
+                Some(&cleaned),
+                Some("com.somevendor.notesplus"),
+                &notes_blocked
+            ),
+            Ok("Cleaned spoken words.".to_string())
+        );
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(
+                Some(&cleaned),
+                Some("com.apple.Notes"),
+                &["note".to_string()]
+            ),
+            Ok("Cleaned spoken words.".to_string())
+        );
+        // Fail closed when block list has entries and frontmost bundle ID is unknown.
+        assert!(is_app_blocked_for_paste(None, &notes_blocked));
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(Some(&cleaned), None, &notes_blocked),
+            Err(PasteLastTakeError::FrontmostAppUnknown)
+        );
+        // Empty block list allows paste without needing frontmost inspection.
+        assert!(!is_app_blocked_for_paste(None, &[]));
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(Some(&cleaned), None, &[String::from("   ")]),
+            Ok("Cleaned spoken words.".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_lsappinfo_bundle_id_checks_exit_status_and_extracts_exact_quoted_id() {
+        assert_eq!(
+            parse_lsappinfo_bundle_id(true, "\"CFBundleIdentifier\"=\"com.apple.Notes\"\n"),
+            Some("com.apple.Notes".to_string())
+        );
+        assert_eq!(
+            parse_lsappinfo_bundle_id(
+                true,
+                "\"LSDisplayName\"=\"1Password\"\n\"bundleID\"=\"com.1password.1password\"\n"
+            ),
+            Some("com.1password.1password".to_string())
+        );
+        assert_eq!(
+            parse_lsappinfo_bundle_id(false, "\"CFBundleIdentifier\"=\"com.apple.Notes\"\n"),
+            None
+        );
+        assert_eq!(
+            parse_lsappinfo_bundle_id(true, "\"CFBundleIdentifier\"=[ NULL ]\n"),
+            None
+        );
+        assert_eq!(parse_lsappinfo_bundle_id(true, "malformed output"), None);
+        assert_eq!(parse_lsappinfo_bundle_id(true, ""), None);
+    }
+
+    #[test]
+    fn paste_last_take_label_is_present_across_all_locales() {
+        assert!(crate::tray_i18n::TRANSLATIONS.len() >= 22);
+        for (lang, strings) in crate::tray_i18n::TRANSLATIONS.iter() {
+            assert!(
+                !strings.paste_last_take.trim().is_empty(),
+                "missing tray.pasteLastTake for locale {lang}"
+            );
+        }
     }
 }

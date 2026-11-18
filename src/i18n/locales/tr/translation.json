@@ -3,6 +3,7 @@
     "settings": "Ayarlar...",
     "checkUpdates": "Güncellemeleri Kontrol Et...",
     "copyLastTranscript": "Son transkripti kopyala",
+    "pasteLastTake": "Son kaydı yapıştır",
     "unloadModel": "Modeli boşalt",
     "model": "Model",
     "quit": "Çıkış",
