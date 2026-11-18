@@ -379,9 +379,15 @@ pub fn create_recording_overlay(app_handle: &AppHandle) {
 
 fn show_overlay_state(app_handle: &AppHandle, state: &str) {
     // Whether the overlay shows at all is governed by overlay_style; position
-    // only chooses Top vs Bottom placement.
+    // only chooses Top vs Bottom placement. The meeting pill is the one state
+    // that survives OverlayStyle::None: turning the dictation pill off must not
+    // take away the only visible Stop.
     let settings = settings::get_settings(app_handle);
-    if settings.overlay_style == OverlayStyle::None {
+    #[cfg(feature = "meetings")]
+    let style_allows = overlay_show_allowed(state, settings.overlay_style);
+    #[cfg(not(feature = "meetings"))]
+    let style_allows = settings.overlay_style != OverlayStyle::None;
+    if !style_allows {
         return;
     }
 
@@ -432,6 +438,29 @@ pub fn show_recording_overlay(app_handle: &AppHandle) {
     show_overlay_state(app_handle, "recording");
 }
 
+/// Shows the meeting pill: the same 256 x 46 window, a mark, Recording, the
+/// elapsed time and Stop. It ignores `overlay_style = none`.
+#[cfg(feature = "meetings")]
+pub fn show_meeting_overlay(app_handle: &AppHandle) {
+    show_overlay_state(app_handle, crate::meeting_controller::PILL_OVERLAY_STATE);
+}
+
+/// Whether `overlay_style` lets this state show. `none` hides the dictation
+/// pill only; the meeting pill always shows.
+#[cfg(feature = "meetings")]
+fn overlay_show_allowed(state: &str, style: OverlayStyle) -> bool {
+    state == crate::meeting_controller::PILL_OVERLAY_STATE || style != OverlayStyle::None
+}
+
+/// Whether a hide request must be dropped. Only the meeting's own Stop ends the
+/// recording state; a dictation finishing, or the tray returning to Idle, must
+/// not take the pill away.
+#[cfg(feature = "meetings")]
+fn overlay_hide_blocked(state: crate::meeting_controller::MeetingState) -> bool {
+    use crate::meeting_controller::MeetingState;
+    matches!(state, MeetingState::Recording | MeetingState::Stopping)
+}
+
 /// Shows the larger streaming overlay that displays live transcription text
 pub fn show_streaming_overlay(app_handle: &AppHandle) {
     show_overlay_state(app_handle, "streaming");
@@ -468,6 +497,16 @@ pub fn update_overlay_position(app_handle: &AppHandle) {
 
 /// Hides the recording overlay window with fade-out animation
 pub fn hide_recording_overlay(app_handle: &AppHandle) {
+    #[cfg(feature = "meetings")]
+    if let Some(state) = crate::meeting_controller::state(app_handle) {
+        if overlay_hide_blocked(state) {
+            // Keep the pill and its Stop up. Re-assert it too: a dictation take
+            // just drew its own row over the shared overlay window.
+            show_overlay_state(app_handle, crate::meeting_controller::PILL_OVERLAY_STATE);
+            return;
+        }
+    }
+
     // Always hide the overlay regardless of settings - if setting was changed while recording,
     // we still want to hide it properly
     if let Some(overlay_window) = app_handle.get_webview_window("recording_overlay") {
@@ -488,6 +527,14 @@ pub fn hide_recording_overlay(app_handle: &AppHandle) {
 /// A check and the act after it are separate steps: a show landing between them, a
 /// few microseconds apart, still loses to the hide.
 pub fn hide_recording_overlay_if_current(app_handle: &AppHandle, captured: u64) -> bool {
+    #[cfg(feature = "meetings")]
+    if let Some(state) = crate::meeting_controller::state(app_handle) {
+        if overlay_hide_blocked(state) {
+            show_overlay_state(app_handle, crate::meeting_controller::PILL_OVERLAY_STATE);
+            return false;
+        }
+    }
+
     let current = move || current_generation(&OVERLAY_SHOW_GENERATION) == captured;
     if !current() {
         return false;
@@ -575,5 +622,27 @@ mod tests {
         bump_generation(&generation);
         bump_generation(&generation);
         assert_ne!(current_generation(&generation), captured);
+    }
+
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn overlay_hide_keeps_meeting_pill() {
+        use crate::meeting_controller::{MeetingState, PILL_OVERLAY_STATE};
+
+        // Dictation finishing, or the tray going Idle, is a hide request. While
+        // a meeting records that request is dropped, so Stop stays visible.
+        assert!(overlay_hide_blocked(MeetingState::Recording));
+        assert!(overlay_hide_blocked(MeetingState::Stopping));
+        assert!(!overlay_hide_blocked(MeetingState::Idle));
+        assert!(!overlay_hide_blocked(MeetingState::ConsentOpen));
+
+        // The meeting's own Stop leaves Idle, and that hide goes through.
+        assert!(!overlay_hide_blocked(MeetingState::Idle));
+
+        // OverlayStyle::None hides only the dictation pill.
+        assert!(!overlay_show_allowed("recording", OverlayStyle::None));
+        assert!(!overlay_show_allowed("streaming", OverlayStyle::None));
+        assert!(overlay_show_allowed(PILL_OVERLAY_STATE, OverlayStyle::None));
+        assert!(overlay_show_allowed("recording", OverlayStyle::Minimal));
     }
 }
