@@ -579,7 +579,9 @@
           "title": "ggml",
           "description": "הסקה מהירה לביצועים גבוהים עבור מודל זיהוי הדיבור Whisper של OpenAI",
           "details": "Coco Voice משתמש ב-ggml לתמלול מהיר ומקומי. תודה לעבודה המדהימה של Georgi Gerganov וכל התורמים."
-        }
+        },
+        "wespeakerDetails": "Speaker embedding model for per-meeting grouping (https://github.com/wenet-e2e/wespeaker).",
+        "pyannoteDetails": "On-device speaker turn segmentation model (https://huggingface.co/pyannote/segmentation-3.0)."
       },
       "whatsNewUpdates": {
         "label": "הצג מה חדש",
@@ -747,6 +749,12 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
-    }
+    },
+    "speakersMeta": "Names in this meeting only.",
+    "speakersUnnamedDesc": "No name typed for this meeting.",
+    "speakersRenamedDesc": "Renamed in this meeting.",
+    "speakersUnnamedBadge": "Unnamed",
+    "speakersAriaPrefix": "Name for",
+    "speakersLegal": "Speaker labels are worked out per meeting and nothing about anyone's voice is saved."
   }
 }
