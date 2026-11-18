@@ -97,9 +97,17 @@ fn cause_in(err: &(dyn std::error::Error + 'static)) -> Option<DownloadFailureCa
         if e.is::<reqwest::Error>() {
             return Some(DownloadFailureCause::Network);
         }
-        // hf-hub boxes the last chunk error here without exposing it as a source.
-        if let Some(hf_hub::api::tokio::ApiError::TooManyRetries(inner)) = e.downcast_ref() {
-            return cause_in(inner.as_ref());
+        match e.downcast_ref::<hf_hub::api::tokio::ApiError>() {
+            // hf-hub depends on its own reqwest (0.12), a different type from ours
+            // (0.13), so its request errors are matched by variant, not by type.
+            Some(hf_hub::api::tokio::ApiError::RequestError(_)) => {
+                return Some(DownloadFailureCause::Network);
+            }
+            // hf-hub boxes the last chunk error here without exposing it as a source.
+            Some(hf_hub::api::tokio::ApiError::TooManyRetries(inner)) => {
+                return cause_in(inner.as_ref());
+            }
+            _ => {}
         }
         next = e.source();
     }
@@ -3369,8 +3377,22 @@ mod tests {
             download_failure_cause(&anyhow::Error::new(request)),
             DownloadFailureCause::Network
         );
-        let request = reqwest::Client::new().get("not a url").build().unwrap_err();
-        let retries = hf_hub::api::tokio::ApiError::TooManyRetries(Box::new(request.into()));
+
+        // hf-hub carries its own reqwest (0.12), not the 0.13 this crate uses, so its
+        // errors are built with the 0.12 dev-dependency. Neither call touches the network.
+        let hf_request = || {
+            hf_hub::api::tokio::ApiError::from(
+                reqwest_hf::Client::new()
+                    .get("not a url")
+                    .build()
+                    .unwrap_err(),
+            )
+        };
+        assert_eq!(
+            download_failure_cause(&anyhow::Error::new(hf_request()).context("Hugging Face")),
+            DownloadFailureCause::Network
+        );
+        let retries = hf_hub::api::tokio::ApiError::TooManyRetries(Box::new(hf_request()));
         assert_eq!(
             download_failure_cause(&anyhow::Error::new(retries).context("Hugging Face download")),
             DownloadFailureCause::Network
