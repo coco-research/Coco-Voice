@@ -107,55 +107,38 @@ impl std::fmt::Display for PasteFailure {
     }
 }
 
-/// Tracks the last take that emitted a paste-failure notice so a failed take
-/// notifies the user at most once.
-#[derive(Default, Debug)]
-pub struct PasteNoticeGate {
-    last_notified_take_id: Option<u64>,
-}
-
-impl PasteNoticeGate {
-    pub fn claim(&mut self, take_id: u64) -> bool {
-        if self.last_notified_take_id == Some(take_id) {
-            return false;
-        }
-        self.last_notified_take_id = Some(take_id);
-        true
-    }
-}
-
 /// Decides whether a paste attempt should emit `paste-notice`, and which
 /// location variant (`ClipboardAndHistory`, `ClipboardOnly`, `HistoryOnly`,
 /// `Neither`) honestly describes where the user's words are.
 ///
-/// Successful pastes (`Some(Ok(_))`) and cancelled takes (`None`) emit nothing.
-/// Failed pastes (`Some(Err(failure))`) and panicked paste tasks emit once per
-/// `take_id` via `gate`.
-#[allow(clippy::too_many_arguments)]
-pub fn decide_paste_failure_notice(
-    take_id: u64,
+/// - Cancelled takes (`None` without panic) and successful pastes that did not
+///   overwrite the transcript on the clipboard (`Some(Ok(false))`) emit nothing.
+/// - Successful pastes where `DontModify` restored the prior clipboard (`Some(Ok(true))`)
+///   notify because target acceptance cannot be confirmed and the transcript is
+///   no longer on the clipboard (`on_clipboard == false`).
+/// - Failed pastes (`Some(Err(failure))`) report `on_clipboard == failure.kept_on_clipboard`.
+/// - Panicked paste tasks (`task_panicked == true`) never ran `keep_text_on_failure`,
+///   so `on_clipboard` is `false`.
+pub fn decide_paste_notice(
     outcome: Option<Result<bool, &PasteFailure>>,
     task_panicked: bool,
     handling: ClipboardHandling,
     history_saved: bool,
     history_limit: usize,
     retention: RecordingRetentionPeriod,
-    gate: &mut PasteNoticeGate,
 ) -> Option<PasteNotice> {
-    let clipboard_kept = if task_panicked {
+    let on_clipboard = if task_panicked {
         false
     } else {
         match outcome {
-            None | Some(Ok(_)) => return None,
+            None | Some(Ok(false)) => return None,
+            Some(Ok(true)) => false,
             Some(Err(failure)) => failure.kept_on_clipboard,
         }
     };
-    if !gate.claim(take_id) {
-        return None;
-    }
     let (_, in_history) =
         paste_word_locations(handling, false, history_saved, history_limit, retention);
-    Some(paste_notice(clipboard_kept, in_history))
+    Some(paste_notice(on_clipboard, in_history))
 }
 
 /// Pastes text using the clipboard: writes `text`, sends the paste keystroke, then restores
@@ -1250,7 +1233,7 @@ mod tests {
     }
 
     #[test]
-    fn failed_paste_leaves_text_on_clipboard_and_notifies_once() {
+    fn decide_paste_notice_covers_failed_paste_and_restored_clipboard_paths() {
         let mut writes = Vec::new();
         let outcome =
             keep_text_on_failure("dictated note", Err("accessibility denied".into()), |t| {
@@ -1259,40 +1242,39 @@ mod tests {
             });
         assert_eq!(writes, vec!["dictated note".to_string()]);
         let err = outcome.as_ref().unwrap_err();
-        let mut gate = PasteNoticeGate::default();
-        let check = |id, out, panicked, handling, gate: &mut PasteNoticeGate| {
-            decide_paste_failure_notice(
-                id,
+        let check = |out, panicked, handling, saved, limit| {
+            decide_paste_notice(
                 out,
                 panicked,
                 handling,
-                true,
-                5,
+                saved,
+                limit,
                 RecordingRetentionPeriod::PreserveLimit,
-                gate,
             )
         };
+
+        // Failed paste with transcript kept on clipboard reports clipboard (+ history if saved).
         assert_eq!(
             check(
-                42,
                 Some(Err(err)),
                 false,
                 ClipboardHandling::DontModify,
-                &mut gate
+                true,
+                5
             ),
             Some(PasteNotice::ClipboardAndHistory)
         );
-        // Re-evaluating the same take must not notify a second time.
         assert_eq!(
             check(
-                42,
                 Some(Err(err)),
                 false,
                 ClipboardHandling::DontModify,
-                &mut gate
+                true,
+                0
             ),
-            None
+            Some(PasteNotice::ClipboardOnly)
         );
+
         // When keeping on clipboard fails, never claim the words are on the clipboard.
         let denied = PasteFailure {
             error: "paste failed".into(),
@@ -1300,27 +1282,57 @@ mod tests {
         };
         assert_eq!(
             check(
-                7,
                 Some(Err(&denied)),
                 false,
                 ClipboardHandling::CopyToClipboard,
-                &mut gate
+                true,
+                5,
             ),
             Some(PasteNotice::HistoryOnly)
         );
-        // Successful paste (even with clipboard restored) and cancellation stay quiet.
+
+        // DontModify success-with-restore (`Some(Ok(true))`) notifies because the prior
+        // clipboard was put back and target acceptance cannot be confirmed.
         assert_eq!(
             check(
-                8,
                 Some(Ok(true)),
                 false,
                 ClipboardHandling::DontModify,
-                &mut gate
+                true,
+                5
+            ),
+            Some(PasteNotice::HistoryOnly)
+        );
+        assert_eq!(
+            check(
+                Some(Ok(true)),
+                false,
+                ClipboardHandling::DontModify,
+                true,
+                0
+            ),
+            Some(PasteNotice::Neither)
+        );
+
+        // Panicked paste task never kept words on clipboard.
+        assert_eq!(
+            check(None, true, ClipboardHandling::CopyToClipboard, true, 5),
+            Some(PasteNotice::HistoryOnly)
+        );
+
+        // Successful paste without restore (`Some(Ok(false))`) and cancellation stay quiet.
+        assert_eq!(
+            check(
+                Some(Ok(false)),
+                false,
+                ClipboardHandling::CopyToClipboard,
+                true,
+                5,
             ),
             None
         );
         assert_eq!(
-            check(9, None, false, ClipboardHandling::DontModify, &mut gate),
+            check(None, false, ClipboardHandling::DontModify, true, 5),
             None
         );
     }

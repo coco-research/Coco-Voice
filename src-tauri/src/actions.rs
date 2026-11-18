@@ -28,18 +28,14 @@ use std::collections::HashMap;
 use std::future::Future;
 #[cfg(all(test, feature = "meetings"))]
 use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Manager;
 use tauri::{AppHandle, Emitter};
 use tauri_specta::Event;
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
-
-static PASTE_TAKE_SEQ: AtomicU64 = AtomicU64::new(1);
-static PASTE_NOTICE_GATE: Lazy<Mutex<crate::clipboard::PasteNoticeGate>> =
-    Lazy::new(|| Mutex::new(crate::clipboard::PasteNoticeGate::default()));
 
 /// How long the overlay stays up after paste when a cleanup status was sent, so the
 /// "not cleaned" row can be read.
@@ -1178,15 +1174,15 @@ pub(crate) async fn process_transcription_output(
         post_processed_text = Some(final_text.clone());
     }
 
-    // Deterministic user correction map: the final output pass on the pasted text.
-    // Runs after LLM post-processing (above) and after apply_custom_words (which
-    // runs earlier in the transcription pipeline), so the user always gets a
-    // predictable last-word override via case-insensitive whole-word replacement.
-    if !settings.saved_blocks.is_empty() {
-        final_text = crate::audio_toolkit::expand_saved_blocks(&final_text, &settings.saved_blocks);
-    }
+    // Deterministic user correction map runs after LLM post-processing (above) and
+    // after apply_custom_words (which runs earlier in the transcription pipeline),
+    // followed by saved-block expansion so spoken cues benefit from word/correction
+    // fixes while literal words inside a saved block are never mutated.
     if !settings.corrections.is_empty() {
         final_text = crate::audio_toolkit::apply_corrections(&final_text, &settings.corrections);
+    }
+    if !settings.saved_blocks.is_empty() {
+        final_text = crate::audio_toolkit::expand_saved_blocks(&final_text, &settings.saved_blocks);
     }
 
     // Remember this dictation so a later correction-hotkey press can edit it.
@@ -1584,7 +1580,6 @@ impl ShortcutAction for TranscribeAction {
                                 })
                                 .await;
 
-                                let paste_take_id = PASTE_TAKE_SEQ.fetch_add(1, Ordering::Relaxed);
                                 let mut cancelled_before_paste = false;
                                 let mut task_panicked = false;
                                 let outcome = match &pasted {
@@ -1610,22 +1605,14 @@ impl ShortcutAction for TranscribeAction {
                                         None
                                     }
                                 };
-                                let notice = {
-                                    let mut gate = PASTE_NOTICE_GATE
-                                        .lock()
-                                        .unwrap_or_else(PoisonError::into_inner);
-                                    crate::clipboard::decide_paste_failure_notice(
-                                        paste_take_id,
-                                        outcome,
-                                        task_panicked,
-                                        clipboard_handling,
-                                        history_saved,
-                                        history_limit,
-                                        retention,
-                                        &mut gate,
-                                    )
-                                };
-                                if let Some(notice) = notice {
+                                if let Some(notice) = crate::clipboard::decide_paste_notice(
+                                    outcome,
+                                    task_panicked,
+                                    clipboard_handling,
+                                    history_saved,
+                                    history_limit,
+                                    retention,
+                                ) {
                                     let _ = ah.emit("paste-notice", notice);
                                 }
                                 if cancelled_before_paste {

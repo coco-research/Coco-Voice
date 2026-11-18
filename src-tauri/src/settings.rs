@@ -379,7 +379,7 @@ pub struct AppSettings {
     pub push_to_talk: bool,
     /// When push-to-talk is on, double-tapping a transcribe shortcut latches
     /// hands-free recording until the next tap (or Escape to cancel).
-    #[serde(default = "default_double_tap_hands_free")]
+    #[serde(default)]
     pub double_tap_hands_free: bool,
     #[serde(default)]
     pub audio_feedback: bool,
@@ -556,10 +556,6 @@ fn default_settings_schema_version() -> u32 {
 }
 
 fn default_push_to_talk() -> bool {
-    true
-}
-
-fn default_double_tap_hands_free() -> bool {
     true
 }
 
@@ -1180,7 +1176,7 @@ pub fn get_default_settings() -> AppSettings {
         settings_schema_version: default_settings_schema_version(),
         bindings,
         push_to_talk: default_push_to_talk(),
-        double_tap_hands_free: default_double_tap_hands_free(),
+        double_tap_hands_free: false,
         audio_feedback: false,
         audio_feedback_volume: default_audio_feedback_volume(),
         sound_theme: default_sound_theme(),

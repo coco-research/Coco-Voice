@@ -1,6 +1,7 @@
 use natural::phonetics::soundex;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::{Arc, Mutex, PoisonError};
 use strsim::levenshtein;
 
 /// Builds an n-gram string by cleaning and concatenating words
@@ -301,11 +302,12 @@ fn is_common_stopword(w: &str) -> bool {
 
 /// Extracts spelling-fix offers from a post-paste / history user edit (`original` -> `edited`),
 /// filtering out punctuation-only tweaks, sentence-start capitalization, stopword swaps,
-/// unrelated semantic edits, and pairs already in `existing_corrections`.
+/// unrelated semantic edits, words already in `existing_custom_words`, and pairs already in
+/// `existing_corrections`.
 pub(crate) fn suggest_spelling_corrections(
     original: &str,
     edited: &str,
-    _existing_custom_words: &[String],
+    existing_custom_words: &[String],
     existing_corrections: &[crate::settings::CorrectionPair],
 ) -> Vec<crate::settings::CorrectionPair> {
     fn tokenize(s: &str) -> Vec<&str> {
@@ -349,11 +351,15 @@ pub(crate) fn suggest_spelling_corrections(
 
     let mut out: Vec<crate::settings::CorrectionPair> = Vec::new();
     let mut push_new = |from: &str, to: &str| {
-        if !existing_corrections
+        let to_trimmed = to.trim();
+        let in_custom_words = existing_custom_words
+            .iter()
+            .any(|w| w.trim().eq_ignore_ascii_case(to_trimmed));
+        let in_corrections = existing_corrections
             .iter()
             .chain(out.iter())
-            .any(|p| p.from.eq_ignore_ascii_case(from))
-        {
+            .any(|p| p.from.trim().eq_ignore_ascii_case(from.trim()));
+        if !in_custom_words && !in_corrections {
             out.push(crate::settings::CorrectionPair {
                 from: from.to_string(),
                 to: to.to_string(),
@@ -432,37 +438,110 @@ pub(crate) fn remember_spelling_correction(
     true
 }
 
+struct CompiledSavedBlock {
+    cue_key: String,
+    insert_key: String,
+    inline_re: Regex,
+    content: String,
+}
+
+#[derive(Default)]
+struct SavedBlocksCache {
+    entry: Option<(
+        Vec<crate::settings::SavedBlock>,
+        Arc<Vec<CompiledSavedBlock>>,
+    )>,
+}
+
+impl SavedBlocksCache {
+    fn get_or_compile(
+        &mut self,
+        blocks: &[crate::settings::SavedBlock],
+    ) -> Arc<Vec<CompiledSavedBlock>> {
+        if let Some((cached_blocks, compiled)) = self.entry.as_ref() {
+            if cached_blocks.as_slice() == blocks {
+                return Arc::clone(compiled);
+            }
+        }
+
+        let mut ordered: Vec<&crate::settings::SavedBlock> = blocks
+            .iter()
+            .filter(|b| !b.cue.trim().is_empty() && !b.content.is_empty())
+            .collect();
+        ordered.sort_by_key(|b| std::cmp::Reverse(b.cue.len()));
+
+        let compiled: Vec<CompiledSavedBlock> = ordered
+            .into_iter()
+            .filter_map(|block| {
+                let pat = format!(r"(?i)\binsert\s+{}\b[,.]?", regex::escape(block.cue.trim()));
+                let inline_re = Regex::new(&pat).ok()?;
+                Some(CompiledSavedBlock {
+                    cue_key: build_match_key(&block.cue),
+                    insert_key: build_match_key(&format!("insert {}", block.cue)),
+                    inline_re,
+                    content: block.content.clone(),
+                })
+            })
+            .collect();
+
+        let arc = Arc::new(compiled);
+        self.entry = Some((blocks.to_vec(), Arc::clone(&arc)));
+        arc
+    }
+}
+
+static SAVED_BLOCKS_CACHE: Lazy<Mutex<SavedBlocksCache>> =
+    Lazy::new(|| Mutex::new(SavedBlocksCache::default()));
+
+fn compiled_saved_blocks(blocks: &[crate::settings::SavedBlock]) -> Arc<Vec<CompiledSavedBlock>> {
+    SAVED_BLOCKS_CACHE
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get_or_compile(blocks)
+}
+
 /// Expands saved blocks stored locally on this Mac when the user speaks either
 /// the standalone `<cue>` (whole utterance) or `"insert <cue>"` inline.
 pub(crate) fn expand_saved_blocks(text: &str, blocks: &[crate::settings::SavedBlock]) -> String {
     if blocks.is_empty() || text.trim().is_empty() {
         return text.to_string();
     }
-    let mut ordered: Vec<&crate::settings::SavedBlock> = blocks
-        .iter()
-        .filter(|b| !b.cue.trim().is_empty() && !b.content.is_empty())
-        .collect();
-    ordered.sort_by_key(|b| std::cmp::Reverse(b.cue.len()));
+    let compiled = compiled_saved_blocks(blocks);
+    if compiled.is_empty() {
+        return text.to_string();
+    }
 
     let norm_whole = build_match_key(text);
-    for block in &ordered {
-        let cue_key = build_match_key(&block.cue);
-        let insert_key = build_match_key(&format!("insert {}", block.cue));
-        if !cue_key.is_empty() && (norm_whole == cue_key || norm_whole == insert_key) {
+    for block in compiled.iter() {
+        if !block.cue_key.is_empty()
+            && (norm_whole == block.cue_key || norm_whole == block.insert_key)
+        {
             return block.content.clone();
         }
     }
 
-    let mut result = text.to_string();
-    for block in &ordered {
-        let pat = format!(r"(?i)\binsert\s+{}\b[,.]?", regex::escape(block.cue.trim()));
-        if let Ok(re) = Regex::new(&pat) {
-            result = re
-                .replace_all(&result, regex::NoExpand(block.content.as_str()))
-                .to_string();
+    let mut spans: Vec<(usize, usize, &str)> = Vec::new();
+    for block in compiled.iter() {
+        for m in block.inline_re.find_iter(text) {
+            let (s, e) = (m.start(), m.end());
+            if !spans.iter().any(|&(os, oe, _)| s < oe && os < e) {
+                spans.push((s, e, block.content.as_str()));
+            }
         }
     }
-    result
+    if spans.is_empty() {
+        return text.to_string();
+    }
+    spans.sort_by_key(|&(s, _, _)| s);
+    let mut out = String::with_capacity(text.len());
+    let mut cursor = 0;
+    for (s, e, replacement) in spans {
+        out.push_str(&text[cursor..s]);
+        out.push_str(replacement);
+        cursor = e;
+    }
+    out.push_str(&text[cursor..]);
+    out
 }
 
 static MULTI_SPACE_PATTERN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s{2,}").unwrap());
@@ -951,5 +1030,67 @@ mod tests {
         assert!(crate::settings::get_default_settings()
             .saved_blocks
             .is_empty());
+    }
+
+    #[test]
+    fn existing_custom_words_suppresses_duplicate_spelling_offer() {
+        let custom_words = vec!["  kubernetes  ".to_string()];
+        let offers = suggest_spelling_corrections(
+            "Deploy it to kubernettis with Charge B.",
+            "Deploy it to Kubernetes with ChargeBee!",
+            &custom_words,
+            &[],
+        );
+        assert_eq!(offers.len(), 1);
+        assert_eq!(
+            (offers[0].from.as_str(), offers[0].to.as_str()),
+            ("Charge B", "ChargeBee")
+        );
+    }
+
+    #[test]
+    fn saved_block_content_is_preserved_verbatim_after_word_and_correction_rewrites() {
+        let custom_words = vec!["Calendar".to_string()];
+        let corrections = vec![pair("team", "squad"), pair("kalendar", "calendar")];
+        let blocks = vec![crate::settings::SavedBlock {
+            id: "b1".into(),
+            cue: "calendar link".into(),
+            content: "Meet the team at https://example.com/team".into(),
+        }];
+
+        // Mirrors the dictation pipeline order: apply_custom_words -> apply_corrections -> expand_saved_blocks.
+        let raw = "Talk to the team and insert kalendar link.";
+        let after_words = apply_custom_words(raw, &custom_words, 0.18);
+        let after_corrections = apply_corrections(&after_words, &corrections);
+        let final_text = expand_saved_blocks(&after_corrections, &blocks);
+        assert_eq!(
+            final_text,
+            "Talk to the squad and Meet the team at https://example.com/team"
+        );
+    }
+
+    #[test]
+    fn saved_blocks_regex_cache_reuses_compiled_rules_until_blocks_change() {
+        let mut cache = SavedBlocksCache::default();
+        let blocks_a = vec![crate::settings::SavedBlock {
+            id: "cache-1".into(),
+            cue: "status link".into(),
+            content: "https://example.com/status".into(),
+        }];
+        let first = cache.get_or_compile(&blocks_a);
+        let second = cache.get_or_compile(&blocks_a);
+        assert!(Arc::ptr_eq(&first, &second));
+
+        let blocks_b = vec![crate::settings::SavedBlock {
+            id: "cache-1".into(),
+            cue: "status link".into(),
+            content: "https://example.com/status-v2".into(),
+        }];
+        let rebuilt = cache.get_or_compile(&blocks_b);
+        assert!(!Arc::ptr_eq(&first, &rebuilt));
+        assert_eq!(
+            expand_saved_blocks("Check insert status link.", &blocks_b),
+            "Check https://example.com/status-v2"
+        );
     }
 }
