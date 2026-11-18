@@ -26,7 +26,7 @@ import { LazyStreamClose } from "../LazyStreamClose";
 
 export const AdvancedSettings: React.FC = () => {
   const { t } = useTranslation();
-  const { getSetting } = useSettings();
+  const { getSetting, settings } = useSettings();
   const experimentalEnabled = getSetting("experimental_enabled") || false;
   const meetingsUi = useMeetingsUi();
 
@@ -43,6 +43,14 @@ export const AdvancedSettings: React.FC = () => {
           <meetingsUi.MeetingsToggle descriptionMode="tooltip" grouped={true} />
         ) : null}
       </SettingsGroup>
+
+      {meetingsUi?.settingEnabled(settings) ? (
+        <SettingsGroup title={t("meetings.sidebar")}>
+          <div className="p-4">
+            <meetingsUi.CalendarPicker />
+          </div>
+        </SettingsGroup>
+      ) : null}
 
       <SettingsGroup title={t("settings.advanced.groups.output")}>
         <PasteMethodSetting descriptionMode="tooltip" grouped={true} />
