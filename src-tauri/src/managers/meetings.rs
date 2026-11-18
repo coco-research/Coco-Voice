@@ -12,6 +12,8 @@ use chrono::Utc;
 use log::info;
 use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
+use serde::Serialize;
+use specta::Type;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -82,7 +84,56 @@ static MIGRATIONS: &[M] = &[
         );
         CREATE INDEX meeting_notepad_meeting ON meeting_notepad(meeting_id, at_ms);",
     ),
+    M::up(
+        "CREATE TABLE meeting_folders (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            created_at INTEGER NOT NULL
+        );
+        CREATE TABLE meeting_templates (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            body TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+        ALTER TABLE meetings ADD COLUMN folder_id INTEGER;
+        ALTER TABLE meetings ADD COLUMN markdown_file TEXT;",
+    ),
 ];
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Type)]
+pub struct MeetingFolder {
+    pub id: i64,
+    pub name: String,
+    pub created_at: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Type)]
+pub struct MeetingTemplate {
+    pub id: i64,
+    pub name: String,
+    pub body: String,
+    pub created_at: i64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FolderFilter {
+    All,
+    Unfiled,
+    Folder(i64),
+}
+
+fn sanitize_flat_folder_name(name: &str) -> Result<String> {
+    let cleaned = name
+        .replace(['/', '\\'], " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if cleaned.is_empty() {
+        return Err(anyhow!("folder name cannot be empty"));
+    }
+    Ok(cleaned)
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MeetingSegment {
@@ -462,6 +513,200 @@ impl MeetingsStore {
         Ok(())
     }
 
+    /// Remove only `{meetings dir}/<id>` audio files while keeping database rows.
+    pub fn delete_meeting_audio(&self, id: i64) -> Result<()> {
+        let meetings_dir = self
+            .db_path
+            .parent()
+            .ok_or_else(|| anyhow!("no meetings dir for {}", self.db_path.display()))?;
+        let name = id.to_string();
+        let dir = meetings_dir.join(&name);
+        if dir.file_name().and_then(|n| n.to_str()) != Some(name.as_str()) {
+            return Err(anyhow!("refusing to delete {}", dir.display()));
+        }
+        match fs::remove_dir_all(&dir) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(anyhow!("remove {}: {e}", dir.display())),
+        }
+    }
+
+    pub fn create_folder(&self, name: &str) -> Result<i64> {
+        let cleaned = sanitize_flat_folder_name(name)?;
+        let conn = self.connection()?;
+        conn.execute(
+            "INSERT INTO meeting_folders (name, created_at) VALUES (?1, ?2)",
+            params![cleaned, Utc::now().timestamp()],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn rename_folder(&self, id: i64, name: &str) -> Result<()> {
+        let cleaned = sanitize_flat_folder_name(name)?;
+        let conn = self.connection()?;
+        if conn.execute(
+            "UPDATE meeting_folders SET name = ?1 WHERE id = ?2",
+            params![cleaned, id],
+        )? == 0
+        {
+            return Err(anyhow!("folder {id} not found"));
+        }
+        Ok(())
+    }
+
+    pub fn list_folders(&self) -> Result<Vec<MeetingFolder>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, name, created_at FROM meeting_folders ORDER BY name ASC, id ASC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok(MeetingFolder {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                created_at: r.get(2)?,
+            })
+        })?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| anyhow!(e))
+    }
+
+    /// Delete `id` and move its meetings back to No folder (`NULL`) in one transaction.
+    pub fn delete_folder(&self, id: i64) -> Result<()> {
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        tx.execute(
+            "UPDATE meetings SET folder_id = NULL WHERE folder_id = ?1",
+            params![id],
+        )?;
+        if tx.execute("DELETE FROM meeting_folders WHERE id = ?1", params![id])? == 0 {
+            tx.rollback()?;
+            return Err(anyhow!("folder {id} not found"));
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn move_meetings_to_folder(&self, ids: &[i64], folder_id: Option<i64>) -> Result<()> {
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        if let Some(fid) = folder_id {
+            let exists: i64 = tx.query_row(
+                "SELECT COUNT(*) FROM meeting_folders WHERE id = ?1",
+                params![fid],
+                |r| r.get(0),
+            )?;
+            if exists == 0 {
+                return Err(anyhow!("folder {fid} not found"));
+            }
+        }
+        for &mid in ids {
+            tx.execute(
+                "UPDATE meetings SET folder_id = ?1 WHERE id = ?2",
+                params![folder_id, mid],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn meeting_folder_id(&self, id: i64) -> Result<Option<i64>> {
+        let conn = self.connection()?;
+        Ok(conn.query_row(
+            "SELECT folder_id FROM meetings WHERE id = ?1",
+            params![id],
+            |r| r.get(0),
+        )?)
+    }
+
+    pub fn list_meetings_in_folder(&self, filter: FolderFilter) -> Result<Vec<Meeting>> {
+        let all = self.list_meetings()?;
+        self.filter_by_folder(all, filter)
+    }
+
+    pub fn search_meetings_in_folder(
+        &self,
+        query: &str,
+        filter: FolderFilter,
+    ) -> Result<Vec<Meeting>> {
+        let matched = self.search_meetings(query)?;
+        self.filter_by_folder(matched, filter)
+    }
+
+    fn filter_by_folder(&self, rows: Vec<Meeting>, filter: FolderFilter) -> Result<Vec<Meeting>> {
+        if filter == FolderFilter::All {
+            return Ok(rows);
+        }
+        let mut out = Vec::new();
+        for m in rows {
+            let fid = self.meeting_folder_id(m.id)?;
+            let keep = match filter {
+                FolderFilter::All => true,
+                FolderFilter::Unfiled => fid.is_none(),
+                FolderFilter::Folder(target) => fid == Some(target),
+            };
+            if keep {
+                out.push(m);
+            }
+        }
+        Ok(out)
+    }
+
+    pub fn meeting_markdown_file(&self, id: i64) -> Result<Option<String>> {
+        let conn = self.connection()?;
+        Ok(conn.query_row(
+            "SELECT markdown_file FROM meetings WHERE id = ?1",
+            params![id],
+            |r| r.get(0),
+        )?)
+    }
+
+    pub fn set_meeting_markdown_file(&self, id: i64, file_name: Option<&str>) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute(
+            "UPDATE meetings SET markdown_file = ?1 WHERE id = ?2",
+            params![file_name, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn create_template(&self, name: &str, body: &str) -> Result<i64> {
+        let trimmed = name.trim();
+        if trimmed.is_empty() {
+            return Err(anyhow!("template name cannot be empty"));
+        }
+        let conn = self.connection()?;
+        conn.execute(
+            "INSERT INTO meeting_templates (name, body, created_at) VALUES (?1, ?2, ?3)",
+            params![trimmed, body, Utc::now().timestamp()],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn list_templates(&self) -> Result<Vec<MeetingTemplate>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, name, body, created_at FROM meeting_templates ORDER BY name ASC, id ASC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok(MeetingTemplate {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                body: r.get(2)?,
+                created_at: r.get(3)?,
+            })
+        })?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| anyhow!(e))
+    }
+
+    pub fn delete_template(&self, id: i64) -> Result<()> {
+        let conn = self.connection()?;
+        if conn.execute("DELETE FROM meeting_templates WHERE id = ?1", params![id])? == 0 {
+            return Err(anyhow!("template {id} not found"));
+        }
+        Ok(())
+    }
+
     fn init(&self) -> Result<()> {
         let mut conn = Connection::open(&self.db_path)?;
         conn.busy_timeout(Duration::from_secs(1))?;
@@ -660,7 +905,7 @@ mod tests {
         let meetings_version: i32 = meetings
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(meetings_version, 2);
+        assert_eq!(meetings_version, MIGRATIONS.len() as i32);
         let mode: String = meetings
             .pragma_query_value(None, "journal_mode", |row| row.get(0))
             .unwrap();
@@ -828,7 +1073,7 @@ mod tests {
         let version: i32 = conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 2);
+        assert_eq!(version, MIGRATIONS.len() as i32);
         let row = store.meeting(1).unwrap();
         assert_eq!(row.title, "Old");
     }
@@ -989,7 +1234,8 @@ mod tests {
         let path = meetings_dir.join("meetings.db");
         {
             let conn = Connection::open(&path).unwrap();
-            conn.pragma_update(None, "user_version", 3).unwrap();
+            conn.pragma_update(None, "user_version", MIGRATIONS.len() as i32 + 1)
+                .unwrap();
         }
 
         let result = MeetingsStore::open(dir.path());
@@ -1089,5 +1335,58 @@ mod tests {
             ids(&store.search_meetings("zebra").unwrap()),
             vec![second, first]
         );
+    }
+
+    #[test]
+    fn flat_folders_templates_and_delete_folder_unfiles_meetings() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let folder_a = store.create_folder("Customers/North").unwrap();
+        let folder_b = store.create_folder("Interviews").unwrap();
+        assert_eq!(store.list_folders().unwrap()[0].name, "Customers North");
+        store.rename_folder(folder_a, "Enterprise").unwrap();
+        assert_eq!(store.list_folders().unwrap()[0].name, "Enterprise");
+
+        let tpl_id = store
+            .create_template("One-to-one", "# Decisions\n# Follow-ups\n")
+            .unwrap();
+        assert_eq!(store.list_templates().unwrap().len(), 1);
+        store.delete_template(tpl_id).unwrap();
+        assert!(store.list_templates().unwrap().is_empty());
+
+        let m1 = store.start_meeting("Acme renewal", "model").unwrap();
+        let m2 = store.start_meeting("Weekly standup", "model").unwrap();
+        segment(&store, m1, "unique-lighthouse-term");
+        store
+            .move_meetings_to_folder(&[m1], Some(folder_a))
+            .unwrap();
+
+        assert_eq!(
+            store
+                .search_meetings_in_folder("unique-lighthouse-term", FolderFilter::All)
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(store
+            .search_meetings_in_folder("unique-lighthouse-term", FolderFilter::Folder(folder_b))
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            store
+                .search_meetings_in_folder("unique-lighthouse-term", FolderFilter::Folder(folder_a))
+                .unwrap()[0]
+                .id,
+            m1
+        );
+
+        let before_count = store.meeting_count().unwrap();
+        store.delete_folder(folder_a).unwrap();
+        assert_eq!(store.meeting_count().unwrap(), before_count);
+        assert_eq!(store.meeting_folder_id(m1).unwrap(), None);
+        let unfiled_ids = ids(&store
+            .list_meetings_in_folder(FolderFilter::Unfiled)
+            .unwrap());
+        assert!(unfiled_ids.contains(&m1) && unfiled_ids.contains(&m2));
     }
 }
