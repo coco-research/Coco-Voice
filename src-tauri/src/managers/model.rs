@@ -1648,6 +1648,7 @@ impl ModelManager {
             description: String::new(),
             engine_type: EngineType::LlamaCpp,
             caps: CapabilityProbe::default(),
+            family: None,
             files: Vec::new(),
             default_quant: None,
             speed_score: 0.0,
