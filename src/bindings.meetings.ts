@@ -179,5 +179,4 @@ export type MeetingWarning = "system_audio_silent" | "mic_fell_back_to_default";
 import { invoke as TAURI_INVOKE } from "@tauri-apps/api/core";
 
 export type Result<T, E> =
-  | { status: "ok"; data: T }
-  | { status: "error"; error: E };
+  { status: "ok"; data: T } | { status: "error"; error: E };
