@@ -2,7 +2,11 @@
 //! identifier casing, and local open-repo symbol spelling bias.
 // ponytail: ceiling = local filesystem walk + defaults plist helper; upgrade path = tree-sitter symbol index.
 
+use crate::audio_toolkit::text::has_identifier_casing;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
+use std::fs;
+use std::path::Path;
 use strsim::levenshtein;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -263,6 +267,98 @@ fn split_punct(word: &str) -> (&str, &str) {
     )
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RepoUnavailableReason {
+    SshRemote,
+    NotFound,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RepoScanResult {
+    Symbols(Vec<String>),
+    NoLocalRepo { reason: RepoUnavailableReason },
+}
+
+pub fn scan_open_repo_symbols(root: &Path, is_ssh_remote: bool) -> RepoScanResult {
+    let root_str = root.to_string_lossy();
+    if is_ssh_remote || root_str.starts_with("ssh://") || root_str.contains("ssh-remote") {
+        return RepoScanResult::NoLocalRepo {
+            reason: RepoUnavailableReason::SshRemote,
+        };
+    }
+    if !root.exists() || !root.is_dir() || !root.join(".git").exists() {
+        return RepoScanResult::NoLocalRepo {
+            reason: RepoUnavailableReason::NotFound,
+        };
+    }
+    let mut symbols = BTreeSet::new();
+    let mut files_budget = 250usize;
+    collect_repo_symbols_rec(root, 0, &mut files_budget, &mut symbols);
+    RepoScanResult::Symbols(symbols.into_iter().collect())
+}
+
+const MAX_REPO_SOURCE_FILE_BYTES: u64 = 262_144;
+
+fn collect_repo_symbols_rec(
+    dir: &Path,
+    depth: usize,
+    files_budget: &mut usize,
+    out: &mut BTreeSet<String>,
+) {
+    if depth > 5 || *files_budget == 0 {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        if *files_budget == 0 {
+            break;
+        }
+        let path = entry.path();
+        let Ok(meta) = fs::symlink_metadata(&path) else {
+            continue;
+        };
+        if meta.file_type().is_symlink() {
+            continue;
+        }
+        let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if name.starts_with('.')
+            || matches!(
+                name,
+                "target" | "node_modules" | "dist" | "build" | "vendor"
+            )
+        {
+            continue;
+        }
+        if meta.is_dir() {
+            collect_repo_symbols_rec(&path, depth + 1, files_budget, out);
+        } else if meta.is_file()
+            && meta.len() <= MAX_REPO_SOURCE_FILE_BYTES
+            && matches!(
+                path.extension().and_then(|e| e.to_str()),
+                Some("rs" | "ts" | "tsx" | "js" | "py" | "go")
+            )
+        {
+            *files_budget -= 1;
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                if stem.len() >= 3 && !matches!(stem, "mod" | "lib" | "main" | "index") {
+                    out.insert(stem.to_string());
+                }
+            }
+            if let Ok(src) = fs::read_to_string(&path) {
+                for tok in src.split(|c: char| !c.is_alphanumeric() && c != '_') {
+                    if tok.len() >= 4 && has_identifier_casing(tok) {
+                        out.insert(tok.to_string());
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub fn apply_repo_symbols(text: &str, symbols: &[String], threshold: f64) -> String {
     if symbols.is_empty() {
         return text.to_string();
@@ -331,6 +427,7 @@ pub fn apply_repo_symbols(text: &str, symbols: &[String], threshold: f64) -> Str
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Instant;
 
     #[test]
     fn globe_key_guard_disables_emoji_picker_and_warns_on_write_failure() {
@@ -388,5 +485,106 @@ mod tests {
             format_code_editor_identifiers(raw, true, &idents),
             "getUserById calls UserProfileStore and fetch_session_token with MAX_RETRY_COUNT, plus parse_token_stream."
         );
+    }
+
+    #[test]
+    fn repo_symbol_scanner_halves_identifier_errors_under_one_second_and_handles_ssh_fallback() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        assert_eq!(
+            scan_open_repo_symbols(dir.path(), true),
+            RepoScanResult::NoLocalRepo {
+                reason: RepoUnavailableReason::SshRemote
+            }
+        );
+        assert_eq!(
+            scan_open_repo_symbols(dir.path(), false),
+            RepoScanResult::NoLocalRepo {
+                reason: RepoUnavailableReason::NotFound
+            }
+        );
+        fs::create_dir_all(dir.path().join(".git")).unwrap();
+        fs::create_dir_all(dir.path().join("src")).unwrap();
+        fs::write(
+            dir.path().join("src/engine.rs"),
+            "pub struct TranscriptionCoordinator; pub struct AudioRecordingManager; pub fn get_history_entries() {} \
+             pub struct CleanupResolver; pub fn overlay_xy_for_monitor() {} pub const MAX_RETRY_COUNT: usize = 3; \
+             pub fn apply_custom_words() {} pub struct ShortcutBinding;",
+        )
+        .unwrap();
+        let huge = format!(
+            "pub struct OversizedBundleSymbol;\n{}",
+            "// pad\n".repeat(45_000)
+        );
+        fs::write(dir.path().join("src/huge_bundle.js"), huge).unwrap();
+        #[cfg(unix)]
+        {
+            let outside = tempfile::tempdir().expect("outside");
+            fs::write(
+                outside.path().join("leaked_symlink.rs"),
+                "pub struct SymlinkedOutsideSymbol;",
+            )
+            .unwrap();
+            std::os::unix::fs::symlink(
+                outside.path().join("leaked_symlink.rs"),
+                dir.path().join("src/symlinked.rs"),
+            )
+            .unwrap();
+            let t0 = Instant::now();
+            let RepoScanResult::Symbols(symbols) = scan_open_repo_symbols(dir.path(), false) else {
+                panic!("expected Symbols")
+            };
+            assert!(t0.elapsed().as_millis() < 1000, "p50 must be < 1s");
+            assert!(!symbols
+                .iter()
+                .any(|s| s == "SymlinkedOutsideSymbol" || s == "symlinked"));
+            assert!(!symbols
+                .iter()
+                .any(|s| s == "OversizedBundleSymbol" || s == "huge_bundle"));
+        }
+        let RepoScanResult::Symbols(symbols) = scan_open_repo_symbols(dir.path(), false) else {
+            panic!("expected Symbols")
+        };
+        let fixtures = [
+            (
+                "Update transcription coordinator now",
+                "Update TranscriptionCoordinator now",
+            ),
+            (
+                "Check audio recording manager state",
+                "Check AudioRecordingManager state",
+            ),
+            (
+                "Call get history entries first",
+                "Call get_history_entries first",
+            ),
+            (
+                "Run cleanup resolver on take",
+                "Run CleanupResolver on take",
+            ),
+            (
+                "Use overlay xy for monitor helper",
+                "Use overlay_xy_for_monitor helper",
+            ),
+            (
+                "Set max retry count to three",
+                "Set MAX_RETRY_COUNT to three",
+            ),
+            (
+                "Pass apply custom words list",
+                "Pass apply_custom_words list",
+            ),
+            (
+                "Save shortcut binding in store",
+                "Save ShortcutBinding in store",
+            ),
+        ];
+        let baseline_errors = fixtures.iter().filter(|(raw, want)| raw != want).count();
+        let biased_errors = fixtures
+            .iter()
+            .filter(|(raw, want)| &apply_repo_symbols(raw, &symbols, 0.24) != want)
+            .count();
+        assert_eq!(baseline_errors, 8);
+        assert_eq!(biased_errors, 0);
+        assert!(biased_errors * 2 <= baseline_errors);
     }
 }
