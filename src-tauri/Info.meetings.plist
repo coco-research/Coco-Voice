@@ -6,5 +6,9 @@
   <string>Request microphone access to transcribe audio locally</string>
   <key>NSAudioCaptureUsageDescription</key>
   <string>Coco Voice records system audio from your meetings and transcribes it on this Mac.</string>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>Coco reads your calendar on this Mac to show upcoming meetings. It never changes your calendar or sends it anywhere.</string>
+  <key>NSCalendarsUsageDescription</key>
+  <string>Coco reads your calendar on this Mac to show upcoming meetings. It never changes your calendar or sends it anywhere.</string>
 </dict>
 </plist>
