@@ -585,6 +585,32 @@
           "details": "Coco Voice's lokale spraak-naar-tekst is gebouwd op transcribe.cpp en ggml. Met dank aan het geweldige werk van Georgi Gerganov en alle bijdragers."
         }
       }
+    },
+    "online": {
+      "eyebrow": "Instellingen",
+      "title": "Wat online gaat",
+      "intro": "Je spraak wordt op deze Mac omgezet in tekst. Dit zijn de plekken waarmee deze versie van Coco Voice verbinding kan maken en wat elke plek ontvangt.",
+      "leavesLabel": "Verlaat je Mac:",
+      "openHeading": "Elke keer dat de app opent",
+      "githubName": "GitHub (Coco Voice-releases)",
+      "githubWhen": "Elke keer dat de app opent om op updates te controleren. Schakel updatecontroles uit in Debug-instellingen (Cmd+Shift+D) om dit te stoppen. Aangeklikte links openen in je browser.",
+      "githubLeaves": "een verzoek om de lijst met versies en het updatebestand als je er een installeert. Geen spraak en geen tekst.",
+      "updateChecksOn": "Updatecontrole aan",
+      "updateChecksOff": "Updatecontrole uit",
+      "clickHeading": "Alleen wanneer je klikt",
+      "modelFilesName": "Coco Voice-modelbestanden",
+      "modelFilesWhen": "Wanneer je op Downloaden klikt bij een ingebouwd spraakmodel.",
+      "modelFilesLeaves": "de naam van het gevraagde modelbestand. Geen spraak en geen tekst.",
+      "huggingFaceWhen": "Wanneer je op Downloaden klikt bij een catalogusmodel of op de licentie klikt om deze in je browser te openen.",
+      "huggingFaceLeaves": "de modelnaam, versie en bestandsnaam, plus een Hugging Face-token als dat al op deze Mac is ingesteld. Geen spraak en geen tekst.",
+      "cleanupHeading": "Alleen wanneer je een opschoonaanbieder kiest",
+      "cloudWhen": "Wanneer opschonen draait met de door jou gekozen cloudaanbieder.",
+      "cloudLeaves": "de tekst van wat je zei, de opschooninstructies en je API-sleutel. Het ophalen van modellen verstuurt alleen je API-sleutel.",
+      "customName": "Aangepast opschonen (Ollama)",
+      "customWhen": "Wanneer opschonen draait met Aangepast als gekozen aanbieder. Het praat met een programma op deze Mac tenzij je het adres wijzigt.",
+      "customLeaves": "niets op het standaardadres. De gesproken tekst en de opschooninstructies gaan naar het programma op deze Mac.",
+      "staysOnMac": "Blijft op deze Mac",
+      "onDeviceNote": "Opschonen op het apparaat (Apple Intelligence of het lokale model) maakt met geen van deze verbinding."
     }
   },
   "footer": {
