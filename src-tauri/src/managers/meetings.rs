@@ -12,6 +12,8 @@ use chrono::Utc;
 use log::info;
 use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
+use serde::Serialize;
+use specta::Type;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -83,6 +85,31 @@ static MIGRATIONS: &[M] = &[
         CREATE INDEX meeting_notepad_meeting ON meeting_notepad(meeting_id, at_ms);",
     ),
 ];
+
+/// `me` or `others`. The column stays text; only these two values are written.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum MeetingChannel {
+    Me,
+    Others,
+}
+
+impl MeetingChannel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Me => "me",
+            Self::Others => "others",
+        }
+    }
+
+    pub fn from_label(label: &str) -> Option<Self> {
+        match label {
+            "me" => Some(Self::Me),
+            "others" => Some(Self::Others),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MeetingSegment {
@@ -158,6 +185,7 @@ pub enum DeleteOutcome {
     DeletedAudioLeft { dir: PathBuf, error: String },
 }
 
+#[derive(Clone)]
 pub struct MeetingsStore {
     db_path: PathBuf,
 }
@@ -203,13 +231,13 @@ impl MeetingsStore {
     }
 
     /// One finished chunk, one transaction. Times are milliseconds from the
-    /// meeting start. `channel` is `me` or `others`.
+    /// meeting start. `channel` is only `me` or `others`.
     pub fn insert_segment(
         &self,
         meeting_id: i64,
         start_ms: i64,
         end_ms: i64,
-        channel: &str,
+        channel: MeetingChannel,
         text: &str,
     ) -> Result<i64> {
         let mut conn = self.connection()?;
@@ -217,7 +245,7 @@ impl MeetingsStore {
         tx.execute(
             "INSERT INTO meeting_segments (meeting_id, start_ms, end_ms, channel, text)
              VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![meeting_id, start_ms, end_ms, channel, text],
+            params![meeting_id, start_ms, end_ms, channel.as_str(), text],
         )?;
         let id = tx.last_insert_rowid();
         tx.commit()?;
@@ -230,7 +258,7 @@ impl MeetingsStore {
             "SELECT id, meeting_id, start_ms, end_ms, channel, text
              FROM meeting_segments
              WHERE meeting_id = ?1
-             ORDER BY id",
+             ORDER BY start_ms, id",
         )?;
         let rows = stmt.query_map(params![meeting_id], |row| {
             Ok(MeetingSegment {
@@ -503,14 +531,31 @@ impl MeetingsStore {
     }
 
     fn finalise_recording(&self, meeting_id: i64) -> Result<()> {
+        self.finalise(meeting_id, false)
+    }
+
+    /// Set `ended_at` and `transcript_ready`. Sleep appends the Mac-slept line
+    /// to the title. A row that is already final is left as it is.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn finalise(&self, meeting_id: i64, slept: bool) -> Result<()> {
         let conn = self.connection()?;
         let now = Utc::now().timestamp();
-        conn.execute(
-            "UPDATE meetings
-             SET ended_at = ?1, status = 'transcript_ready'
-             WHERE id = ?2 AND status = 'recording' AND ended_at IS NULL",
-            params![now, meeting_id],
-        )?;
+        if slept {
+            conn.execute(
+                "UPDATE meetings
+                 SET ended_at = ?1, status = 'transcript_ready',
+                     title = title || ' — Mac slept'
+                 WHERE id = ?2 AND status = 'recording' AND ended_at IS NULL",
+                params![now, meeting_id],
+            )?;
+        } else {
+            conn.execute(
+                "UPDATE meetings
+                 SET ended_at = ?1, status = 'transcript_ready'
+                 WHERE id = ?2 AND status = 'recording' AND ended_at IS NULL",
+                params![now, meeting_id],
+            )?;
+        }
         Ok(())
     }
 }
@@ -1088,6 +1133,36 @@ mod tests {
         assert_eq!(
             ids(&store.search_meetings("zebra").unwrap()),
             vec![second, first]
+        );
+    }
+
+    #[test]
+    fn segments_ordered_by_start_ms_then_id() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = store.start_meeting("Standup", "model").unwrap();
+        store
+            .insert_segment(id, 2000, 3000, MeetingChannel::Others, "later")
+            .unwrap();
+        store
+            .insert_segment(id, 500, 1500, MeetingChannel::Me, "first-at-500")
+            .unwrap();
+        store
+            .insert_segment(id, 500, 1200, MeetingChannel::Others, "second-at-500")
+            .unwrap();
+
+        let rows = store.segments(id).unwrap();
+        let summary: Vec<(i64, &str, &str)> = rows
+            .iter()
+            .map(|r| (r.start_ms, r.channel.as_str(), r.text.as_str()))
+            .collect();
+        assert_eq!(
+            summary,
+            vec![
+                (500, "me", "first-at-500"),
+                (500, "others", "second-at-500"),
+                (2000, "others", "later"),
+            ]
         );
     }
 }

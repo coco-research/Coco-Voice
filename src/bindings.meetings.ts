@@ -112,7 +112,12 @@ export type MeetingOffer = {
   body: string;
   startsCapture: boolean;
 };
-export type MeetingRefusal = "already_recording";
+export type MeetingRefusal =
+  | "already_recording"
+  | { no_long_audio_model: { model_id: string } }
+  | "system_audio_permission_denied"
+  | "system_audio_usage_string_missing"
+  | "system_audio_unavailable";
 export type MeetingSegmentView = {
   meeting_id: number;
   channel: MeetingChannel;

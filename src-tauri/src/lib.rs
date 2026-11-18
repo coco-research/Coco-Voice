@@ -23,6 +23,8 @@ pub mod meeting_ask_index;
 #[cfg(feature = "meetings")]
 mod meeting_controller;
 #[cfg(feature = "meetings")]
+mod meeting_feed;
+#[cfg(feature = "meetings")]
 mod meeting_notes;
 #[cfg(feature = "meetings")]
 mod meeting_notes_merge;
@@ -580,6 +582,8 @@ fn meetings_command_names() -> &'static [&'static str] {
             "stop_meeting",
             "current_meeting_offer",
             "dismiss_meeting_offer",
+            "meeting_status",
+            "meeting_segments",
         ]
     }
     #[cfg(not(feature = "meetings"))]
@@ -599,7 +603,9 @@ macro_rules! collect_app_commands {
             meeting_controller::cancel_meeting_consent,
             meeting_controller::stop_meeting,
             meetings::current_meeting_offer,
-            meetings::dismiss_meeting_offer
+            meetings::dismiss_meeting_offer,
+            meeting_controller::meeting_status,
+            meeting_controller::meeting_segments
         ]
     };
 }
@@ -1090,6 +1096,8 @@ mod meetings_gate_tests {
             assert!(names.contains(&"change_meetings_enabled_setting"));
             assert!(names.contains(&"current_meeting_offer"));
             assert!(names.contains(&"dismiss_meeting_offer"));
+            assert!(names.contains(&"meeting_status"));
+            assert!(names.contains(&"meeting_segments"));
         }
     }
 }
