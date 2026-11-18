@@ -320,6 +320,11 @@ mod macos {
 
     #[link(name = "CoreFoundation", kind = "framework")]
     extern "C" {
+        fn CFStringCreateWithCString(
+            alloc: *const c_void,
+            c_str: *const c_char,
+            encoding: u32,
+        ) -> *const c_void;
         fn CFStringGetCString(
             the_string: *const c_void,
             buffer: *mut c_char,
@@ -340,8 +345,6 @@ mod macos {
             attribute: *const c_void,
             value: *mut *const c_void,
         ) -> i32;
-        static kAXWindowsAttribute: *const c_void;
-        static kAXTitleAttribute: *const c_void;
     }
 
     #[link(name = "AppKit", kind = "framework")]
@@ -423,19 +426,42 @@ mod macos {
         }
     }
 
-    unsafe fn window_titles(pid: i32) -> Vec<String> {
-        // SAFETY: `element`, `windows` and each `title` come from Create/Copy calls, so we own
-        // them (+1) and release each exactly once. Array items are borrowed (+0) from
-        // `windows`, read only while it is alive, at indexes below its count.
+    pub(super) unsafe fn window_titles(pid: i32) -> Vec<String> {
+        // SAFETY: `ax_windows`, `ax_title`, `element`, `windows` and each `title` come from
+        // Create/Copy calls, so we own them (+1) and release each non-null ref once. Array items
+        // are borrowed (+0) from `windows`, read only while it is alive, at indexes below count.
         unsafe {
+            let ax_windows = CFStringCreateWithCString(
+                std::ptr::null(),
+                b"AXWindows\0".as_ptr() as *const c_char,
+                UTF8,
+            );
+            let ax_title = CFStringCreateWithCString(
+                std::ptr::null(),
+                b"AXTitle\0".as_ptr() as *const c_char,
+                UTF8,
+            );
+            if ax_windows.is_null() || ax_title.is_null() {
+                if !ax_windows.is_null() {
+                    CFRelease(ax_windows);
+                }
+                if !ax_title.is_null() {
+                    CFRelease(ax_title);
+                }
+                return Vec::new();
+            }
             let element = AXUIElementCreateApplication(pid);
             if element.is_null() {
+                CFRelease(ax_windows);
+                CFRelease(ax_title);
                 return Vec::new();
             }
             let mut windows: *const c_void = std::ptr::null();
-            let err = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute, &mut windows);
+            let err = AXUIElementCopyAttributeValue(element, ax_windows, &mut windows);
             CFRelease(element);
+            CFRelease(ax_windows);
             if err != 0 || windows.is_null() {
+                CFRelease(ax_title);
                 return Vec::new();
             }
             let count = CFArrayGetCount(windows);
@@ -446,11 +472,8 @@ mod macos {
                     continue;
                 }
                 let mut title: *const c_void = std::ptr::null();
-                let title_err = AXUIElementCopyAttributeValue(
-                    window as *mut c_void,
-                    kAXTitleAttribute,
-                    &mut title,
-                );
+                let title_err =
+                    AXUIElementCopyAttributeValue(window as *mut c_void, ax_title, &mut title);
                 if title_err == 0 && !title.is_null() {
                     if let Some(text) = cf_string(title) {
                         titles.push(text);
@@ -459,6 +482,7 @@ mod macos {
                 }
             }
             CFRelease(windows);
+            CFRelease(ax_title);
             titles
         }
     }
@@ -651,5 +675,12 @@ mod tests {
         assert!(state
             .decide(&input(true, "14.4", false, true, &zoom))
             .is_some());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_window_titles_and_snapshot_link_without_ax_statics() {
+        let _ = unsafe { macos::window_titles(std::process::id() as i32) };
+        let _ = macos::snapshot();
     }
 }
