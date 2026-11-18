@@ -50,6 +50,7 @@
     "showAllModels": "Show all {{total}} models",
     "showFewerModels": "Show fewer models",
     "recommended": "Đề xuất",
+    "measuredReason": "Fewest words wrong of {{compared}} models measured on our clip set: {{wrong}} per 100 words, {{speed}}× faster than real time, {{memory}} MB of memory.",
     "customModelDescription": "Không được hỗ trợ chính thức",
     "modelCard": {
       "accuracy": "độ chính xác",
