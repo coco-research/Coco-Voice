@@ -151,6 +151,14 @@
     },
     "cancel": "Annuler",
     "cancelDownload": "Annuler le téléchargement",
+    "downloadFailed": {
+      "network": "Échec du téléchargement : vérifiez votre connexion internet.",
+      "diskSpace": "Échec du téléchargement : espace disque insuffisant.",
+      "checksum": "Échec du téléchargement : le fichier n'a pas passé la vérification d'intégrité.",
+      "other": "Échec du téléchargement.",
+      "retry": "Réessayer",
+      "skip": "Passer pour l'instant"
+    },
     "legacy": "Hérité",
     "licence": "Licence : {{licence}}"
   },
