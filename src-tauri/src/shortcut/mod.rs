@@ -363,7 +363,10 @@ fn register_active_shortcuts(app: &AppHandle) -> Vec<ShortcutFailure> {
     .failures
 }
 
-pub fn emit_shortcut_registration_failures(app: &AppHandle, failures: &[ShortcutFailure]) {
+pub fn emit_shortcut_registration_failures<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    failures: &[ShortcutFailure],
+) {
     if failures.is_empty() {
         return;
     }
@@ -1311,6 +1314,28 @@ pub fn change_experimental_enabled_setting(app: AppHandle, enabled: bool) -> Res
 }
 
 #[cfg(feature = "meetings")]
+fn report_meeting_shortcut_failure<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    binding: &ShortcutBinding,
+    error: String,
+) -> String {
+    let failure = ShortcutFailure {
+        id: binding.id.clone(),
+        binding: binding.current_binding.clone(),
+        cause: classify_shortcut_error(&error),
+        error,
+    };
+    // The binding string is the shortcut text. The error repeats that string
+    // and nothing else about the keys.
+    error!(
+        "meeting shortcut '{}' ({}) failed: {}",
+        failure.id, failure.binding, failure.error
+    );
+    emit_shortcut_registration_failures(app, std::slice::from_ref(&failure));
+    failure.error
+}
+
+#[cfg(feature = "meetings")]
 #[tauri::command]
 #[specta::specta]
 pub fn change_meetings_enabled_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
@@ -1322,16 +1347,20 @@ pub fn change_meetings_enabled_setting(app: AppHandle, enabled: bool) -> Result<
 
     // The meeting shortcut opens the consent dialog only, so there is nothing to
     // register until the user assigns a key. Turning the switch off releases it.
-    if let Some(binding) = binding {
-        if enabled {
-            if !binding.current_binding.trim().is_empty() {
-                let _ = register_shortcut(&app, binding);
-            }
+    // An empty binding is not a failure: the default ships with no key.
+    if let Some(binding) = binding.filter(|binding| !binding.current_binding.trim().is_empty()) {
+        let result = if enabled {
+            register_shortcut(&app, binding.clone())
         } else {
-            let _ = unregister_shortcut(&app, binding);
+            unregister_shortcut(&app, binding.clone())
+        };
+        if let Err(error) = result {
+            settings::update_settings(&app, |s| s.meetings_enabled = !enabled);
+            return Err(report_meeting_shortcut_failure(&app, &binding, error));
         }
     }
 
+    tray::update_tray_menu(&app, None);
     Ok(())
 }
 
@@ -1992,5 +2021,46 @@ mod classify_shortcut_error_tests {
             serde_json::to_string(&ShortcutFailureCause::Other).unwrap(),
             "\"other\""
         );
+    }
+
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn report_meeting_shortcut_failure_emits_classified_failure_and_returns_error() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+        use tauri::Listener;
+
+        use super::{report_meeting_shortcut_failure, ShortcutBinding, ShortcutFailure};
+
+        let app = tauri::test::mock_builder()
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let (tx, rx) = mpsc::channel();
+        app.listen("shortcut-registration-failed", move |event| {
+            let _ = tx.send(event.payload().to_string());
+        });
+
+        let binding = ShortcutBinding {
+            id: "meeting".to_string(),
+            name: "Meeting".to_string(),
+            description: "Open meeting consent".to_string(),
+            default_binding: String::new(),
+            current_binding: "Opt+M".to_string(),
+        };
+        let raw_error = "Hotkey already registered: Opt+M".to_string();
+        let returned = report_meeting_shortcut_failure(app.handle(), &binding, raw_error.clone());
+        assert_eq!(returned, raw_error);
+
+        let payload = rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("shortcut-registration-failed event was not emitted");
+        let expected = serde_json::to_string(&[ShortcutFailure {
+            id: "meeting".to_string(),
+            binding: "Opt+M".to_string(),
+            error: raw_error,
+            cause: ShortcutFailureCause::Taken,
+        }])
+        .unwrap();
+        assert_eq!(payload, expected);
     }
 }
