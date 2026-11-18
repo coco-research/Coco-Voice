@@ -805,6 +805,20 @@
         "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
         "dictation": "Dictation still works during a meeting."
       }
+    },
+    "retention": {
+      "title": "बैठक · संरक्षण",
+      "deleteAudioLabel": "नोट बनेपछि अडियो मेटाउनुहोस्",
+      "deleteAudioDescription": "पूर्वनिर्धारित रूपमा अन। नोट तयार भएपछि अडियो फाइलहरू हटाइन्छन्।",
+      "keepTranscriptsLabel": "ट्रान्सक्रिप्ट यस Mac मा राख्नुहोस्",
+      "keepTranscriptsDescription": "तपाईंले नमेटाएसम्म ट्रान्सक्रिप्टहरू यहीँ रहन्छन्।",
+      "onThisMac": "यस Mac मा",
+      "deleteAll": "सबै मेटाउनुहोस्",
+      "confirmPrompt": "सबै बैठक, ट्रान्सक्रिप्ट, नोट र रेकर्डिङ मेटाउने हो?",
+      "confirmDeleteAll": "सबै मेटाउन पुष्टि गर्नुहोस्",
+      "cancel": "रद्द गर्नुहोस्",
+      "audioLeftWarning": "बैठकहरू मेटाइए तर एक वा बढी अडियो फोल्डर हटाउन सकिएन।",
+      "actionFailed": "बैठक संरक्षण अद्यावधिक गर्न सकिएन।"
     }
   }
 }

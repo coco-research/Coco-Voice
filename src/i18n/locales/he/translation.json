@@ -805,6 +805,20 @@
         "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
         "dictation": "Dictation still works during a meeting."
       }
+    },
+    "retention": {
+      "title": "פגישות · שמירת נתונים",
+      "deleteAudioLabel": "מחק שמע לאחר הכנת ההערות",
+      "deleteAudioDescription": "פעיל כברירת מחדל. קובצי השמע נמחקים ברגע שההערות מוכנות.",
+      "keepTranscriptsLabel": "שמור תמלולים ב-Mac זה",
+      "keepTranscriptsDescription": "התמלולים נשארים כאן עד שתמחק אותם.",
+      "onThisMac": "ב-Mac זה",
+      "deleteAll": "מחק הכול",
+      "confirmPrompt": "למחוק את כל הפגישות, התמלולים, ההערות וההקלטות?",
+      "confirmDeleteAll": "אשר מחיקת הכול",
+      "cancel": "ביטול",
+      "audioLeftWarning": "הפגישות נמחקו, אך לא ניתן היה להסיר תיקיית שמע אחת או יותר.",
+      "actionFailed": "לא ניתן לעדכן את הגדרות השמירה של הפגישות."
     }
   }
 }

@@ -805,6 +805,20 @@
         "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
         "dictation": "Dictation still works during a meeting."
       }
+    },
+    "retention": {
+      "title": "Riunioni · Conservazione",
+      "deleteAudioLabel": "Elimina l'audio dopo la creazione delle note",
+      "deleteAudioDescription": "Attivo per impostazione predefinita. I file audio vengono rimossi quando le note sono pronte.",
+      "keepTranscriptsLabel": "Conserva le trascrizioni su questo Mac",
+      "keepTranscriptsDescription": "Le trascrizioni restano qui finché non le elimini.",
+      "onThisMac": "Su questo Mac",
+      "deleteAll": "Elimina tutto",
+      "confirmPrompt": "Eliminare tutte le riunioni, le trascrizioni, le note e le registrazioni?",
+      "confirmDeleteAll": "Conferma elimina tutto",
+      "cancel": "Annulla",
+      "audioLeftWarning": "Le riunioni sono state eliminate, ma non è stato possibile rimuovere una o più cartelle audio.",
+      "actionFailed": "Impossibile aggiornare la conservazione delle riunioni."
     }
   }
 }
