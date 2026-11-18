@@ -217,28 +217,36 @@ impl MeetingSession {
     }
 
     fn model_plan(&self) -> Result<String, MeetingRefusal> {
-        let (selected, downloaded) = if let Some(models) = &self.test_models {
-            models.clone()
-        } else {
-            let app = self
-                .app
-                .as_ref()
-                .ok_or(MeetingRefusal::SystemAudioUnavailable)?;
-            let selected = crate::settings::get_settings(app).selected_model;
-            let downloaded = app
-                .try_state::<Arc<ModelManager>>()
-                .map(|models| {
-                    models
-                        .get_available_models()
-                        .into_iter()
-                        .filter(|model| model.is_downloaded)
-                        .map(|model| model.id)
-                        .collect()
-                })
-                .unwrap_or_default();
-            (selected, downloaded)
-        };
-        plan_meeting_model(&selected, &downloaded).map_err(|err| match err {
+        if let Some((selected, downloaded)) = &self.test_models {
+            return plan_meeting_model(selected, downloaded, &|_| None).map_err(|err| match err {
+                MeetingStartRefusal::OnlyVoxtral { model_id } => {
+                    MeetingRefusal::NoLongAudioModel { model_id }
+                }
+            });
+        }
+        let app = self
+            .app
+            .as_ref()
+            .ok_or(MeetingRefusal::SystemAudioUnavailable)?;
+        let selected = crate::settings::get_settings(app).selected_model;
+        let mm = app.try_state::<Arc<ModelManager>>();
+        let downloaded: Vec<String> = mm
+            .as_ref()
+            .map(|models| {
+                models
+                    .get_available_models()
+                    .into_iter()
+                    .filter(|model| model.is_downloaded)
+                    .map(|model| model.id)
+                    .collect()
+            })
+            .unwrap_or_default();
+        plan_meeting_model(&selected, &downloaded, &|id| {
+            mm.as_ref()
+                .and_then(|models| models.get_model_info(id))
+                .map(|model| model.engine_type)
+        })
+        .map_err(|err| match err {
             MeetingStartRefusal::OnlyVoxtral { model_id } => {
                 MeetingRefusal::NoLongAudioModel { model_id }
             }
