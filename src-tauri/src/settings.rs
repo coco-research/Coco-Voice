@@ -507,6 +507,9 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    // Apps (bundle identifiers or display names) where dictation and tray paste are blocked.
+    #[serde(default)]
+    pub never_dictate_apps: Vec<String>,
     /// Beta switch for Meetings. Only present when the crate is built with
     /// `--features meetings`. A default build has no field, so a stored
     /// `meetings_enabled` key is ignored.
@@ -1192,6 +1195,7 @@ pub fn get_default_settings() -> AppSettings {
         extra_recording_buffer_ms: 0,
         vad_enabled: default_vad_enabled(),
         overlay_style: default_overlay_style(),
+        never_dictate_apps: Vec::new(),
         #[cfg(feature = "meetings")]
         meetings_enabled: default_meetings_enabled(),
     }

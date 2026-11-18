@@ -208,6 +208,14 @@ pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
         None::<&str>,
     )
     .expect("failed to create copy last transcript item");
+    let paste_last_transcript_i = MenuItem::with_id(
+        app,
+        "paste_last_transcript",
+        "Paste last take",
+        true,
+        None::<&str>,
+    )
+    .expect("failed to create paste last transcript item");
     let model_loaded = app.state::<Arc<TranscriptionManager>>().is_model_loaded();
     let quit_i = MenuItem::with_id(app, "quit", &strings.quit, true, quit_accelerator)
         .expect("failed to create quit item");
@@ -263,6 +271,7 @@ pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
                     &separator(),
                     &cancel_i,
                     &separator(),
+                    &paste_last_transcript_i,
                     &copy_last_transcript_i,
                     &separator(),
                     &settings_i,
@@ -278,6 +287,7 @@ pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
             &[
                 &version_i,
                 &separator(),
+                &paste_last_transcript_i,
                 &copy_last_transcript_i,
                 &separator(),
                 &model_submenu,
@@ -314,6 +324,88 @@ pub fn set_tray_visibility(app: &AppHandle, visible: bool) {
     }
 }
 
+pub fn is_app_blocked_for_paste(active_app: Option<&str>, blocked_apps: &[String]) -> bool {
+    let Some(app) = active_app.map(str::trim).filter(|s| !s.is_empty()) else {
+        return false;
+    };
+    let lower = app.to_ascii_lowercase();
+    blocked_apps.iter().any(|b| {
+        let needle = b.trim().to_ascii_lowercase();
+        !needle.is_empty() && (lower == needle || lower.contains(&needle))
+    })
+}
+
+pub fn resolve_last_take_for_paste_in_app(
+    entry: Option<&HistoryEntry>,
+    active_app: Option<&str>,
+    blocked_apps: &[String],
+) -> Result<String, &'static str> {
+    if is_app_blocked_for_paste(active_app, blocked_apps) {
+        return Err("blocked_app");
+    }
+    let entry = entry.ok_or("no_completed_take")?;
+    let text = last_transcript_text(entry);
+    if text.trim().is_empty() {
+        return Err("empty_take");
+    }
+    Ok(text.to_string())
+}
+
+pub fn resolve_last_take_for_paste(entry: Option<&HistoryEntry>) -> Result<String, &'static str> {
+    resolve_last_take_for_paste_in_app(entry, None, &[])
+}
+
+fn frontmost_app_identifier(blocked_apps: &[String]) -> Option<String> {
+    if blocked_apps.is_empty() {
+        return None;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("lsappinfo")
+            .args([
+                "info", "-only", "bundleid", "-only", "name", "-app", "front",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
+}
+
+pub fn paste_last_transcript(app: &AppHandle) {
+    let settings = settings::get_settings(app);
+    let active_app = frontmost_app_identifier(&settings.never_dictate_apps);
+    let history_manager = app.state::<Arc<HistoryManager>>();
+    let entry = match history_manager.get_latest_completed_entry() {
+        Ok(entry) => entry,
+        Err(err) => {
+            error!("Failed to fetch last completed transcription entry for paste: {err}");
+            return;
+        }
+    };
+    let text = match resolve_last_take_for_paste_in_app(
+        entry.as_ref(),
+        active_app.as_deref(),
+        &settings.never_dictate_apps,
+    ) {
+        Ok(text) => text,
+        Err(reason) => {
+            warn!("Skipping tray paste_last_transcript: {reason}");
+            return;
+        }
+    };
+    let app_clone = app.clone();
+    std::thread::spawn(
+        move || match crate::utils::replace_previous(0, text, app_clone) {
+            Ok(_) => info!("Pasted last transcript via tray."),
+            Err(err) => error!("Failed to paste last transcript via tray: {err}"),
+        },
+    );
+}
+
 pub fn copy_last_transcript(app: &AppHandle) {
     let history_manager = app.state::<Arc<HistoryManager>>();
     let entry = match history_manager.get_latest_completed_entry() {
@@ -347,7 +439,10 @@ pub fn copy_last_transcript(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::{last_transcript_text, load_tray_icon};
+    use super::{
+        last_transcript_text, load_tray_icon, resolve_last_take_for_paste,
+        resolve_last_take_for_paste_in_app,
+    };
     use crate::managers::history::HistoryEntry;
 
     fn build_entry(transcription: &str, post_processed: Option<&str>) -> HistoryEntry {
@@ -386,5 +481,38 @@ mod tests {
         let dir = tempfile::tempdir().expect("failed to create tempdir");
         let missing = dir.path().join("does_not_exist.png");
         assert!(load_tray_icon(Ok(missing)).is_err());
+    }
+
+    #[test]
+    fn paste_last_take_prefers_cleaned_text_and_rejects_missing_or_empty_entry() {
+        assert_eq!(resolve_last_take_for_paste(None), Err("no_completed_take"));
+        let empty = build_entry("   ", None);
+        assert_eq!(resolve_last_take_for_paste(Some(&empty)), Err("empty_take"));
+        let raw_only = build_entry("raw spoken words", None);
+        assert_eq!(
+            resolve_last_take_for_paste(Some(&raw_only)),
+            Ok("raw spoken words".to_string())
+        );
+        let cleaned = build_entry("raw spoken words", Some("Cleaned spoken words."));
+        assert_eq!(
+            resolve_last_take_for_paste(Some(&cleaned)),
+            Ok("Cleaned spoken words.".to_string())
+        );
+        let blocked = vec![
+            "com.1password.1password".to_string(),
+            "1Password".to_string(),
+        ];
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(
+                Some(&cleaned),
+                Some("com.1password.1password"),
+                &blocked
+            ),
+            Err("blocked_app")
+        );
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(Some(&cleaned), Some("com.apple.Notes"), &blocked),
+            Ok("Cleaned spoken words.".to_string())
+        );
     }
 }
