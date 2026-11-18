@@ -585,6 +585,32 @@
         "label": "새 소식 표시",
         "description": "Coco Voice 업데이트 후 릴리스 노트를 표시합니다"
       }
+    },
+    "online": {
+      "eyebrow": "설정",
+      "title": "온라인으로 전송되는 항목",
+      "intro": "음성은 이 Mac에서 텍스트로 변환됩니다. 다음은 이 버전의 Coco Voice가 연결할 수 있는 대상과 각 대상에 전달되는 정보입니다.",
+      "leavesLabel": "이 Mac에서 나가는 항목:",
+      "openHeading": "앱을 열 때마다",
+      "githubName": "GitHub (Coco Voice 릴리스)",
+      "githubWhen": "앱을 열 때마다 업데이트를 확인합니다. 중지하려면 디버그 설정(Cmd+Shift+D)에서 업데이트 확인을 끄세요. 클릭한 링크는 브라우저에서 열립니다.",
+      "githubLeaves": "릴리스 목록 요청 및 설치 시 업데이트 파일. 음성과 텍스트는 전송되지 않습니다.",
+      "updateChecksOn": "업데이트 확인 켜짐",
+      "updateChecksOff": "업데이트 확인 꺼짐",
+      "clickHeading": "클릭할 때만",
+      "modelFilesName": "Coco Voice 모델 파일",
+      "modelFilesWhen": "기본 제공 음성 모델에서 다운로드를 클릭할 때.",
+      "modelFilesLeaves": "요청한 모델 파일 이름. 음성과 텍스트는 전송되지 않습니다.",
+      "huggingFaceWhen": "카탈로그 모델에서 다운로드를 클릭하거나 라이선스를 클릭해 브라우저에서 열 때.",
+      "huggingFaceLeaves": "모델 이름, 버전, 파일 이름과 이 Mac에 이미 설정된 경우 Hugging Face 토큰. 음성과 텍스트는 전송되지 않습니다.",
+      "cleanupHeading": "다듬기 제공자를 선택한 경우에만",
+      "cloudWhen": "선택한 클라우드 제공자로 텍스트 다듬기가 실행될 때.",
+      "cloudLeaves": "말한 내용의 텍스트, 다듬기 지침 및 API 키. 모델 목록 조회 시에는 API 키만 전송됩니다.",
+      "customName": "사용자 지정 다듬기 (Ollama)",
+      "customWhen": "제공자로 사용자 지정을 선택해 다듬기가 실행될 때. 주소를 변경하지 않는 한 이 Mac의 프로그램과 통신합니다.",
+      "customLeaves": "기본 주소에서는 외부로 나가지 않음. 말한 텍스트와 다듬기 지침은 이 Mac의 프로그램으로 전달됩니다.",
+      "staysOnMac": "이 Mac에 유지됨",
+      "onDeviceNote": "온디바이스 다듬기(Apple Intelligence 또는 로컬 모델)는 이 중 어디에도 연결하지 않습니다."
     }
   },
   "footer": {

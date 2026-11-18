@@ -585,6 +585,32 @@
         "label": "Zobrazovat novinky",
         "description": "Zobrazovat poznámky k vydání po aktualizacích Coco Voice"
       }
+    },
+    "online": {
+      "eyebrow": "Nastavení",
+      "title": "Co odchází online",
+      "intro": "Vaše řeč se převádí na text na tomto Macu. Toto jsou místa, která může tato verze Coco Voice kontaktovat, a co každé z nich dostane.",
+      "leavesLabel": "Opouští váš Mac:",
+      "openHeading": "Při každém spuštění aplikace",
+      "githubName": "GitHub (vydání Coco Voice)",
+      "githubWhen": "Při každém otevření aplikace kvůli kontrole aktualizací. Chcete-li to zastavit, vypněte kontrolu aktualizací v nastavení ladění (Cmd+Shift+D). Kliknuté odkazy se otevírají v prohlížeči.",
+      "githubLeaves": "požadavek na seznam vydání a soubor aktualizace, pokud ji nainstalujete. Žádná řeč a žádný text.",
+      "updateChecksOn": "Kontrola aktualizací zapnuta",
+      "updateChecksOff": "Kontrola aktualizací vypnuta",
+      "clickHeading": "Pouze když kliknete",
+      "modelFilesName": "Soubory modelů Coco Voice",
+      "modelFilesWhen": "Když kliknete na Stáhnout u vestavěného řečového modelu.",
+      "modelFilesLeaves": "název požadovaného souboru modelu. Žádná řeč a žádný text.",
+      "huggingFaceWhen": "Když kliknete na Stáhnout u katalogového modelu nebo na jeho licenci pro otevření v prohlížeči.",
+      "huggingFaceLeaves": "název modelu, verze a název souboru, plus token Hugging Face, pokud je na tomto Macu již nastaven. Žádná řeč a žádný text.",
+      "cleanupHeading": "Pouze když vyberete poskytovatele úprav",
+      "cloudWhen": "Když úprava textu běží s vybraným cloudovým poskytovatelem.",
+      "cloudLeaves": "text toho, co jste řekli, pokyny k úpravě a váš klíč API. Načtení seznamu modelů odešle pouze váš klíč API.",
+      "customName": "Vlastní úprava (Ollama)",
+      "customWhen": "Když úprava běží s možností Vlastní. Komunikuje s programem na tomto Macu, pokud nezměníte jeho adresu.",
+      "customLeaves": "na výchozí adrese nic. Text vaší řeči a pokyny k úpravě jdou programu na tomto Macu.",
+      "staysOnMac": "Zůstává na tomto Macu",
+      "onDeviceNote": "Úprava v zařízení (Apple Intelligence nebo místní model) nekontaktuje žádné z těchto míst."
     }
   },
   "footer": {

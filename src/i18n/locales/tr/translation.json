@@ -585,6 +585,32 @@
         "label": "Yenilikleri Göster",
         "description": "Coco Voice güncellemelerinden sonra sürüm notlarını göster"
       }
+    },
+    "online": {
+      "eyebrow": "Ayarlar",
+      "title": "Çevrimiçi olanlar",
+      "intro": "Konuşmanız bu Mac üzerinde metne dönüştürülür. Coco Voice’un bu sürümünün bağlanabileceği yerler ve her birinin aldığı bilgiler bunlardır.",
+      "leavesLabel": "Mac’inizden çıkan:",
+      "openHeading": "Uygulama her açıldığında",
+      "githubName": "GitHub (Coco Voice sürümleri)",
+      "githubWhen": "Güncellemeleri denetlemek için uygulama her açıldığında. Bunu durdurmak için Hata Ayıklama ayarlarında (Cmd+Shift+D) güncelleme denetimini kapatın. Tıkladığınız bağlantılar tarayıcınızda açılır.",
+      "githubLeaves": "sürüm listesi isteği ve yüklerseniz güncelleme dosyası. Ses veya metin gönderilmez.",
+      "updateChecksOn": "Güncelleme denetimi açık",
+      "updateChecksOff": "Güncelleme denetimi kapalı",
+      "clickHeading": "Yalnızca tıkladığınızda",
+      "modelFilesName": "Coco Voice model dosyaları",
+      "modelFilesWhen": "Yerleşik bir konuşma modelinde İndir’e tıkladığınızda.",
+      "modelFilesLeaves": "istediğiniz model dosyasının adı. Ses veya metin gönderilmez.",
+      "huggingFaceWhen": "Bir katalog modelinde İndir’e tıkladığınızda veya lisansını tarayıcıda açmak için tıkladığınızda.",
+      "huggingFaceLeaves": "model adı, sürümü ve dosya adı ile bu Mac’te zaten ayarlanmışsa Hugging Face belirteci. Ses veya metin gönderilmez.",
+      "cleanupHeading": "Yalnızca bir düzeltme sağlayıcısı seçtiğinizde",
+      "cloudWhen": "Düzeltme seçtiğiniz bulut sağlayıcısıyla çalıştığında.",
+      "cloudLeaves": "söylediklerinizin metni, düzeltme yönergeleri ve API anahtarınız. Modelleri listelemek yalnızca API anahtarınızı gönderir.",
+      "customName": "Özel düzeltme (Ollama)",
+      "customWhen": "Düzeltme seçilen sağlayıcı olarak Özel ile çalıştığında. Adresini değiştirmediğiniz sürece bu Mac’teki bir programla konuşur.",
+      "customLeaves": "başlangıç adresinde hiçbir şey. Söylediklerinizin metni ve düzeltme yönergeleri bu Mac’teki programa gider.",
+      "staysOnMac": "Bu Mac’te kalır",
+      "onDeviceNote": "Aygıt içi düzeltme (Apple Intelligence veya yerel model) bunların hiçbiriyle bağlantı kurmaz."
     }
   },
   "footer": {
