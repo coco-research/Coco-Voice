@@ -55,6 +55,20 @@ const OVERLAY_STREAM_HEIGHT: f64 = 120.0;
 /// the one it was meant to hide.
 static OVERLAY_SHOW_GENERATION: Mutex<u64> = Mutex::new(0);
 
+/// A dictation hide and a meeting start share this. The hide reads meeting
+/// state and hides while holding it; the start commits Recording and shows
+/// the pill while holding it. A hide cannot land after a start it did not see.
+#[cfg(feature = "meetings")]
+static MEETING_PILL_GATE: Mutex<()> = Mutex::new(());
+
+#[cfg(feature = "meetings")]
+pub(crate) fn with_meeting_pill_gate<T>(f: impl FnOnce() -> T) -> T {
+    let _guard = MEETING_PILL_GATE
+        .lock()
+        .unwrap_or_else(|poison| poison.into_inner());
+    f()
+}
+
 fn current_generation(generation: &Mutex<u64>) -> u64 {
     *generation.lock().unwrap_or_else(|e| e.into_inner())
 }
@@ -457,8 +471,7 @@ fn overlay_show_allowed(state: &str, style: OverlayStyle) -> bool {
 /// not take the pill away.
 #[cfg(feature = "meetings")]
 fn overlay_hide_blocked(state: crate::meeting_controller::MeetingState) -> bool {
-    use crate::meeting_controller::MeetingState;
-    matches!(state, MeetingState::Recording | MeetingState::Stopping)
+    state.pill_visible()
 }
 
 /// Shows the larger streaming overlay that displays live transcription text
@@ -495,58 +508,99 @@ pub fn update_overlay_position(app_handle: &AppHandle) {
     }
 }
 
-/// Hides the recording overlay window with fade-out animation
+/// Emit the fade, then hide the window. When `captured` is set, a show that
+/// landed after that generation keeps the window. A meeting build re-checks
+/// the meeting state under the pill gate immediately before the hide.
+fn schedule_overlay_hide(overlay_window: tauri::webview::WebviewWindow, captured: Option<u64>) {
+    let _ = overlay_window.emit("hide-overlay", ());
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        #[cfg(feature = "meetings")]
+        {
+            with_meeting_pill_gate(|| {
+                if let Some(captured) = captured {
+                    if current_generation(&OVERLAY_SHOW_GENERATION) != captured {
+                        return;
+                    }
+                }
+                if let Some(state) = crate::meeting_controller::state(overlay_window.app_handle()) {
+                    if overlay_hide_blocked(state) {
+                        return;
+                    }
+                }
+                let _ = overlay_window.hide();
+            });
+        }
+        #[cfg(not(feature = "meetings"))]
+        {
+            if let Some(captured) = captured {
+                if current_generation(&OVERLAY_SHOW_GENERATION) != captured {
+                    return;
+                }
+            }
+            let _ = overlay_window.hide();
+        }
+    });
+}
+
+/// Hides the recording overlay window with fade-out animation.
+///
+/// In a meeting build the state read and the hide share the pill gate with
+/// the start that shows the meeting pill, so this cannot hide a pill it did
+/// not see.
 pub fn hide_recording_overlay(app_handle: &AppHandle) {
     #[cfg(feature = "meetings")]
-    if let Some(state) = crate::meeting_controller::state(app_handle) {
-        if overlay_hide_blocked(state) {
-            // Keep the pill and its Stop up. Re-assert it too: a dictation take
-            // just drew its own row over the shared overlay window.
-            show_overlay_state(app_handle, crate::meeting_controller::PILL_OVERLAY_STATE);
-            return;
-        }
+    {
+        with_meeting_pill_gate(|| {
+            if let Some(state) = crate::meeting_controller::state(app_handle) {
+                if overlay_hide_blocked(state) {
+                    // Keep the pill and its Stop up. Re-assert it too: a dictation
+                    // take just drew its own row over the shared overlay window.
+                    show_overlay_state(app_handle, crate::meeting_controller::PILL_OVERLAY_STATE);
+                    return;
+                }
+            }
+            if let Some(overlay_window) = app_handle.get_webview_window("recording_overlay") {
+                schedule_overlay_hide(overlay_window, None);
+            }
+        });
+        return;
     }
 
-    // Always hide the overlay regardless of settings - if setting was changed while recording,
-    // we still want to hide it properly
+    #[cfg(not(feature = "meetings"))]
     if let Some(overlay_window) = app_handle.get_webview_window("recording_overlay") {
-        // Emit event to trigger fade-out animation
-        let _ = overlay_window.emit("hide-overlay", ());
-        // Hide the window after a short delay to allow animation to complete
-        let window_clone = overlay_window.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(300));
-            let _ = window_clone.hide();
-        });
+        schedule_overlay_hide(overlay_window, None);
     }
 }
 
 /// Like [`hide_recording_overlay`], but does nothing if an overlay was shown after
 /// `captured` was taken. The check runs again right before the window is hidden, so a
 /// take that starts during the fade-out keeps its overlay. Returns whether it hid.
-/// A check and the act after it are separate steps: a show landing between them, a
-/// few microseconds apart, still loses to the hide.
+/// A meeting start holds the same gate as this read and the hide, so it cannot
+/// lose its pill to a hide that sampled an earlier state.
 pub fn hide_recording_overlay_if_current(app_handle: &AppHandle, captured: u64) -> bool {
     #[cfg(feature = "meetings")]
-    if let Some(state) = crate::meeting_controller::state(app_handle) {
-        if overlay_hide_blocked(state) {
-            show_overlay_state(app_handle, crate::meeting_controller::PILL_OVERLAY_STATE);
-            return false;
-        }
+    {
+        return with_meeting_pill_gate(|| {
+            if let Some(state) = crate::meeting_controller::state(app_handle) {
+                if overlay_hide_blocked(state) {
+                    show_overlay_state(app_handle, crate::meeting_controller::PILL_OVERLAY_STATE);
+                    return false;
+                }
+            }
+            hide_if_generation_current(app_handle, captured)
+        });
     }
+    #[cfg(not(feature = "meetings"))]
+    hide_if_generation_current(app_handle, captured)
+}
 
-    let current = move || current_generation(&OVERLAY_SHOW_GENERATION) == captured;
-    if !current() {
+fn hide_if_generation_current(app_handle: &AppHandle, captured: u64) -> bool {
+    if current_generation(&OVERLAY_SHOW_GENERATION) != captured {
         return false;
     }
     if let Some(overlay_window) = app_handle.get_webview_window("recording_overlay") {
-        let _ = overlay_window.emit("hide-overlay", ());
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(300));
-            if current() {
-                let _ = overlay_window.hide();
-            }
-        });
+        schedule_overlay_hide(overlay_window, Some(captured));
     }
     true
 }
@@ -644,5 +698,84 @@ mod tests {
         assert!(!overlay_show_allowed("streaming", OverlayStyle::None));
         assert!(overlay_show_allowed(PILL_OVERLAY_STATE, OverlayStyle::None));
         assert!(overlay_show_allowed("recording", OverlayStyle::Minimal));
+    }
+
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn hide_cannot_land_after_a_meeting_start() {
+        use crate::meeting_controller::MeetingState;
+
+        struct Pill {
+            state: MeetingState,
+            hidden: bool,
+        }
+
+        // Same gate the window hide and the meeting start use. No window.
+        fn start(pill: &Mutex<Pill>) {
+            with_meeting_pill_gate(|| {
+                let mut pill = pill.lock().unwrap_or_else(|e| e.into_inner());
+                pill.state = MeetingState::Recording;
+                pill.hidden = false;
+            });
+        }
+
+        fn hide(pill: &Mutex<Pill>) -> bool {
+            with_meeting_pill_gate(|| {
+                let mut pill = pill.lock().unwrap_or_else(|e| e.into_inner());
+                if overlay_hide_blocked(pill.state) {
+                    pill.hidden = false;
+                    return false;
+                }
+                pill.hidden = true;
+                true
+            })
+        }
+
+        // Start, then hide. The hide reads Recording under the gate.
+        let pill = Mutex::new(Pill {
+            state: MeetingState::Idle,
+            hidden: false,
+        });
+        start(&pill);
+        assert!(!hide(&pill));
+        {
+            let pill = pill.lock().unwrap_or_else(|e| e.into_inner());
+            assert!(pill.state.pill_visible());
+            assert!(!pill.hidden);
+        }
+
+        // Hide sampled Idle, then a start commits before the hide acts.
+        // The act re-reads under the gate, so the stale Idle does not land.
+        let pill = Mutex::new(Pill {
+            state: MeetingState::Idle,
+            hidden: false,
+        });
+        let sampled = pill.lock().unwrap_or_else(|e| e.into_inner()).state;
+        assert!(!overlay_hide_blocked(sampled));
+        start(&pill);
+        assert!(!hide(&pill));
+        assert!(!pill.lock().unwrap_or_else(|e| e.into_inner()).hidden);
+
+        // A hide that finishes before the start may hide. The start shows the pill.
+        let pill = Mutex::new(Pill {
+            state: MeetingState::Idle,
+            hidden: false,
+        });
+        assert!(hide(&pill));
+        assert!(pill.lock().unwrap_or_else(|e| e.into_inner()).hidden);
+        start(&pill);
+        {
+            let pill = pill.lock().unwrap_or_else(|e| e.into_inner());
+            assert_eq!(pill.state, MeetingState::Recording);
+            assert!(!pill.hidden);
+        }
+
+        // Stopping is the same guard: the hide does not land.
+        {
+            let mut pill = pill.lock().unwrap_or_else(|e| e.into_inner());
+            pill.state = MeetingState::Stopping;
+        }
+        assert!(!hide(&pill));
+        assert!(overlay_hide_blocked(MeetingState::Stopping));
     }
 }
