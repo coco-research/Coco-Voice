@@ -322,6 +322,7 @@ pub struct TranscriptionManager<R: tauri::Runtime = tauri::Wry> {
     /// `is_model_loaded()` consults this so the model still reports "loaded"
     /// while the worker holds it.
     active_engine_lease: Arc<AtomicU64>,
+    last_detected_language: Arc<Mutex<Option<String>>>,
     /// Held around wait-then-transcribe. Meeting chunks and a dictation take
     /// queue here instead of both calling `transcribe()` while the engine is out.
     #[cfg(feature = "meetings")]
@@ -366,6 +367,7 @@ impl<R: tauri::Runtime> Clone for TranscriptionManager<R> {
             next_stream_worker_id: Arc::clone(&self.next_stream_worker_id),
             active_stream_worker: Arc::clone(&self.active_stream_worker),
             active_engine_lease: Arc::clone(&self.active_engine_lease),
+            last_detected_language: Arc::clone(&self.last_detected_language),
             #[cfg(feature = "meetings")]
             meeting_lock: Arc::clone(&self.meeting_lock),
             #[cfg(feature = "meetings")]
@@ -400,6 +402,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             next_stream_worker_id: Arc::new(AtomicU64::new(1)),
             active_stream_worker: Arc::new(AtomicU64::new(0)),
             active_engine_lease: Arc::new(AtomicU64::new(0)),
+            last_detected_language: Arc::new(Mutex::new(None)),
             #[cfg(feature = "meetings")]
             meeting_lock: Arc::new(Mutex::new(())),
             #[cfg(feature = "meetings")]
@@ -457,6 +460,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             next_stream_worker_id: Arc::new(AtomicU64::new(1)),
             active_stream_worker: Arc::new(AtomicU64::new(0)),
             active_engine_lease: Arc::new(AtomicU64::new(0)),
+            last_detected_language: Arc::new(Mutex::new(None)),
             meeting_lock: Arc::new(Mutex::new(())),
             meeting_pin: Arc::new(Mutex::new(None)),
             after_lease_check_hook: Arc::new(Mutex::new(None)),
@@ -1214,6 +1218,10 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         current_model.clone()
     }
 
+    pub fn last_detected_language(&self) -> Option<String> {
+        self.last_detected_language.lock().unwrap().clone()
+    }
+
     /// The compute backend the currently-loaded engine is bound to, for
     /// diagnostics (e.g. confirming `--device-index` actually bound a GPU rather
     /// than falling back to CPU/auto). transcribe-cpp (whisper-family) reports
@@ -1557,9 +1565,14 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         };
 
         let settings = get_settings(&self.app_handle);
-        // Streaming models do not receive a decode prompt, so custom words
-        // always go through the shared fuzzy post-correction path.
-        let filtered = post_process_transcription_text(raw, &settings, false);
+        let active_model = self
+            .get_current_model()
+            .unwrap_or_else(|| settings.selected_model.clone());
+        let effective_language =
+            effective_language_for_model(&settings, self.model_manager.as_ref(), &active_model);
+        let (filtered, detected_lang) =
+            post_process_transcription_text(raw, &settings, &effective_language, false);
+        *self.last_detected_language.lock().unwrap() = Some(detected_lang);
 
         self.maybe_unload_immediately("streaming transcription");
         Ok(Some(filtered))
@@ -1886,7 +1899,13 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         // family). We don't pass a prompt to non-whisper models (it requires the
         // whisper-kind run extension), so they still get fuzzy correction here,
         // same as the ONNX engines.
-        let filtered_result = post_process_transcription_text(result, &settings, model_is_whisper);
+        let (filtered_result, detected_lang) = post_process_transcription_text(
+            result,
+            &settings,
+            &validated_language,
+            model_is_whisper,
+        );
+        *self.last_detected_language.lock().unwrap() = Some(detected_lang);
 
         let et = std::time::Instant::now();
         let translation_note = if settings.translate_to_english {
@@ -2099,23 +2118,24 @@ fn transcribe_cpp_run_plan(
 fn post_process_transcription_text(
     raw: String,
     settings: &AppSettings,
+    effective_language: &str,
     custom_words_already_prompted: bool,
-) -> String {
+) -> (String, String) {
+    let (cleaned_raw, take_language) =
+        crate::audio_toolkit::resolve_take_language(&raw, effective_language);
     let corrected = if !settings.custom_words.is_empty() && !custom_words_already_prompted {
         apply_custom_words(
-            &raw,
+            &cleaned_raw,
             &settings.custom_words,
             settings.word_correction_threshold,
         )
     } else {
-        raw
+        cleaned_raw
     };
 
-    filter_transcription_output(
-        &corrected,
-        &settings.app_language,
-        &settings.custom_filler_words,
-    )
+    let filtered =
+        filter_transcription_output(&corrected, &take_language, &settings.custom_filler_words);
+    (filtered, take_language)
 }
 
 /// Decide a transcribe-cpp run's task + translation target from settings.
