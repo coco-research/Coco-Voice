@@ -30,14 +30,14 @@ Renaming any load-bearing reference would break model downloads or the build, so
 
 ### Visual identity
 
-The Handy hand-mascot was replaced with an original **Coco parrot** mascot — a cockatoo drawn in the same bold-outline cartoon family, with a crest, hooked beak, and friendly face — chosen because a talking parrot ties together the brand name, the playful personality, and the app's speech function. The mascot artwork is authored as vector source in `assets/branding/`:
+The legacy mascot artwork was replaced with the **Coco Research luminous orb** mark — a bright central star encircled by two tilted orbital rings (`#5b8dff` and `#a9c4ff`) with orbital star nodes (`#ffb66e` amber and `#a9c4ff` blue) on a `#03050b` deep-space ground. Small icons (`<= 32 px`) render only the pure orb and orbital rings with zero wordmark text for legibility. Brand artwork lives in `assets/branding/`:
 
-- `coco-parrot-1024.svg` — the full app icon (mascot on the brand background).
-- `coco-parrot-glyph.svg` — the transparent mascot used for the colored tray icon.
-- `coco-parrot-mono.svg` — a single-color silhouette used for the monochrome menu-bar glyphs.
-- `coco-voice-banner.png` — the README hero banner (mascot, wordmark, and tagline).
+- `coco-research-orb.svg` — pure vector Coco Research orb mark (wordmark-free).
+- `banner-dark.png` and `banner-light.png` — light and dark `<picture>` README banners in `Archivo` and `Martian Mono`.
+- `social-preview-1280x640.png` — `1280x640` repository social preview card.
+- `dmg-background.png` (`@2x`), `nsis-header.bmp`, and `nsis-sidebar.bmp` — macOS DMG and Windows NSIS installer art.
 
-The full operating-system icon set under `src-tauri/icons/` (PNG sizes, `icon.icns`, `icon.ico`, and the Android, iOS, and Windows tile variants) was regenerated from the master artwork with `bun run tauri icon`. The tray and menu-bar assets under `src-tauri/resources/` were regenerated as well: the idle mascot (`coco-voice.png`, `tray_idle.png`, `tray_idle_dark.png`), and the recording ("ear") and transcribing ("brain") state glyphs, which were recolored to the new brand color while preserving their metaphors.
+The operating-system icon set under `src-tauri/icons/` (PNG sizes, `icon.icns`, `icon.ico`, and the Android, iOS, and Windows tile variants), web favicons under `public/`, and idle menu-bar/tray assets under `src-tauri/resources/` (`coco-voice.png`, `tray_idle.png`, `tray_idle_dark.png`) carry the pure wordmark-free Coco Research orb, while the recording ("ear") and transcribing ("brain") state glyphs preserve their distinct status metaphors.
 
 ### Color theme
 
