@@ -16,9 +16,15 @@ mod llm_client;
 mod local_llm;
 mod managers;
 #[cfg(feature = "meetings")]
+pub mod meeting_ask;
+#[cfg(feature = "meetings")]
+pub mod meeting_ask_index;
+#[cfg(feature = "meetings")]
 mod meeting_notes;
 #[cfg(feature = "meetings")]
 mod meeting_notes_merge;
+#[cfg(feature = "meetings")]
+mod meeting_notes_pieces;
 #[cfg(all(feature = "meetings", target_os = "macos"))]
 pub mod meetings_tap;
 mod overlay;

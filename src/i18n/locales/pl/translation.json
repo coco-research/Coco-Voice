@@ -585,6 +585,32 @@
         "label": "Pokaż nowości",
         "description": "Pokazuj informacje o wydaniu po aktualizacjach Coco Voice"
       }
+    },
+    "online": {
+      "eyebrow": "Ustawienia",
+      "title": "Co łączy się z siecią",
+      "intro": "Twoja mowa jest zamieniana na tekst na tym Macu. Oto miejsca, z którymi ta wersja Coco Voice może się łączyć, oraz dane, które każde z nich otrzymuje.",
+      "leavesLabel": "Opuszcza Twojego Maca:",
+      "openHeading": "Przy każdym uruchomieniu aplikacji",
+      "githubName": "GitHub (wydania Coco Voice)",
+      "githubWhen": "Przy każdym otwarciu aplikacji w celu sprawdzenia aktualizacji. Aby to wyłączyć, wyłącz sprawdzanie aktualizacji w ustawieniach debugowania (Cmd+Shift+D). Kliknięte linki otwierają się w przeglądarce.",
+      "githubLeaves": "żądanie listy wydań oraz plik aktualizacji, jeśli ją zainstalujesz. Bez mowy i bez tekstu.",
+      "updateChecksOn": "Sprawdzanie aktualizacji wł.",
+      "updateChecksOff": "Sprawdzanie aktualizacji wył.",
+      "clickHeading": "Tylko po kliknięciu",
+      "modelFilesName": "Pliki modeli Coco Voice",
+      "modelFilesWhen": "Gdy klikniesz Pobierz przy wbudowanym modelu mowy.",
+      "modelFilesLeaves": "nazwa żądanego pliku modelu. Bez mowy i bez tekstu.",
+      "huggingFaceWhen": "Gdy klikniesz Pobierz przy modelu z katalogu lub klikniesz jego licencję, aby otworzyć ją w przeglądarce.",
+      "huggingFaceLeaves": "nazwa modelu, wersja i nazwa pliku oraz token Hugging Face, jeśli jest już ustawiony na tym Macu. Bez mowy i bez tekstu.",
+      "cleanupHeading": "Tylko po wybraniu dostawcy korekty",
+      "cloudWhen": "Gdy korekta działa z wybranym przez Ciebie dostawcą chmurowym.",
+      "cloudLeaves": "tekst wypowiedzi, instrukcje korekty oraz klucz API. Pobieranie listy modeli wysyła tylko klucz API.",
+      "customName": "Własna korekta (Ollama)",
+      "customWhen": "Gdy korekta działa z wybraną opcją Własne. Rozmawia z programem na tym Macu, chyba że zmienisz jego adres.",
+      "customLeaves": "nic pod domyślnym adresem. Tekst wypowiedzi i instrukcje korekty trafiają do programu na tym Macu.",
+      "staysOnMac": "Zostaje na tym Macu",
+      "onDeviceNote": "Korekta na urządzeniu (Apple Intelligence lub model lokalny) nie łączy się z żadnym z tych miejsc."
     }
   },
   "footer": {
