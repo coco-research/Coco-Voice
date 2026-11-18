@@ -287,3 +287,109 @@ pub fn run_wav_tracks_with_pauses(
     .map_err(|err| err.to_string())?;
     Ok(id)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audio_toolkit::read_wav_samples;
+    use crate::managers::meetings::StoredNote;
+
+    fn pulse_track(total_secs: usize, active_ranges_secs: &[(usize, usize)]) -> Vec<f32> {
+        let mut pcm = vec![0.0_f32; total_secs * 16_000];
+        for &(start_s, end_s) in active_ranges_secs {
+            pcm[start_s * 16_000..end_s.min(total_secs) * 16_000].fill(0.35);
+        }
+        pcm
+    }
+
+    #[test]
+    fn meeting_session_pause_at_60s_resume_at_90s_emits_no_segment_in_pause() {
+        let dir = tempfile::tempdir().unwrap();
+        let me = pulse_track(105, &[(5, 10), (65, 80), (92, 97)]);
+        let others = pulse_track(105, &[(20, 25), (70, 85), (98, 102)]);
+        let id = run_wav_tracks_with_pauses(
+            dir.path(),
+            "Quarterly sync",
+            "turbo",
+            &me,
+            &others,
+            &[(60_000, 90_000)],
+            None,
+            &|samples| Ok(format!("len={}", samples.len())),
+        )
+        .unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        assert_eq!(store.meeting_count().unwrap(), 1);
+        let segs = store.segments(id).unwrap();
+        assert!(
+            segs.len() >= 4,
+            "expected pre- and post-pause segments: {segs:?}"
+        );
+        assert!(
+            segs.iter()
+                .all(|s| s.end_ms <= 60_000 || s.start_ms >= 90_000),
+            "segment landed inside 60s..90s pause: {segs:?}"
+        );
+        let mic_wav = dir
+            .path()
+            .join("meetings")
+            .join(id.to_string())
+            .join("mic.wav");
+        assert_eq!(
+            read_wav_samples(&mic_wav).unwrap().len(),
+            (105 - 30) * 16_000
+        );
+    }
+
+    #[test]
+    fn meeting_session_pause_add_audio_requires_fresh_consent_and_keeps_meeting_id() {
+        let _lock = crate::managers::meetings::test_lock();
+        let dir = tempfile::tempdir().unwrap();
+        let me = pulse_track(6, &[(1, 3)]);
+        let id = run_wav_tracks_with_pauses(
+            dir.path(),
+            "Design review",
+            "turbo",
+            &me,
+            &[],
+            &[],
+            None,
+            &|_| Ok("initial take".to_string()),
+        )
+        .unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let initial_segs = store.segments(id).unwrap();
+        let note = StoredNote {
+            kind: "summary".to_string(),
+            text: "Initial summary".to_string(),
+            owner: None,
+            citations: vec![initial_segs[0].id],
+        };
+        store.save_notes(id, &[note]).unwrap();
+
+        let extra = pulse_track(5, &[(1, 3)]);
+        let refused = append_audio_to_meeting(dir.path(), id, false, &extra, &[], None, &|_| {
+            Ok("unconsented".to_string())
+        });
+        assert_eq!(refused, Err(AppendAudioRefusal::ConsentRequired));
+        assert_eq!(store.segments(id).unwrap().len(), initial_segs.len());
+
+        let gate = AppendConsentGate::new();
+        let tok = gate.request_consent(id);
+        assert_eq!(gate.consume(id, tok), Ok(()));
+        assert_eq!(
+            gate.consume(id, tok),
+            Err(AppendAudioRefusal::ConsentRequired)
+        );
+
+        let ok = append_audio_to_meeting(dir.path(), id, true, &extra, &[], None, &|_| {
+            Ok("follow-up take".to_string())
+        })
+        .unwrap();
+        assert_eq!((ok.meeting_id, ok.added_segments), (id, 1));
+        assert_eq!(store.meeting_count().unwrap(), 1);
+        let all_segs = store.segments(id).unwrap();
+        assert_eq!(all_segs.len(), initial_segs.len() + 1);
+        assert_eq!(all_segs.last().unwrap().text, "follow-up take");
+    }
+}
