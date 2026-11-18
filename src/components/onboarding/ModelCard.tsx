@@ -23,6 +23,7 @@ import {
   getUniqueCapabilityLanguages,
 } from "../../lib/constants/languages";
 import Badge from "../ui/Badge";
+import RecommendedBadge from "./RecommendedBadge";
 import { Button } from "../ui/Button";
 
 // Get display text for model's language support
@@ -188,8 +189,8 @@ const ModelCard: React.FC<ModelCardProps> = ({
             >
               {displayName}
             </h3>
-            {showRecommended && model.is_recommended && (
-              <Badge variant="primary">{t("onboarding.recommended")}</Badge>
+            {showRecommended && model.measured_best && (
+              <RecommendedBadge reason={model.measured_best} />
             )}
             {status === "active" && (
               <Badge variant="primary">
