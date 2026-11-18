@@ -151,6 +151,14 @@
     },
     "cancel": "Anuluj",
     "cancelDownload": "Anuluj pobieranie",
+    "downloadFailed": {
+      "network": "Pobieranie nie powiodło się: sprawdź połączenie z internetem.",
+      "diskSpace": "Pobieranie nie powiodło się: za mało miejsca na dysku.",
+      "checksum": "Pobieranie nie powiodło się: plik nie przeszedł kontroli integralności.",
+      "other": "Pobieranie nie powiodło się.",
+      "retry": "Spróbuj ponownie",
+      "skip": "Pomiń na razie"
+    },
     "legacy": "Przestarzałe",
     "licence": "Licencja: {{licence}}"
   },

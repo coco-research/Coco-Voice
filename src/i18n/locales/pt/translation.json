@@ -151,6 +151,14 @@
     },
     "cancel": "Cancelar",
     "cancelDownload": "Cancelar download",
+    "downloadFailed": {
+      "network": "Falha no download: verifique sua conexão com a internet.",
+      "diskSpace": "Falha no download: espaço em disco insuficiente.",
+      "checksum": "Falha no download: o arquivo não passou na verificação de integridade.",
+      "other": "Falha no download.",
+      "retry": "Tentar de novo",
+      "skip": "Pular por enquanto"
+    },
     "legacy": "Legado",
     "licence": "Licença: {{licence}}"
   },
