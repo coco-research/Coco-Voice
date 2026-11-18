@@ -140,27 +140,39 @@ pub fn evaluate_try_it_sample(raw_spoken: &str, clean_up_enabled: bool) -> Strin
     if !clean_up_enabled {
         return raw_spoken.trim().to_string();
     }
+    fn is_word_char(c: char) -> bool {
+        c.is_alphanumeric() || c == '\'' || c == '_'
+    }
     let lower = raw_spoken.to_ascii_lowercase();
-    for cue in [
-        "scratch that,",
-        "scratch that",
-        "i mean,",
-        "i mean",
-        "no wait,",
-        "no wait",
-    ] {
-        if let Some((_, after)) = lower.rsplit_once(cue) {
-            let tail_len = after.trim().len();
-            if tail_len > 0 && tail_len <= raw_spoken.len() {
-                let start = raw_spoken.len() - after.len();
-                let cleaned = raw_spoken[start..]
-                    .trim()
-                    .trim_matches(|c: char| c == ',' || c.is_whitespace());
-                let mut chars = cleaned.chars();
-                if let Some(first) = chars.next() {
-                    return first.to_uppercase().collect::<String>() + chars.as_str();
-                }
+    let mut best_match: Option<(usize, usize)> = None;
+    for cue in ["scratch that", "i mean", "no wait"] {
+        for (idx, _) in lower.match_indices(cue) {
+            let end = idx + cue.len();
+            if !raw_spoken.is_char_boundary(idx) || !raw_spoken.is_char_boundary(end) {
+                continue;
             }
+            let start_ok = idx == 0
+                || raw_spoken[..idx]
+                    .chars()
+                    .next_back()
+                    .is_none_or(|c| !is_word_char(c));
+            let end_ok = end == raw_spoken.len()
+                || raw_spoken[end..]
+                    .chars()
+                    .next()
+                    .is_none_or(|c| !is_word_char(c));
+            if start_ok && end_ok && best_match.is_none_or(|(best_idx, _)| idx > best_idx) {
+                best_match = Some((idx, end));
+            }
+        }
+    }
+    if let Some((_, end)) = best_match {
+        let cleaned = raw_spoken[end..]
+            .trim()
+            .trim_matches(|c: char| c == ',' || c.is_whitespace());
+        let mut chars = cleaned.chars();
+        if let Some(first) = chars.next() {
+            return first.to_uppercase().collect::<String>() + chars.as_str();
         }
     }
     raw_spoken.trim().to_string()
@@ -348,6 +360,26 @@ mod tests {
         assert_eq!(
             evaluate_try_it_sample("Monday, scratch that, Tuesday", true),
             "Tuesday"
+        );
+    }
+
+    #[test]
+    fn try_it_self_correction_matches_only_word_boundaries() {
+        assert_eq!(
+            evaluate_try_it_sample("I know waiting is hard", true),
+            "I know waiting is hard"
+        );
+        assert_eq!(
+            evaluate_try_it_sample("I meanwhile waited outside", true),
+            "I meanwhile waited outside"
+        );
+        assert_eq!(
+            evaluate_try_it_sample("Send at two, no wait three", true),
+            "Three"
+        );
+        assert_eq!(
+            evaluate_try_it_sample("Monday, scratch that, Tuesday, no wait, Wednesday", true),
+            "Wednesday"
         );
     }
 

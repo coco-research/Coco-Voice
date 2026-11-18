@@ -3,6 +3,7 @@
     "settings": "설정...",
     "checkUpdates": "업데이트 확인...",
     "copyLastTranscript": "마지막 녹음 내용 복사",
+    "pasteLastTake": "마지막 녹음 붙여넣기",
     "unloadModel": "모델 언로드",
     "model": "모델",
     "quit": "종료",
