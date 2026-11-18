@@ -323,3 +323,82 @@ pub fn catch_up_window<G: NotesGenerator>(
         })
         .collect())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::anyhow;
+
+    struct FakeGen(bool);
+
+    impl NotesGenerator for FakeGen {
+        fn generate(&mut self, prompt: &str) -> Result<String> {
+            if self.0 {
+                return Err(anyhow!("model offline"));
+            }
+            let mut lines = Vec::new();
+            let has_halvorsen = prompt.contains("Halvorsen");
+            for (id_s, after) in prompt
+                .lines()
+                .filter_map(|l| l.strip_prefix("[S")?.split_once("] "))
+            {
+                if after.contains("Lantern") {
+                    let who = if has_halvorsen { " for Halvorsen" } else { "" };
+                    lines.push(format!("DECISION: Ship Lantern{who} [S{id_s}]"));
+                    lines.push("DECISION: Invented [S99999]".to_string());
+                } else if after.contains("April 9") {
+                    lines.push(format!("ACTION: Dana | Book call [S{id_s}]"));
+                    lines.push(format!("ACTION: GhostOwner | Book call [S{id_s}]"));
+                }
+            }
+            Ok(lines.join("\n"))
+        }
+    }
+
+    fn add_seg(s: &MeetingsStore, id: i64, ms: i64, ch: &str, txt: &str) -> i64 {
+        s.insert_segment(id, ms, ms + 4_000, ch, txt).unwrap()
+    }
+
+    #[test]
+    fn quality_template_words_retry_and_catchup_window_hold_invariants() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = store.start_meeting("Review", "parakeet").unwrap();
+        let s1 = add_seg(&store, id, 10_000, "me", "Ship Lantern.");
+        let _s2 = add_seg(&store, id, 70_000, "others", "Unrelated coffee.");
+        let s3 = add_seg(&store, id, 400_000, "others", "Dana: April 9 works.");
+
+        assert!(run_notes_with_quality(&store, id, None, &mut FakeGen(true)).is_err());
+        assert!(store.notes(id).unwrap().is_empty());
+
+        let rep = run_notes_with_quality_and_words(
+            &store,
+            id,
+            Some("# Decisions\n# Risks\n"),
+            &["Halvorsen".to_string()],
+            &mut FakeGen(false),
+        )
+        .unwrap();
+        assert_eq!(rep.approach, "one-shot");
+        assert!(rep.sources.iter().any(|s| s.segment_id == s1));
+        assert!(rep.lines.iter().any(|l| l.text.contains("Halvorsen")));
+        assert!(rep
+            .lines
+            .iter()
+            .all(|l| l.owner.as_deref() != Some("GhostOwner") && !l.text.contains("Invented")));
+        assert!(rep.left_out.iter().any(|l| l.reason == "small_talk"));
+        assert!(rep
+            .templated_sections
+            .iter()
+            .any(|t| t.heading == "Risks" && t.not_covered));
+
+        let catch = catch_up_window(&store, id, 420_000, 60_000, &mut FakeGen(false)).unwrap();
+        assert!(
+            !catch.is_empty()
+                && catch
+                    .iter()
+                    .flat_map(|l| &l.citations)
+                    .all(|&cid| cid == s3)
+        );
+    }
+}
