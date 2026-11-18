@@ -246,6 +246,23 @@ fn is_mouse_within_monitor(
 /// We must use LogicalPosition (not PhysicalPosition) because Tauri/tao
 /// converts PhysicalPosition using the scale factor of the monitor the window
 /// is *currently* on, which is wrong when moving cross-monitor.
+pub fn overlay_xy_for_monitor(
+    monitor_x: f64,
+    monitor_y: f64,
+    monitor_width: f64,
+    monitor_height: f64,
+    width: f64,
+    height: f64,
+    position: OverlayPosition,
+) -> (f64, f64) {
+    let x = monitor_x + (monitor_width - width) / 2.0;
+    let y = match position {
+        OverlayPosition::Top => monitor_y + OVERLAY_TOP_OFFSET,
+        OverlayPosition::Bottom => monitor_y + monitor_height - height - OVERLAY_BOTTOM_OFFSET,
+    };
+    (x, y)
+}
+
 fn calculate_overlay_position(
     app_handle: &AppHandle,
     width: f64,
@@ -260,13 +277,15 @@ fn calculate_overlay_position(
 
     let settings = settings::get_settings(app_handle);
 
-    let x = monitor_x + (monitor_width - width) / 2.0;
-    let y = match settings.overlay_position {
-        OverlayPosition::Top => monitor_y + OVERLAY_TOP_OFFSET,
-        OverlayPosition::Bottom => monitor_y + monitor_height - height - OVERLAY_BOTTOM_OFFSET,
-    };
-
-    Some((x, y))
+    Some(overlay_xy_for_monitor(
+        monitor_x,
+        monitor_y,
+        monitor_width,
+        monitor_height,
+        width,
+        height,
+        settings.overlay_position,
+    ))
 }
 
 /// Current overlay window size in logical units (points), for repositioning
@@ -575,5 +594,45 @@ mod tests {
         bump_generation(&generation);
         bump_generation(&generation);
         assert_ne!(current_generation(&generation), captured);
+    }
+
+    #[test]
+    fn pill_placement_top_and_bottom_coordinates_and_persistence() {
+        let (top_x, top_y) = overlay_xy_for_monitor(
+            0.0,
+            0.0,
+            1440.0,
+            900.0,
+            OVERLAY_WIDTH,
+            OVERLAY_HEIGHT,
+            OverlayPosition::Top,
+        );
+        let (bot_x, bot_y) = overlay_xy_for_monitor(
+            0.0,
+            0.0,
+            1440.0,
+            900.0,
+            OVERLAY_WIDTH,
+            OVERLAY_HEIGHT,
+            OverlayPosition::Bottom,
+        );
+        assert_eq!(top_x, (1440.0 - OVERLAY_WIDTH) / 2.0);
+        assert_eq!(bot_x, top_x);
+        assert_eq!(top_y, OVERLAY_TOP_OFFSET);
+        assert_eq!(bot_y, 900.0 - OVERLAY_HEIGHT - OVERLAY_BOTTOM_OFFSET);
+        assert!(top_y < bot_y, "Top pill placement must sit above Bottom");
+
+        let top_json = serde_json::to_string(&OverlayPosition::Top).expect("serialize Top");
+        let bot_json = serde_json::to_string(&OverlayPosition::Bottom).expect("serialize Bottom");
+        assert_eq!(top_json, "\"top\"");
+        assert_eq!(bot_json, "\"bottom\"");
+        assert_eq!(
+            serde_json::from_str::<OverlayPosition>(&top_json).unwrap(),
+            OverlayPosition::Top
+        );
+        assert_eq!(
+            serde_json::from_str::<OverlayPosition>(&bot_json).unwrap(),
+            OverlayPosition::Bottom
+        );
     }
 }

@@ -1407,15 +1407,25 @@ impl ShortcutAction for TranscribeAction {
                     utils::hide_recording_overlay(&ah);
                     change_tray_icon(&ah, TrayIconState::Idle);
                 } else {
-                    // Save WAV concurrently with transcription
+                    // Save WAV concurrently with transcription unless NeverStore is active
+                    let pre_settings = get_settings(&ah);
+                    let never_store = HistoryManager::is_never_store_policy(
+                        pre_settings.recording_retention_period,
+                        pre_settings.history_limit,
+                        pre_settings.never_store_history,
+                    );
                     let sample_count = samples.len();
                     let file_name = format!("coco-voice-{}.wav", chrono::Utc::now().timestamp());
                     let wav_path = hm.recordings_dir().join(&file_name);
                     let wav_path_for_verify = wav_path.clone();
                     let samples_for_wav = samples.clone();
-                    let wav_handle = tauri::async_runtime::spawn_blocking(move || {
-                        crate::audio_toolkit::save_wav_file(&wav_path, &samples_for_wav)
-                    });
+                    let wav_handle = if never_store {
+                        None
+                    } else {
+                        Some(tauri::async_runtime::spawn_blocking(move || {
+                            crate::audio_toolkit::save_wav_file(&wav_path, &samples_for_wav)
+                        }))
+                    };
 
                     // Transcribe concurrently with WAV save. If a live stream was
                     // running, finalize it and use its text (all audio was already
@@ -1439,27 +1449,30 @@ impl ShortcutAction for TranscribeAction {
                     };
 
                     // Await WAV save and verify
-                    let wav_saved = match wav_handle.await {
-                        Ok(Ok(())) => {
-                            match crate::audio_toolkit::verify_wav_file(
-                                &wav_path_for_verify,
-                                sample_count,
-                            ) {
-                                Ok(()) => true,
-                                Err(e) => {
-                                    error!("WAV verification failed: {}", e);
-                                    false
+                    let wav_saved = match wav_handle {
+                        None => false,
+                        Some(handle) => match handle.await {
+                            Ok(Ok(())) => {
+                                match crate::audio_toolkit::verify_wav_file(
+                                    &wav_path_for_verify,
+                                    sample_count,
+                                ) {
+                                    Ok(()) => true,
+                                    Err(e) => {
+                                        error!("WAV verification failed: {}", e);
+                                        false
+                                    }
                                 }
                             }
-                        }
-                        Ok(Err(e)) => {
-                            error!("Failed to save WAV file: {}", e);
-                            false
-                        }
-                        Err(e) => {
-                            error!("WAV save task panicked: {}", e);
-                            false
-                        }
+                            Ok(Err(e)) => {
+                                error!("Failed to save WAV file: {}", e);
+                                false
+                            }
+                            Err(e) => {
+                                error!("WAV save task panicked: {}", e);
+                                false
+                            }
+                        },
                     };
 
                     if rm.was_cancelled_since(cancel_generation) {
