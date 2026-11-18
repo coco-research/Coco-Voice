@@ -590,6 +590,11 @@ jobs:
           sudo cp -vL "$LIBDIR"/libtranscribe.so* "$LIBDIR"/libggml*.so* /usr/local/lib/ 2>/dev/null || true
           sudo ldconfig
 
+      - name: Enable meetings on macOS
+        if: contains(inputs.platform, 'macos')
+        shell: bash
+        run: echo "VITE_MEETINGS=1" >> "$GITHUB_ENV"
+
       - name: Build with Tauri
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
@@ -623,7 +628,7 @@ jobs:
           # dropped so nothing is notarized.
           tauriScript: ${{ (!inputs.sign-binaries && contains(inputs.platform, 'macos')) && format('env -u APPLE_CERTIFICATE -u APPLE_CERTIFICATE_PASSWORD{0} -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID bun tauri', steps.macos-sign.outputs.enabled != 'true' && ' -u APPLE_SIGNING_IDENTITY' || '') || '' }}
           assetNamePattern: ${{ steps.patch-release-name.outputs.platform }}
-          args: ${{ inputs.build-args }}
+          args: ${{ contains(inputs.platform, 'macos') && format('--features meetings --config src-tauri/tauri.meetings.conf.json {0}', inputs.build-args) || inputs.build-args }}
 
       - name: Verify macOS dylib bundling
         if: inputs.target == 'x86_64-apple-darwin'
