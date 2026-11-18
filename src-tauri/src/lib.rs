@@ -16,6 +16,8 @@ mod llm_client;
 mod local_llm;
 mod managers;
 #[cfg(feature = "meetings")]
+pub mod meeting_speakers_engine;
+#[cfg(feature = "meetings")]
 mod meeting_notes;
 #[cfg(feature = "meetings")]
 mod meeting_notes_merge;
