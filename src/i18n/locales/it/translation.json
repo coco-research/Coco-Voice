@@ -50,6 +50,7 @@
     "showAllModels": "Mostra tutti e {{total}} modelli",
     "showFewerModels": "Mostra meno modelli",
     "recommended": "Raccomandato",
+    "measuredReason": "Fewest words wrong of {{compared}} models measured on our clip set: {{wrong}} per 100 words, {{speed}}× faster than real time, {{memory}} MB of memory.",
     "customModelDescription": "Non ufficialmente supportato",
     "modelCard": {
       "accuracy": "accuratezza",
