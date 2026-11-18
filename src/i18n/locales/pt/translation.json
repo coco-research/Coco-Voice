@@ -585,6 +585,32 @@
         "label": "Mostrar novidades",
         "description": "Mostrar notas de versão após atualizações do Coco Voice"
       }
+    },
+    "online": {
+      "eyebrow": "Configurações",
+      "title": "O que vai online",
+      "intro": "A sua fala é convertida em texto neste Mac. Estes são os destinos que esta versão do Coco Voice pode contactar e o que cada um recebe.",
+      "leavesLabel": "Sai do seu Mac:",
+      "openHeading": "Sempre que o aplicativo abre",
+      "githubName": "GitHub (versões do Coco Voice)",
+      "githubWhen": "Sempre que o aplicativo abre, para procurar atualizações. Para parar, desative a verificação de atualizações nas configurações de depuração (Cmd+Shift+D). Os links clicados abrem no navegador.",
+      "githubLeaves": "um pedido da lista de versões e o arquivo de atualização se instalar uma. Sem áudio e sem texto.",
+      "updateChecksOn": "Verificação de atualizações ativa",
+      "updateChecksOff": "Verificação de atualizações desativada",
+      "clickHeading": "Apenas quando você clica",
+      "modelFilesName": "Arquivos de modelos do Coco Voice",
+      "modelFilesWhen": "Quando você clica em Baixar em um modelo de voz integrado.",
+      "modelFilesLeaves": "o nome do arquivo de modelo solicitado. Sem áudio e sem texto.",
+      "huggingFaceWhen": "Quando você clica em Baixar em um modelo do catálogo ou clica na licença para abri-la no navegador.",
+      "huggingFaceLeaves": "o nome do modelo, a versão e o nome do arquivo, além de um token do Hugging Face se já estiver definido neste Mac. Sem áudio e sem texto.",
+      "cleanupHeading": "Apenas quando você escolhe um provedor de limpeza",
+      "cloudWhen": "Quando a limpeza roda com o provedor em nuvem que você escolheu.",
+      "cloudLeaves": "o texto do que você disse, as instruções de limpeza e sua chave de API. Listar modelos envia apenas sua chave de API.",
+      "customName": "Limpeza personalizada (Ollama)",
+      "customWhen": "Quando a limpeza roda com Personalizado como provedor escolhido. Comunica-se com um programa neste Mac, a menos que você altere o endereço.",
+      "customLeaves": "nada no endereço inicial. O texto falado e as instruções de limpeza vão para o programa neste Mac.",
+      "staysOnMac": "Permanece neste Mac",
+      "onDeviceNote": "A limpeza no dispositivo (Apple Intelligence ou o modelo local) não contacta nenhum destes destinos."
     }
   },
   "footer": {
@@ -703,6 +729,20 @@
     "clipboardDefault": "Depois de colar, o texto ditado permanece na área de transferência para você colar de novo. Ele substitui o que você tinha copiado antes. Você pode desligar isso em Configurações > Avançado > Manipulação da Área de Transferência."
   },
   "meetings": {
+    "consent": {
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
     "sidebar": "Meetings",
     "toggle": {
       "label": "Meetings",

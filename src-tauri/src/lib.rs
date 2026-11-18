@@ -1,4 +1,5 @@
 mod actions;
+pub mod agent_ask;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
 mod audio_feedback;
@@ -16,11 +17,19 @@ mod llm_client;
 mod local_llm;
 mod managers;
 #[cfg(feature = "meetings")]
+pub mod meeting_ask;
+#[cfg(feature = "meetings")]
+pub mod meeting_ask_index;
+#[cfg(feature = "meetings")]
+mod meeting_controller;
+#[cfg(feature = "meetings")]
 mod meeting_notes;
 #[cfg(feature = "meetings")]
 mod meeting_notes_merge;
 #[cfg(feature = "meetings")]
 mod meeting_notes_pieces;
+#[cfg(feature = "meetings")]
+pub mod meeting_todos;
 #[cfg(feature = "meetings")]
 mod meetings;
 #[cfg(all(feature = "meetings", target_os = "macos"))]
@@ -215,6 +224,8 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     app_handle.manage(transcription_manager.clone());
     app_handle.manage(history_manager.clone());
     app_handle.manage(tray::CurrentTrayIconState::new());
+    #[cfg(feature = "meetings")]
+    app_handle.manage(Arc::new(meeting_controller::MeetingController::default()));
 
     // Note: Shortcuts are NOT initialized here.
     // The frontend is responsible for calling the `initialize_shortcuts` command
@@ -563,6 +574,10 @@ fn meetings_command_names() -> &'static [&'static str] {
     {
         &[
             "change_meetings_enabled_setting",
+            "open_meeting_consent",
+            "confirm_meeting_start",
+            "cancel_meeting_consent",
+            "stop_meeting",
             "current_meeting_offer",
             "dismiss_meeting_offer",
         ]
@@ -579,6 +594,10 @@ macro_rules! collect_app_commands {
         collect_commands![
             $($($seg)::+,)*
             shortcut::change_meetings_enabled_setting,
+            meeting_controller::open_meeting_consent,
+            meeting_controller::confirm_meeting_start,
+            meeting_controller::cancel_meeting_consent,
+            meeting_controller::stop_meeting,
             meetings::current_meeting_offer,
             meetings::dismiss_meeting_offer
         ]
@@ -594,6 +613,10 @@ macro_rules! collect_app_commands {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run(cli_args: CliArgs) {
+    if cli_args.mcp_ask_user {
+        std::process::exit(agent_ask::run_stdio(None));
+    }
+
     // --cleanup-eval scores the on-device cleanup model and exits before any
     // window, tray, or single-instance plugin exists: that plugin would hand
     // the flag to a running app and show its window.

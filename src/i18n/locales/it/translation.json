@@ -585,6 +585,32 @@
         "label": "Mostra novità",
         "description": "Mostra le note di rilascio dopo gli aggiornamenti di Coco Voice"
       }
+    },
+    "online": {
+      "eyebrow": "Impostazioni",
+      "title": "Cosa va online",
+      "intro": "La tua voce viene trasformata in testo su questo Mac. Questi sono i servizi che questa versione di Coco Voice può contattare e cosa riceve ciascuno.",
+      "leavesLabel": "Esce dal tuo Mac:",
+      "openHeading": "Ad ogni apertura dell’app",
+      "githubName": "GitHub (versioni di Coco Voice)",
+      "githubWhen": "Ad ogni apertura dell’app, per verificare gli aggiornamenti. Per interromperlo, disattiva il controllo aggiornamenti nelle impostazioni di debug (Cmd+Shift+D). I link cliccati si aprono nel browser.",
+      "githubLeaves": "una richiesta per l’elenco delle versioni e il file di aggiornamento se ne installi uno. Nessun audio e nessun testo.",
+      "updateChecksOn": "Controllo aggiornamenti attivo",
+      "updateChecksOff": "Controllo aggiornamenti disattivato",
+      "clickHeading": "Solo quando fai clic",
+      "modelFilesName": "File dei modelli Coco Voice",
+      "modelFilesWhen": "Quando fai clic su Scarica per un modello vocale integrato.",
+      "modelFilesLeaves": "il nome del file del modello richiesto. Nessun audio e nessun testo.",
+      "huggingFaceWhen": "Quando fai clic su Scarica per un modello del catalogo o apri la sua licenza nel browser.",
+      "huggingFaceLeaves": "il nome del modello, la versione e il nome del file, più un token Hugging Face se già impostato su questo Mac. Nessun audio e nessun testo.",
+      "cleanupHeading": "Solo quando scegli un fornitore di revisione",
+      "cloudWhen": "Quando la revisione viene eseguita con il fornitore cloud scelto.",
+      "cloudLeaves": "il testo di ciò che hai detto, le istruzioni di revisione e la tua chiave API. L’elenco dei modelli invia solo la chiave API.",
+      "customName": "Revisione personalizzata (Ollama)",
+      "customWhen": "Quando la revisione usa Personalizzato come fornitore scelto. Comunica con un programma su questo Mac a meno che non ne cambi l’indirizzo.",
+      "customLeaves": "nulla all’indirizzo iniziale. Il testo pronunciato e le istruzioni di revisione vanno al programma su questo Mac.",
+      "staysOnMac": "Resta su questo Mac",
+      "onDeviceNote": "La revisione sul dispositivo (Apple Intelligence o il modello locale) non contatta nessuno di questi servizi."
     }
   },
   "footer": {
@@ -703,6 +729,20 @@
     "clipboardDefault": "Dopo un incolla, il testo dettato resta negli appunti così puoi incollarlo di nuovo. Sostituisce ciò che avevi copiato prima. Puoi disattivarlo in Impostazioni > Avanzate > Gestione Appunti."
   },
   "meetings": {
+    "consent": {
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
     "sidebar": "Meetings",
     "toggle": {
       "label": "Meetings",

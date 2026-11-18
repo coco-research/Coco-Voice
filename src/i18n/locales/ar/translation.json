@@ -585,6 +585,32 @@
         "label": "إعادة الفحص",
         "tooltip": "إعادة الفحص بحثًا عن النماذج المضافة إلى مجلد النماذج أو ذاكرة Hugging Face التخزينية المؤقتة خارج Coco Voice"
       }
+    },
+    "online": {
+      "eyebrow": "الإعدادات",
+      "title": "ما الذي يتصل بالإنترنت",
+      "intro": "يتحول كلامك إلى نص على جهاز Mac هذا. هذه هي الجهات التي يمكن لهذا الإصدار من Coco Voice الاتصال بها وما تحصل عليه كل جهة.",
+      "leavesLabel": "يغادر جهاز Mac:",
+      "openHeading": "في كل مرة يُفتح فيها التطبيق",
+      "githubName": "GitHub (إصدارات Coco Voice)",
+      "githubWhen": "في كل مرة يُفتح فيها التطبيق للتحقق من وجود تحديث. لإيقاف ذلك، أوقف فحص التحديثات من إعدادات التصحيح (Cmd+Shift+D). الروابط التي تنقرها تُفتح في المتصفح.",
+      "githubLeaves": "طلب لقائمة الإصدارات وملف التحديث إذا قمت بتثبيته. بلا صوت وبلا نص.",
+      "updateChecksOn": "فحص التحديثات قيد التشغيل",
+      "updateChecksOff": "فحص التحديثات متوقف",
+      "clickHeading": "فقط عندما تنقر",
+      "modelFilesName": "ملفات نماذج Coco Voice",
+      "modelFilesWhen": "عند النقر على تنزيل لنموذج كلام مدمج.",
+      "modelFilesLeaves": "اسم ملف النموذج الذي طلبته. بلا صوت وبلا نص.",
+      "huggingFaceWhen": "عند النقر على تنزيل لنموذج من الدليل أو النقر على ترخيصه لفتحه في المتصفح.",
+      "huggingFaceLeaves": "اسم النموذج والإصدار واسم الملف، بالإضافة إلى رمز Hugging Face إذا كان مضبوطاً مسبقاً على جهاز Mac هذا. بلا صوت وبلا نص.",
+      "cleanupHeading": "فقط عند اختيار مزود تنقيح النص",
+      "cloudWhen": "عند تشغيل التنقيح باستخدام المزود السحابي الذي اخترته.",
+      "cloudLeaves": "نص ما قلته وتعليمات التنقيح ومفتاح API الخاص بك. عرض قائمة النماذج يرسل مفتاح API فقط.",
+      "customName": "تنقيح مخصص (Ollama)",
+      "customWhen": "عند تشغيل التنقيح مع اختيار مخصص كمزود. يتحدث مع برنامج على جهاز Mac هذا ما لم تغيّر عنوانه.",
+      "customLeaves": "لا شيء على العنوان الافتراضي. يذهب نص كلامك وتعليمات التنقيح إلى البرنامج على جهاز Mac هذا.",
+      "staysOnMac": "يبقى على جهاز Mac هذا",
+      "onDeviceNote": "التنقيح على الجهاز (Apple Intelligence أو النموذج المحلي) لا يتصل بأيٍّ من هذه الجهات."
     }
   },
   "footer": {
@@ -703,6 +729,20 @@
     "clipboardDefault": "بعد اللصق، يبقى النص الذي أملَيته في الحافظة لتتمكن من لصقه مرة أخرى. يحل محل ما نسخته من قبل. يمكنك إيقاف ذلك من ...الإعدادات > متقدم > التعامل مع الحافظة."
   },
   "meetings": {
+    "consent": {
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
     "sidebar": "Meetings",
     "toggle": {
       "label": "Meetings",
