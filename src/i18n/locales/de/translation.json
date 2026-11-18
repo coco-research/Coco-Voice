@@ -107,7 +107,14 @@
       },
       "accessibility": {
         "title": "Bedienungshilfen-Zugriff",
-        "description": "Erforderlich, um transkribierten Text in deine Anwendungen einzugeben."
+        "description": "Erforderlich, um transkribierten Text in deine Anwendungen einzugeben.",
+        "stale": {
+          "description": "macOS führt Coco Voice als erlaubt, aber der Eintrag ist veraltet (oft nach einem Update), daher funktioniert das Einfügen nicht. So beheben Sie es:",
+          "step1": "Öffnen Sie Systemeinstellungen > Datenschutz & Sicherheit > Bedienungshilfen.",
+          "step2": "Wählen Sie Coco Voice aus und entfernen Sie es mit der Minus-Taste (-).",
+          "step3": "Fügen Sie Coco Voice mit der Plus-Taste (+) erneut hinzu und aktivieren Sie es.",
+          "checkAgain": "Erneut prüfen"
+        }
       },
       "grant": "Berechtigung erteilen",
       "granted": "Erteilt",

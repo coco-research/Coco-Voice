@@ -107,7 +107,14 @@
       },
       "accessibility": {
         "title": "Toegankelijkheid",
-        "description": "Vereist om getranscribeerde tekst in je applicaties te kunnen typen."
+        "description": "Vereist om getranscribeerde tekst in je applicaties te kunnen typen.",
+        "stale": {
+          "description": "macOS toont Coco Voice als toegestaan, maar het item is verouderd (vaak na een update), dus plakken werkt niet. Zo los je het op:",
+          "step1": "Open Systeeminstellingen > Privacy en beveiliging > Toegankelijkheid.",
+          "step2": "Selecteer Coco Voice en verwijder het met de minknop (-).",
+          "step3": "Voeg Coco Voice opnieuw toe met de plusknop (+) en zet het aan.",
+          "checkAgain": "Opnieuw controleren"
+        }
       },
       "grant": "Machtiging verlenen",
       "granted": "Verleend",

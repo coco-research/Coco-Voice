@@ -15,6 +15,10 @@ import {
   windowsMicrophoneAccess,
   type PermissionCheckResult,
 } from "@/lib/utils/permissions";
+import {
+  accessibilityStatus,
+  type AccessibilityCheck,
+} from "@/lib/utils/accessibilityStatus";
 import CocoVoiceTextLogo from "../icons/CocoVoiceTextLogo";
 import PermissionAction, { type PermissionStatus } from "./PermissionAction";
 import { Keyboard, Mic, Check, Loader2 } from "lucide-react";
@@ -33,8 +37,24 @@ interface PermissionsState {
 // A fresh check that still says "needed" keeps a card the user is acting on in "waiting".
 const mergeCheck = (
   prev: PermissionStatus,
-  next: PermissionCheckResult,
+  next: PermissionCheckResult | AccessibilityCheck,
 ): PermissionStatus => (prev === "waiting" && next === "needed" ? prev : next);
+
+/**
+ * The trusted flag plus an input probe. The probe only asks whether Coco Voice
+ * can create its input simulator (the backend re-checks trust and opens a
+ * macOS event source); it never types or pastes anything.
+ */
+async function checkAccessibility(): Promise<AccessibilityCheck> {
+  const trusted = await runPermissionCheck(checkAccessibilityPermission);
+  if (trusted !== "granted") return trusted;
+  const probe = await commands
+    .initializeEnigo()
+    .then((result) => (result.status === "ok" ? "ok" : "failed"))
+    .catch(() => "failed" as const);
+  if (probe === "failed") console.warn("Input probe failed");
+  return accessibilityStatus(trusted, probe);
+}
 
 const initializeAfterAccessibilityGrant = () =>
   Promise.all([
@@ -96,8 +116,8 @@ const AccessibilityOnboarding: React.FC<AccessibilityOnboardingProps> = ({
     async (target: PermissionPlatform) => {
       const [accessibility, microphone] = await Promise.all([
         target === "macos"
-          ? runPermissionCheck(checkAccessibilityPermission)
-          : Promise.resolve<PermissionCheckResult>("granted"),
+          ? checkAccessibility()
+          : Promise.resolve<AccessibilityCheck>("granted"),
         runPermissionCheck(
           target === "windows"
             ? checkWindowsMicrophone
@@ -183,8 +203,8 @@ const AccessibilityOnboarding: React.FC<AccessibilityOnboardingProps> = ({
       setPermissions((prev) => {
         const next = { ...prev };
 
-        if (accessibility === "granted") {
-          next.accessibility = "granted";
+        if (accessibility === "granted" || accessibility === "stale") {
+          next.accessibility = accessibility;
         }
         if (microphone === "granted") {
           next.microphone = "granted";
@@ -200,7 +220,9 @@ const AccessibilityOnboarding: React.FC<AccessibilityOnboardingProps> = ({
 
       const bothGranted =
         accessibility === "granted" && microphone === "granted";
-      if ((bothGranted || gaveUp) && pollingRef.current) {
+      // A stale entry won't fix itself: stop polling and let the user Check again.
+      const stale = accessibility === "stale";
+      if ((bothGranted || gaveUp || stale) && pollingRef.current) {
         clearInterval(pollingRef.current);
         pollingRef.current = null;
         errorCountRef.current = 0;
