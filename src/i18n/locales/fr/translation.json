@@ -6,23 +6,51 @@
     "unloadModel": "Décharger le modèle",
     "model": "Modèle",
     "quit": "Quitter",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "startNotes": "Démarrer les notes...",
+    "startRecordingMeeting": "Démarrer l’enregistrement d’une réunion",
+    "pasteLastTake": "Coller la dernière prise",
+    "copyLastTake": "Copier la dernière prise",
+    "openApp": "Ouvrir Coco Voice"
   },
   "sidebar": {
     "general": "Général",
     "models": "Modèles",
     "advanced": "Avancé",
-    "postProcessing": "Post-traitement",
+    "postProcessing": "Nettoyage",
     "history": "Historique",
     "debug": "Débogage",
-    "about": "À propos"
+    "about": "À propos",
+    "home": "Accueil",
+    "recordMeeting": "Enregistrer une réunion",
+    "meetingHistory": "Historique des réunions",
+    "askMeetings": "Interroger vos réunions",
+    "foldersAndTemplates": "Dossiers et modèles",
+    "agentAccess": "Accès agent",
+    "voiceSection": "Voix",
+    "dictationHistory": "Historique de dictée",
+    "perAppProfiles": "Profils par application",
+    "wordsAndCleanup": "Mots et nettoyage",
+    "settings": "Paramètres",
+    "sectionPlaceholder": "Disponible dans cette section une fois activé.",
+    "startRecording": "Démarrer l'enregistrement",
+    "seeAllMeetings": "Toutes les réunions →",
+    "dictateHeading": "Dictez partout",
+    "holdToTalk": "maintenir pour parler",
+    "changeShortcut": "Modifier le raccourci",
+    "seeAllDictations": "Toutes les dictées →",
+    "dictationSearchPlaceholder": "Mots prononcés",
+    "dictationSearchAria": "Rechercher dans les dictées",
+    "cleanedUp": "Nettoyé",
+    "emptyDictationSearch": "Aucune dictée ne correspond à votre recherche.",
+    "keptDays": "Conservé 30 jours"
   },
   "onboarding": {
     "subtitle": "Pour commencer, choisissez un modèle de transcription",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Modèles compatibles",
+    "downloadModelsTitle": "Disponibles au téléchargement",
+    "showAllModels": "Afficher les {{total}} modèles",
+    "showFewerModels": "Afficher moins de modèles",
     "recommended": "Recommandé",
     "customModelDescription": "Non officiellement pris en charge",
     "modelCard": {
@@ -96,7 +124,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Impossible de sélectionner le modèle"
     },
     "permissions": {
       "title": "Autorisations requises",
@@ -107,7 +135,15 @@
       },
       "accessibility": {
         "title": "Accès à l'accessibilité",
-        "description": "Nécessaire pour taper le texte transcrit dans vos applications."
+        "description": "Nécessaire pour taper le texte transcrit dans vos applications.",
+        "stale": {
+          "description": "macOS indique que Coco Voice est autorisé, mais l'entrée est obsolète (souvent après une mise à jour), donc le collage ne fonctionnera pas. Pour corriger :",
+          "step1": "Ouvrez Réglages Système > Confidentialité et sécurité > Accessibilité.",
+          "step2": "Sélectionnez Coco Voice et supprimez-le avec le bouton moins (-).",
+          "step3": "Ajoutez à nouveau Coco Voice avec le bouton plus (+) et activez-le.",
+          "checkAgain": "Vérifier à nouveau",
+          "continueWithoutTyping": "Continuer sans saisie directe"
+        }
       },
       "grant": "Accorder l'autorisation",
       "granted": "Accordé",
@@ -117,6 +153,12 @@
         "checkFailed": "Échec de la vérification des autorisations. Veuillez réessayer.",
         "requestFailed": "Échec de la demande d'autorisation. Veuillez réessayer."
       }
+    },
+    "tryIt": {
+      "title": "Essayez",
+      "prompt": "Maintenez {{shortcut}} et dites : « Lundi, non plutôt mardi »",
+      "cleanedResult": "Mardi.",
+      "done": "Terminé"
     }
   },
   "modelSelector": {
@@ -132,12 +174,12 @@
     "extractingGeneric": "Extraction...",
     "downloading": "Téléchargement {{percentage}}%",
     "downloadingMultiple": "Téléchargement de {{count}} modèles...",
-    "modelReady": "Modèle Prêt",
+    "modelReady": "Modèle prêt",
     "loading": "Chargement de {{modelName}}...",
     "loadingGeneric": "Chargement...",
-    "modelError": "Erreur du Modèle",
-    "modelUnloaded": "Modèle Déchargé",
-    "noModelDownloadRequired": "Aucun Modèle - Téléchargement Requis",
+    "modelError": "Erreur du modèle",
+    "modelUnloaded": "Modèle déchargé",
+    "noModelDownloadRequired": "Aucun modèle — téléchargement requis",
     "deleteModel": "Supprimer {{modelName}}",
     "downloadSpeed": "{{speed}} Mo/s",
     "capabilities": {
@@ -152,7 +194,15 @@
     "cancel": "Annuler",
     "cancelDownload": "Annuler le téléchargement",
     "legacy": "Hérité",
-    "licence": "Licence : {{licence}}"
+    "licence": "Licence : {{licence}}",
+    "downloadFailed": {
+      "network": "Échec du téléchargement : vérifiez votre connexion internet.",
+      "diskSpace": "Échec du téléchargement : espace disque insuffisant.",
+      "checksum": "Échec du téléchargement : le fichier n'a pas passé la vérification d'intégrité.",
+      "other": "Échec du téléchargement.",
+      "retry": "Réessayer",
+      "skip": "Passer pour l'instant"
+    }
   },
   "settings": {
     "modelSettings": {
@@ -179,7 +229,7 @@
     "general": {
       "title": "Général",
       "shortcut": {
-        "title": "Raccourcis Coco Voice",
+        "title": "Raccourcis clavier",
         "description": "Configurer les raccourcis clavier pour déclencher l'enregistrement de la reconnaissance vocale",
         "loading": "Chargement des raccourcis...",
         "none": "Aucun raccourci configuré",
@@ -187,19 +237,19 @@
         "pressKeys": "Appuyez sur les touches...",
         "bindings": {
           "transcribe": {
-            "name": "Raccourci de Transcription",
+            "name": "Raccourci de dictée",
             "description": "Le raccourci clavier pour enregistrer et transcrire votre voix."
           },
           "cancel": {
-            "name": "Raccourci d'Annulation",
+            "name": "Raccourci d'annulation",
             "description": "Le raccourci clavier pour annuler l'enregistrement en cours."
           },
           "transcribe_with_post_process": {
-            "name": "Raccourci de post-traitement",
+            "name": "Raccourci de nettoyage",
             "description": "Facultatif : Un raccourci dédié qui applique toujours le post-traitement IA à votre transcription."
           },
           "correction": {
-            "name": "Dicter une correction",
+            "name": "Raccourci des corrections vocales",
             "description": "Le raccourci clavier pour dicter une correction qui remplace votre dernière dictée. Attribuez une touche pour l'activer."
           }
         },
@@ -217,7 +267,7 @@
         "auto": "Auto"
       },
       "pushToTalk": {
-        "label": "Appuyer pour parler",
+        "label": "Maintenir pour parler",
         "description": "Maintenez pour enregistrer, relâchez pour arrêter"
       }
     },
@@ -230,7 +280,7 @@
         "loading": "Chargement..."
       },
       "audioFeedback": {
-        "label": "Signal sonore",
+        "label": "Sons d'enregistrement",
         "description": "Jouer un son au début et à la fin de l'enregistrement"
       },
       "outputDevice": {
@@ -253,7 +303,7 @@
         "experimental": "Expérimental"
       },
       "experimentalToggle": {
-        "label": "Fonctionnalités Expérimentales",
+        "label": "Fonctionnalités expérimentales",
         "description": "Activer les fonctionnalités expérimentales encore en développement."
       },
       "lazyStreamClose": {
@@ -278,7 +328,7 @@
         "description": "Lancer dans la barre système sans ouvrir la fenêtre."
       },
       "autostart": {
-        "label": "Lancer au démarrage",
+        "label": "Ouvrir à la connexion",
         "description": "Démarrer automatiquement Coco Voice lorsque vous vous connectez à votre ordinateur."
       },
       "showTrayIcon": {
@@ -287,16 +337,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Bulle d'enregistrement",
+          "description": "Choisissez la bulle d'enregistrement : Aucune la masque, Compacte affiche une petite pilule et En direct affiche le texte pendant que vous parlez.",
           "options": {
             "none": "Aucune",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Compacte",
+            "live": "En direct"
           }
         },
         "position": {
-          "title": "Position de la fenêtre d'enregistrement",
+          "title": "Position de la bulle",
           "description": "Afficher un retour visuel pendant l'enregistrement et la transcription. Sur Linux, 'Aucune' est recommandé.",
           "options": {
             "bottom": "Bas",
@@ -305,7 +355,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Méthode de collage",
+        "title": "Comment les mots sont saisis",
         "description": "Choisissez comment le texte est inséré. Direct : simule la frappe via l'entrée système. Aucun : ignore le collage, met uniquement à jour l'historique/presse-papiers.",
         "options": {
           "clipboard": "Presse-papiers ({{modifier}}+V)",
@@ -321,20 +371,20 @@
         "title": "Outil de frappe",
         "description": "Choisissez quel outil de frappe Linux utiliser pour la méthode de collage direct. Auto détectera et utilisera automatiquement le meilleur outil disponible pour votre système.",
         "options": {
-          "auto": "Auto (Recommandé)"
+          "auto": "Auto (recommandé)"
         }
       },
       "clipboardHandling": {
-        "title": "Gestion du presse-papiers",
+        "title": "Presse-papiers après collage",
         "description": "Ne pas modifier le presse-papiers préserve le contenu actuel de votre presse-papiers après la transcription. Copier dans le presse-papiers laisse le résultat de la transcription dans votre presse-papiers après le collage.",
         "options": {
-          "dontModify": "Ne pas modifier le presse-papiers",
+          "dontModify": "Garder le presse-papiers précédent",
           "copyToClipboard": "Copier dans le presse-papiers"
         },
         "privacyHint": "Le texte dans le presse-papiers est visible par d'autres applications et outils de presse-papiers, et le presse-papiers universel peut le copier sur vos autres appareils Apple."
       },
       "autoSubmit": {
-        "title": "Envoi automatique",
+        "title": "Touche envoyée après collage",
         "description": "Envoie automatiquement la combinaison de touches sélectionnée après l'insertion du texte. Cmd+Enter s'applique sur macOS, tandis que Windows/Linux utilisent Super+Enter.",
         "options": {
           "off": "Désactivé",
@@ -359,7 +409,7 @@
           "min10": "Après 10 minutes",
           "min15": "Après 15 minutes",
           "hour1": "Après 1 heure",
-          "sec15": "Après 15 secondes (Débogage)"
+          "sec15": "Après 15 secondes (débogage)"
         }
       },
       "customWords": {
@@ -370,22 +420,30 @@
         "remove": "Supprimer {{word}}",
         "duplicate": "\"{{word}}\" existe déjà"
       },
+      "corrections": {
+        "title": "Corrections",
+        "description": "Remplace certains mots ou expressions dans le texte final, sans tenir compte de la casse.",
+        "fromPlaceholder": "De",
+        "toPlaceholder": "Par",
+        "duplicate": "Une correction pour « {{word}} » existe déjà",
+        "remove": "Supprimer la correction de {{from}} par {{to}}"
+      },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Ignorer les silences",
+        "description": "Ignore les pauses silencieuses pendant l’enregistrement. Désactiver cette option enregistre tout l’audio."
       }
     },
     "postProcessing": {
       "hotkey": {
-        "title": "Raccourci clavier"
+        "title": "Raccourci"
       },
       "correction": {
-        "title": "Correction itérative",
-        "toggleLabel": "Dicter des corrections",
+        "title": "Corrections vocales",
+        "toggleLabel": "Corrections vocales",
         "toggleDescription": "Ajoute un raccourci explicite sur lequel vous appuyez pour remplacer votre dernière dictée par une correction parlée. Il ne se déclenche jamais automatiquement à partir de mots-clés. Appuyez sur la touche attribuée, dictez la correction, et le texte précédent est modifié sur place."
       },
       "api": {
-        "title": "API (Compatible OpenAI)",
+        "title": "Modèle de nettoyage",
         "provider": {
           "title": "Fournisseur",
           "description": "Sélectionnez un fournisseur compatible OpenAI."
@@ -424,22 +482,22 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Instructions",
         "selectedPrompt": {
-          "title": "Prompt sélectionné",
+          "title": "Style de nettoyage",
           "description": "Sélectionnez un modèle pour affiner les transcriptions ou créez-en un nouveau. Utilisez ${output} dans le texte du prompt pour référencer la transcription capturée."
         },
         "noPrompts": "Aucun prompt disponible",
         "selectPrompt": "Sélectionner un prompt",
-        "createNew": "Créer un nouveau prompt",
-        "promptLabel": "Libellé du prompt",
+        "createNew": "Nouveau style",
+        "promptLabel": "Nom",
         "promptLabelPlaceholder": "Entrez le nom du prompt",
-        "promptInstructions": "Instructions du prompt",
+        "promptInstructions": "Instructions",
         "promptInstructionsPlaceholder": "Écrivez les instructions à exécuter après la transcription. Exemple : Améliorer la grammaire et la clarté du texte suivant : ${output}",
         "promptTip": "Astuce : Utilisez <code>${output}</code> pour insérer le texte transcrit dans votre prompt.",
-        "updatePrompt": "Mettre à jour le prompt",
-        "deletePrompt": "Supprimer le prompt",
-        "createPrompt": "Créer le prompt",
+        "updatePrompt": "Enregistrer les modifications",
+        "deletePrompt": "Supprimer",
+        "createPrompt": "Créer",
         "cancel": "Annuler",
         "selectToEdit": "Sélectionnez un prompt ci-dessus pour voir et modifier ses détails.",
         "createFirst": "Cliquez sur 'Créer un nouveau prompt' ci-dessus pour créer votre premier prompt de post-traitement."
@@ -458,12 +516,17 @@
       "retranscribe": "Re-transcrire",
       "retranscribeError": "Impossible de re-transcrire. Veuillez réessayer.",
       "transcribing": "Transcription en cours...",
+      "edit": "Modifier",
+      "saveEdit": "Enregistrer",
+      "editError": "Impossible d’enregistrer la modification",
+      "learnedOne": "Correction apprise : « {{from}} » → « {{to}} »",
+      "learnedMany": "{{count}} corrections apprises à partir de votre modification",
       "transcriptionFailed": "La transcription a échoué. Vous pouvez re-transcrire en utilisant l'icône de réessai."
     },
     "debug": {
       "title": "Débogage",
       "logDirectory": {
-        "title": "Répertoire des journaux",
+        "title": "Dossier des journaux",
         "description": "Emplacement où les fichiers journaux sont stockés"
       },
       "logLevel": {
@@ -487,6 +550,7 @@
       },
       "soundTheme": {
         "label": "Thème sonore",
+        "preview": "Écouter le thème sonore",
         "description": "Choisir un thème sonore pour les retours de début et de fin d'enregistrement"
       },
       "wordCorrectionThreshold": {
@@ -517,15 +581,15 @@
         "description": "Microphone à utiliser lorsque le couvercle du portable est fermé"
       },
       "postProcessingToggle": {
-        "label": "Post-traitement",
-        "description": "Activer l'affinage du texte par IA après la transcription"
+        "label": "Nettoyage",
+        "description": "Nettoyer les mots de remplissage, la ponctuation et les autocorrections après la transcription"
       },
       "muteWhileRecording": {
         "label": "Muet pendant l'enregistrement",
         "description": "Couper le son du système pendant l'enregistrement"
       },
       "appendTrailingSpace": {
-        "label": "Ajouter une espace final",
+        "label": "Ajouter une espace à la fin",
         "description": "Ajouter une espace après la transcription collée"
       },
       "keyboardImplementation": {
@@ -534,16 +598,18 @@
         "bindingsReset": "Raccourcis clavier étaient incompatibles et ont été réinitialisés aux valeurs par défaut"
       },
       "paths": {
+        "title": "Chemins de l’application",
+        "description": "Dossiers et fichiers internes pour le dépannage",
         "appData": "Données de l'application :",
         "models": "Modèles :",
         "settings": "Paramètres :"
       },
       "pasteDelay": {
-        "title": "Délai de collage (avant)",
+        "title": "Délai avant le collage",
         "description": "Délai (en millisecondes) après la copie du texte, avant l'envoi de la touche de collage. Augmentez si rien n'est collé."
       },
       "pasteDelayAfter": {
-        "title": "Délai de collage (après)",
+        "title": "Délai après le collage",
         "description": "Délai (en millisecondes) après la touche de collage, avant la restauration de votre presse-papiers précédent. Augmentez si l'ancien contenu du presse-papiers est collé à la place de la transcription."
       },
       "recordingBuffer": {
@@ -585,6 +651,32 @@
         "label": "Afficher les nouveautés",
         "description": "Afficher les notes de version après les mises à jour de Coco Voice"
       }
+    },
+    "online": {
+      "eyebrow": "Paramètres",
+      "title": "Ce qui va en ligne",
+      "intro": "Votre parole est convertie en texte sur ce Mac. Voici les services que cette version de Coco Voice peut contacter et ce que chacun reçoit.",
+      "leavesLabel": "Quitte votre Mac :",
+      "openHeading": "À chaque ouverture de l’application",
+      "githubName": "GitHub (versions de Coco Voice)",
+      "githubWhen": "À chaque ouverture de l’application, pour vérifier les mises à jour. Pour l’arrêter, désactivez la recherche de mises à jour ci-dessus dans À propos. Les liens cliqués s’ouvrent dans votre navigateur.",
+      "githubLeaves": "une requête pour la liste des versions et le fichier de mise à jour si vous l’installez. Aucune parole ni aucun texte.",
+      "updateChecksOn": "Mises à jour activées",
+      "updateChecksOff": "Mises à jour désactivées",
+      "clickHeading": "Uniquement lorsque vous cliquez",
+      "modelFilesName": "Fichiers de modèles Coco Voice",
+      "modelFilesWhen": "Lorsque vous cliquez sur Télécharger pour un modèle vocal intégré.",
+      "modelFilesLeaves": "le nom du fichier du modèle demandé. Aucune parole ni aucun texte.",
+      "huggingFaceWhen": "Lorsque vous cliquez sur Télécharger pour un modèle du catalogue, ou sur sa licence pour l’ouvrir dans le navigateur.",
+      "huggingFaceLeaves": "le nom du modèle, la version et le nom du fichier, ainsi qu’un jeton Hugging Face s’il est déjà défini sur ce Mac. Aucune parole ni aucun texte.",
+      "cleanupHeading": "Uniquement lorsque vous choisissez un fournisseur de nettoyage",
+      "cloudWhen": "Lorsque le nettoyage s’exécute avec le fournisseur cloud que vous avez choisi.",
+      "cloudLeaves": "le texte de ce que vous avez dit, les instructions de nettoyage et votre clé API. Lister les modèles n’envoie que votre clé API.",
+      "customName": "Nettoyage personnalisé (Ollama)",
+      "customWhen": "Lorsque le nettoyage s’exécute avec Personnalisé comme fournisseur choisi. Il communique avec un programme sur ce Mac sauf si vous modifiez son adresse.",
+      "customLeaves": "rien avec l’adresse par défaut. Le texte dicté et les instructions de nettoyage vont au programme sur ce Mac.",
+      "staysOnMac": "Reste sur ce Mac",
+      "onDeviceNote": "Le nettoyage sur l’appareil (Apple Intelligence ou le modèle local) ne contacte aucun de ces services."
     }
   },
   "footer": {
@@ -607,11 +699,16 @@
     "open": "Ouvrir",
     "copy": "Copier",
     "clear": "Effacer",
+    "selectOption": "Choisir une option...",
+    "notAvailable": "Non disponible",
+    "moreInfo": "Plus d’informations",
+    "play": "Lire",
+    "pause": "Pause",
     "noOptionsFound": "Aucune option trouvée"
   },
   "accessibility": {
     "permissionsDescription": "Coco Voice a besoin des autorisations d'accessibilité pour taper le texte transcrit.",
-    "openSettings": "Ouvrir les Préférences Système"
+    "openSettings": "Ouvrir les réglages système"
   },
   "errors": {
     "loadDirectory": "Erreur lors du chargement du répertoire : {{error}}",
@@ -643,11 +740,11 @@
     "shortcutRegistrationTryAgain": "Réessayer"
   },
   "appLanguage": {
-    "title": "Langue de l'application",
+    "title": "Langue de l'app",
     "description": "Changer la langue de l'interface de Coco Voice"
   },
   "theme": {
-    "title": "Thème de l'application",
+    "title": "Thème de l'app",
     "description": "Choisissez si Coco Voice suit le thème du système ou reste clair ou sombre",
     "options": {
       "system": "Système",
@@ -657,11 +754,21 @@
   },
   "overlay": {
     "transcribing": "Transcription...",
-    "processing": "Traitement...",
-    "polishing": "Réécriture..."
+    "processing": "Nettoyage...",
+    "polishing": "Réécriture...",
+    "pillStates": {
+      "listening": "Écoute",
+      "working": "Traitement",
+      "sentToApp": "Envoyé vers {{app}}",
+      "onClipboard": "Dans le presse-papiers",
+      "wordsKeptPressPaste": "Texte conservé · appuyez sur ⌘V"
+    }
   },
   "whatsNew": {
-    "title": "Nouveautés de Coco Voice v{{version}}"
+    "title": "Nouveautés de Coco Voice v{{version}}",
+    "rollbackTitle": "En cas d’échec d’une mise à jour",
+    "rollbackMessage": "{{failedVersion}} n’a pas démarré, Coco Voice est revenu à {{currentVersion}}. Vos réglages et votre historique sont intacts.",
+    "reportIt": "Signaler"
   },
   "cleanupStatus": {
     "chip": {
@@ -706,6 +813,221 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "list": {
+      "heading": "All meetings",
+      "countOne": "1 meeting",
+      "countMany": "{{count}} meetings",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Title, notes, or transcript",
+      "searchAria": "Search meetings",
+      "untitled": "Meeting",
+      "dateAndDuration": "{{date}} · {{minutes}} min",
+      "notesReady": "Notes ready",
+      "transcriptOnly": "Transcript only",
+      "exportMarkdown": "Export Markdown",
+      "delete": "Delete",
+      "confirmPrompt": "Delete this meeting?",
+      "confirmDelete": "Confirm delete",
+      "cancelDelete": "Cancel",
+      "emptyList": "No meetings yet. Start notes from the menu bar.",
+      "emptySearch": "No meetings match your search.",
+      "audioLeftWarning": "Meeting deleted, but its audio folder is still on disk.",
+      "loadFailed": "Could not load meetings.",
+      "exportFailed": "Could not export Markdown.",
+      "deleteFailed": "Could not delete the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
+    "consent": {
+      "title": "Prévenez d’abord les participants",
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "offer": {
+      "title": "Start notes?",
+      "zoomInCall": "Zoom is in a call.",
+      "zoomOpen": "Zoom is open.",
+      "teamsInCall": "Teams is in a call.",
+      "teamsOpen": "Teams is open.",
+      "meet": "Google Meet may be open.",
+      "notRecording": "Not recording",
+      "neverOnItsOwn": "Coco Voice never records on its own.",
+      "start": "Start notes",
+      "notNow": "Not now"
+    },
+    "view": {
+      "title": "Meeting, {{time}}",
+      "channels": "Me and Others",
+      "channel": {
+        "me": "Me",
+        "others": "Others"
+      },
+      "recording": "Recording",
+      "finished": "Finished",
+      "stop": "Stop",
+      "autoScrolling": "Auto-scrolling",
+      "scrollPaused": "Scroll paused",
+      "mic": "Me: {{name}}",
+      "noMeeting": "No meeting is open. Start notes from the menu bar.",
+      "loadFailed": "Could not load the saved lines.",
+      "stopFailed": "Could not stop the meeting.",
+      "warnings": {
+        "systemAudioSilent": "No call audio heard yet. Check that System Audio Recording is allowed for Coco Voice in System Settings.",
+        "micFellBackToDefault": "Your selected microphone was not found, so Me uses the default microphone."
+      },
+      "hints": {
+        "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
+        "dictation": "Dictation still works during a meeting."
+      },
+      "shortcutFailed": "Impossible d’enregistrer le raccourci de réunion. Démarrez et arrêtez d’ici ou depuis la barre des menus."
+    },
+    "record": {
+      "startNowHeading": "Commencer maintenant",
+      "whenCallStartsHeading": "Lorsqu’un appel commence",
+      "offerLabel": "Proposer de prendre des notes",
+      "offerDescription": "Affiche « Prendre des notes ? » quand Zoom, Meet ou Teams est en appel. N’enregistre jamais seul.",
+      "wordsHeading": "Mots et noms de réunion",
+      "wordsDescription": "Utilisés uniquement pour les réunions, séparés de vos mots de dictée.",
+      "wordsPlaceholder": "Ajouter un nom ou un terme...",
+      "addWord": "Ajouter",
+      "removeWordAria": "Supprimer {{word}}",
+      "dictationKeepsWorking": "Enregistrer une réunion n’arrête jamais la dictée. Votre raccourci continue de fonctionner."
+    },
+    "notes": {
+      "ready": "Notes prêtes",
+      "finishing": "Finalisation des notes : {{seconds}} s",
+      "yourNotes": "Vos notes",
+      "placeholder": "Notez les points clés pendant la réunion...",
+      "heading": "Notes",
+      "subtitle": "À partir de vos notes et de la transcription",
+      "summary": "Résumé",
+      "decisions": "Décisions",
+      "actions": "Actions",
+      "yourNote": "votre note",
+      "oversized": "{{count}} segment(s) trop long(s) ignoré(s) lors de la création des notes.",
+      "transcriptHeading": "Transcription",
+      "failed": "Les notes n'ont pas pu être créées. Votre transcription et vos notes sont intactes.",
+      "retry": "Réessayer",
+      "openQuestions": "Questions ouvertes",
+      "citeRule": "Chaque ligne renvoie au moment d’origine. Une ligne sans source n’est pas affichée.",
+      "notesSoFar": "Notes jusqu’ici",
+      "notesSoFarHint": "Mis à jour toutes les quelques minutes.",
+      "timeToNotes": "Prêt en {{seconds}} s",
+      "leftOutHeading": "Laissé de côté",
+      "smallTalkLabel": "Classé comme discussion informelle",
+      "uncoveredLabel": "Non couvert par une note",
+      "showInTranscript": "Voir dans la transcription",
+      "leftOutRule": "Les idées rejetées ou en suspens ne deviennent pas des notes. Elles restent dans la transcription.",
+      "catchUpButton": "Qu’ai-je manqué ?",
+      "catchUpWindow": "5 dernières minutes",
+      "foldersHeading": "Dossiers",
+      "templatesHeading": "Modèles de notes",
+      "openFolder": "Ouvert",
+      "closedFolder": "Fermé",
+      "newFolderPlaceholder": "Nom du dossier...",
+      "createFolder": "Ajouter un dossier",
+      "editTemplates": "Modifier les modèles",
+      "flatFoldersHint": "Dossiers locaux sur ce Mac. Un seul niveau."
+    },
+    "retention": {
+      "title": "Réunions · Conservation",
+      "deleteAudioLabel": "Supprimer l’audio une fois les notes créées",
+      "deleteAudioDescription": "Activé par défaut. Les fichiers audio sont supprimés dès que les notes sont prêtes.",
+      "keepTranscriptsLabel": "Conserver les transcriptions sur ce Mac",
+      "keepTranscriptsDescription": "Les transcriptions restent ici jusqu’à ce que vous les supprimiez.",
+      "onThisMac": "Sur ce Mac",
+      "deleteAll": "Tout supprimer",
+      "confirmPrompt": "Supprimer toutes les réunions, transcriptions, notes et enregistrements ?",
+      "confirmDeleteAll": "Confirmer la suppression",
+      "cancel": "Annuler",
+      "audioLeftWarning": "Les réunions ont été supprimées, mais un ou plusieurs dossiers audio n’ont pas pu être retirés.",
+      "actionFailed": "Impossible de modifier la conservation des réunions.",
+      "continueDeleteAll": "Continuer",
+      "confirmStep2Prompt": "Dernière vérification : supprimer définitivement toutes les réunions, transcriptions, notes et pistes audio locales ?",
+      "deleteTimerLabel": "Supprimer les transcriptions après",
+      "deleteTimerOff": "Désactivé (garder jusqu’à suppression)"
+    },
+    "storage": {
+      "filesTitle": "Réunions · Fichiers",
+      "saveMarkdownLabel": "Enregistrer les notes en fichiers Markdown",
+      "saveMarkdownDescription": "Désactivé par défaut. Écrit un fichier .md par réunion dans le dossier choisi.",
+      "folderLabel": "Dossier",
+      "chooseFolder": "Choisir un dossier",
+      "syncRule": "Écrit localement sur ce Mac. Coco Voice ne téléverse jamais de fichiers.",
+      "syncWarning": "Ce dossier est synchronisé avec {{service}}. Les fichiers enregistrés ici suivent vos réglages {{service}}.",
+      "languageTitle": "Langue de la réunion",
+      "autoDetect": "Détection automatique",
+      "thisMeetingOverride": "Forcer pour cette réunion",
+      "pause": "Pause",
+      "resume": "Reprendre",
+      "pausedBadge": "En pause",
+      "pausedHint": "En pause : rien n’est enregistré. Toujours une seule réunion.",
+      "addAudio": "Ajouter de l’audio à cette réunion",
+      "trashTab": "Corbeille",
+      "kept30Days": "Supprimé aujourd’hui · conservé 30 jours",
+      "restore": "Restaurer",
+      "searchTranscriptPlaceholder": "Rechercher dans cette transcription",
+      "deleteSpan": "Supprimer ce passage",
+      "olderNoteBanner": "Enregistrement de {{title}} {{elapsed}}",
+      "olderNoteHint": "{{title}} continue d’être enregistré pendant votre lecture. Le minuteur tourne toujours.",
+      "backToLive": "Retour aux notes en direct",
+      "importTab": "Importer des notes",
+      "importDescription": "Importez des notes depuis une autre application. Fichiers Markdown ou texte exportés ; rien n’est récupéré en ligne.",
+      "chooseImportFiles": "Choisir des fichiers ou un dossier",
+      "importIntoFolder": "Importer dans le dossier : {{folder}}",
+      "importAction": "Importer {{count}} notes"
+    },
+    "ask": {
+      "singleHeading": "Interroger cette réunion",
+      "acrossHeading": "Interroger toutes vos réunions",
+      "scopeThisMeeting": "Cette réunion uniquement",
+      "scopeAll": "Toutes les réunions sur ce Mac",
+      "scopeFolder": "Dossier",
+      "scopePicked": "Sélection choisie",
+      "placeholderSingle": "Poser une question sur cette réunion...",
+      "placeholderAcross": "Poser une question sur vos réunions...",
+      "askButton": "Demander",
+      "voiceAskAria": "Demander à la voix",
+      "listeningQuestion": "Écoute de votre question...",
+      "citationRule": "Chaque réponse cite la réunion et le moment exact d’où elle provient.",
+      "todosTab": "Vos tâches"
+    },
+    "agent": {
+      "todosSubtitle": "Issu de vos réunions des 14 derniers jours",
+      "todosDone": "Terminé",
+      "todosFooter": "Chaque tâche ouvre le moment où vous l’avez dite. Trouvé sur ce Mac ; mis à jour après chaque réunion.",
+      "subtitle": "Autorisez un agent IA sur ce Mac (Claude Code, Cursor, Codex) à lire vos réunions pendant que vous travaillez. Désactivé tant que vous ne l’activez pas. Rien ne quitte ce Mac via Coco Voice.",
+      "masterLabel": "Autoriser les agents locaux à lire les réunions",
+      "offByDefault": "Désactivé par défaut",
+      "canReadHeading": "Ce qu’un agent peut lire",
+      "liveMeetingLabel": "La réunion en cours",
+      "pastMeetingsLabel": "Les réunions passées",
+      "audioLabel": "Audio de la réunion",
+      "audioNever": "Jamais · Non proposé",
+      "connectHeading": "Connecter un agent",
+      "copyCommand": "Copier",
+      "recentReadsHeading": "Lectures récentes"
     }
+  },
+  "homeNotices": {
+    "staleAccessibility": "L’accès Accessibilité ne fonctionne plus après la mise à jour.",
+    "fixThreeSteps": "Réparer (3 étapes)",
+    "shortcutUnset": "Votre raccourci n’est pas configuré.",
+    "chooseShortcut": "Choisir un raccourci",
+    "typingOff": "La saisie est désactivée. Les dictées vont dans le presse-papiers.",
+    "turnTypingOn": "Activer la saisie",
+    "cleanupModelMissing": "Nettoyage ignoré : modèle local non téléchargé.",
+    "openModels": "Ouvrir Modèles",
+    "updateReady": "Mise à jour prête : {{version}}",
+    "restartNow": "Redémarrer maintenant"
   }
 }

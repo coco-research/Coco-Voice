@@ -12,6 +12,8 @@ import {
   Trash2,
 } from "lucide-react";
 import type { ModelInfo } from "@/bindings";
+import type { DownloadFailureCause } from "../../lib/utils/accessibilityStatus";
+import { ModelDownloadFailedBanner } from "./AccessibilityStaleNotice";
 import modelLicences from "../../../src-tauri/src/catalog/model_licences.json";
 import { formatModelSize } from "../../lib/utils/format";
 import {
@@ -96,6 +98,8 @@ interface ModelCardProps {
   downloadProgress?: number;
   downloadSpeed?: number; // MB/s
   showRecommended?: boolean;
+  downloadFailureCause?: DownloadFailureCause | null;
+  onSkip?: () => void;
 }
 
 const ModelCard: React.FC<ModelCardProps> = ({
@@ -111,6 +115,8 @@ const ModelCard: React.FC<ModelCardProps> = ({
   downloadProgress,
   downloadSpeed,
   showRecommended = true,
+  downloadFailureCause = null,
+  onSkip,
 }) => {
   const { t } = useTranslation();
   const licence = licenceEntry(model);
@@ -363,6 +369,14 @@ const ModelCard: React.FC<ModelCardProps> = ({
           </div>
         </div>
       )}
+      {downloadFailureCause && status === "downloadable" ? (
+        <ModelDownloadFailedBanner
+          cause={downloadFailureCause}
+          disabled={disabled}
+          onRetry={onDownload ? () => onDownload(model.id) : undefined}
+          onSkip={onSkip}
+        />
+      ) : null}
       {status === "verifying" && (
         <div className="w-full mt-3">
           <div className="w-full h-1.5 bg-mid-gray/20 rounded-full overflow-hidden">

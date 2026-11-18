@@ -6,23 +6,51 @@
     "unloadModel": "卸載模型",
     "model": "模型",
     "quit": "結束",
-    "cancel": "取消"
+    "cancel": "取消",
+    "startNotes": "開始筆記...",
+    "startRecordingMeeting": "Start recording a meeting",
+    "pasteLastTake": "Paste last take",
+    "copyLastTake": "Copy last take",
+    "openApp": "Open Coco Voice"
   },
   "sidebar": {
     "general": "一般",
     "models": "模型",
     "advanced": "進階",
-    "postProcessing": "後處理",
+    "postProcessing": "潤飾",
     "history": "歷史紀錄",
     "debug": "偵錯",
-    "about": "關於"
+    "about": "關於",
+    "home": "首頁",
+    "recordMeeting": "錄製會議",
+    "meetingHistory": "會議記錄",
+    "askMeetings": "詢問會議內容",
+    "foldersAndTemplates": "資料夾與範本",
+    "agentAccess": "代理程式存取",
+    "voiceSection": "語音",
+    "dictationHistory": "聽寫記錄",
+    "perAppProfiles": "各應用程式設定",
+    "wordsAndCleanup": "詞彙與潤飾",
+    "settings": "設定",
+    "sectionPlaceholder": "啟用後可在此分組中使用。",
+    "startRecording": "開始錄製",
+    "seeAllMeetings": "所有會議 →",
+    "dictateHeading": "隨處聽寫",
+    "holdToTalk": "按住說話",
+    "changeShortcut": "變更快捷鍵",
+    "seeAllDictations": "所有聽寫 →",
+    "dictationSearchPlaceholder": "你說過的話",
+    "dictationSearchAria": "搜尋聽寫記錄",
+    "cleanedUp": "已潤飾",
+    "emptyDictationSearch": "沒有符合搜尋的聽寫記錄。",
+    "keptDays": "保留 30 天"
   },
   "onboarding": {
     "subtitle": "首先，請選擇一種模型",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "相容的模型",
+    "downloadModelsTitle": "可下載的模型",
+    "showAllModels": "顯示全部 {{total}} 個模型",
+    "showFewerModels": "收起部分模型",
     "recommended": "推薦",
     "customModelDescription": "官方不支援",
     "modelCard": {
@@ -96,7 +124,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "無法選擇模型"
     },
     "permissions": {
       "title": "需要權限",
@@ -107,7 +135,15 @@
       },
       "accessibility": {
         "title": "輔助使用存取",
-        "description": "需要將轉錄文字輸入到您的應用程式中"
+        "description": "需要將轉錄文字輸入到您的應用程式中",
+        "stale": {
+          "description": "macOS 顯示 Coco Voice 已獲允許，但該項目已過期（常見於更新之後），因此無法貼上。修正方法：",
+          "step1": "打開 系統設定 > 隱私權與安全性 > 輔助使用。",
+          "step2": "選取 Coco Voice，然後用減號 (-) 按鈕將其移除。",
+          "step3": "用加號 (+) 按鈕重新加入 Coco Voice 並將其開啟。",
+          "checkAgain": "再次檢查",
+          "continueWithoutTyping": "Continue without typing"
+        }
       },
       "grant": "授予權限",
       "granted": "已授予",
@@ -117,6 +153,12 @@
         "checkFailed": "檢查權限失敗，請重試",
         "requestFailed": "請求權限失敗，請重試"
       }
+    },
+    "tryIt": {
+      "title": "Try it",
+      "prompt": "Hold {{shortcut}} and say: \"Monday, scratch that, Tuesday\"",
+      "cleanedResult": "Tuesday.",
+      "done": "Done"
     }
   },
   "modelSelector": {
@@ -152,7 +194,15 @@
       "streaming": "在您說話時即時顯示轉錄"
     },
     "legacy": "舊版",
-    "licence": "授權：{{licence}}"
+    "licence": "授權：{{licence}}",
+    "downloadFailed": {
+      "network": "下載失敗：請檢查網路連線。",
+      "diskSpace": "下載失敗：磁碟空間不足。",
+      "checksum": "下載失敗：檔案未通過完整性檢查。",
+      "other": "下載失敗。",
+      "retry": "再試一次",
+      "skip": "暫時略過"
+    }
   },
   "settings": {
     "modelSettings": {
@@ -161,7 +211,7 @@
     "general": {
       "title": "一般",
       "shortcut": {
-        "title": "Coco Voice 快捷鍵",
+        "title": "鍵盤快捷鍵",
         "description": "設定啟動語音轉文字錄製的鍵盤快捷鍵",
         "loading": "載入快捷鍵中...",
         "none": "未設定快捷鍵",
@@ -169,7 +219,7 @@
         "pressKeys": "請按鍵...",
         "bindings": {
           "transcribe": {
-            "name": "轉錄快捷鍵",
+            "name": "聽寫快捷鍵",
             "description": "用於錄製和轉錄語音的鍵盤快捷鍵"
           },
           "cancel": {
@@ -177,11 +227,11 @@
             "description": "用於取消目前錄製的鍵盤快捷鍵"
           },
           "transcribe_with_post_process": {
-            "name": "後處理快捷鍵",
+            "name": "潤飾快捷鍵",
             "description": "可選：專用快捷鍵，使用時一律對轉錄結果套用 AI 後處理"
           },
           "correction": {
-            "name": "說出更正",
+            "name": "語音改錯快捷鍵",
             "description": "用來說出更正、以取代上一次聽寫的鍵盤快捷鍵。指定一個按鍵即可啟用。"
           }
         },
@@ -230,7 +280,7 @@
         "loading": "載入中..."
       },
       "audioFeedback": {
-        "label": "聲音回饋",
+        "label": "錄音提示音",
         "description": "錄製開始和停止時播放聲音"
       },
       "outputDevice": {
@@ -278,7 +328,7 @@
         "description": "啟動至系統匣而不開啟視窗"
       },
       "autostart": {
-        "label": "開機啟動",
+        "label": "登入時開啟",
         "description": "登入電腦時自動啟動 Coco Voice"
       },
       "showTrayIcon": {
@@ -287,16 +337,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "錄音膠囊",
+          "description": "選擇錄音膠囊樣式：「無」會隱藏它，「精簡」顯示小膠囊，「即時」在說話時同步顯示文字（僅限串流模型）。",
           "options": {
             "none": "無",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "精簡",
+            "live": "即時"
           }
         },
         "position": {
-          "title": "懸浮窗位置",
+          "title": "膠囊顯示位置",
           "description": "在錄製和轉錄期間顯示視覺回饋懸浮窗。在 Linux 上建議選擇「無」",
           "options": {
             "bottom": "底部",
@@ -305,7 +355,7 @@
         }
       },
       "pasteMethod": {
-        "title": "貼上方式",
+        "title": "文字輸入方式",
         "description": "選擇文字插入方式。直接：透過系統輸入模擬打字。無：跳過貼上，僅更新歷史紀錄/剪貼簿",
         "options": {
           "clipboard": "剪貼簿 ({{modifier}}+V)",
@@ -325,16 +375,16 @@
         }
       },
       "clipboardHandling": {
-        "title": "剪貼簿處理",
+        "title": "貼上後的剪貼簿",
         "description": "不修改剪貼簿將在轉錄後保留目前剪貼簿內容。複製到剪貼簿會在貼上後將轉錄結果留在剪貼簿中",
         "options": {
-          "dontModify": "不修改剪貼簿",
+          "dontModify": "保留原有剪貼簿內容",
           "copyToClipboard": "複製到剪貼簿"
         },
         "privacyHint": "剪貼簿上的文字，其他應用程式和剪貼簿工具都看得到，通用剪貼板也可以將其拷貝到您的其他 Apple 裝置。"
       },
       "autoSubmit": {
-        "title": "自動送出",
+        "title": "貼上後按鍵",
         "description": "插入文字後自動發送指定的按鍵組合。macOS 為 Cmd+Enter，Windows/Linux 為 Super+Enter",
         "options": {
           "off": "關閉",
@@ -370,9 +420,17 @@
         "remove": "刪除 {{word}}",
         "duplicate": "「{{word}}」已存在"
       },
+      "corrections": {
+        "title": "詞句替換",
+        "description": "在最終文字中不區分大小寫地替換指定詞句。",
+        "fromPlaceholder": "原詞",
+        "toPlaceholder": "替換為",
+        "duplicate": "「{{word}}」的替換規則已存在",
+        "remove": "移除從 {{from}} 到 {{to}} 的替換"
+      },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "略過靜音",
+        "description": "錄音時自動略過安靜停頓；關閉後將錄製完整音訊。"
       }
     },
     "postProcessing": {
@@ -380,12 +438,12 @@
         "title": "快捷鍵"
       },
       "correction": {
-        "title": "迭代更正",
-        "toggleLabel": "說出更正",
+        "title": "語音改錯",
+        "toggleLabel": "語音改錯",
         "toggleDescription": "新增一個明確的快捷鍵，按下後以口述更正取代上一次聽寫。絕不會因關鍵字而自動觸發。按下已指定的按鍵、說出修改，先前的輸出會就地編輯。"
       },
       "api": {
-        "title": "API（相容 OpenAI）",
+        "title": "潤飾模型",
         "provider": {
           "title": "供應商",
           "description": "選擇一個相容 OpenAI 的供應商"
@@ -424,22 +482,22 @@
         }
       },
       "prompts": {
-        "title": "提示詞",
+        "title": "指令",
         "selectedPrompt": {
-          "title": "已選提示詞",
+          "title": "整理風格",
           "description": "選擇用於最佳化轉錄的範本或建立新範本。在提示詞文字中使用 ${output} 來引用轉錄結果"
         },
         "noPrompts": "沒有可用的提示詞",
         "selectPrompt": "選擇提示詞",
-        "createNew": "建立新提示詞",
-        "promptLabel": "提示詞名稱",
+        "createNew": "新增風格",
+        "promptLabel": "名稱",
         "promptLabelPlaceholder": "輸入提示詞名稱",
-        "promptInstructions": "提示詞指令",
+        "promptInstructions": "說明",
         "promptInstructionsPlaceholder": "撰寫轉錄後要執行的指令。範例：改善以下文字的語法和清晰度: ${output}",
         "promptTip": "提示：使用 <code>${output}</code> 將轉錄文字插入到您的提示詞中",
-        "updatePrompt": "更新提示詞",
-        "deletePrompt": "刪除提示詞",
-        "createPrompt": "建立提示詞",
+        "updatePrompt": "儲存變更",
+        "deletePrompt": "刪除",
+        "createPrompt": "建立",
         "cancel": "取消",
         "selectToEdit": "選擇上方的提示詞以檢視和編輯其詳細資訊",
         "createFirst": "點選上方的「建立新提示詞」來建立您的第一個後處理提示詞"
@@ -458,12 +516,17 @@
       "retranscribe": "重新轉錄",
       "retranscribeError": "重新轉錄失敗，請重試。",
       "transcribing": "轉錄中...",
+      "edit": "編輯",
+      "saveEdit": "儲存",
+      "editError": "儲存修改失敗",
+      "learnedOne": "已學習替換：「{{from}}」→「{{to}}」",
+      "learnedMany": "已從此次修改中學習 {{count}} 條替換",
       "transcriptionFailed": "轉錄失敗。您可以使用重試圖示重新轉錄。"
     },
     "debug": {
       "title": "偵錯",
       "logDirectory": {
-        "title": "日誌目錄",
+        "title": "日誌資料夾",
         "description": "日誌檔案的儲存位置"
       },
       "logLevel": {
@@ -487,6 +550,7 @@
       },
       "soundTheme": {
         "label": "聲音主題",
+        "preview": "試聽提示音",
         "description": "選擇錄製開始和停止回饋的聲音主題"
       },
       "wordCorrectionThreshold": {
@@ -517,33 +581,35 @@
         "description": "筆記型電腦闔蓋時使用的麥克風"
       },
       "postProcessingToggle": {
-        "label": "後處理",
-        "description": "啟用轉錄後的 AI 文字最佳化"
+        "label": "潤飾",
+        "description": "在轉寫後清理贅詞、標點符號與口頭自我更正"
       },
       "muteWhileRecording": {
         "label": "錄製時靜音",
         "description": "錄製期間靜音系統音訊"
       },
       "appendTrailingSpace": {
-        "label": "附加尾部空格",
+        "label": "在結尾加上空格",
         "description": "在貼上的轉錄後新增空格"
       },
       "keyboardImplementation": {
-        "title": "鍵盤實作",
+        "title": "鍵盤處理方式",
         "description": "選擇鍵盤快捷鍵的後端",
         "bindingsReset": "鍵盤快捷鍵不相容，已重設為預設值"
       },
       "paths": {
+        "title": "應用程式路徑",
+        "description": "用於排解問題的內部資料夾與檔案",
         "appData": "應用程式資料:",
         "models": "模型:",
         "settings": "設定:"
       },
       "pasteDelay": {
-        "title": "貼上延遲（前）",
+        "title": "貼上前延遲",
         "description": "複製文字後、發送貼上按鍵前的延遲（毫秒）。如果沒有貼上任何內容，請增加此值。"
       },
       "pasteDelayAfter": {
-        "title": "貼上延遲（後）",
+        "title": "貼上後延遲",
         "description": "發送貼上按鍵後、還原先前剪貼簿前的延遲（毫秒）。如果貼上的是舊的剪貼簿內容而非轉錄文字，請增加此值。"
       },
       "recordingBuffer": {
@@ -565,7 +631,7 @@
         "description": "Coco Voice 的目前版本"
       },
       "appDataDirectory": {
-        "title": "應用程式資料目錄",
+        "title": "應用程式資料夾",
         "description": "Coco Voice 儲存資料的位置"
       },
       "sourceCode": {
@@ -585,6 +651,32 @@
         "label": "顯示新功能",
         "description": "Coco Voice 更新後顯示版本資訊"
       }
+    },
+    "online": {
+      "eyebrow": "設定",
+      "title": "連線內容說明",
+      "intro": "您的語音會在這台 Mac 上轉換為文字。以下是此版本 Coco Voice 可能連線的位置，以及各處會收到的內容。",
+      "leavesLabel": "離開這台 Mac 的內容：",
+      "openHeading": "每次開啟應用程式時",
+      "githubName": "GitHub（Coco Voice 版本發佈）",
+      "githubWhen": "每次開啟應用程式時檢查更新。若要停用，請在上方「關於」中關閉更新檢查。點擊的連結會在瀏覽器中開啟。",
+      "githubLeaves": "取得版本清單的請求，以及安裝更新時的更新檔案。不含語音，也不含文字。",
+      "updateChecksOn": "更新檢查已開啟",
+      "updateChecksOff": "更新檢查已關閉",
+      "clickHeading": "僅在您點擊時",
+      "modelFilesName": "Coco Voice 模型檔案",
+      "modelFilesWhen": "當您在內建語音模型上點擊「下載」時。",
+      "modelFilesLeaves": "您請求的模型檔案名稱。不含語音，也不含文字。",
+      "huggingFaceWhen": "當您在目錄模型上點擊「下載」，或點擊其授權條款以在瀏覽器中開啟時。",
+      "huggingFaceLeaves": "模型名稱、版本與檔案名稱，以及這台 Mac 上已設定時的 Hugging Face 權杖。不含語音，也不含文字。",
+      "cleanupHeading": "僅在您選擇潤飾供應商時",
+      "cloudWhen": "當使用您所選的雲端供應商執行文字潤飾時。",
+      "cloudLeaves": "您口述的文字、潤飾指示與您的 API 金鑰。取得模型清單時僅會傳送 API 金鑰。",
+      "customName": "自訂潤飾（Ollama）",
+      "customWhen": "當選擇「自訂」作為供應商執行潤飾時。除非您變更位址，否則它只會與這台 Mac 上的程式通訊。",
+      "customLeaves": "預設位址下不會外傳任何內容。您口述的文字與潤飾指示會傳送給這台 Mac 上的程式。",
+      "staysOnMac": "留在這台 Mac",
+      "onDeviceNote": "裝置端潤飾（Apple Intelligence 或本機模型）不會連線至上述任何位置。"
     }
   },
   "footer": {
@@ -607,6 +699,11 @@
     "open": "開啟",
     "copy": "複製",
     "clear": "清除",
+    "selectOption": "請選擇...",
+    "notAvailable": "無法使用",
+    "moreInfo": "更多資訊",
+    "play": "播放",
+    "pause": "暫停",
     "noOptionsFound": "未找到選項"
   },
   "accessibility": {
@@ -657,11 +754,21 @@
   },
   "overlay": {
     "transcribing": "正在轉錄...",
-    "processing": "處理中...",
-    "polishing": "潤色中..."
+    "processing": "整理中...",
+    "polishing": "潤色中...",
+    "pillStates": {
+      "listening": "Listening",
+      "working": "Working",
+      "sentToApp": "Sent to {{app}}",
+      "onClipboard": "On the clipboard",
+      "wordsKeptPressPaste": "Words kept · press ⌘V"
+    }
   },
   "whatsNew": {
-    "title": "Coco Voice v{{version}} 新功能"
+    "title": "Coco Voice v{{version}} 新功能",
+    "rollbackTitle": "If an update fails",
+    "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
+    "reportIt": "Report it"
   },
   "cleanupStatus": {
     "chip": {
@@ -706,6 +813,221 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "list": {
+      "heading": "All meetings",
+      "countOne": "1 meeting",
+      "countMany": "{{count}} meetings",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Title, notes, or transcript",
+      "searchAria": "Search meetings",
+      "untitled": "Meeting",
+      "dateAndDuration": "{{date}} · {{minutes}} min",
+      "notesReady": "Notes ready",
+      "transcriptOnly": "Transcript only",
+      "exportMarkdown": "Export Markdown",
+      "delete": "Delete",
+      "confirmPrompt": "Delete this meeting?",
+      "confirmDelete": "Confirm delete",
+      "cancelDelete": "Cancel",
+      "emptyList": "No meetings yet. Start notes from the menu bar.",
+      "emptySearch": "No meetings match your search.",
+      "audioLeftWarning": "Meeting deleted, but its audio folder is still on disk.",
+      "loadFailed": "Could not load meetings.",
+      "exportFailed": "Could not export Markdown.",
+      "deleteFailed": "Could not delete the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
+    "consent": {
+      "title": "請先告知與會者",
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "offer": {
+      "title": "Start notes?",
+      "zoomInCall": "Zoom is in a call.",
+      "zoomOpen": "Zoom is open.",
+      "teamsInCall": "Teams is in a call.",
+      "teamsOpen": "Teams is open.",
+      "meet": "Google Meet may be open.",
+      "notRecording": "Not recording",
+      "neverOnItsOwn": "Coco Voice never records on its own.",
+      "start": "Start notes",
+      "notNow": "Not now"
+    },
+    "view": {
+      "title": "Meeting, {{time}}",
+      "channels": "Me and Others",
+      "channel": {
+        "me": "Me",
+        "others": "Others"
+      },
+      "recording": "Recording",
+      "finished": "Finished",
+      "stop": "Stop",
+      "autoScrolling": "Auto-scrolling",
+      "scrollPaused": "Scroll paused",
+      "mic": "Me: {{name}}",
+      "noMeeting": "No meeting is open. Start notes from the menu bar.",
+      "loadFailed": "Could not load the saved lines.",
+      "stopFailed": "Could not stop the meeting.",
+      "warnings": {
+        "systemAudioSilent": "No call audio heard yet. Check that System Audio Recording is allowed for Coco Voice in System Settings.",
+        "micFellBackToDefault": "Your selected microphone was not found, so Me uses the default microphone."
+      },
+      "hints": {
+        "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
+        "dictation": "Dictation still works during a meeting."
+      },
+      "shortcutFailed": "無法註冊會議快捷鍵。可在此處或選單列開始與停止。"
+    },
+    "record": {
+      "startNowHeading": "立即開始",
+      "whenCallStartsHeading": "通話開始時",
+      "offerLabel": "提示開始做筆記",
+      "offerDescription": "當 Zoom、Meet 或 Teams 通話中時顯示「開始做筆記？」。絕不會自動錄音。",
+      "wordsHeading": "會議詞彙與姓名",
+      "wordsDescription": "僅用於會議辨識，與聽寫自訂詞彙分開保存。",
+      "wordsPlaceholder": "新增會議人名或術語...",
+      "addWord": "新增",
+      "removeWordAria": "移除 {{word}}",
+      "dictationKeepsWorking": "錄製會議絕不會中斷聽寫。你的快捷鍵持續有效。"
+    },
+    "notes": {
+      "ready": "筆記已就緒",
+      "finishing": "正在完成筆記：{{seconds}} 秒",
+      "yourNotes": "你的筆記",
+      "placeholder": "在會議中記下重點...",
+      "heading": "筆記",
+      "subtitle": "根據你的筆記與逐字稿整理",
+      "summary": "摘要",
+      "decisions": "決議",
+      "actions": "行動項目",
+      "yourNote": "你的筆記",
+      "oversized": "建立筆記時略過了 {{count}} 個過長片段。",
+      "transcriptHeading": "逐字稿",
+      "failed": "無法產生筆記。你的逐字稿與筆記均已安全保留。",
+      "retry": "重試",
+      "openQuestions": "Open questions",
+      "citeRule": "Every line links to the moment it came from. A line with no source is not shown.",
+      "notesSoFar": "Notes so far",
+      "notesSoFarHint": "Updated every few minutes.",
+      "timeToNotes": "Ready in {{seconds}} s",
+      "leftOutHeading": "Left out",
+      "smallTalkLabel": "Treated as small talk",
+      "uncoveredLabel": "Not covered by any note",
+      "showInTranscript": "Show in transcript",
+      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript.",
+      "catchUpButton": "What did I miss?",
+      "catchUpWindow": "Last 5 minutes",
+      "foldersHeading": "Folders",
+      "templatesHeading": "Note templates",
+      "openFolder": "Open",
+      "closedFolder": "Closed",
+      "newFolderPlaceholder": "New folder name...",
+      "createFolder": "Add folder",
+      "editTemplates": "Edit templates",
+      "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "會議 · 保留設定",
+      "deleteAudioLabel": "建立筆記後刪除音訊",
+      "deleteAudioDescription": "預設開啟。筆記完成後即會移除音訊檔案。",
+      "keepTranscriptsLabel": "在這台 Mac 上保留逐字稿",
+      "keepTranscriptsDescription": "逐字稿會保留於此，直到你手動刪除。",
+      "onThisMac": "在這台 Mac 上",
+      "deleteAll": "全部刪除",
+      "confirmPrompt": "要刪除所有會議、逐字稿、筆記與錄音嗎？",
+      "confirmDeleteAll": "確認全部刪除",
+      "cancel": "取消",
+      "audioLeftWarning": "已刪除會議，但無法移除一或多個音訊資料夾。",
+      "actionFailed": "無法更新會議保留設定。",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
+    },
+    "storage": {
+      "filesTitle": "Meetings · Files",
+      "saveMarkdownLabel": "Save notes as Markdown files",
+      "saveMarkdownDescription": "Off by default. Writes one plain .md file per meeting into your chosen folder.",
+      "folderLabel": "Folder",
+      "chooseFolder": "Choose folder",
+      "syncRule": "Written locally on this Mac. Coco Voice never uploads files.",
+      "syncWarning": "This folder syncs with {{service}}. Files saved here follow your {{service}} settings.",
+      "languageTitle": "Meeting language",
+      "autoDetect": "Auto-detect",
+      "thisMeetingOverride": "Override for this meeting",
+      "pause": "Pause",
+      "resume": "Resume",
+      "pausedBadge": "Paused",
+      "pausedHint": "Paused: nothing is recorded. Still one meeting.",
+      "addAudio": "Add audio to this meeting",
+      "trashTab": "Trash",
+      "kept30Days": "Deleted today · kept 30 days",
+      "restore": "Restore",
+      "searchTranscriptPlaceholder": "Search this transcript",
+      "deleteSpan": "Delete this part",
+      "olderNoteBanner": "Recording {{title}} {{elapsed}}",
+      "olderNoteHint": "{{title}} keeps recording while you read this. The timer keeps running.",
+      "backToLive": "Back to live notes",
+      "importTab": "Import notes",
+      "importDescription": "Bring notes from another meeting app. Exported Markdown or text files; nothing is fetched online.",
+      "chooseImportFiles": "Choose files or a folder",
+      "importIntoFolder": "Import into folder: {{folder}}",
+      "importAction": "Import {{count}} notes"
+    },
+    "ask": {
+      "singleHeading": "Ask this meeting",
+      "acrossHeading": "Ask across meetings",
+      "scopeThisMeeting": "This meeting only",
+      "scopeAll": "All meetings on this Mac",
+      "scopeFolder": "Folder",
+      "scopePicked": "Picked set",
+      "placeholderSingle": "Ask a question about this meeting...",
+      "placeholderAcross": "Ask across your meetings...",
+      "askButton": "Ask",
+      "voiceAskAria": "Ask by voice",
+      "listeningQuestion": "Listening for your question...",
+      "citationRule": "Every answer cites the meeting and exact moment it came from.",
+      "todosTab": "Your to-dos"
+    },
+    "agent": {
+      "todosSubtitle": "From your last 14 days of meetings",
+      "todosDone": "Done",
+      "todosFooter": "Each to-do opens the moment you said it. Found on this Mac; updated after every meeting.",
+      "subtitle": "Let an AI agent on this Mac (Claude Code, Cursor, Codex) read your meetings while you work. Off until you turn it on. Nothing leaves this Mac through Coco Voice.",
+      "masterLabel": "Allow local agents to read meetings",
+      "offByDefault": "Off by default",
+      "canReadHeading": "What an agent can read",
+      "liveMeetingLabel": "The meeting happening now",
+      "pastMeetingsLabel": "Past meetings",
+      "audioLabel": "Meeting audio",
+      "audioNever": "Never · Not offered",
+      "connectHeading": "Connect an agent",
+      "copyCommand": "Copy",
+      "recentReadsHeading": "Recent reads"
     }
+  },
+  "homeNotices": {
+    "staleAccessibility": "Accessibility stopped working after the update.",
+    "fixThreeSteps": "Fix it (3 steps)",
+    "shortcutUnset": "Your shortcut is not set up.",
+    "chooseShortcut": "Choose a shortcut",
+    "typingOff": "Typing is off. Dictations copy to your clipboard.",
+    "turnTypingOn": "Turn typing on",
+    "cleanupModelMissing": "Clean-up skipped: local model not downloaded.",
+    "openModels": "Open Models",
+    "updateReady": "Update ready: {{version}}",
+    "restartNow": "Restart now"
   }
 }

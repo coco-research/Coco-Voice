@@ -19,12 +19,14 @@ interface ShortcutInputProps {
  */
 export const ShortcutInput: React.FC<ShortcutInputProps> = (props) => {
   const { getSetting } = useSettings();
-  const keyboardImplementation = getSetting("keyboard_implementation");
+  const keyboardImplementation: string | undefined = getSetting(
+    "keyboard_implementation",
+  );
 
-  // Default to Tauri implementation if not set. Accept "coco_keys" or legacy "handy_keys"
+  // Default to Tauri implementation if not set. Accept "coco_voice_keys" or legacy "coco_keys"
   if (
-    keyboardImplementation === "coco_keys" ||
-    keyboardImplementation === "handy_keys"
+    keyboardImplementation === "coco_voice_keys" ||
+    keyboardImplementation === "coco_keys"
   ) {
     return <CocoVoiceKeysShortcutInput {...props} />;
   }

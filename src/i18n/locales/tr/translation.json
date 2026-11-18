@@ -1,28 +1,56 @@
 {
   "tray": {
     "settings": "Ayarlar...",
-    "checkUpdates": "Güncellemeleri Kontrol Et...",
+    "checkUpdates": "Güncellemeleri kontrol et...",
     "copyLastTranscript": "Son transkripti kopyala",
     "unloadModel": "Modeli boşalt",
     "model": "Model",
     "quit": "Çıkış",
-    "cancel": "İptal"
+    "cancel": "İptal",
+    "startNotes": "Notları başlat...",
+    "startRecordingMeeting": "Start recording a meeting",
+    "pasteLastTake": "Paste last take",
+    "copyLastTake": "Copy last take",
+    "openApp": "Open Coco Voice"
   },
   "sidebar": {
     "general": "Genel",
     "models": "Modeller",
     "advanced": "Gelişmiş",
-    "postProcessing": "Son İşlem",
+    "postProcessing": "Düzeltme",
     "history": "Geçmiş",
     "debug": "Hata Ayıklama",
-    "about": "Hakkında"
+    "about": "Hakkında",
+    "home": "Ana Sayfa",
+    "recordMeeting": "Toplantı kaydet",
+    "meetingHistory": "Toplantı geçmişi",
+    "askMeetings": "Toplantılarına sor",
+    "foldersAndTemplates": "Klasörler ve şablonlar",
+    "agentAccess": "Aracı erişimi",
+    "voiceSection": "Ses",
+    "dictationHistory": "Dikte geçmişi",
+    "perAppProfiles": "Uygulama profilleri",
+    "wordsAndCleanup": "Sözcükler ve düzeltme",
+    "settings": "Ayarlar",
+    "sectionPlaceholder": "Etkinleştirildiğinde bu bölümde kullanılabilir.",
+    "startRecording": "Kaydı başlat",
+    "seeAllMeetings": "Tüm toplantılar →",
+    "dictateHeading": "Her yerde dikte edin",
+    "holdToTalk": "konuşmak için basılı tutun",
+    "changeShortcut": "Kısayolu değiştir",
+    "seeAllDictations": "Tüm dikteler →",
+    "dictationSearchPlaceholder": "Söylediğiniz sözcükler",
+    "dictationSearchAria": "Diktelerde ara",
+    "cleanedUp": "Düzeltildi",
+    "emptyDictationSearch": "Aramanızla eşleşen dikte yok.",
+    "keptDays": "30 gün saklanır"
   },
   "onboarding": {
     "subtitle": "Başlamak için bir transkripsiyon modeli seçin",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Uyumlu modeller",
+    "downloadModelsTitle": "İndirilebilir modeller",
+    "showAllModels": "Tüm {{total}} modeli göster",
+    "showFewerModels": "Daha az model göster",
     "recommended": "Önerilen",
     "customModelDescription": "Resmi olarak desteklenmiyor",
     "modelCard": {
@@ -96,20 +124,28 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Model seçilemedi"
     },
     "permissions": {
-      "title": "İzinler Gerekli",
+      "title": "İzinler gerekli",
       "description": "Coco Voice'nin düzgün çalışabilmesi için birkaç izne ihtiyacı var.",
       "microphone": {
-        "title": "Mikrofon Erişimi",
+        "title": "Mikrofon erişimi",
         "description": "Sesinizi transkripsiyon için alabilmek için gereklidir."
       },
       "accessibility": {
-        "title": "Erişilebilirlik Erişimi",
-        "description": "Transkribe edilen metni uygulamalarınıza yazabilmek için gereklidir."
+        "title": "Erişilebilirlik erişimi",
+        "description": "Transkribe edilen metni uygulamalarınıza yazabilmek için gereklidir.",
+        "stale": {
+          "description": "macOS, Coco Voice'u izinli olarak gösteriyor ancak kayıt güncel değil (genellikle bir güncellemeden sonra olur), bu yüzden yapıştırma çalışmaz. Düzeltmek için:",
+          "step1": "Sistem Ayarları > Gizlilik ve Güvenlik > Erişilebilirlik'i açın.",
+          "step2": "Coco Voice'u seçin ve eksi (-) düğmesiyle kaldırın.",
+          "step3": "Coco Voice'u artı (+) düğmesiyle yeniden ekleyin ve açın.",
+          "checkAgain": "Yeniden kontrol et",
+          "continueWithoutTyping": "Continue without typing"
+        }
       },
-      "grant": "İzin Ver",
+      "grant": "İzin ver",
       "granted": "Verildi",
       "waiting": "Bekleniyor...",
       "allGranted": "Her şey hazır!",
@@ -117,6 +153,12 @@
         "checkFailed": "İzinler kontrol edilemedi. Lütfen tekrar deneyin.",
         "requestFailed": "İzin isteği başarısız oldu. Lütfen tekrar deneyin."
       }
+    },
+    "tryIt": {
+      "title": "Try it",
+      "prompt": "Hold {{shortcut}} and say: \"Monday, scratch that, Tuesday\"",
+      "cleanedResult": "Tuesday.",
+      "done": "Done"
     }
   },
   "modelSelector": {
@@ -131,12 +173,12 @@
     "extractingGeneric": "Çıkarılıyor...",
     "downloading": "%{{percentage}} indiriliyor",
     "downloadingMultiple": "{{count}} model indiriliyor...",
-    "modelReady": "Model Hazır",
+    "modelReady": "Model hazır",
     "loading": "{{modelName}} yükleniyor...",
     "loadingGeneric": "Yükleniyor...",
-    "modelError": "Model Hatası",
-    "modelUnloaded": "Model Boşaltıldı",
-    "noModelDownloadRequired": "Model Yok – İndirme Gerekli",
+    "modelError": "Model hatası",
+    "modelUnloaded": "Model boşaltıldı",
+    "noModelDownloadRequired": "Model yok — indirme gerekli",
     "deleteModel": "{{modelName}} Sil",
     "switching": "Değiştiriliyor...",
     "downloadSpeed": "{{speed}} MB/s",
@@ -152,11 +194,19 @@
     "cancel": "İptal",
     "cancelDownload": "İndirmeyi iptal et",
     "legacy": "Eski",
-    "licence": "Lisans: {{licence}}"
+    "licence": "Lisans: {{licence}}",
+    "downloadFailed": {
+      "network": "İndirme başarısız: internet bağlantınızı kontrol edin.",
+      "diskSpace": "İndirme başarısız: yeterli disk alanı yok.",
+      "checksum": "İndirme başarısız: dosya bütünlük denetiminden geçemedi.",
+      "other": "İndirme başarısız.",
+      "retry": "Yeniden dene",
+      "skip": "Şimdilik atla"
+    }
   },
   "settings": {
     "modelSettings": {
-      "title": "{{model}} Ayarları"
+      "title": "{{model}} ayarları"
     },
     "models": {
       "title": "Transkripsiyon Modelleri",
@@ -179,7 +229,7 @@
     "general": {
       "title": "Genel",
       "shortcut": {
-        "title": "Coco Voice Kısayolları",
+        "title": "Klavye kısayolları",
         "description": "Sesle yazma kaydını başlatmak için klavye kısayollarını yapılandırın",
         "loading": "Kısayollar yükleniyor...",
         "none": "Kısayol yapılandırılmadı",
@@ -187,19 +237,19 @@
         "pressKeys": "Tuşlara basın...",
         "bindings": {
           "transcribe": {
-            "name": "Transkripsiyon Kısayolu",
+            "name": "Dikte kısayolu",
             "description": "Sesinizi kaydetmek ve metne dönüştürmek için klavye kısayolu."
           },
           "cancel": {
-            "name": "İptal Kısayolu",
+            "name": "İptal kısayolu",
             "description": "Mevcut kaydı iptal etmek için klavye kısayolu."
           },
           "transcribe_with_post_process": {
-            "name": "Son İşlem Kısayolu",
+            "name": "Düzeltme kısayolu",
             "description": "İsteğe bağlı: Transkripsiyonunuza her zaman AI son işleme uygulayan özel bir kısayol tuşu."
           },
           "correction": {
-            "name": "Düzeltme söyle",
+            "name": "Sesli düzeltme kısayolu",
             "description": "Son diktenizi değiştiren bir düzeltme söylemek için klavye kısayolu. Etkinleştirmek için bir tuş atayın."
           }
         },
@@ -217,7 +267,7 @@
         "auto": "Otomatik"
       },
       "pushToTalk": {
-        "label": "Bas Konuş",
+        "label": "Konuşmak için basılı tut",
         "description": "Kaydetmek için basılı tutun, durdurmak için bırakın"
       }
     },
@@ -230,11 +280,11 @@
         "loading": "Yükleniyor..."
       },
       "audioFeedback": {
-        "label": "Sesli Geri Bildirim",
+        "label": "Kayıt sesleri",
         "description": "Kayıt başladığında ve bittiğinde ses çalar"
       },
       "outputDevice": {
-        "title": "Çıkış Cihazı",
+        "title": "Çıkış cihazı",
         "description": "Geri bildirim sesleri için ses çıkış cihazını seçin",
         "placeholder": "Çıkış cihazı seçin...",
         "loading": "Yükleniyor..."
@@ -253,7 +303,7 @@
         "experimental": "Deneysel"
       },
       "experimentalToggle": {
-        "label": "Deneysel Özellikler",
+        "label": "Deneysel özellikler",
         "description": "Hala geliştirme aşamasında olan deneysel özellikleri etkinleştir."
       },
       "lazyStreamClose": {
@@ -262,11 +312,11 @@
       },
       "acceleration": {
         "transcribe": {
-          "title": "Whisper Hızlandırma",
+          "title": "Whisper hızlandırma",
           "description": "Whisper modelleri için donanım hızlandırma. Otomatik mod, mevcutsa GPU kullanır (macOS'ta Metal, Windows/Linux'ta Vulkan)."
         },
         "ort": {
-          "title": "ONNX Hızlandırma",
+          "title": "ONNX hızlandırma",
           "description": "ONNX modelleri için donanım hızlandırma (Parakeet, Canary, Moonshine vb.). Windows'ta DirectML deneyseldir. Modeller transkripsiyon yapamayabilir."
         },
         "gpuDevice": {
@@ -274,11 +324,11 @@
         }
       },
       "startHidden": {
-        "label": "Gizli Başlat",
+        "label": "Gizli başlat",
         "description": "Pencereyi açmadan sistem tepsisinde başlatır."
       },
       "autostart": {
-        "label": "Başlangıçta Çalıştır",
+        "label": "Oturum açıldığında başlat",
         "description": "Bilgisayara giriş yaptığınızda Coco Voice otomatik olarak başlatılır."
       },
       "showTrayIcon": {
@@ -287,16 +337,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Kayıt göstergesi",
+          "description": "Kayıt göstergesini seçin: Yok gizler, Küçük kompakt bir kapsül gösterir, Canlı ise konuşurken metni anında gösterir.",
           "options": {
             "none": "Yok",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Küçük",
+            "live": "Canlı"
           }
         },
         "position": {
-          "title": "Overlay Konumu",
+          "title": "Göstergenin konumu",
           "description": "Kayıt ve transkripsiyon sırasında görsel geri bildirim kaplamasını gösterir. Linux'ta 'Yok' önerilir.",
           "options": {
             "bottom": "Alt",
@@ -305,7 +355,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Yapıştırma Yöntemi",
+        "title": "Kelimelerin yazılış şekli",
         "description": "Metnin nasıl ekleneceğini seçin. Doğrudan: sistem girişiyle yazmayı simüle eder. Yok: yapıştırmayı atlar, sadece geçmişi/panoyu günceller.",
         "options": {
           "clipboard": "Pano ({{modifier}}+V)",
@@ -313,28 +363,28 @@
           "clipboardShiftInsert": "Pano (Shift+Insert)",
           "direct": "Doğrudan",
           "none": "Yok",
-          "externalScript": "Harici Betik"
+          "externalScript": "Harici betik"
         },
         "externalScriptPlaceholder": "/dosya/yolu/betik.sh"
       },
       "typingTool": {
-        "title": "Yazma Aracı",
+        "title": "Yazma aracı",
         "description": "Doğrudan yapıştırma yöntemi için hangi Linux yazma aracının kullanılacağını seçin. Auto, sisteminiz için mevcut en iyi aracı otomatik olarak algılar ve kullanır.",
         "options": {
-          "auto": "Auto (Önerilen)"
+          "auto": "Auto (önerilen)"
         }
       },
       "clipboardHandling": {
-        "title": "Pano Yönetimi",
+        "title": "Yapıştırmadan sonra pano",
         "description": "Panoyu Değiştirme, transkripsiyon sonrası mevcut pano içeriğini korur. Panoya Kopyala ise yapıştırma işleminden sonra transkripsiyon sonucunu panoda bırakır.",
         "options": {
-          "dontModify": "Panoyu Değiştirme",
-          "copyToClipboard": "Panoya Kopyala"
+          "dontModify": "Önceki panoyu koru",
+          "copyToClipboard": "Panoya kopyala"
         },
         "privacyHint": "Panodaki metni başka uygulamalar ve pano araçları görebilir; Evrensel Pano da metni diğer Apple aygıtlarınıza kopyalayabilir."
       },
       "autoSubmit": {
-        "title": "Otomatik Gönder",
+        "title": "Yapıştırmadan sonra tuşa bas",
         "description": "Metin eklendikten sonra seçilen tuş kombinasyonunu otomatik olarak gönderir. macOS'ta Cmd+Enter, Windows/Linux'ta Super+Enter geçerlidir.",
         "options": {
           "off": "Kapalı",
@@ -349,7 +399,7 @@
         "description": "Transkripsiyon sırasında diğer dillerden İngilizceye otomatik olarak çevirir."
       },
       "modelUnload": {
-        "title": "Modeli Boşalt",
+        "title": "Modeli boşalt",
         "description": "Belirtilen süre boyunca kullanılmadığında modelin GPU/CPU belleğini otomatik olarak serbest bırakır.",
         "options": {
           "never": "Asla",
@@ -359,33 +409,41 @@
           "min10": "10 dakika sonra",
           "min15": "15 dakika sonra",
           "hour1": "1 saat sonra",
-          "sec15": "15 saniye sonra (Debug)"
+          "sec15": "15 saniye sonra (debug)"
         }
       },
       "customWords": {
-        "title": "Özel Kelimeler",
+        "title": "Özel kelimeler",
         "description": "Transkripsiyon sırasında sıkça yanlış duyulan veya yanlış yazılan kelimeleri ekleyin. Sistem, benzer sesli kelimeleri listenize göre otomatik olarak düzeltir.",
         "placeholder": "Kelime ekle",
         "add": "Ekle",
         "remove": "{{word}} Kaldır",
         "duplicate": "\"{{word}}\" zaten mevcut"
       },
+      "corrections": {
+        "title": "Sözcük düzeltmeleri",
+        "description": "Son metindeki belirli sözcük veya ifadeleri büyük/küçük harf duyarsız olarak değiştirir.",
+        "fromPlaceholder": "Eski",
+        "toPlaceholder": "Yeni",
+        "duplicate": "\"{{word}}\" için zaten bir düzeltme var",
+        "remove": "{{from}} → {{to}} düzeltmesini kaldır"
+      },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Sessizliği atla",
+        "description": "Kayıt sırasında sessiz duraklamaları çıkarır. Kapatıldığında tüm ses kaydedilir."
       }
     },
     "postProcessing": {
       "hotkey": {
-        "title": "Kısayol Tuşu"
+        "title": "Kısayol"
       },
       "correction": {
-        "title": "Yinelemeli düzeltme",
-        "toggleLabel": "Düzeltme söyle",
+        "title": "Sesli düzeltmeler",
+        "toggleLabel": "Sesli düzeltmeler",
         "toggleDescription": "Son diktenizi sesli bir düzeltmeyle değiştirmek için bastığınız açık bir kısayol ekler. Anahtar sözcüklerle asla kendiliğinden tetiklenmez. Atanan tuşa basın, düzeltmeyi söyleyin; önceki çıktı yerinde düzenlenir."
       },
       "api": {
-        "title": "API (OpenAI Uyumlu)",
+        "title": "Düzeltme modeli",
         "provider": {
           "title": "Sağlayıcı",
           "description": "OpenAI uyumlu bir sağlayıcı seçin."
@@ -399,7 +457,7 @@
           "placeholder": "https://api.openai.com/v1"
         },
         "apiKey": {
-          "title": "API Anahtarı",
+          "title": "API anahtarı",
           "description": "Seçili sağlayıcı için API anahtarı.",
           "placeholder": "sk-..."
         },
@@ -424,22 +482,22 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Yönergeler",
         "selectedPrompt": {
-          "title": "Seçili Prompt",
+          "title": "Düzenleme stili",
           "description": "Transkripsiyonları iyileştirmek için bir şablon seçin veya yeni bir tane oluşturun. Yakalanan transkripte referans vermek için prompt metni içinde ${output} kullanın."
         },
         "noPrompts": "Kullanılabilir prompt yok",
         "selectPrompt": "Prompt Seç",
-        "createNew": "Yeni Prompt Oluştur",
-        "promptLabel": "Prompt Etiketi",
+        "createNew": "Yeni stil",
+        "promptLabel": "Ad",
         "promptLabelPlaceholder": "Prompt adı girin",
-        "promptInstructions": "Prompt Talimatları",
+        "promptInstructions": "Talimatlar",
         "promptInstructionsPlaceholder": "Transkripsiyondan sonra çalıştırılacak talimatları yazın. Örnek: Aşağıdaki metnin dilbilgisini ve açıklığını iyileştir: ${output}",
         "promptTip": "İpucu: Transkribe edilen metni promptunuza eklemek için <code>${output}</code> kullanın.",
-        "updatePrompt": "Promptu Güncelle",
-        "deletePrompt": "Promptu Sil",
-        "createPrompt": "Prompt Oluştur",
+        "updatePrompt": "Değişiklikleri kaydet",
+        "deletePrompt": "Sil",
+        "createPrompt": "Oluştur",
         "cancel": "İptal",
         "selectToEdit": "Ayrıntılarını görüntülemek ve düzenlemek için yukarıdan bir prompt seçin.",
         "createFirst": "İlk son işlem prompt'unuzu oluşturmak için yukarıdaki “Yeni Prompt Oluştur” seçeneğine tıklayın."
@@ -458,12 +516,17 @@
       "retranscribe": "Yeniden yazıya dök",
       "retranscribeError": "Yeniden yazıya dökme başarısız oldu. Lütfen tekrar deneyin.",
       "transcribing": "Yazıya döküyor...",
+      "edit": "Düzenle",
+      "saveEdit": "Kaydet",
+      "editError": "Düzenleme kaydedilemedi",
+      "learnedOne": "Düzeltme öğrenildi: \"{{from}}\" → \"{{to}}\"",
+      "learnedMany": "Düzenlemenizden {{count}} düzeltme öğrenildi",
       "transcriptionFailed": "Transkripsiyon başarısız oldu. Yeniden deneme simgesini kullanarak tekrar yazıya dökebilirsiniz."
     },
     "debug": {
       "title": "Hata Ayıklama",
       "logDirectory": {
-        "title": "Log Dizini",
+        "title": "Günlük klasörü",
         "description": "Log dosyalarının saklandığı konum"
       },
       "logLevel": {
@@ -482,11 +545,12 @@
         "empty": "Loglar bekleniyor… Uygulama logları ürettikçe girişler burada görünür."
       },
       "updateChecks": {
-        "label": "Güncellemeleri Kontrol Et",
+        "label": "Güncellemeleri kontrol et",
         "description": "Coco Voice için yeni sürümleri otomatik olarak kontrol eder"
       },
       "soundTheme": {
         "label": "Ses Teması",
+        "preview": "Ses temasını dinle",
         "description": "Kayıt başlangıç ve bitişi için sesli geri bildirim temasını seçin"
       },
       "wordCorrectionThreshold": {
@@ -494,12 +558,12 @@
         "description": "Özel kelime düzeltmeleri için hassasiyet"
       },
       "historyLimit": {
-        "title": "Geçmiş Limiti",
+        "title": "Geçmiş limiti",
         "description": "Saklanacak maksimum geçmiş kaydı sayısı",
         "entries": "kayıt"
       },
       "recordingRetention": {
-        "title": "Kayıtları Otomatik Sil",
+        "title": "Kayıtları otomatik sil",
         "description": "Alan tasarrufu için eski kayıtları otomatik olarak siler",
         "never": "Asla",
         "preserveLimit": "Son {{count}} kaydı tut",
@@ -517,33 +581,35 @@
         "description": "Dizüstü bilgisayar kapağı kapalıyken kullanılacak mikrofon"
       },
       "postProcessingToggle": {
-        "label": "Son İşlem",
-        "description": "Transkripsiyon sonrası yapay zekâ destekli metin iyileştirmeyi etkinleştirir"
+        "label": "Düzeltme",
+        "description": "Yazıya dökümden sonra dolgu sözcükleri, noktalama ve kendi düzeltmelerinizi temizleyin"
       },
       "muteWhileRecording": {
-        "label": "Kayıt Sırasında Sessize Al",
+        "label": "Kayıt sırasında sessize al",
         "description": "Kayıt sırasında sistem sesini kapatır"
       },
       "appendTrailingSpace": {
-        "label": "Sonuna Boşluk Ekle",
+        "label": "Sona boşluk ekle",
         "description": "Yapıştırılan transkripsiyondan sonra boşluk ekler"
       },
       "keyboardImplementation": {
-        "title": "Klavye Uygulaması",
+        "title": "Klavye işleyicisi",
         "description": "Klavye kısayolları için kullanılacak altyapıyı seçin.",
         "bindingsReset": "Klavye kısayolları uyumsuzdu ve varsayılan ayarlara sıfırlandı"
       },
       "paths": {
+        "title": "Uygulama yolları",
+        "description": "Sorun giderme için dahili klasör ve dosyalar",
         "appData": "Uygulama Verileri:",
         "models": "Modeller:",
         "settings": "Ayarlar:"
       },
       "pasteDelay": {
-        "title": "Yapıştırma gecikmesi (önce)",
+        "title": "Yapıştırmadan önce bekleme",
         "description": "Metin kopyalandıktan sonra, yapıştırma tuşu gönderilmeden önceki gecikme (milisaniye cinsinden). Hiçbir şey yapıştırılmıyorsa artırın."
       },
       "pasteDelayAfter": {
-        "title": "Yapıştırma gecikmesi (sonra)",
+        "title": "Yapıştırdıktan sonra bekleme",
         "description": "Yapıştırma tuşundan sonra, önceki panonuz geri yüklenmeden önceki gecikme (milisaniye cinsinden). Yazıya dökülen metin yerine eski pano içeriği yapıştırılıyorsa artırın."
       },
       "recordingBuffer": {
@@ -565,11 +631,11 @@
         "description": "Coco Voice'nin mevcut sürümü"
       },
       "appDataDirectory": {
-        "title": "Uygulama Veri Dizini",
+        "title": "Uygulama veri klasörü",
         "description": "Coco Voice'nin verilerini sakladığı konum"
       },
       "sourceCode": {
-        "title": "Kaynak Kodu",
+        "title": "Kaynak kodu",
         "description": "Kaynak kodunu görüntüle ve katkıda bulun",
         "button": "GitHub'da Görüntüle"
       },
@@ -582,16 +648,42 @@
         }
       },
       "whatsNewUpdates": {
-        "label": "Yenilikleri Göster",
+        "label": "Yenilikleri göster",
         "description": "Coco Voice güncellemelerinden sonra sürüm notlarını göster"
       }
+    },
+    "online": {
+      "eyebrow": "Ayarlar",
+      "title": "Çevrimiçi olanlar",
+      "intro": "Konuşmanız bu Mac üzerinde metne dönüştürülür. Coco Voice’un bu sürümünün bağlanabileceği yerler ve her birinin aldığı bilgiler bunlardır.",
+      "leavesLabel": "Mac’inizden çıkan:",
+      "openHeading": "Uygulama her açıldığında",
+      "githubName": "GitHub (Coco Voice sürümleri)",
+      "githubWhen": "Güncellemeleri denetlemek için uygulama her açıldığında. Bunu durdurmak için yukarıdaki Hakkında bölümünde güncelleme denetimini kapatın. Tıkladığınız bağlantılar tarayıcınızda açılır.",
+      "githubLeaves": "sürüm listesi isteği ve yüklerseniz güncelleme dosyası. Ses veya metin gönderilmez.",
+      "updateChecksOn": "Güncelleme denetimi açık",
+      "updateChecksOff": "Güncelleme denetimi kapalı",
+      "clickHeading": "Yalnızca tıkladığınızda",
+      "modelFilesName": "Coco Voice model dosyaları",
+      "modelFilesWhen": "Yerleşik bir konuşma modelinde İndir’e tıkladığınızda.",
+      "modelFilesLeaves": "istediğiniz model dosyasının adı. Ses veya metin gönderilmez.",
+      "huggingFaceWhen": "Bir katalog modelinde İndir’e tıkladığınızda veya lisansını tarayıcıda açmak için tıkladığınızda.",
+      "huggingFaceLeaves": "model adı, sürümü ve dosya adı ile bu Mac’te zaten ayarlanmışsa Hugging Face belirteci. Ses veya metin gönderilmez.",
+      "cleanupHeading": "Yalnızca bir düzeltme sağlayıcısı seçtiğinizde",
+      "cloudWhen": "Düzeltme seçtiğiniz bulut sağlayıcısıyla çalıştığında.",
+      "cloudLeaves": "söylediklerinizin metni, düzeltme yönergeleri ve API anahtarınız. Modelleri listelemek yalnızca API anahtarınızı gönderir.",
+      "customName": "Özel düzeltme (Ollama)",
+      "customWhen": "Düzeltme seçilen sağlayıcı olarak Özel ile çalıştığında. Adresini değiştirmediğiniz sürece bu Mac’teki bir programla konuşur.",
+      "customLeaves": "başlangıç adresinde hiçbir şey. Söylediklerinizin metni ve düzeltme yönergeleri bu Mac’teki programa gider.",
+      "staysOnMac": "Bu Mac’te kalır",
+      "onDeviceNote": "Aygıt içi düzeltme (Apple Intelligence veya yerel model) bunların hiçbiriyle bağlantı kurmaz."
     }
   },
   "footer": {
     "checkingUpdates": "Güncellemeler kontrol ediliyor...",
     "updateAvailableShort": "Güncelleme mevcut",
     "upToDate": "Güncel",
-    "updateCheckingDisabled": "Güncelleme Kontrolü Devre Dışı",
+    "updateCheckingDisabled": "Güncelleme kontrolü kapalı",
     "downloading": "İndiriliyor... %{{progress}}",
     "installing": "Yükleniyor...",
     "preparing": "Hazırlanıyor...",
@@ -607,11 +699,16 @@
     "open": "Aç",
     "copy": "Kopyala",
     "clear": "Temizle",
+    "selectOption": "Bir seçenek belirleyin...",
+    "notAvailable": "Kullanılamıyor",
+    "moreInfo": "Daha fazla bilgi",
+    "play": "Oynat",
+    "pause": "Duraklat",
     "noOptionsFound": "Seçenek bulunamadı"
   },
   "accessibility": {
     "permissionsDescription": "Coco Voice, transkribe edilen metni yazabilmek için erişilebilirlik izinlerine ihtiyaç duyar.",
-    "openSettings": "Sistem Ayarlarını Aç"
+    "openSettings": "Sistem ayarlarını aç"
   },
   "errors": {
     "loadDirectory": "Dizin yüklenirken hata oluştu: {{error}}",
@@ -643,7 +740,7 @@
     "shortcutRegistrationTryAgain": "Yeniden dene"
   },
   "appLanguage": {
-    "title": "Uygulama Dili",
+    "title": "Uygulama dili",
     "description": "Coco Voice arayüzünün dilini değiştirin"
   },
   "theme": {
@@ -657,11 +754,21 @@
   },
   "overlay": {
     "transcribing": "Transkribe ediliyor...",
-    "processing": "İşleniyor...",
-    "polishing": "Düzenleniyor..."
+    "processing": "Düzenleniyor...",
+    "polishing": "Düzenleniyor...",
+    "pillStates": {
+      "listening": "Listening",
+      "working": "Working",
+      "sentToApp": "Sent to {{app}}",
+      "onClipboard": "On the clipboard",
+      "wordsKeptPressPaste": "Words kept · press ⌘V"
+    }
   },
   "whatsNew": {
-    "title": "Coco Voice v{{version}} yenilikleri"
+    "title": "Coco Voice v{{version}} yenilikleri",
+    "rollbackTitle": "If an update fails",
+    "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
+    "reportIt": "Report it"
   },
   "cleanupStatus": {
     "chip": {
@@ -706,6 +813,221 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "list": {
+      "heading": "All meetings",
+      "countOne": "1 meeting",
+      "countMany": "{{count}} meetings",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Title, notes, or transcript",
+      "searchAria": "Search meetings",
+      "untitled": "Meeting",
+      "dateAndDuration": "{{date}} · {{minutes}} min",
+      "notesReady": "Notes ready",
+      "transcriptOnly": "Transcript only",
+      "exportMarkdown": "Export Markdown",
+      "delete": "Delete",
+      "confirmPrompt": "Delete this meeting?",
+      "confirmDelete": "Confirm delete",
+      "cancelDelete": "Cancel",
+      "emptyList": "No meetings yet. Start notes from the menu bar.",
+      "emptySearch": "No meetings match your search.",
+      "audioLeftWarning": "Meeting deleted, but its audio folder is still on disk.",
+      "loadFailed": "Could not load meetings.",
+      "exportFailed": "Could not export Markdown.",
+      "deleteFailed": "Could not delete the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
+    "consent": {
+      "title": "Önce katılımcılara haber verin",
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "offer": {
+      "title": "Start notes?",
+      "zoomInCall": "Zoom is in a call.",
+      "zoomOpen": "Zoom is open.",
+      "teamsInCall": "Teams is in a call.",
+      "teamsOpen": "Teams is open.",
+      "meet": "Google Meet may be open.",
+      "notRecording": "Not recording",
+      "neverOnItsOwn": "Coco Voice never records on its own.",
+      "start": "Start notes",
+      "notNow": "Not now"
+    },
+    "view": {
+      "title": "Meeting, {{time}}",
+      "channels": "Me and Others",
+      "channel": {
+        "me": "Me",
+        "others": "Others"
+      },
+      "recording": "Recording",
+      "finished": "Finished",
+      "stop": "Stop",
+      "autoScrolling": "Auto-scrolling",
+      "scrollPaused": "Scroll paused",
+      "mic": "Me: {{name}}",
+      "noMeeting": "No meeting is open. Start notes from the menu bar.",
+      "loadFailed": "Could not load the saved lines.",
+      "stopFailed": "Could not stop the meeting.",
+      "warnings": {
+        "systemAudioSilent": "No call audio heard yet. Check that System Audio Recording is allowed for Coco Voice in System Settings.",
+        "micFellBackToDefault": "Your selected microphone was not found, so Me uses the default microphone."
+      },
+      "hints": {
+        "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
+        "dictation": "Dictation still works during a meeting."
+      },
+      "shortcutFailed": "Toplantı kısayolu kaydedilemedi. Buradan veya menü çubuğundan başlatıp durdurabilirsiniz."
+    },
+    "record": {
+      "startNowHeading": "Şimdi başlat",
+      "whenCallStartsHeading": "Bir arama başladığında",
+      "offerLabel": "Not başlatmayı öner",
+      "offerDescription": "Zoom, Meet veya Teams aramadayken \"Notlar başlatılsın mı?\" gösterir. Asla kendi kendine kaydetmez.",
+      "wordsHeading": "Toplantı kelimeleri ve adları",
+      "wordsDescription": "Yalnızca toplantılarda kullanılır; dikte özel kelimelerinizden ayrı tutulur.",
+      "wordsPlaceholder": "Ad veya terim ekleyin...",
+      "addWord": "Ekle",
+      "removeWordAria": "{{word}} öğesini kaldır",
+      "dictationKeepsWorking": "Toplantı kaydetmek dikteyi asla durdurmaz. Kısayolunuz çalışmaya devam eder."
+    },
+    "notes": {
+      "ready": "Notlar hazır",
+      "finishing": "Notlar tamamlanıyor: {{seconds}} sn",
+      "yourNotes": "Notlarınız",
+      "placeholder": "Toplantı sırasında önemli noktaları not alın...",
+      "heading": "Notlar",
+      "subtitle": "Notlarınızdan ve dökümden",
+      "summary": "Özet",
+      "decisions": "Kararlar",
+      "actions": "Eylem maddeleri",
+      "yourNote": "notunuz",
+      "oversized": "Notlar oluşturulurken çok uzun {{count}} bölüm atlandı.",
+      "transcriptHeading": "Döküm",
+      "failed": "Notlar oluşturulamadı. Dökümünüz ve notlarınız güvende.",
+      "retry": "Yeniden dene",
+      "openQuestions": "Open questions",
+      "citeRule": "Every line links to the moment it came from. A line with no source is not shown.",
+      "notesSoFar": "Notes so far",
+      "notesSoFarHint": "Updated every few minutes.",
+      "timeToNotes": "Ready in {{seconds}} s",
+      "leftOutHeading": "Left out",
+      "smallTalkLabel": "Treated as small talk",
+      "uncoveredLabel": "Not covered by any note",
+      "showInTranscript": "Show in transcript",
+      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript.",
+      "catchUpButton": "What did I miss?",
+      "catchUpWindow": "Last 5 minutes",
+      "foldersHeading": "Folders",
+      "templatesHeading": "Note templates",
+      "openFolder": "Open",
+      "closedFolder": "Closed",
+      "newFolderPlaceholder": "New folder name...",
+      "createFolder": "Add folder",
+      "editTemplates": "Edit templates",
+      "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "Toplantılar · Saklama",
+      "deleteAudioLabel": "Notlar oluşturulduktan sonra sesi sil",
+      "deleteAudioDescription": "Varsayılan olarak açık. Notlar hazır olduğunda ses dosyaları kaldırılır.",
+      "keepTranscriptsLabel": "Dökümleri bu Mac'te tut",
+      "keepTranscriptsDescription": "Dökümler siz silene kadar burada kalır.",
+      "onThisMac": "Bu Mac'te",
+      "deleteAll": "Tümünü sil",
+      "confirmPrompt": "Tüm toplantılar, dökümler, notlar ve kayıtlar silinsin mi?",
+      "confirmDeleteAll": "Tümünü silmeyi onayla",
+      "cancel": "İptal",
+      "audioLeftWarning": "Toplantılar silindi ancak bir veya daha fazla ses klasörü kaldırılamadı.",
+      "actionFailed": "Toplantı saklama ayarı güncellenemedi.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
+    },
+    "storage": {
+      "filesTitle": "Meetings · Files",
+      "saveMarkdownLabel": "Save notes as Markdown files",
+      "saveMarkdownDescription": "Off by default. Writes one plain .md file per meeting into your chosen folder.",
+      "folderLabel": "Folder",
+      "chooseFolder": "Choose folder",
+      "syncRule": "Written locally on this Mac. Coco Voice never uploads files.",
+      "syncWarning": "This folder syncs with {{service}}. Files saved here follow your {{service}} settings.",
+      "languageTitle": "Meeting language",
+      "autoDetect": "Auto-detect",
+      "thisMeetingOverride": "Override for this meeting",
+      "pause": "Pause",
+      "resume": "Resume",
+      "pausedBadge": "Paused",
+      "pausedHint": "Paused: nothing is recorded. Still one meeting.",
+      "addAudio": "Add audio to this meeting",
+      "trashTab": "Trash",
+      "kept30Days": "Deleted today · kept 30 days",
+      "restore": "Restore",
+      "searchTranscriptPlaceholder": "Search this transcript",
+      "deleteSpan": "Delete this part",
+      "olderNoteBanner": "Recording {{title}} {{elapsed}}",
+      "olderNoteHint": "{{title}} keeps recording while you read this. The timer keeps running.",
+      "backToLive": "Back to live notes",
+      "importTab": "Import notes",
+      "importDescription": "Bring notes from another meeting app. Exported Markdown or text files; nothing is fetched online.",
+      "chooseImportFiles": "Choose files or a folder",
+      "importIntoFolder": "Import into folder: {{folder}}",
+      "importAction": "Import {{count}} notes"
+    },
+    "ask": {
+      "singleHeading": "Ask this meeting",
+      "acrossHeading": "Ask across meetings",
+      "scopeThisMeeting": "This meeting only",
+      "scopeAll": "All meetings on this Mac",
+      "scopeFolder": "Folder",
+      "scopePicked": "Picked set",
+      "placeholderSingle": "Ask a question about this meeting...",
+      "placeholderAcross": "Ask across your meetings...",
+      "askButton": "Ask",
+      "voiceAskAria": "Ask by voice",
+      "listeningQuestion": "Listening for your question...",
+      "citationRule": "Every answer cites the meeting and exact moment it came from.",
+      "todosTab": "Your to-dos"
+    },
+    "agent": {
+      "todosSubtitle": "From your last 14 days of meetings",
+      "todosDone": "Done",
+      "todosFooter": "Each to-do opens the moment you said it. Found on this Mac; updated after every meeting.",
+      "subtitle": "Let an AI agent on this Mac (Claude Code, Cursor, Codex) read your meetings while you work. Off until you turn it on. Nothing leaves this Mac through Coco Voice.",
+      "masterLabel": "Allow local agents to read meetings",
+      "offByDefault": "Off by default",
+      "canReadHeading": "What an agent can read",
+      "liveMeetingLabel": "The meeting happening now",
+      "pastMeetingsLabel": "Past meetings",
+      "audioLabel": "Meeting audio",
+      "audioNever": "Never · Not offered",
+      "connectHeading": "Connect an agent",
+      "copyCommand": "Copy",
+      "recentReadsHeading": "Recent reads"
     }
+  },
+  "homeNotices": {
+    "staleAccessibility": "Accessibility stopped working after the update.",
+    "fixThreeSteps": "Fix it (3 steps)",
+    "shortcutUnset": "Your shortcut is not set up.",
+    "chooseShortcut": "Choose a shortcut",
+    "typingOff": "Typing is off. Dictations copy to your clipboard.",
+    "turnTypingOn": "Turn typing on",
+    "cleanupModelMissing": "Clean-up skipped: local model not downloaded.",
+    "openModels": "Open Models",
+    "updateReady": "Update ready: {{version}}",
+    "restartNow": "Restart now"
   }
 }

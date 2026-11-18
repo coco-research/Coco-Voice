@@ -6,23 +6,51 @@
     "unloadModel": "Uvolnit model",
     "model": "Model",
     "quit": "Ukončit",
-    "cancel": "Zrušit"
+    "cancel": "Zrušit",
+    "startNotes": "Spustit poznámky...",
+    "startRecordingMeeting": "Start recording a meeting",
+    "pasteLastTake": "Paste last take",
+    "copyLastTake": "Copy last take",
+    "openApp": "Open Coco Voice"
   },
   "sidebar": {
     "general": "Obecné",
     "models": "Modely",
     "advanced": "Pokročilé",
-    "postProcessing": "Následné zpracování",
+    "postProcessing": "Úprava textu",
     "history": "Historie",
     "debug": "Ladění",
-    "about": "O aplikaci"
+    "about": "O aplikaci",
+    "home": "Domů",
+    "recordMeeting": "Nahrát schůzku",
+    "meetingHistory": "Historie schůzek",
+    "askMeetings": "Zeptat se schůzek",
+    "foldersAndTemplates": "Složky a šablony",
+    "agentAccess": "Přístup agenta",
+    "voiceSection": "Hlas",
+    "dictationHistory": "Historie diktování",
+    "perAppProfiles": "Profily podle aplikací",
+    "wordsAndCleanup": "Slova a úpravy",
+    "settings": "Nastavení",
+    "sectionPlaceholder": "Dostupné v této sekci po zapnutí.",
+    "startRecording": "Spustit nahrávání",
+    "seeAllMeetings": "Všechny schůzky →",
+    "dictateHeading": "Diktujte kdekoli",
+    "holdToTalk": "podržte pro mluvení",
+    "changeShortcut": "Změnit zkratku",
+    "seeAllDictations": "Všechna diktování →",
+    "dictationSearchPlaceholder": "Slova, která jste řekli",
+    "dictationSearchAria": "Hledat v diktování",
+    "cleanedUp": "Upraveno",
+    "emptyDictationSearch": "Žádné diktování neodpovídá hledání.",
+    "keptDays": "Uchováno 30 dní"
   },
   "onboarding": {
     "subtitle": "Pro začátek vyberte model pro přepis",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Kompatibilní modely",
+    "downloadModelsTitle": "Dostupné ke stažení",
+    "showAllModels": "Zobrazit všech {{total}} modelů",
+    "showFewerModels": "Zobrazit méně modelů",
     "recommended": "Doporučeno",
     "customModelDescription": "Oficiálně nepodporováno",
     "modelCard": {
@@ -96,7 +124,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Nepodařilo se vybrat model"
     },
     "permissions": {
       "title": "Vyžadována oprávnění",
@@ -107,7 +135,15 @@
       },
       "accessibility": {
         "title": "Přístup k usnadnění",
-        "description": "Potřebný pro psaní přepsaného textu do vašich aplikací."
+        "description": "Potřebný pro psaní přepsaného textu do vašich aplikací.",
+        "stale": {
+          "description": "macOS uvádí Coco Voice jako povolený, ale záznam je zastaralý (často po aktualizaci), takže vkládání nebude fungovat. Oprava:",
+          "step1": "Otevřete Nastavení systému > Soukromí a zabezpečení > Zpřístupnění.",
+          "step2": "Vyberte Coco Voice a odeberte jej tlačítkem minus (-).",
+          "step3": "Přidejte Coco Voice znovu tlačítkem plus (+) a zapněte jej.",
+          "checkAgain": "Zkontrolovat znovu",
+          "continueWithoutTyping": "Continue without typing"
+        }
       },
       "grant": "Udělit oprávnění",
       "granted": "Uděleno",
@@ -117,6 +153,12 @@
         "checkFailed": "Nepodařilo se zkontrolovat oprávnění. Zkuste to prosím znovu.",
         "requestFailed": "Nepodařilo se požádat o oprávnění. Zkuste to prosím znovu."
       }
+    },
+    "tryIt": {
+      "title": "Try it",
+      "prompt": "Hold {{shortcut}} and say: \"Monday, scratch that, Tuesday\"",
+      "cleanedResult": "Tuesday.",
+      "done": "Done"
     }
   },
   "modelSelector": {
@@ -152,7 +194,15 @@
     "cancel": "Zrušit",
     "cancelDownload": "Zrušit stahování",
     "legacy": "Zastaralé",
-    "licence": "Licence: {{licence}}"
+    "licence": "Licence: {{licence}}",
+    "downloadFailed": {
+      "network": "Stahování selhalo: zkontrolujte připojení k internetu.",
+      "diskSpace": "Stahování selhalo: na disku není dost místa.",
+      "checksum": "Stahování selhalo: soubor neprošel kontrolou integrity.",
+      "other": "Stahování selhalo.",
+      "retry": "Zkusit znovu",
+      "skip": "Zatím přeskočit"
+    }
   },
   "settings": {
     "modelSettings": {
@@ -179,7 +229,7 @@
     "general": {
       "title": "Obecné",
       "shortcut": {
-        "title": "Zkratky Coco Voice",
+        "title": "Klávesové zkratky",
         "description": "Nastavte klávesové zkratky pro spuštění nahrávání řeči na text",
         "loading": "Načítám zkratky...",
         "none": "Žádné zkratky nejsou nastavené",
@@ -187,7 +237,7 @@
         "pressKeys": "Stiskněte klávesy...",
         "bindings": {
           "transcribe": {
-            "name": "Zkratka přepisu",
+            "name": "Zkratka pro diktování",
             "description": "Klávesová zkratka pro nahrávání a přepis vašeho hlasu."
           },
           "cancel": {
@@ -195,11 +245,11 @@
             "description": "Klávesová zkratka pro zrušení aktuálního nahrávání."
           },
           "transcribe_with_post_process": {
-            "name": "Klávesa pro následné zpracování",
+            "name": "Zkratka pro úpravu textu",
             "description": "Volitelné: Vyhrazená klávesová zkratka, která vždy použije AI následné zpracování na váš přepis."
           },
           "correction": {
-            "name": "Vyslovit opravu",
+            "name": "Zkratka pro hlasové opravy",
             "description": "Klávesová zkratka pro vyslovení opravy, která nahradí váš poslední diktát. Přiřaďte klávesu, abyste ji zapnuli."
           }
         },
@@ -217,7 +267,7 @@
         "auto": "Auto"
       },
       "pushToTalk": {
-        "label": "Stisk a mluv",
+        "label": "Podržet a mluvit",
         "description": "Podržte pro nahrávání, uvolněte pro zastavení"
       }
     },
@@ -230,7 +280,7 @@
         "loading": "Načítání..."
       },
       "audioFeedback": {
-        "label": "Zvuková odezva",
+        "label": "Zvuky nahrávání",
         "description": "Přehrát zvuk při zahájení a ukončení nahrávání"
       },
       "outputDevice": {
@@ -278,7 +328,7 @@
         "description": "Spustit do systémové lišty bez otevření okna."
       },
       "autostart": {
-        "label": "Spouštět při startu",
+        "label": "Spustit při přihlášení",
         "description": "Automaticky spustit Coco Voice po přihlášení do počítače."
       },
       "showTrayIcon": {
@@ -287,16 +337,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Indikátor nahrávání",
+          "description": "Zvolte podobu indikátoru nahrávání: Žádný jej skryje, Minimální zobrazí malou pilulku a Živý ukazuje přepis v reálném čase během řeči.",
           "options": {
             "none": "Žádné",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Kompaktní",
+            "live": "Živý"
           }
         },
         "position": {
-          "title": "Pozice překryvu",
+          "title": "Umístění indikátoru",
           "description": "Zobrazovat vizuální překryv během nahrávání a přepisu. Na Linuxu je doporučeno 'Žádné'.",
           "options": {
             "bottom": "Dole",
@@ -305,7 +355,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Způsob vložení",
+        "title": "Jak se vkládají slova",
         "description": "Vyberte, jak se text vkládá. Přímé: simuluje psaní přes systémový vstup. Žádné: přeskočí vložení a aktualizuje pouze historii/schránku.",
         "options": {
           "clipboard": "Schránka ({{modifier}}+V)",
@@ -321,20 +371,20 @@
         "title": "Nástroj pro psaní",
         "description": "Vyberte, který linuxový nástroj pro psaní použít pro metodu přímého vložení. Auto automaticky zjistí a použije nejlepší dostupný nástroj pro váš systém.",
         "options": {
-          "auto": "Auto (Doporučeno)"
+          "auto": "Auto (doporučeno)"
         }
       },
       "clipboardHandling": {
-        "title": "Práce se schránkou",
+        "title": "Schránka po vložení",
         "description": "'Neměnit schránku' zachová po přepisu aktuální obsah schránky. 'Kopírovat do schránky' ponechá po vložení výsledek přepisu ve schránce.",
         "options": {
-          "dontModify": "Neměnit schránku",
+          "dontModify": "Ponechat původní schránku",
           "copyToClipboard": "Kopírovat do schránky"
         },
         "privacyHint": "Text ve schránce vidí jiné aplikace a nástroje pro schránku a univerzální schránka ho může zkopírovat do vašich dalších zařízení Apple."
       },
       "autoSubmit": {
-        "title": "Automatické odeslání",
+        "title": "Stisknout klávesu po vložení",
         "description": "Automaticky odešle vybranou kombinaci kláves po vložení textu. Cmd+Enter platí pro macOS, zatímco Windows/Linux používají Super+Enter.",
         "options": {
           "off": "Vypnuto",
@@ -359,7 +409,7 @@
           "min10": "Po 10 minutách",
           "min15": "Po 15 minutách",
           "hour1": "Po 1 hodině",
-          "sec15": "Po 15 sekundách (Debug)"
+          "sec15": "Po 15 sekundách (debug)"
         }
       },
       "customWords": {
@@ -370,9 +420,17 @@
         "remove": "Odebrat {{word}}",
         "duplicate": "\"{{word}}\" již existuje"
       },
+      "corrections": {
+        "title": "Opravy",
+        "description": "Nahradí vybraná slova nebo spojení ve výsledném textu bez ohledu na velikost písmen.",
+        "fromPlaceholder": "Z",
+        "toPlaceholder": "Na",
+        "duplicate": "Oprava pro „{{word}}“ již existuje",
+        "remove": "Odebrat opravu z {{from}} na {{to}}"
+      },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Přeskakovat ticho",
+        "description": "Vynechá tiché pauzy během nahrávání. Při vypnutí se nahraje celý zvuk."
       }
     },
     "postProcessing": {
@@ -380,12 +438,12 @@
         "title": "Klávesová zkratka"
       },
       "correction": {
-        "title": "Iterativní oprava",
-        "toggleLabel": "Vyslovovat opravy",
+        "title": "Hlasové opravy",
+        "toggleLabel": "Hlasové opravy",
         "toggleDescription": "Přidá samostatnou klávesovou zkratku, kterou stisknete, abyste nahradili svůj poslední diktát vyslovenou opravou. Nikdy se nespustí automaticky podle klíčových slov. Stiskněte přiřazenou klávesu, vyslovte opravu a předchozí výstup se upraví na místě."
       },
       "api": {
-        "title": "API (kompatibilní s OpenAI)",
+        "title": "Model pro úpravu textu",
         "provider": {
           "title": "Poskytovatel",
           "description": "Vyberte poskytovatele kompatibilního s OpenAI."
@@ -424,22 +482,22 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Pokyny",
         "selectedPrompt": {
-          "title": "Vybraný prompt",
+          "title": "Styl úprav",
           "description": "Vyberte šablonu pro zpřesnění přepisu nebo vytvořte novou. V textu promptu použijte ${output} pro vložení zachyceného přepisu."
         },
         "noPrompts": "Nejsou k dispozici žádné prompty",
         "selectPrompt": "Vyberte prompt",
-        "createNew": "Vytvořit nový prompt",
-        "promptLabel": "Název promptu",
+        "createNew": "Nový styl",
+        "promptLabel": "Název",
         "promptLabelPlaceholder": "Zadejte název promptu",
-        "promptInstructions": "Instrukce promptu",
+        "promptInstructions": "Pokyny",
         "promptInstructionsPlaceholder": "Napište instrukce, které se mají spustit po přepisu. Příklad: Zlepšete gramatiku a srozumitelnost následujícího textu: ${output}",
         "promptTip": "Tip: Použijte <code>${output}</code> pro vložení přepsaného textu do promptu.",
-        "updatePrompt": "Aktualizovat prompt",
-        "deletePrompt": "Smazat prompt",
-        "createPrompt": "Vytvořit prompt",
+        "updatePrompt": "Uložit změny",
+        "deletePrompt": "Smazat",
+        "createPrompt": "Vytvořit",
         "cancel": "Zrušit",
         "selectToEdit": "Vyberte výše prompt, abyste zobrazili a upravili jeho podrobnosti.",
         "createFirst": "Klikněte nahoře na 'Vytvořit nový prompt' a vytvořte svůj první prompt pro následné zpracování."
@@ -458,6 +516,11 @@
       "retranscribe": "Přepsat znovu",
       "retranscribeError": "Opětovný přepis se nezdařil. Zkuste to prosím znovu.",
       "transcribing": "Přepisuji...",
+      "edit": "Upravit",
+      "saveEdit": "Uložit",
+      "editError": "Úpravu se nepodařilo uložit",
+      "learnedOne": "Naučená oprava: „{{from}}“ → „{{to}}“",
+      "learnedMany": "Naučeno {{count}} oprav z vaší úpravy",
       "transcriptionFailed": "Přepis selhal. Můžete zkusit přepis znovu pomocí ikony opakování."
     },
     "debug": {
@@ -487,6 +550,7 @@
       },
       "soundTheme": {
         "label": "Zvukový motiv",
+        "preview": "Přehrát ukázku zvuku",
         "description": "Vyberte zvukový motiv pro odezvu při startu a ukončení nahrávání"
       },
       "wordCorrectionThreshold": {
@@ -517,33 +581,35 @@
         "description": "Mikrofon, který se použije při zavřeném víku notebooku"
       },
       "postProcessingToggle": {
-        "label": "Následné zpracování",
-        "description": "Povolit AI vylepšení textu po přepisu"
+        "label": "Úprava textu",
+        "description": "Upravit výplňová slova, interpunkci a sebeopravy po přepisu"
       },
       "muteWhileRecording": {
         "label": "Ztlumit při nahrávání",
         "description": "Ztlumit systémový zvuk během nahrávání"
       },
       "appendTrailingSpace": {
-        "label": "Přidat koncovou mezeru",
+        "label": "Přidat mezeru na konec",
         "description": "Přidat mezeru po vloženém přepisu"
       },
       "keyboardImplementation": {
-        "title": "Implementace klávesnice",
+        "title": "Obsluha klávesnice",
         "description": "Zvolte backend pro klávesové zkratky.",
         "bindingsReset": "Klávesové zkratky byly nekompatibilní a byly obnoveny na výchozí hodnoty"
       },
       "paths": {
+        "title": "Cesty aplikace",
+        "description": "Interní složky a soubory pro diagnostiku",
         "appData": "Data aplikace:",
         "models": "Modely:",
         "settings": "Nastavení:"
       },
       "pasteDelay": {
-        "title": "Zpoždění vložení (před)",
+        "title": "Prodleva před vložením",
         "description": "Zpoždění (v milisekundách) po zkopírování textu, před odesláním klávesy pro vložení. Zvyšte, pokud se nic nevloží."
       },
       "pasteDelayAfter": {
-        "title": "Zpoždění vložení (po)",
+        "title": "Prodleva po vložení",
         "description": "Zpoždění (v milisekundách) po klávese pro vložení, před obnovením předchozí schránky. Zvyšte, pokud se místo přepisu vkládá starý obsah schránky."
       },
       "recordingBuffer": {
@@ -565,7 +631,7 @@
         "description": "Aktuální verze Coco Voice"
       },
       "appDataDirectory": {
-        "title": "Adresář dat aplikace",
+        "title": "Složka dat aplikace",
         "description": "Umístění, kde Coco Voice ukládá data"
       },
       "sourceCode": {
@@ -585,6 +651,32 @@
         "label": "Zobrazovat novinky",
         "description": "Zobrazovat poznámky k vydání po aktualizacích Coco Voice"
       }
+    },
+    "online": {
+      "eyebrow": "Nastavení",
+      "title": "Co odchází online",
+      "intro": "Vaše řeč se převádí na text na tomto Macu. Toto jsou místa, která může tato verze Coco Voice kontaktovat, a co každé z nich dostane.",
+      "leavesLabel": "Opouští váš Mac:",
+      "openHeading": "Při každém spuštění aplikace",
+      "githubName": "GitHub (vydání Coco Voice)",
+      "githubWhen": "Při každém otevření aplikace kvůli kontrole aktualizací. Chcete-li to zastavit, vypněte kontrolu aktualizací výše v části O aplikaci. Kliknuté odkazy se otevírají v prohlížeči.",
+      "githubLeaves": "požadavek na seznam vydání a soubor aktualizace, pokud ji nainstalujete. Žádná řeč a žádný text.",
+      "updateChecksOn": "Kontrola aktualizací zapnuta",
+      "updateChecksOff": "Kontrola aktualizací vypnuta",
+      "clickHeading": "Pouze když kliknete",
+      "modelFilesName": "Soubory modelů Coco Voice",
+      "modelFilesWhen": "Když kliknete na Stáhnout u vestavěného řečového modelu.",
+      "modelFilesLeaves": "název požadovaného souboru modelu. Žádná řeč a žádný text.",
+      "huggingFaceWhen": "Když kliknete na Stáhnout u katalogového modelu nebo na jeho licenci pro otevření v prohlížeči.",
+      "huggingFaceLeaves": "název modelu, verze a název souboru, plus token Hugging Face, pokud je na tomto Macu již nastaven. Žádná řeč a žádný text.",
+      "cleanupHeading": "Pouze když vyberete poskytovatele úprav",
+      "cloudWhen": "Když úprava textu běží s vybraným cloudovým poskytovatelem.",
+      "cloudLeaves": "text toho, co jste řekli, pokyny k úpravě a váš klíč API. Načtení seznamu modelů odešle pouze váš klíč API.",
+      "customName": "Vlastní úprava (Ollama)",
+      "customWhen": "Když úprava běží s možností Vlastní. Komunikuje s programem na tomto Macu, pokud nezměníte jeho adresu.",
+      "customLeaves": "na výchozí adrese nic. Text vaší řeči a pokyny k úpravě jdou programu na tomto Macu.",
+      "staysOnMac": "Zůstává na tomto Macu",
+      "onDeviceNote": "Úprava v zařízení (Apple Intelligence nebo místní model) nekontaktuje žádné z těchto míst."
     }
   },
   "footer": {
@@ -607,11 +699,16 @@
     "open": "Otevřít",
     "copy": "Kopírovat",
     "clear": "Vymazat",
+    "selectOption": "Vyberte možnost...",
+    "notAvailable": "Není k dispozici",
+    "moreInfo": "Více informací",
+    "play": "Přehrát",
+    "pause": "Pozastavit",
     "noOptionsFound": "Nenalezeny žádné možnosti"
   },
   "accessibility": {
     "permissionsDescription": "Coco Voice potřebuje oprávnění usnadnění přístupu, aby mohlo psát přepsaný text.",
-    "openSettings": "Otevřít Nastavení systému"
+    "openSettings": "Otevřít nastavení systému"
   },
   "errors": {
     "loadDirectory": "Chyba při načítání adresáře: {{error}}",
@@ -657,11 +754,21 @@
   },
   "overlay": {
     "transcribing": "Přepisuji...",
-    "processing": "Zpracovávám...",
-    "polishing": "Upravuji..."
+    "processing": "Čistím...",
+    "polishing": "Upravuji...",
+    "pillStates": {
+      "listening": "Listening",
+      "working": "Working",
+      "sentToApp": "Sent to {{app}}",
+      "onClipboard": "On the clipboard",
+      "wordsKeptPressPaste": "Words kept · press ⌘V"
+    }
   },
   "whatsNew": {
-    "title": "Novinky v Coco Voice v{{version}}"
+    "title": "Novinky v Coco Voice v{{version}}",
+    "rollbackTitle": "If an update fails",
+    "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
+    "reportIt": "Report it"
   },
   "cleanupStatus": {
     "chip": {
@@ -706,6 +813,221 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "list": {
+      "heading": "All meetings",
+      "countOne": "1 meeting",
+      "countMany": "{{count}} meetings",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Title, notes, or transcript",
+      "searchAria": "Search meetings",
+      "untitled": "Meeting",
+      "dateAndDuration": "{{date}} · {{minutes}} min",
+      "notesReady": "Notes ready",
+      "transcriptOnly": "Transcript only",
+      "exportMarkdown": "Export Markdown",
+      "delete": "Delete",
+      "confirmPrompt": "Delete this meeting?",
+      "confirmDelete": "Confirm delete",
+      "cancelDelete": "Cancel",
+      "emptyList": "No meetings yet. Start notes from the menu bar.",
+      "emptySearch": "No meetings match your search.",
+      "audioLeftWarning": "Meeting deleted, but its audio folder is still on disk.",
+      "loadFailed": "Could not load meetings.",
+      "exportFailed": "Could not export Markdown.",
+      "deleteFailed": "Could not delete the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
+    "consent": {
+      "title": "Nejprve informujte účastníky",
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "offer": {
+      "title": "Start notes?",
+      "zoomInCall": "Zoom is in a call.",
+      "zoomOpen": "Zoom is open.",
+      "teamsInCall": "Teams is in a call.",
+      "teamsOpen": "Teams is open.",
+      "meet": "Google Meet may be open.",
+      "notRecording": "Not recording",
+      "neverOnItsOwn": "Coco Voice never records on its own.",
+      "start": "Start notes",
+      "notNow": "Not now"
+    },
+    "view": {
+      "title": "Meeting, {{time}}",
+      "channels": "Me and Others",
+      "channel": {
+        "me": "Me",
+        "others": "Others"
+      },
+      "recording": "Recording",
+      "finished": "Finished",
+      "stop": "Stop",
+      "autoScrolling": "Auto-scrolling",
+      "scrollPaused": "Scroll paused",
+      "mic": "Me: {{name}}",
+      "noMeeting": "No meeting is open. Start notes from the menu bar.",
+      "loadFailed": "Could not load the saved lines.",
+      "stopFailed": "Could not stop the meeting.",
+      "warnings": {
+        "systemAudioSilent": "No call audio heard yet. Check that System Audio Recording is allowed for Coco Voice in System Settings.",
+        "micFellBackToDefault": "Your selected microphone was not found, so Me uses the default microphone."
+      },
+      "hints": {
+        "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
+        "dictation": "Dictation still works during a meeting."
+      },
+      "shortcutFailed": "Zkratku schůzky se nepodařilo zaregistrovat. Spustit a zastavit můžete zde nebo v řádku nabídek."
+    },
+    "record": {
+      "startNowHeading": "Začít hned",
+      "whenCallStartsHeading": "Když začne hovor",
+      "offerLabel": "Nabídnout zahájení poznámek",
+      "offerDescription": "Zobrazí „Zahájit poznámky?“, když probíhá hovor v Zoomu, Meetu nebo Teams. Nikdy nenahrává samo.",
+      "wordsHeading": "Slova a jména pro schůzky",
+      "wordsDescription": "Používá se pouze u schůzek, odděleně od vlastních slov pro diktování.",
+      "wordsPlaceholder": "Přidat jméno nebo výraz...",
+      "addWord": "Přidat",
+      "removeWordAria": "Odebrat {{word}}",
+      "dictationKeepsWorking": "Nahrávání schůzky nikdy nezastaví diktování. Vaše zkratka funguje dál."
+    },
+    "notes": {
+      "ready": "Poznámky připraveny",
+      "finishing": "Dokončování poznámek: {{seconds}} s",
+      "yourNotes": "Vaše poznámky",
+      "placeholder": "Zapisujte si body během schůzky...",
+      "heading": "Poznámky",
+      "subtitle": "Z vašich poznámek a přepisu",
+      "summary": "Shrnutí",
+      "decisions": "Rozhodnutí",
+      "actions": "Úkoly",
+      "yourNote": "vaše poznámka",
+      "oversized": "Při tvorbě poznámek bylo přeskočeno {{count}} příliš dlouhých úseků.",
+      "transcriptHeading": "Přepis",
+      "failed": "Poznámky se nepodařilo vytvořit. Přepis i vaše poznámky jsou v bezpečí.",
+      "retry": "Zkusit znovu",
+      "openQuestions": "Open questions",
+      "citeRule": "Every line links to the moment it came from. A line with no source is not shown.",
+      "notesSoFar": "Notes so far",
+      "notesSoFarHint": "Updated every few minutes.",
+      "timeToNotes": "Ready in {{seconds}} s",
+      "leftOutHeading": "Left out",
+      "smallTalkLabel": "Treated as small talk",
+      "uncoveredLabel": "Not covered by any note",
+      "showInTranscript": "Show in transcript",
+      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript.",
+      "catchUpButton": "What did I miss?",
+      "catchUpWindow": "Last 5 minutes",
+      "foldersHeading": "Folders",
+      "templatesHeading": "Note templates",
+      "openFolder": "Open",
+      "closedFolder": "Closed",
+      "newFolderPlaceholder": "New folder name...",
+      "createFolder": "Add folder",
+      "editTemplates": "Edit templates",
+      "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "Schůzky · Uchovávání",
+      "deleteAudioLabel": "Smazat zvuk po vytvoření poznámek",
+      "deleteAudioDescription": "Ve výchozím stavu zapnuto. Zvukové soubory se odstraní, jakmile jsou poznámky připraveny.",
+      "keepTranscriptsLabel": "Ponechat přepisy na tomto Macu",
+      "keepTranscriptsDescription": "Přepisy zde zůstávají, dokud je nesmažete.",
+      "onThisMac": "Na tomto Macu",
+      "deleteAll": "Smazat vše",
+      "confirmPrompt": "Smazat všechny schůzky, přepisy, poznámky a nahrávky?",
+      "confirmDeleteAll": "Potvrdit smazání všeho",
+      "cancel": "Zrušit",
+      "audioLeftWarning": "Schůzky byly smazány, ale jednu či více složek se zvukem se nepodařilo odstranit.",
+      "actionFailed": "Nastavení uchovávání schůzek se nepodařilo upravit.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
+    },
+    "storage": {
+      "filesTitle": "Meetings · Files",
+      "saveMarkdownLabel": "Save notes as Markdown files",
+      "saveMarkdownDescription": "Off by default. Writes one plain .md file per meeting into your chosen folder.",
+      "folderLabel": "Folder",
+      "chooseFolder": "Choose folder",
+      "syncRule": "Written locally on this Mac. Coco Voice never uploads files.",
+      "syncWarning": "This folder syncs with {{service}}. Files saved here follow your {{service}} settings.",
+      "languageTitle": "Meeting language",
+      "autoDetect": "Auto-detect",
+      "thisMeetingOverride": "Override for this meeting",
+      "pause": "Pause",
+      "resume": "Resume",
+      "pausedBadge": "Paused",
+      "pausedHint": "Paused: nothing is recorded. Still one meeting.",
+      "addAudio": "Add audio to this meeting",
+      "trashTab": "Trash",
+      "kept30Days": "Deleted today · kept 30 days",
+      "restore": "Restore",
+      "searchTranscriptPlaceholder": "Search this transcript",
+      "deleteSpan": "Delete this part",
+      "olderNoteBanner": "Recording {{title}} {{elapsed}}",
+      "olderNoteHint": "{{title}} keeps recording while you read this. The timer keeps running.",
+      "backToLive": "Back to live notes",
+      "importTab": "Import notes",
+      "importDescription": "Bring notes from another meeting app. Exported Markdown or text files; nothing is fetched online.",
+      "chooseImportFiles": "Choose files or a folder",
+      "importIntoFolder": "Import into folder: {{folder}}",
+      "importAction": "Import {{count}} notes"
+    },
+    "ask": {
+      "singleHeading": "Ask this meeting",
+      "acrossHeading": "Ask across meetings",
+      "scopeThisMeeting": "This meeting only",
+      "scopeAll": "All meetings on this Mac",
+      "scopeFolder": "Folder",
+      "scopePicked": "Picked set",
+      "placeholderSingle": "Ask a question about this meeting...",
+      "placeholderAcross": "Ask across your meetings...",
+      "askButton": "Ask",
+      "voiceAskAria": "Ask by voice",
+      "listeningQuestion": "Listening for your question...",
+      "citationRule": "Every answer cites the meeting and exact moment it came from.",
+      "todosTab": "Your to-dos"
+    },
+    "agent": {
+      "todosSubtitle": "From your last 14 days of meetings",
+      "todosDone": "Done",
+      "todosFooter": "Each to-do opens the moment you said it. Found on this Mac; updated after every meeting.",
+      "subtitle": "Let an AI agent on this Mac (Claude Code, Cursor, Codex) read your meetings while you work. Off until you turn it on. Nothing leaves this Mac through Coco Voice.",
+      "masterLabel": "Allow local agents to read meetings",
+      "offByDefault": "Off by default",
+      "canReadHeading": "What an agent can read",
+      "liveMeetingLabel": "The meeting happening now",
+      "pastMeetingsLabel": "Past meetings",
+      "audioLabel": "Meeting audio",
+      "audioNever": "Never · Not offered",
+      "connectHeading": "Connect an agent",
+      "copyCommand": "Copy",
+      "recentReadsHeading": "Recent reads"
     }
+  },
+  "homeNotices": {
+    "staleAccessibility": "Accessibility stopped working after the update.",
+    "fixThreeSteps": "Fix it (3 steps)",
+    "shortcutUnset": "Your shortcut is not set up.",
+    "chooseShortcut": "Choose a shortcut",
+    "typingOff": "Typing is off. Dictations copy to your clipboard.",
+    "turnTypingOn": "Turn typing on",
+    "cleanupModelMissing": "Clean-up skipped: local model not downloaded.",
+    "openModels": "Open Models",
+    "updateReady": "Update ready: {{version}}",
+    "restartNow": "Restart now"
   }
 }

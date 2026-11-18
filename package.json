@@ -16,7 +16,7 @@
     "format:backend": "cd src-tauri && cargo fmt",
     "test:playwright": "playwright test",
     "test:playwright:ui": "playwright test --ui",
-    "test:static": "bun test scripts/no-donate.test.ts scripts/check-tauri-versions.test.ts scripts/sbom-model-licences.test.ts scripts/meetings-release-gate.test.ts scripts/meetings-frontend-gate.test.ts scripts/privacy-scan.test.ts",
+    "test:static": "bun test scripts/no-donate.test.ts scripts/check-tauri-versions.test.ts scripts/sbom-model-licences.test.ts scripts/meetings-release-gate.test.ts scripts/meetings-frontend-gate.test.ts scripts/privacy-scan.test.ts scripts/what-goes-online.test.tsx scripts/vc-makes-sense.test.tsx scripts/layout-i18n.test.ts scripts/layout-nav.test.tsx scripts/meetings-list.test.tsx scripts/meeting-history-route.test.tsx scripts/home-view.test.tsx scripts/dictation-history.test.tsx scripts/meetings-a1-screens.test.tsx scripts/meetings-a2-screens.test.tsx scripts/meetings-a3-a10-screens.test.tsx scripts/meetings-a7-a9-screens.test.tsx scripts/vr-surviving-screens.test.tsx",
     "check:translations": "bun scripts/check-translations.ts",
     "check:tauri-versions": "bun scripts/check-tauri-versions.ts",
     "postinstall": "bun scripts/check-nix-deps.ts"

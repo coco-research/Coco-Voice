@@ -6,23 +6,51 @@
     "unloadModel": "Выгрузить модель",
     "model": "Модель",
     "quit": "Выход",
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "startNotes": "Начать заметки...",
+    "startRecordingMeeting": "Start recording a meeting",
+    "pasteLastTake": "Paste last take",
+    "copyLastTake": "Copy last take",
+    "openApp": "Open Coco Voice"
   },
   "sidebar": {
     "general": "Общие",
     "models": "Модели",
     "advanced": "Продвинутые",
-    "postProcessing": "Постобработка",
+    "postProcessing": "Очистка текста",
     "history": "История",
     "debug": "Отладка",
-    "about": "О программе"
+    "about": "О программе",
+    "home": "Главная",
+    "recordMeeting": "Записать встречу",
+    "meetingHistory": "История встреч",
+    "askMeetings": "Спросить по встречам",
+    "foldersAndTemplates": "Папки и шаблоны",
+    "agentAccess": "Доступ агента",
+    "voiceSection": "Голос",
+    "dictationHistory": "История диктовки",
+    "perAppProfiles": "Профили для приложений",
+    "wordsAndCleanup": "Слова и очистка",
+    "settings": "Настройки",
+    "sectionPlaceholder": "Доступно в этом разделе после включения.",
+    "startRecording": "Начать запись",
+    "seeAllMeetings": "Все встречи →",
+    "dictateHeading": "Диктуйте где угодно",
+    "holdToTalk": "удерживайте для речи",
+    "changeShortcut": "Изменить сочетание",
+    "seeAllDictations": "Все диктовки →",
+    "dictationSearchPlaceholder": "Произнесённые слова",
+    "dictationSearchAria": "Поиск по диктовкам",
+    "cleanedUp": "Очищено",
+    "emptyDictationSearch": "Нет диктовок по вашему запросу.",
+    "keptDays": "Хранится 30 дней"
   },
   "onboarding": {
     "subtitle": "Для начала выберите модель транскрипции",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Совместимые модели",
+    "downloadModelsTitle": "Доступно для загрузки",
+    "showAllModels": "Показать все модели ({{total}})",
+    "showFewerModels": "Показать меньше моделей",
     "recommended": "Рекомендуется",
     "customModelDescription": "Официально не поддерживается",
     "modelCard": {
@@ -96,7 +124,7 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Не удалось выбрать модель"
     },
     "permissions": {
       "title": "Требуются разрешения",
@@ -107,7 +135,15 @@
       },
       "accessibility": {
         "title": "Доступ к универсальному доступу",
-        "description": "Необходим для ввода расшифрованного текста в ваши приложения."
+        "description": "Необходим для ввода расшифрованного текста в ваши приложения.",
+        "stale": {
+          "description": "macOS показывает, что Coco Voice разрешён, но запись устарела (часто после обновления), поэтому вставка не будет работать. Чтобы исправить:",
+          "step1": "Откройте Системные настройки > Конфиденциальность и безопасность > Универсальный доступ.",
+          "step2": "Выберите Coco Voice и удалите его кнопкой «минус» (-).",
+          "step3": "Снова добавьте Coco Voice кнопкой «плюс» (+) и включите его.",
+          "checkAgain": "Проверить снова",
+          "continueWithoutTyping": "Continue without typing"
+        }
       },
       "grant": "Предоставить разрешение",
       "granted": "Предоставлено",
@@ -117,6 +153,12 @@
         "checkFailed": "Не удалось проверить разрешения. Пожалуйста, попробуйте снова.",
         "requestFailed": "Не удалось запросить разрешение. Пожалуйста, попробуйте снова."
       }
+    },
+    "tryIt": {
+      "title": "Try it",
+      "prompt": "Hold {{shortcut}} and say: \"Monday, scratch that, Tuesday\"",
+      "cleanedResult": "Tuesday.",
+      "done": "Done"
     }
   },
   "modelSelector": {
@@ -152,7 +194,15 @@
     "cancel": "Отмена",
     "cancelDownload": "Отменить загрузку",
     "legacy": "Устаревшее",
-    "licence": "Лицензия: {{licence}}"
+    "licence": "Лицензия: {{licence}}",
+    "downloadFailed": {
+      "network": "Не удалось загрузить: проверьте подключение к интернету.",
+      "diskSpace": "Не удалось загрузить: недостаточно места на диске.",
+      "checksum": "Не удалось загрузить: файл не прошёл проверку целостности.",
+      "other": "Не удалось загрузить.",
+      "retry": "Попробовать снова",
+      "skip": "Пропустить пока"
+    }
   },
   "settings": {
     "modelSettings": {
@@ -179,7 +229,7 @@
     "general": {
       "title": "Общие",
       "shortcut": {
-        "title": "Ярлыки Coco Voice",
+        "title": "Сочетания клавиш",
         "description": "Настройте сочетания клавиш для запуска записи речи в текст",
         "loading": "Загрузка ярлыков...",
         "none": "Ярлыки не настроены",
@@ -187,7 +237,7 @@
         "pressKeys": "Нажимайте клавиши...",
         "bindings": {
           "transcribe": {
-            "name": "Горячая клавиша транскрипции",
+            "name": "Сочетание клавиш для диктовки",
             "description": "Сочетание клавиш для записи и транскрибирования вашего голоса."
           },
           "cancel": {
@@ -195,11 +245,11 @@
             "description": "Сочетание клавиш для отмены текущей записи."
           },
           "transcribe_with_post_process": {
-            "name": "Горячая клавиша постобработки",
+            "name": "Сочетание для очистки",
             "description": "Специальное сочетание клавиш для ИИ-постобработки вашей транскрипции."
           },
           "correction": {
-            "name": "Произнести исправление",
+            "name": "Сочетание клавиш для голосовых правок",
             "description": "Сочетание клавиш, чтобы произнести исправление, которое заменяет последнюю диктовку. Назначьте клавишу, чтобы включить его."
           }
         },
@@ -217,7 +267,7 @@
         "auto": "Авто"
       },
       "pushToTalk": {
-        "label": "Нажми и говори",
+        "label": "Удерживать для записи",
         "description": "Удерживайте, чтобы записать, отпустите, чтобы остановить"
       }
     },
@@ -230,7 +280,7 @@
         "loading": "Загрузка..."
       },
       "audioFeedback": {
-        "label": "Обратная звуковая связь",
+        "label": "Звуки записи",
         "description": "Воспроизведение звука при запуске и остановке записи"
       },
       "outputDevice": {
@@ -278,7 +328,7 @@
         "description": "Запускать в системный трей, не открывая окно."
       },
       "autostart": {
-        "label": "Запускать при старте",
+        "label": "Открывать при входе в систему",
         "description": "Автоматически запускать Coco Voice при входе в систему."
       },
       "showTrayIcon": {
@@ -287,16 +337,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Индикатор записи",
+          "description": "Выберите вид индикатора записи: Нет скрывает его, Компактный показывает небольшую капсулу, Живой выводит текст по мере речи.",
           "options": {
             "none": "Нет",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Компактный",
+            "live": "Живой"
           }
         },
         "position": {
-          "title": "Позиция индикатора",
+          "title": "Где показывать индикатор",
           "description": "Отображение индикатора визуальной обратной связи во время записи и транскрипции. В Linux рекомендуется выбрать «Нет».",
           "options": {
             "bottom": "Снизу",
@@ -305,7 +355,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Метод вставки",
+        "title": "Как вводится текст",
         "description": "Выбрать способ вставки текста. Прямой: имитирует набор текста через системный ввод. Нет: пропуск вставки, обновление только истории/буфера обмена.",
         "options": {
           "clipboard": "Буфер обмена ({{modifier}}+V)",
@@ -321,20 +371,20 @@
         "title": "Инструмент ввода",
         "description": "Выберите, какой инструмент ввода в Linux использовать для метода прямой вставки. Auto автоматически определит и использует лучший доступный инструмент для вашей системы.",
         "options": {
-          "auto": "Auto (Рекомендуется)"
+          "auto": "Auto (рекомендуется)"
         }
       },
       "clipboardHandling": {
-        "title": "Обработка буфера обмена",
+        "title": "Буфер обмена после вставки",
         "description": "Функция «Не изменять буфер обмена» сохраняет текущее содержимое буфера обмена после транскрипции. Копировать в буфер обмена оставляет результат транскрипции в буфере обмена после вставки.",
         "options": {
-          "dontModify": "Не изменять буфер обмена",
+          "dontModify": "Сохранить прежний буфер обмена",
           "copyToClipboard": "Копировать в буфер обмена"
         },
         "privacyHint": "Текст в буфере обмена виден другим приложениям и программам для буфера, а универсальный буфер обмена может скопировать его на другие ваши устройства Apple."
       },
       "autoSubmit": {
-        "title": "Автоматическая отправка",
+        "title": "Нажать клавишу после вставки",
         "description": "Автоматически отправляет выбранную комбинацию клавиш после вставки текста. Cmd+Enter применяется на macOS, а Windows/Linux используют Super+Enter.",
         "options": {
           "off": "Выкл.",
@@ -370,22 +420,30 @@
         "remove": "Удалить {{word}}",
         "duplicate": "\"{{word}}\" уже существует"
       },
+      "corrections": {
+        "title": "Автозамена",
+        "description": "Заменяет указанные слова или фразы в итоговом тексте без учёта регистра.",
+        "fromPlaceholder": "Что",
+        "toPlaceholder": "Чем",
+        "duplicate": "Замена для «{{word}}» уже существует",
+        "remove": "Удалить замену {{from}} на {{to}}"
+      },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Пропускать тишину",
+        "description": "Пропускает тихие паузы во время записи. Если выключить, записывается весь звук целиком."
       }
     },
     "postProcessing": {
       "hotkey": {
-        "title": "Горячая клавиша"
+        "title": "Сочетание клавиш"
       },
       "correction": {
-        "title": "Итеративное исправление",
-        "toggleLabel": "Произносить исправления",
+        "title": "Голосовые правки",
+        "toggleLabel": "Голосовые правки",
         "toggleDescription": "Добавляет отдельное сочетание клавиш, которое вы нажимаете, чтобы заменить последнюю диктовку произнесённым исправлением. Оно никогда не срабатывает автоматически по ключевым словам. Нажмите назначенную клавишу, произнесите исправление, и предыдущий текст будет отредактирован на месте."
       },
       "api": {
-        "title": "API (совместимый с OpenAI)",
+        "title": "Модель очистки",
         "provider": {
           "title": "Поставщик",
           "description": "Выберите поставщика, совместимого с OpenAI."
@@ -424,22 +482,22 @@
         }
       },
       "prompts": {
-        "title": "Запрос к модели",
+        "title": "Инструкции",
         "selectedPrompt": {
-          "title": "Выберите запрос",
+          "title": "Стиль очистки",
           "description": "Выберите запрос для постобработки транскрипции или создайте новый. Используйте ${output} внутри текста запроса для ссылки на записанную транскрипцию."
         },
         "noPrompts": "Нет доступных запросов",
         "selectPrompt": "Выберите запрос",
-        "createNew": "Создать новый запрос",
-        "promptLabel": "Название запроса",
+        "createNew": "Новый стиль",
+        "promptLabel": "Название",
         "promptLabelPlaceholder": "Введите название запроса",
         "promptInstructions": "Инструкции",
         "promptInstructionsPlaceholder": "Напишите инструкции для постобработки транскрипции. Например: Улучшить грамматику и ясность следующего текста: ${output}",
         "promptTip": "Совет: используйте <code>${output}</code>, чтобы вставить транскрипцию.",
-        "updatePrompt": "Обновить запрос",
-        "deletePrompt": "Удалить запрос",
-        "createPrompt": "Создать запрос",
+        "updatePrompt": "Сохранить изменения",
+        "deletePrompt": "Удалить",
+        "createPrompt": "Создать",
         "cancel": "Отмена",
         "selectToEdit": "Выберите запрос выше, чтобы просмотреть и изменить его сведения.",
         "createFirst": "Нажмите «Создать новый запрос» выше, чтобы создать первый запрос для постобработки."
@@ -458,12 +516,17 @@
       "retranscribe": "Перетранскрибировать",
       "retranscribeError": "Не удалось перетранскрибировать. Пожалуйста, попробуйте снова.",
       "transcribing": "Транскрибирование...",
+      "edit": "Изменить",
+      "saveEdit": "Сохранить",
+      "editError": "Не удалось сохранить правку",
+      "learnedOne": "Запомнена замена: «{{from}}» → «{{to}}»",
+      "learnedMany": "Запомнено замен из вашей правки: {{count}}",
       "transcriptionFailed": "Транскрипция не удалась. Вы можете перетранскрибировать, используя значок повтора."
     },
     "debug": {
       "title": "Отлаживать",
       "logDirectory": {
-        "title": "Каталог журналов",
+        "title": "Папка журналов",
         "description": "Место хранения файлов журналов"
       },
       "logLevel": {
@@ -487,6 +550,7 @@
       },
       "soundTheme": {
         "label": "Звуковая тема",
+        "preview": "Прослушать звуковую тему",
         "description": "Выберите звуковую тему для начала и остановки записи обратной связи."
       },
       "wordCorrectionThreshold": {
@@ -517,33 +581,35 @@
         "description": "Микрофон для использования при закрытой крышке ноутбука"
       },
       "postProcessingToggle": {
-        "label": "Постобработка",
-        "description": "Включить уточнение текста с помощью искусственного интеллекта после транскрипции"
+        "label": "Очистка текста",
+        "description": "Убирать слова-паразиты, поправлять пунктуацию и самоисправления после распознавания"
       },
       "muteWhileRecording": {
         "label": "Отключить звук во время записи",
         "description": "Отключение звука системы во время записи"
       },
       "appendTrailingSpace": {
-        "label": "Добавить пробел",
+        "label": "Добавлять пробел в конце",
         "description": "Добавить пробел после вставленной транскрипции"
       },
       "keyboardImplementation": {
-        "title": "Реализация клавиатуры",
+        "title": "Обработчик клавиатуры",
         "description": "Выберите бэкенд для клавиатурных сочетаний.",
         "bindingsReset": "Клавиатурные сочетания были несовместимы и сброшены к значениям по умолчанию"
       },
       "paths": {
+        "title": "Пути приложения",
+        "description": "Внутренние папки и файлы для диагностики",
         "appData": "Данные приложения:",
         "models": "Модели:",
         "settings": "Настройки:"
       },
       "pasteDelay": {
-        "title": "Задержка вставки (до)",
+        "title": "Задержка перед вставкой",
         "description": "Задержка (в миллисекундах) после копирования текста, перед отправкой нажатия клавиши вставки. Увеличьте, если ничего не вставляется."
       },
       "pasteDelayAfter": {
-        "title": "Задержка вставки (после)",
+        "title": "Задержка после вставки",
         "description": "Задержка (в миллисекундах) после нажатия клавиши вставки, перед восстановлением предыдущего буфера обмена. Увеличьте, если вместо транскрипции вставляется старое содержимое буфера обмена."
       },
       "recordingBuffer": {
@@ -565,7 +631,7 @@
         "description": "Текущая версия Coco Voice"
       },
       "appDataDirectory": {
-        "title": "Каталог данных приложения",
+        "title": "Папка данных приложения",
         "description": "Место, где Coco Voice хранит свои данные"
       },
       "sourceCode": {
@@ -585,6 +651,32 @@
         "label": "Показывать новинки",
         "description": "Показывать примечания к выпуску после обновлений Coco Voice"
       }
+    },
+    "online": {
+      "eyebrow": "Настройки",
+      "title": "Что выходит в сеть",
+      "intro": "Ваша речь преобразуется в текст на этом Mac. Ниже перечислены адреса, к которым может обращаться эта версия Coco Voice, и данные, которые получает каждый из них.",
+      "leavesLabel": "Уходит с вашего Mac:",
+      "openHeading": "При каждом запуске приложения",
+      "githubName": "GitHub (выпуски Coco Voice)",
+      "githubWhen": "При каждом открытии приложения для проверки обновлений. Чтобы отключить это, выключите проверку обновлений выше в разделе «О программе». Ссылки при нажатии открываются в браузере.",
+      "githubLeaves": "запрос списка выпусков и файл обновления, если вы его устанавливаете. Без речи и без текста.",
+      "updateChecksOn": "Проверка обновлений включена",
+      "updateChecksOff": "Проверка обновлений выключена",
+      "clickHeading": "Только по вашему нажатию",
+      "modelFilesName": "Файлы моделей Coco Voice",
+      "modelFilesWhen": "Когда вы нажимаете «Скачать» для встроенной речевой модели.",
+      "modelFilesLeaves": "имя запрошенного файла модели. Без речи и без текста.",
+      "huggingFaceWhen": "Когда вы нажимаете «Скачать» для модели из каталога или нажимаете на её лицензию, чтобы открыть в браузере.",
+      "huggingFaceLeaves": "имя модели, версия и имя файла, а также токен Hugging Face, если он уже задан на этом Mac. Без речи и без текста.",
+      "cleanupHeading": "Только при выборе провайдера постобработки",
+      "cloudWhen": "Когда очистка текста выполняется через выбранного вами облачного провайдера.",
+      "cloudLeaves": "текст сказанного, инструкции по очистке и ваш API-ключ. Запрос списка моделей отправляет только ваш API-ключ.",
+      "customName": "Свой провайдер (Ollama)",
+      "customWhen": "Когда очистка выполняется с выбранным вариантом «Свой». Обращается к программе на этом Mac, если вы не изменили адрес.",
+      "customLeaves": "ничего при исходном адресе. Текст сказанного и инструкции передаются программе на этом Mac.",
+      "staysOnMac": "Остаётся на этом Mac",
+      "onDeviceNote": "Обработка на устройстве (Apple Intelligence или локальная модель) не обращается ни к одному из этих адресов."
     }
   },
   "footer": {
@@ -607,6 +699,11 @@
     "open": "Открыть",
     "copy": "Копировать",
     "clear": "Очистить",
+    "selectOption": "Выберите вариант...",
+    "notAvailable": "Недоступно",
+    "moreInfo": "Подробнее",
+    "play": "Воспроизвести",
+    "pause": "Пауза",
     "noOptionsFound": "Вариантов не найдено"
   },
   "accessibility": {
@@ -657,11 +754,21 @@
   },
   "overlay": {
     "transcribing": "Расшифровка...",
-    "processing": "Обработка...",
-    "polishing": "Правка..."
+    "processing": "Очистка...",
+    "polishing": "Правка...",
+    "pillStates": {
+      "listening": "Listening",
+      "working": "Working",
+      "sentToApp": "Sent to {{app}}",
+      "onClipboard": "On the clipboard",
+      "wordsKeptPressPaste": "Words kept · press ⌘V"
+    }
   },
   "whatsNew": {
-    "title": "Новое в Coco Voice v{{version}}"
+    "title": "Новое в Coco Voice v{{version}}",
+    "rollbackTitle": "If an update fails",
+    "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
+    "reportIt": "Report it"
   },
   "cleanupStatus": {
     "chip": {
@@ -706,6 +813,221 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "list": {
+      "heading": "All meetings",
+      "countOne": "1 meeting",
+      "countMany": "{{count}} meetings",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Title, notes, or transcript",
+      "searchAria": "Search meetings",
+      "untitled": "Meeting",
+      "dateAndDuration": "{{date}} · {{minutes}} min",
+      "notesReady": "Notes ready",
+      "transcriptOnly": "Transcript only",
+      "exportMarkdown": "Export Markdown",
+      "delete": "Delete",
+      "confirmPrompt": "Delete this meeting?",
+      "confirmDelete": "Confirm delete",
+      "cancelDelete": "Cancel",
+      "emptyList": "No meetings yet. Start notes from the menu bar.",
+      "emptySearch": "No meetings match your search.",
+      "audioLeftWarning": "Meeting deleted, but its audio folder is still on disk.",
+      "loadFailed": "Could not load meetings.",
+      "exportFailed": "Could not export Markdown.",
+      "deleteFailed": "Could not delete the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
+    "consent": {
+      "title": "Сначала предупредите участников",
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "offer": {
+      "title": "Start notes?",
+      "zoomInCall": "Zoom is in a call.",
+      "zoomOpen": "Zoom is open.",
+      "teamsInCall": "Teams is in a call.",
+      "teamsOpen": "Teams is open.",
+      "meet": "Google Meet may be open.",
+      "notRecording": "Not recording",
+      "neverOnItsOwn": "Coco Voice never records on its own.",
+      "start": "Start notes",
+      "notNow": "Not now"
+    },
+    "view": {
+      "title": "Meeting, {{time}}",
+      "channels": "Me and Others",
+      "channel": {
+        "me": "Me",
+        "others": "Others"
+      },
+      "recording": "Recording",
+      "finished": "Finished",
+      "stop": "Stop",
+      "autoScrolling": "Auto-scrolling",
+      "scrollPaused": "Scroll paused",
+      "mic": "Me: {{name}}",
+      "noMeeting": "No meeting is open. Start notes from the menu bar.",
+      "loadFailed": "Could not load the saved lines.",
+      "stopFailed": "Could not stop the meeting.",
+      "warnings": {
+        "systemAudioSilent": "No call audio heard yet. Check that System Audio Recording is allowed for Coco Voice in System Settings.",
+        "micFellBackToDefault": "Your selected microphone was not found, so Me uses the default microphone."
+      },
+      "hints": {
+        "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
+        "dictation": "Dictation still works during a meeting."
+      },
+      "shortcutFailed": "Не удалось зарегистрировать сочетание клавиш встречи. Запускайте и останавливайте здесь или из строки меню."
+    },
+    "record": {
+      "startNowHeading": "Начать сейчас",
+      "whenCallStartsHeading": "Когда начинается звонок",
+      "offerLabel": "Предлагать начать заметки",
+      "offerDescription": "Показывает «Начать заметки?», когда идёт звонок в Zoom, Meet или Teams. Никогда не записывает само.",
+      "wordsHeading": "Слова и имена для встреч",
+      "wordsDescription": "Используются только для встреч отдельно от пользовательских слов диктовки.",
+      "wordsPlaceholder": "Добавить имя или термин...",
+      "addWord": "Добавить",
+      "removeWordAria": "Удалить {{word}}",
+      "dictationKeepsWorking": "Запись встречи никогда не останавливает диктовку. Ваше сочетание клавиш продолжает работать."
+    },
+    "notes": {
+      "ready": "Заметки готовы",
+      "finishing": "Завершение заметок: {{seconds}} с",
+      "yourNotes": "Ваши заметки",
+      "placeholder": "Записывайте ключевые моменты во время встречи...",
+      "heading": "Заметки",
+      "subtitle": "Из ваших заметок и расшифровки",
+      "summary": "Итоги",
+      "decisions": "Решения",
+      "actions": "Задачи",
+      "yourNote": "ваша заметка",
+      "oversized": "Пропущено {{count}} слишком длинных фрагментов при создании заметок.",
+      "transcriptHeading": "Расшифровка",
+      "failed": "Не удалось создать заметки. Расшифровка и ваши заметки сохранены.",
+      "retry": "Повторить",
+      "openQuestions": "Open questions",
+      "citeRule": "Every line links to the moment it came from. A line with no source is not shown.",
+      "notesSoFar": "Notes so far",
+      "notesSoFarHint": "Updated every few minutes.",
+      "timeToNotes": "Ready in {{seconds}} s",
+      "leftOutHeading": "Left out",
+      "smallTalkLabel": "Treated as small talk",
+      "uncoveredLabel": "Not covered by any note",
+      "showInTranscript": "Show in transcript",
+      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript.",
+      "catchUpButton": "What did I miss?",
+      "catchUpWindow": "Last 5 minutes",
+      "foldersHeading": "Folders",
+      "templatesHeading": "Note templates",
+      "openFolder": "Open",
+      "closedFolder": "Closed",
+      "newFolderPlaceholder": "New folder name...",
+      "createFolder": "Add folder",
+      "editTemplates": "Edit templates",
+      "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "Встречи · Хранение",
+      "deleteAudioLabel": "Удалять аудио после создания заметок",
+      "deleteAudioDescription": "Включено по умолчанию. Аудиофайлы удаляются, как только заметки готовы.",
+      "keepTranscriptsLabel": "Хранить расшифровки на этом Mac",
+      "keepTranscriptsDescription": "Расшифровки остаются здесь, пока вы их не удалите.",
+      "onThisMac": "На этом Mac",
+      "deleteAll": "Удалить всё",
+      "confirmPrompt": "Удалить все встречи, расшифровки, заметки и записи?",
+      "confirmDeleteAll": "Подтвердить удаление всего",
+      "cancel": "Отмена",
+      "audioLeftWarning": "Встречи удалены, но одну или несколько папок с аудио удалить не удалось.",
+      "actionFailed": "Не удалось обновить настройки хранения встреч.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
+    },
+    "storage": {
+      "filesTitle": "Meetings · Files",
+      "saveMarkdownLabel": "Save notes as Markdown files",
+      "saveMarkdownDescription": "Off by default. Writes one plain .md file per meeting into your chosen folder.",
+      "folderLabel": "Folder",
+      "chooseFolder": "Choose folder",
+      "syncRule": "Written locally on this Mac. Coco Voice never uploads files.",
+      "syncWarning": "This folder syncs with {{service}}. Files saved here follow your {{service}} settings.",
+      "languageTitle": "Meeting language",
+      "autoDetect": "Auto-detect",
+      "thisMeetingOverride": "Override for this meeting",
+      "pause": "Pause",
+      "resume": "Resume",
+      "pausedBadge": "Paused",
+      "pausedHint": "Paused: nothing is recorded. Still one meeting.",
+      "addAudio": "Add audio to this meeting",
+      "trashTab": "Trash",
+      "kept30Days": "Deleted today · kept 30 days",
+      "restore": "Restore",
+      "searchTranscriptPlaceholder": "Search this transcript",
+      "deleteSpan": "Delete this part",
+      "olderNoteBanner": "Recording {{title}} {{elapsed}}",
+      "olderNoteHint": "{{title}} keeps recording while you read this. The timer keeps running.",
+      "backToLive": "Back to live notes",
+      "importTab": "Import notes",
+      "importDescription": "Bring notes from another meeting app. Exported Markdown or text files; nothing is fetched online.",
+      "chooseImportFiles": "Choose files or a folder",
+      "importIntoFolder": "Import into folder: {{folder}}",
+      "importAction": "Import {{count}} notes"
+    },
+    "ask": {
+      "singleHeading": "Ask this meeting",
+      "acrossHeading": "Ask across meetings",
+      "scopeThisMeeting": "This meeting only",
+      "scopeAll": "All meetings on this Mac",
+      "scopeFolder": "Folder",
+      "scopePicked": "Picked set",
+      "placeholderSingle": "Ask a question about this meeting...",
+      "placeholderAcross": "Ask across your meetings...",
+      "askButton": "Ask",
+      "voiceAskAria": "Ask by voice",
+      "listeningQuestion": "Listening for your question...",
+      "citationRule": "Every answer cites the meeting and exact moment it came from.",
+      "todosTab": "Your to-dos"
+    },
+    "agent": {
+      "todosSubtitle": "From your last 14 days of meetings",
+      "todosDone": "Done",
+      "todosFooter": "Each to-do opens the moment you said it. Found on this Mac; updated after every meeting.",
+      "subtitle": "Let an AI agent on this Mac (Claude Code, Cursor, Codex) read your meetings while you work. Off until you turn it on. Nothing leaves this Mac through Coco Voice.",
+      "masterLabel": "Allow local agents to read meetings",
+      "offByDefault": "Off by default",
+      "canReadHeading": "What an agent can read",
+      "liveMeetingLabel": "The meeting happening now",
+      "pastMeetingsLabel": "Past meetings",
+      "audioLabel": "Meeting audio",
+      "audioNever": "Never · Not offered",
+      "connectHeading": "Connect an agent",
+      "copyCommand": "Copy",
+      "recentReadsHeading": "Recent reads"
     }
+  },
+  "homeNotices": {
+    "staleAccessibility": "Accessibility stopped working after the update.",
+    "fixThreeSteps": "Fix it (3 steps)",
+    "shortcutUnset": "Your shortcut is not set up.",
+    "chooseShortcut": "Choose a shortcut",
+    "typingOff": "Typing is off. Dictations copy to your clipboard.",
+    "turnTypingOn": "Turn typing on",
+    "cleanupModelMissing": "Clean-up skipped: local model not downloaded.",
+    "openModels": "Open Models",
+    "updateReady": "Update ready: {{version}}",
+    "restartNow": "Restart now"
   }
 }

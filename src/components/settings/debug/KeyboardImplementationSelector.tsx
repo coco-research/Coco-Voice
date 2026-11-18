@@ -7,8 +7,8 @@ import { commands } from "@/bindings";
 import { toast } from "sonner";
 
 const KEYBOARD_IMPLEMENTATION_OPTIONS: DropdownOption[] = [
-  { value: "tauri", label: "Tauri Global Shortcut" },
-  { value: "coco_keys", label: "Coco Voice Keys" },
+  { value: "tauri", label: "System global shortcut" },
+  { value: "coco_keys", label: "Coco Voice keys" },
 ];
 
 interface KeyboardImplementationSelectorProps {

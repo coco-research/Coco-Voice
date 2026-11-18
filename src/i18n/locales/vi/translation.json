@@ -6,23 +6,51 @@
     "unloadModel": "Dỡ mô hình",
     "model": "Mô hình",
     "quit": "Thoát",
-    "cancel": "Hủy"
+    "cancel": "Hủy",
+    "startNotes": "Bắt đầu ghi chú...",
+    "startRecordingMeeting": "Start recording a meeting",
+    "pasteLastTake": "Paste last take",
+    "copyLastTake": "Copy last take",
+    "openApp": "Open Coco Voice"
   },
   "sidebar": {
     "general": "Chung",
     "models": "Mô hình",
     "advanced": "Nâng cao",
-    "postProcessing": "Xử lý sau",
+    "postProcessing": "Làm sạch",
     "history": "Lịch sử",
     "debug": "Gỡ lỗi",
-    "about": "Giới thiệu"
+    "about": "Giới thiệu",
+    "home": "Trang chủ",
+    "recordMeeting": "Ghi âm cuộc họp",
+    "meetingHistory": "Lịch sử cuộc họp",
+    "askMeetings": "Hỏi các cuộc họp",
+    "foldersAndTemplates": "Thư mục và mẫu",
+    "agentAccess": "Quyền truy cập tác nhân",
+    "voiceSection": "Giọng nói",
+    "dictationHistory": "Lịch sử đọc chính tả",
+    "perAppProfiles": "Hồ sơ theo ứng dụng",
+    "wordsAndCleanup": "Từ vựng và làm sạch",
+    "settings": "Cài đặt",
+    "sectionPlaceholder": "Khả dụng trong mục này khi được bật.",
+    "startRecording": "Bắt đầu ghi âm",
+    "seeAllMeetings": "Tất cả cuộc họp →",
+    "dictateHeading": "Đọc chính tả ở mọi nơi",
+    "holdToTalk": "giữ để nói",
+    "changeShortcut": "Đổi phím tắt",
+    "seeAllDictations": "Tất cả bản đọc →",
+    "dictationSearchPlaceholder": "Từ bạn đã nói",
+    "dictationSearchAria": "Tìm bản đọc chính tả",
+    "cleanedUp": "Đã làm sạch",
+    "emptyDictationSearch": "Không có bản đọc nào khớp tìm kiếm.",
+    "keptDays": "Lưu 30 ngày"
   },
   "onboarding": {
     "subtitle": "Để bắt đầu, hãy chọn một mô hình chuyển đổi giọng nói",
-    "existingModelsTitle": "Compatible Models",
-    "downloadModelsTitle": "Available to Download",
-    "showAllModels": "Show all {{total}} models",
-    "showFewerModels": "Show fewer models",
+    "existingModelsTitle": "Mô hình tương thích",
+    "downloadModelsTitle": "Có sẵn để tải xuống",
+    "showAllModels": "Hiện tất cả {{total}} mô hình",
+    "showFewerModels": "Hiện ít mô hình hơn",
     "recommended": "Đề xuất",
     "customModelDescription": "Không được hỗ trợ chính thức",
     "modelCard": {
@@ -96,18 +124,26 @@
       }
     },
     "errors": {
-      "selectModel": "Failed to select model"
+      "selectModel": "Không thể chọn mô hình"
     },
     "permissions": {
       "title": "Cần cấp quyền",
       "description": "Coco Voice cần một số quyền để hoạt động bình thường.",
       "microphone": {
-        "title": "Quyền truy cập Micrô",
+        "title": "Quyền truy cập micrô",
         "description": "Cần thiết để nghe giọng nói của bạn để chuyển đổi."
       },
       "accessibility": {
-        "title": "Quyền truy cập Trợ năng",
-        "description": "Cần thiết để nhập văn bản đã chuyển đổi vào các ứng dụng của bạn."
+        "title": "Quyền truy cập trợ năng",
+        "description": "Cần thiết để nhập văn bản đã chuyển đổi vào các ứng dụng của bạn.",
+        "stale": {
+          "description": "macOS hiển thị Coco Voice là đã được cho phép, nhưng mục này đã cũ (thường xảy ra sau khi cập nhật), nên không thể dán. Cách khắc phục:",
+          "step1": "Mở Cài đặt hệ thống > Quyền riêng tư & Bảo mật > Trợ năng.",
+          "step2": "Chọn Coco Voice và xóa bằng nút trừ (-).",
+          "step3": "Thêm lại Coco Voice bằng nút cộng (+) và bật lên.",
+          "checkAgain": "Kiểm tra lại",
+          "continueWithoutTyping": "Continue without typing"
+        }
       },
       "grant": "Cấp quyền",
       "granted": "Đã cấp",
@@ -117,6 +153,12 @@
         "checkFailed": "Không thể kiểm tra quyền. Vui lòng thử lại.",
         "requestFailed": "Không thể yêu cầu quyền. Vui lòng thử lại."
       }
+    },
+    "tryIt": {
+      "title": "Try it",
+      "prompt": "Hold {{shortcut}} and say: \"Monday, scratch that, Tuesday\"",
+      "cleanedResult": "Tuesday.",
+      "done": "Done"
     }
   },
   "modelSelector": {
@@ -132,12 +174,12 @@
     "extractingGeneric": "Đang giải nén...",
     "downloading": "Đang tải xuống {{percentage}}%",
     "downloadingMultiple": "Đang tải xuống {{count}} mô hình...",
-    "modelReady": "Mô Hình Sẵn Sàng",
+    "modelReady": "Mô hình sẵn sàng",
     "loading": "Đang tải {{modelName}}...",
     "loadingGeneric": "Đang tải...",
-    "modelError": "Lỗi Mô Hình",
-    "modelUnloaded": "Mô Hình Đã Gỡ",
-    "noModelDownloadRequired": "Chưa Có Mô Hình - Cần Tải Xuống",
+    "modelError": "Lỗi mô hình",
+    "modelUnloaded": "Mô hình đã gỡ",
+    "noModelDownloadRequired": "Chưa có mô hình — cần tải xuống",
     "deleteModel": "Xóa {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
     "capabilities": {
@@ -152,7 +194,15 @@
     "cancel": "Hủy",
     "cancelDownload": "Hủy tải xuống",
     "legacy": "Cũ",
-    "licence": "Giấy phép: {{licence}}"
+    "licence": "Giấy phép: {{licence}}",
+    "downloadFailed": {
+      "network": "Tải xuống thất bại: hãy kiểm tra kết nối internet.",
+      "diskSpace": "Tải xuống thất bại: không đủ dung lượng ổ đĩa.",
+      "checksum": "Tải xuống thất bại: tệp không vượt qua kiểm tra toàn vẹn.",
+      "other": "Tải xuống thất bại.",
+      "retry": "Thử lại",
+      "skip": "Bỏ qua lúc này"
+    }
   },
   "settings": {
     "modelSettings": {
@@ -179,7 +229,7 @@
     "general": {
       "title": "Chung",
       "shortcut": {
-        "title": "Phím tắt Coco Voice",
+        "title": "Phím tắt bàn phím",
         "description": "Cấu hình phím tắt để kích hoạt ghi âm chuyển đổi giọng nói thành văn bản",
         "loading": "Đang tải phím tắt...",
         "none": "Chưa cấu hình phím tắt",
@@ -187,7 +237,7 @@
         "pressKeys": "Nhấn phím...",
         "bindings": {
           "transcribe": {
-            "name": "Phím tắt chuyển đổi",
+            "name": "Phím tắt đọc chính tả",
             "description": "Phím tắt để ghi âm và chuyển đổi giọng nói của bạn."
           },
           "cancel": {
@@ -195,11 +245,11 @@
             "description": "Phím tắt để hủy bản ghi hiện tại."
           },
           "transcribe_with_post_process": {
-            "name": "Phím tắt xử lý sau",
+            "name": "Phím tắt làm sạch",
             "description": "Tùy chọn: Phím tắt chuyên dụng luôn áp dụng xử lý sau bằng AI cho bản chuyển đổi của bạn."
           },
           "correction": {
-            "name": "Nói chỉnh sửa",
+            "name": "Phím tắt sửa bằng giọng nói",
             "description": "Phím tắt để nói một chỉnh sửa thay thế lần đọc chính tả gần nhất của bạn. Gán một phím để bật tính năng này."
           }
         },
@@ -217,7 +267,7 @@
         "auto": "Tự động"
       },
       "pushToTalk": {
-        "label": "Nhấn để nói",
+        "label": "Giữ để nói",
         "description": "Giữ để ghi âm, thả để dừng"
       }
     },
@@ -230,7 +280,7 @@
         "loading": "Đang tải..."
       },
       "audioFeedback": {
-        "label": "Phản hồi âm thanh",
+        "label": "Âm thanh ghi âm",
         "description": "Phát âm thanh khi bắt đầu và kết thúc ghi âm"
       },
       "outputDevice": {
@@ -278,7 +328,7 @@
         "description": "Khởi động vào khay hệ thống mà không mở cửa sổ."
       },
       "autostart": {
-        "label": "Khởi động cùng hệ thống",
+        "label": "Mở khi đăng nhập",
         "description": "Tự động khởi động Coco Voice khi bạn đăng nhập vào máy tính."
       },
       "showTrayIcon": {
@@ -287,16 +337,16 @@
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
+          "title": "Thanh ghi âm",
+          "description": "Chọn kiểu thanh ghi âm: Không sẽ ẩn đi, Thu gọn hiện viên thuốc nhỏ, Trực tiếp hiện chữ ngay khi bạn nói.",
           "options": {
             "none": "Không có",
-            "minimal": "Minimal",
-            "live": "Live"
+            "minimal": "Thu gọn",
+            "live": "Trực tiếp"
           }
         },
         "position": {
-          "title": "Vị trí lớp phủ",
+          "title": "Vị trí thanh ghi âm",
           "description": "Hiển thị lớp phủ phản hồi trực quan trong quá trình ghi âm và chuyển đổi. Trên Linux, 'Không có' được khuyến nghị.",
           "options": {
             "bottom": "Dưới",
@@ -305,7 +355,7 @@
         }
       },
       "pasteMethod": {
-        "title": "Phương thức dán",
+        "title": "Cách chèn chữ",
         "description": "Chọn cách chèn văn bản. Trực tiếp: mô phỏng gõ phím qua đầu vào hệ thống. Không có: bỏ qua dán, chỉ cập nhật lịch sử/clipboard.",
         "options": {
           "clipboard": "Clipboard ({{modifier}}+V)",
@@ -321,20 +371,20 @@
         "title": "Công cụ gõ",
         "description": "Chọn công cụ gõ trên Linux cho phương thức dán trực tiếp. Auto sẽ tự động phát hiện và dùng công cụ tốt nhất có sẵn cho hệ thống của bạn.",
         "options": {
-          "auto": "Auto (Khuyến nghị)"
+          "auto": "Auto (khuyến nghị)"
         }
       },
       "clipboardHandling": {
-        "title": "Xử lý Clipboard",
+        "title": "Bộ nhớ tạm sau khi dán",
         "description": "Không sửa đổi Clipboard giữ nguyên nội dung clipboard hiện tại sau khi chuyển đổi. Sao chép vào Clipboard để lại kết quả chuyển đổi trong clipboard sau khi dán.",
         "options": {
-          "dontModify": "Không sửa đổi Clipboard",
-          "copyToClipboard": "Sao chép vào Clipboard"
+          "dontModify": "Giữ nguyên bộ nhớ tạm trước đó",
+          "copyToClipboard": "Sao chép vào bộ nhớ tạm"
         },
         "privacyHint": "Ứng dụng khác và công cụ clipboard có thể thấy chữ trên clipboard, và Bảng nhớ tạm chung có thể sao chép chữ đó sang các thiết bị Apple khác của bạn."
       },
       "autoSubmit": {
-        "title": "Gửi tự động",
+        "title": "Nhấn phím sau khi dán",
         "description": "Tự động gửi tổ hợp phím đã chọn sau khi chèn văn bản. Cmd+Enter áp dụng trên macOS, còn Windows/Linux dùng Super+Enter.",
         "options": {
           "off": "Tắt",
@@ -359,7 +409,7 @@
           "min10": "Sau 10 phút",
           "min15": "Sau 15 phút",
           "hour1": "Sau 1 giờ",
-          "sec15": "Sau 15 giây (Gỡ lỗi)"
+          "sec15": "Sau 15 giây (gỡ lỗi)"
         }
       },
       "customWords": {
@@ -370,9 +420,17 @@
         "remove": "Xóa {{word}}",
         "duplicate": "\"{{word}}\" đã tồn tại"
       },
+      "corrections": {
+        "title": "Sửa từ",
+        "description": "Thay thế từ hoặc cụm từ cụ thể trong văn bản cuối cùng, không phân biệt hoa thường.",
+        "fromPlaceholder": "Từ gốc",
+        "toPlaceholder": "Thay bằng",
+        "duplicate": "Đã có mục sửa cho \"{{word}}\"",
+        "remove": "Xóa mục sửa từ {{from}} thành {{to}}"
+      },
       "voiceActivityDetection": {
-        "title": "Voice Activity Detection",
-        "description": "Filter silence from recordings. Streaming-capable models use a longer VAD tail; disabling VAD records raw audio."
+        "title": "Bỏ qua khoảng lặng",
+        "description": "Loại bỏ các khoảng im lặng khi ghi âm. Tắt tùy chọn này sẽ ghi lại toàn bộ âm thanh."
       }
     },
     "postProcessing": {
@@ -380,12 +438,12 @@
         "title": "Phím tắt"
       },
       "correction": {
-        "title": "Chỉnh sửa lặp",
-        "toggleLabel": "Nói chỉnh sửa",
+        "title": "Sửa bằng giọng nói",
+        "toggleLabel": "Sửa bằng giọng nói",
         "toggleDescription": "Thêm một phím tắt rõ ràng mà bạn nhấn để thay thế lần đọc chính tả gần nhất bằng một chỉnh sửa được nói. Nó không bao giờ tự kích hoạt từ từ khóa. Nhấn phím đã gán, nói phần sửa, và kết quả trước đó được sửa tại chỗ."
       },
       "api": {
-        "title": "API (Tương thích OpenAI)",
+        "title": "Mô hình làm sạch",
         "provider": {
           "title": "Nhà cung cấp",
           "description": "Chọn một nhà cung cấp tương thích OpenAI."
@@ -424,22 +482,22 @@
         }
       },
       "prompts": {
-        "title": "Prompt",
+        "title": "Hướng dẫn",
         "selectedPrompt": {
-          "title": "Prompt đã chọn",
+          "title": "Kiểu làm gọn",
           "description": "Chọn một mẫu để tinh chỉnh bản ghi hoặc tạo mới. Sử dụng ${output} trong văn bản prompt để tham chiếu bản ghi đã chụp."
         },
         "noPrompts": "Không có prompt nào",
         "selectPrompt": "Chọn một prompt",
-        "createNew": "Tạo Prompt mới",
-        "promptLabel": "Nhãn Prompt",
+        "createNew": "Kiểu mới",
+        "promptLabel": "Tên",
         "promptLabelPlaceholder": "Nhập tên prompt",
-        "promptInstructions": "Hướng dẫn Prompt",
+        "promptInstructions": "Hướng dẫn",
         "promptInstructionsPlaceholder": "Viết hướng dẫn để chạy sau khi chuyển đổi. Ví dụ: Cải thiện ngữ pháp và độ rõ ràng cho văn bản sau: ${output}",
         "promptTip": "Mẹo: Sử dụng <code>${output}</code> để chèn văn bản đã chuyển đổi vào prompt của bạn.",
-        "updatePrompt": "Cập nhật Prompt",
-        "deletePrompt": "Xóa Prompt",
-        "createPrompt": "Tạo Prompt",
+        "updatePrompt": "Lưu thay đổi",
+        "deletePrompt": "Xóa",
+        "createPrompt": "Tạo",
         "cancel": "Hủy",
         "selectToEdit": "Chọn một prompt ở trên để xem và chỉnh sửa chi tiết.",
         "createFirst": "Nhấn 'Tạo Prompt mới' ở trên để tạo prompt xử lý sau đầu tiên của bạn."
@@ -458,6 +516,11 @@
       "retranscribe": "Phiên âm lại",
       "retranscribeError": "Không thể phiên âm lại. Vui lòng thử lại.",
       "transcribing": "Đang phiên âm...",
+      "edit": "Sửa",
+      "saveEdit": "Lưu",
+      "editError": "Không lưu được chỉnh sửa",
+      "learnedOne": "Đã học mục sửa: \"{{from}}\" → \"{{to}}\"",
+      "learnedMany": "Đã học {{count}} mục sửa từ chỉnh sửa của bạn",
       "transcriptionFailed": "Phiên âm thất bại. Bạn có thể phiên âm lại bằng biểu tượng thử lại."
     },
     "debug": {
@@ -487,6 +550,7 @@
       },
       "soundTheme": {
         "label": "Chủ đề âm thanh",
+        "preview": "Nghe thử âm thanh",
         "description": "Chọn chủ đề âm thanh cho phản hồi bắt đầu và kết thúc ghi âm"
       },
       "wordCorrectionThreshold": {
@@ -517,33 +581,35 @@
         "description": "Micrô sử dụng khi nắp laptop được đóng"
       },
       "postProcessingToggle": {
-        "label": "Xử lý sau",
-        "description": "Bật tinh chỉnh văn bản bằng AI sau khi chuyển đổi"
+        "label": "Làm sạch",
+        "description": "Làm sạch từ đệm, dấu câu và phần tự sửa sau khi chuyển giọng nói thành văn bản"
       },
       "muteWhileRecording": {
         "label": "Tắt tiếng khi ghi âm",
         "description": "Tắt tiếng âm thanh hệ thống trong khi ghi âm"
       },
       "appendTrailingSpace": {
-        "label": "Thêm dấu cách cuối",
+        "label": "Thêm dấu cách ở cuối",
         "description": "Thêm một dấu cách sau bản ghi đã dán"
       },
       "keyboardImplementation": {
-        "title": "Triển khai bàn phím",
+        "title": "Bộ xử lý bàn phím",
         "description": "Chọn hệ thống xử lý phím tắt.",
         "bindingsReset": "Các phím tắt không tương thích và đã được đặt lại về mặc định"
       },
       "paths": {
+        "title": "Đường dẫn ứng dụng",
+        "description": "Thư mục và tệp nội bộ phục vụ chẩn đoán",
         "appData": "Dữ liệu ứng dụng:",
         "models": "Mô hình:",
         "settings": "Cài đặt:"
       },
       "pasteDelay": {
-        "title": "Độ trễ dán (trước)",
+        "title": "Độ trễ trước khi dán",
         "description": "Độ trễ (tính bằng mili giây) sau khi sao chép văn bản, trước khi gửi phím dán. Tăng nếu không có gì được dán."
       },
       "pasteDelayAfter": {
-        "title": "Độ trễ dán (sau)",
+        "title": "Độ trễ sau khi dán",
         "description": "Độ trễ (tính bằng mili giây) sau khi gửi phím dán, trước khi khôi phục bảng nhớ tạm trước đó. Tăng nếu nội dung bảng nhớ tạm cũ được dán thay vì bản chép lời."
       },
       "recordingBuffer": {
@@ -585,6 +651,32 @@
         "label": "Hiển thị điểm mới",
         "description": "Hiển thị ghi chú phát hành sau khi Coco Voice cập nhật"
       }
+    },
+    "online": {
+      "eyebrow": "Cài đặt",
+      "title": "Những gì kết nối mạng",
+      "intro": "Giọng nói của bạn được chuyển thành văn bản ngay trên máy Mac này. Đây là những nơi phiên bản Coco Voice này có thể kết nối và dữ liệu mỗi nơi nhận được.",
+      "leavesLabel": "Rời khỏi máy Mac của bạn:",
+      "openHeading": "Mỗi khi mở ứng dụng",
+      "githubName": "GitHub (các bản phát hành Coco Voice)",
+      "githubWhen": "Mỗi khi mở ứng dụng để kiểm tra bản cập nhật. Để tắt, hãy tắt kiểm tra cập nhật ở mục Giới thiệu phía trên. Các liên kết bạn bấm sẽ mở trong trình duyệt.",
+      "githubLeaves": "yêu cầu danh sách bản phát hành và tệp cập nhật nếu bạn cài đặt. Không có giọng nói và không có văn bản.",
+      "updateChecksOn": "Đang bật kiểm tra cập nhật",
+      "updateChecksOff": "Đã tắt kiểm tra cập nhật",
+      "clickHeading": "Chỉ khi bạn bấm",
+      "modelFilesName": "Tệp mô hình Coco Voice",
+      "modelFilesWhen": "Khi bạn bấm Tải xuống trên một mô hình giọng nói tích hợp sẵn.",
+      "modelFilesLeaves": "tên tệp mô hình bạn đã yêu cầu. Không có giọng nói và không có văn bản.",
+      "huggingFaceWhen": "Khi bạn bấm Tải xuống trên một mô hình trong danh mục hoặc bấm vào giấy phép để mở trong trình duyệt.",
+      "huggingFaceLeaves": "tên mô hình, phiên bản và tên tệp, cùng mã Hugging Face nếu đã được đặt sẵn trên máy Mac này. Không có giọng nói và không có văn bản.",
+      "cleanupHeading": "Chỉ khi bạn chọn nhà cung cấp làm sạch văn bản",
+      "cloudWhen": "Khi bước làm sạch chạy với nhà cung cấp đám mây bạn đã chọn.",
+      "cloudLeaves": "văn bản những gì bạn đã nói, hướng dẫn làm sạch và khóa API của bạn. Việc lấy danh sách mô hình chỉ gửi khóa API.",
+      "customName": "Làm sạch tùy chỉnh (Ollama)",
+      "customWhen": "Khi làm sạch chạy với tùy chọn Tùy chỉnh. Ứng dụng giao tiếp với một chương trình trên máy Mac này trừ khi bạn đổi địa chỉ.",
+      "customLeaves": "không có gì ở địa chỉ mặc định. Văn bản bạn nói và hướng dẫn làm sạch được gửi tới chương trình trên máy Mac này.",
+      "staysOnMac": "Ở lại trên máy Mac này",
+      "onDeviceNote": "Làm sạch trên thiết bị (Apple Intelligence hoặc mô hình cục bộ) không kết nối với bất kỳ nơi nào kể trên."
     }
   },
   "footer": {
@@ -607,11 +699,16 @@
     "open": "Mở",
     "copy": "Sao chép",
     "clear": "Xóa",
+    "selectOption": "Chọn một tùy chọn...",
+    "notAvailable": "Không khả dụng",
+    "moreInfo": "Thêm thông tin",
+    "play": "Phát",
+    "pause": "Tạm dừng",
     "noOptionsFound": "Không tìm thấy tùy chọn"
   },
   "accessibility": {
     "permissionsDescription": "Coco Voice cần quyền truy cập để gõ văn bản đã chuyển đổi.",
-    "openSettings": "Mở Cài đặt Hệ thống"
+    "openSettings": "Mở cài đặt hệ thống"
   },
   "errors": {
     "loadDirectory": "Lỗi khi tải thư mục: {{error}}",
@@ -657,11 +754,21 @@
   },
   "overlay": {
     "transcribing": "Đang chuyển đổi...",
-    "processing": "Đang xử lý...",
-    "polishing": "Đang sửa..."
+    "processing": "Đang làm gọn...",
+    "polishing": "Đang sửa...",
+    "pillStates": {
+      "listening": "Listening",
+      "working": "Working",
+      "sentToApp": "Sent to {{app}}",
+      "onClipboard": "On the clipboard",
+      "wordsKeptPressPaste": "Words kept · press ⌘V"
+    }
   },
   "whatsNew": {
-    "title": "Điểm mới trong Coco Voice v{{version}}"
+    "title": "Điểm mới trong Coco Voice v{{version}}",
+    "rollbackTitle": "If an update fails",
+    "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
+    "reportIt": "Report it"
   },
   "cleanupStatus": {
     "chip": {
@@ -706,6 +813,221 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "list": {
+      "heading": "All meetings",
+      "countOne": "1 meeting",
+      "countMany": "{{count}} meetings",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Title, notes, or transcript",
+      "searchAria": "Search meetings",
+      "untitled": "Meeting",
+      "dateAndDuration": "{{date}} · {{minutes}} min",
+      "notesReady": "Notes ready",
+      "transcriptOnly": "Transcript only",
+      "exportMarkdown": "Export Markdown",
+      "delete": "Delete",
+      "confirmPrompt": "Delete this meeting?",
+      "confirmDelete": "Confirm delete",
+      "cancelDelete": "Cancel",
+      "emptyList": "No meetings yet. Start notes from the menu bar.",
+      "emptySearch": "No meetings match your search.",
+      "audioLeftWarning": "Meeting deleted, but its audio folder is still on disk.",
+      "loadFailed": "Could not load meetings.",
+      "exportFailed": "Could not export Markdown.",
+      "deleteFailed": "Could not delete the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
+    "consent": {
+      "title": "Hãy báo trước cho người tham gia",
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "offer": {
+      "title": "Start notes?",
+      "zoomInCall": "Zoom is in a call.",
+      "zoomOpen": "Zoom is open.",
+      "teamsInCall": "Teams is in a call.",
+      "teamsOpen": "Teams is open.",
+      "meet": "Google Meet may be open.",
+      "notRecording": "Not recording",
+      "neverOnItsOwn": "Coco Voice never records on its own.",
+      "start": "Start notes",
+      "notNow": "Not now"
+    },
+    "view": {
+      "title": "Meeting, {{time}}",
+      "channels": "Me and Others",
+      "channel": {
+        "me": "Me",
+        "others": "Others"
+      },
+      "recording": "Recording",
+      "finished": "Finished",
+      "stop": "Stop",
+      "autoScrolling": "Auto-scrolling",
+      "scrollPaused": "Scroll paused",
+      "mic": "Me: {{name}}",
+      "noMeeting": "No meeting is open. Start notes from the menu bar.",
+      "loadFailed": "Could not load the saved lines.",
+      "stopFailed": "Could not stop the meeting.",
+      "warnings": {
+        "systemAudioSilent": "No call audio heard yet. Check that System Audio Recording is allowed for Coco Voice in System Settings.",
+        "micFellBackToDefault": "Your selected microphone was not found, so Me uses the default microphone."
+      },
+      "hints": {
+        "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
+        "dictation": "Dictation still works during a meeting."
+      },
+      "shortcutFailed": "Không thể đăng ký phím tắt cuộc họp. Hãy bắt đầu và dừng từ đây hoặc thanh menu."
+    },
+    "record": {
+      "startNowHeading": "Bắt đầu ngay",
+      "whenCallStartsHeading": "Khi cuộc gọi bắt đầu",
+      "offerLabel": "Đề xuất ghi chú",
+      "offerDescription": "Hiện \"Bắt đầu ghi chú?\" khi Zoom, Meet hoặc Teams đang gọi. Không bao giờ tự ghi âm.",
+      "wordsHeading": "Từ ngữ và tên trong cuộc họp",
+      "wordsDescription": "Chỉ dùng cho cuộc họp và tách biệt với từ tùy chỉnh của đọc chính tả.",
+      "wordsPlaceholder": "Thêm tên hoặc thuật ngữ...",
+      "addWord": "Thêm",
+      "removeWordAria": "Xóa {{word}}",
+      "dictationKeepsWorking": "Ghi âm cuộc họp không bao giờ dừng đọc chính tả. Phím tắt của bạn vẫn hoạt động."
+    },
+    "notes": {
+      "ready": "Ghi chú đã sẵn sàng",
+      "finishing": "Đang hoàn tất ghi chú: {{seconds}} giây",
+      "yourNotes": "Ghi chú của bạn",
+      "placeholder": "Ghi lại các ý chính trong cuộc họp...",
+      "heading": "Ghi chú",
+      "subtitle": "Từ ghi chú của bạn và bản chép lời",
+      "summary": "Tóm tắt",
+      "decisions": "Quyết định",
+      "actions": "Việc cần làm",
+      "yourNote": "ghi chú của bạn",
+      "oversized": "Đã bỏ qua {{count}} đoạn quá dài khi tạo ghi chú.",
+      "transcriptHeading": "Bản chép lời",
+      "failed": "Không thể tạo ghi chú. Bản chép lời và ghi chú của bạn vẫn an toàn.",
+      "retry": "Thử lại",
+      "openQuestions": "Open questions",
+      "citeRule": "Every line links to the moment it came from. A line with no source is not shown.",
+      "notesSoFar": "Notes so far",
+      "notesSoFarHint": "Updated every few minutes.",
+      "timeToNotes": "Ready in {{seconds}} s",
+      "leftOutHeading": "Left out",
+      "smallTalkLabel": "Treated as small talk",
+      "uncoveredLabel": "Not covered by any note",
+      "showInTranscript": "Show in transcript",
+      "leftOutRule": "Ideas that were rejected or left as maybe are not notes. They stay in the transcript.",
+      "catchUpButton": "What did I miss?",
+      "catchUpWindow": "Last 5 minutes",
+      "foldersHeading": "Folders",
+      "templatesHeading": "Note templates",
+      "openFolder": "Open",
+      "closedFolder": "Closed",
+      "newFolderPlaceholder": "New folder name...",
+      "createFolder": "Add folder",
+      "editTemplates": "Edit templates",
+      "flatFoldersHint": "Local folders on this Mac. One flat level only."
+    },
+    "retention": {
+      "title": "Cuộc họp · Lưu trữ",
+      "deleteAudioLabel": "Xóa âm thanh sau khi tạo ghi chú",
+      "deleteAudioDescription": "Bật theo mặc định. Tệp âm thanh được xóa ngay khi ghi chú sẵn sàng.",
+      "keepTranscriptsLabel": "Giữ bản chép lời trên máy Mac này",
+      "keepTranscriptsDescription": "Bản chép lời được lưu tại đây cho đến khi bạn xóa.",
+      "onThisMac": "Trên máy Mac này",
+      "deleteAll": "Xóa tất cả",
+      "confirmPrompt": "Xóa mọi cuộc họp, bản chép lời, ghi chú và bản ghi âm?",
+      "confirmDeleteAll": "Xác nhận xóa tất cả",
+      "cancel": "Hủy",
+      "audioLeftWarning": "Đã xóa các cuộc họp nhưng không thể xóa một hoặc nhiều thư mục âm thanh.",
+      "actionFailed": "Không thể cập nhật cài đặt lưu trữ cuộc họp.",
+      "continueDeleteAll": "Continue",
+      "confirmStep2Prompt": "Final check: permanently remove all local meetings, transcripts, notes, and audio?",
+      "deleteTimerLabel": "Delete transcripts after",
+      "deleteTimerOff": "Off (keep until deleted)"
+    },
+    "storage": {
+      "filesTitle": "Meetings · Files",
+      "saveMarkdownLabel": "Save notes as Markdown files",
+      "saveMarkdownDescription": "Off by default. Writes one plain .md file per meeting into your chosen folder.",
+      "folderLabel": "Folder",
+      "chooseFolder": "Choose folder",
+      "syncRule": "Written locally on this Mac. Coco Voice never uploads files.",
+      "syncWarning": "This folder syncs with {{service}}. Files saved here follow your {{service}} settings.",
+      "languageTitle": "Meeting language",
+      "autoDetect": "Auto-detect",
+      "thisMeetingOverride": "Override for this meeting",
+      "pause": "Pause",
+      "resume": "Resume",
+      "pausedBadge": "Paused",
+      "pausedHint": "Paused: nothing is recorded. Still one meeting.",
+      "addAudio": "Add audio to this meeting",
+      "trashTab": "Trash",
+      "kept30Days": "Deleted today · kept 30 days",
+      "restore": "Restore",
+      "searchTranscriptPlaceholder": "Search this transcript",
+      "deleteSpan": "Delete this part",
+      "olderNoteBanner": "Recording {{title}} {{elapsed}}",
+      "olderNoteHint": "{{title}} keeps recording while you read this. The timer keeps running.",
+      "backToLive": "Back to live notes",
+      "importTab": "Import notes",
+      "importDescription": "Bring notes from another meeting app. Exported Markdown or text files; nothing is fetched online.",
+      "chooseImportFiles": "Choose files or a folder",
+      "importIntoFolder": "Import into folder: {{folder}}",
+      "importAction": "Import {{count}} notes"
+    },
+    "ask": {
+      "singleHeading": "Ask this meeting",
+      "acrossHeading": "Ask across meetings",
+      "scopeThisMeeting": "This meeting only",
+      "scopeAll": "All meetings on this Mac",
+      "scopeFolder": "Folder",
+      "scopePicked": "Picked set",
+      "placeholderSingle": "Ask a question about this meeting...",
+      "placeholderAcross": "Ask across your meetings...",
+      "askButton": "Ask",
+      "voiceAskAria": "Ask by voice",
+      "listeningQuestion": "Listening for your question...",
+      "citationRule": "Every answer cites the meeting and exact moment it came from.",
+      "todosTab": "Your to-dos"
+    },
+    "agent": {
+      "todosSubtitle": "From your last 14 days of meetings",
+      "todosDone": "Done",
+      "todosFooter": "Each to-do opens the moment you said it. Found on this Mac; updated after every meeting.",
+      "subtitle": "Let an AI agent on this Mac (Claude Code, Cursor, Codex) read your meetings while you work. Off until you turn it on. Nothing leaves this Mac through Coco Voice.",
+      "masterLabel": "Allow local agents to read meetings",
+      "offByDefault": "Off by default",
+      "canReadHeading": "What an agent can read",
+      "liveMeetingLabel": "The meeting happening now",
+      "pastMeetingsLabel": "Past meetings",
+      "audioLabel": "Meeting audio",
+      "audioNever": "Never · Not offered",
+      "connectHeading": "Connect an agent",
+      "copyCommand": "Copy",
+      "recentReadsHeading": "Recent reads"
     }
+  },
+  "homeNotices": {
+    "staleAccessibility": "Accessibility stopped working after the update.",
+    "fixThreeSteps": "Fix it (3 steps)",
+    "shortcutUnset": "Your shortcut is not set up.",
+    "chooseShortcut": "Choose a shortcut",
+    "typingOff": "Typing is off. Dictations copy to your clipboard.",
+    "turnTypingOn": "Turn typing on",
+    "cleanupModelMissing": "Clean-up skipped: local model not downloaded.",
+    "openModels": "Open Models",
+    "updateReady": "Update ready: {{version}}",
+    "restartNow": "Restart now"
   }
 }

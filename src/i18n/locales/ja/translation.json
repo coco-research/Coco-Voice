@@ -6,16 +6,44 @@
     "unloadModel": "モデルをアンロード",
     "model": "モデル",
     "quit": "終了",
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "startNotes": "ノートを開始...",
+    "startRecordingMeeting": "Start recording a meeting",
+    "pasteLastTake": "Paste last take",
+    "copyLastTake": "Copy last take",
+    "openApp": "Open Coco Voice"
   },
   "sidebar": {
     "general": "一般",
     "models": "モデル",
     "advanced": "詳細設定",
-    "postProcessing": "後処理",
+    "postProcessing": "整形",
     "history": "履歴",
     "debug": "デバッグ",
-    "about": "概要"
+    "about": "概要",
+    "home": "ホーム",
+    "recordMeeting": "会議を録音",
+    "meetingHistory": "会議の履歴",
+    "askMeetings": "会議に質問",
+    "foldersAndTemplates": "フォルダとテンプレート",
+    "agentAccess": "エージェント連携",
+    "voiceSection": "音声入力",
+    "dictationHistory": "音声入力の履歴",
+    "perAppProfiles": "アプリ別プロファイル",
+    "wordsAndCleanup": "単語と整形",
+    "settings": "設定",
+    "sectionPlaceholder": "設定するとこのセクションから利用できます。",
+    "startRecording": "録音を開始",
+    "seeAllMeetings": "すべての会議 →",
+    "dictateHeading": "どこでも音声入力",
+    "holdToTalk": "押しながら話す",
+    "changeShortcut": "ショートカットを変更",
+    "seeAllDictations": "すべての音声入力 →",
+    "dictationSearchPlaceholder": "話した言葉",
+    "dictationSearchAria": "音声入力を検索",
+    "cleanedUp": "整形済み",
+    "emptyDictationSearch": "一致する音声入力はありません。",
+    "keptDays": "30日間保持"
   },
   "onboarding": {
     "subtitle": "開始するには、文字起こしのモデルを選択してください",
@@ -107,7 +135,15 @@
       },
       "accessibility": {
         "title": "アクセシビリティへのアクセス",
-        "description": "アプリに文字起こししたテキストを入力するために必要です。"
+        "description": "アプリに文字起こししたテキストを入力するために必要です。",
+        "stale": {
+          "description": "macOS では Coco Voice が許可済みと表示されていますが、項目が古くなっています（アップデート後によく起こります）。そのため貼り付けができません。修正方法：",
+          "step1": "システム設定 > プライバシーとセキュリティ > アクセシビリティ を開きます。",
+          "step2": "Coco Voice を選択し、マイナス (-) ボタンで削除します。",
+          "step3": "プラス (+) ボタンで Coco Voice を再度追加し、オンにします。",
+          "checkAgain": "再確認",
+          "continueWithoutTyping": "Continue without typing"
+        }
       },
       "grant": "権限を許可",
       "granted": "許可済み",
@@ -117,6 +153,12 @@
         "checkFailed": "権限の確認に失敗しました。もう一度お試しください。",
         "requestFailed": "権限のリクエストに失敗しました。もう一度お試しください。"
       }
+    },
+    "tryIt": {
+      "title": "Try it",
+      "prompt": "Hold {{shortcut}} and say: \"Monday, scratch that, Tuesday\"",
+      "cleanedResult": "Tuesday.",
+      "done": "Done"
     }
   },
   "modelSelector": {
@@ -152,7 +194,15 @@
     "cancel": "キャンセル",
     "cancelDownload": "ダウンロードをキャンセル",
     "legacy": "旧式",
-    "licence": "ライセンス: {{licence}}"
+    "licence": "ライセンス: {{licence}}",
+    "downloadFailed": {
+      "network": "ダウンロードに失敗しました：インターネット接続を確認してください。",
+      "diskSpace": "ダウンロードに失敗しました：ディスクの空き容量が不足しています。",
+      "checksum": "ダウンロードに失敗しました：ファイルが整合性チェックに合格しませんでした。",
+      "other": "ダウンロードに失敗しました。",
+      "retry": "もう一度試す",
+      "skip": "今はスキップ"
+    }
   },
   "settings": {
     "modelSettings": {
@@ -179,7 +229,7 @@
     "general": {
       "title": "一般",
       "shortcut": {
-        "title": "Coco Voice ショートカット",
+        "title": "キーボードショートカット",
         "description": "音声録音を開始するキーボードショートカットを設定",
         "loading": "ショートカットを読み込み中…",
         "none": "ショートカットが設定されていません",
@@ -187,7 +237,7 @@
         "pressKeys": "キーを押してください…",
         "bindings": {
           "transcribe": {
-            "name": "文字起こしのショートカット",
+            "name": "音声入力のショートカット",
             "description": "音声を録音して文字起こしするためのキーボードショートカット。"
           },
           "cancel": {
@@ -195,11 +245,11 @@
             "description": "現在の録音をキャンセルするためのキーボードショートカット。"
           },
           "transcribe_with_post_process": {
-            "name": "後処理のショートカット",
+            "name": "整形ショートカット",
             "description": "文字起こしに常に AI 後処理を適用するキーボードショートカット。 (任意)"
           },
           "correction": {
-            "name": "訂正を話す",
+            "name": "声で言い直すショートカット",
             "description": "直前の音声入力を置き換える訂正を話すためのキーボードショートカットです。有効にするにはキーを割り当ててください。"
           }
         },
@@ -217,7 +267,7 @@
         "auto": "自動"
       },
       "pushToTalk": {
-        "label": "プッシュツートーク",
+        "label": "押している間だけ話す",
         "description": "押し続けて録音、離して停止"
       }
     },
@@ -230,7 +280,7 @@
         "loading": "読み込み中…"
       },
       "audioFeedback": {
-        "label": "オーディオフィードバック",
+        "label": "録音の効果音",
         "description": "録音の開始と停止時にサウンドを再生"
       },
       "outputDevice": {
@@ -278,7 +328,7 @@
         "description": "ウィンドウを開かずにシステムトレイに起動。"
       },
       "autostart": {
-        "label": "起動時に実行",
+        "label": "ログイン時に開く",
         "description": "コンピューターにログインしたときに Coco Voice を自動的に起動。"
       },
       "showTrayIcon": {
@@ -287,7 +337,7 @@
       },
       "overlay": {
         "style": {
-          "title": "オーバーレイ",
+          "title": "録音ピル",
           "description": "録音中のオーバーレイを選択します。「なし」は非表示、「ミニマル」はコンパクトなカプセル型表示、「ライブ」はリアルタイムで文字起こしを表示します(ストリーミング対応モデルのみ。モデル選択画面の「ストリーミング」表示を確認してください)。Linux では「なし」を推奨します。",
           "options": {
             "none": "なし",
@@ -296,7 +346,7 @@
           }
         },
         "position": {
-          "title": "オーバーレイの位置",
+          "title": "録音ピルの表示位置",
           "description": "録音と文字起こし中に表示するオーバーレイが表示される位置を選択します。",
           "options": {
             "bottom": "下",
@@ -305,7 +355,7 @@
         }
       },
       "pasteMethod": {
-        "title": "貼り付け方法",
+        "title": "文字の入力方法",
         "description": "テキストの挿入方法を選択。「直接」はシステム入力でタイピングをシミュレート。「なし」は貼り付けをスキップし、履歴/クリップボードのみ更新。",
         "options": {
           "clipboard": "クリップボード ({{modifier}}+V)",
@@ -325,16 +375,16 @@
         }
       },
       "clipboardHandling": {
-        "title": "クリップボードの処理",
+        "title": "貼り付け後のクリップボード",
         "description": "クリップボードを変更しないを選択すると、文字起こし後も現在のクリップボード内容が保持されます。クリップボードにコピーを選択すると、貼り付け後も文字起こし結果がクリップボードに残ります。",
         "options": {
-          "dontModify": "クリップボードを変更しない",
+          "dontModify": "元のクリップボードを保持",
           "copyToClipboard": "クリップボードにコピー"
         },
         "privacyHint": "クリップボード上のテキストは、他のアプリやクリップボードツールから見えます。また、ユニバーサルクリップボードによって、ほかのAppleデバイスにコピーされることがあります。"
       },
       "autoSubmit": {
-        "title": "自動送信",
+        "title": "貼り付け後にキーを押す",
         "description": "テキスト挿入後に選択したキーの組み合わせを自動的に送信します。macOS では Cmd+Enter、Windows/Linux では Super+Enter が適用されます。",
         "options": {
           "off": "オフ",
@@ -370,9 +420,17 @@
         "remove": "{{word}}を削除",
         "duplicate": "「{{word}}」は既に存在します"
       },
+      "corrections": {
+        "title": "単語の置換",
+        "description": "最終テキスト内の特定の語句を大文字・小文字を区別せずに置き換えます。",
+        "fromPlaceholder": "変換前",
+        "toPlaceholder": "変換後",
+        "duplicate": "「{{word}}」の置換は既に登録されています",
+        "remove": "{{from}} から {{to}} への置換を削除"
+      },
       "voiceActivityDetection": {
-        "title": "音声区間検出 (VAD)",
-        "description": "録音から無音部分を除去します。ストリーミング対応モデルはより長い音声検出区間を使用します。VAD を無効にすると音声をそのまま録音します。"
+        "title": "無音をスキップ",
+        "description": "録音中の無音部分を省きます。オフにすると音声全体を録音します。"
       }
     },
     "postProcessing": {
@@ -380,12 +438,12 @@
         "title": "ショートカット"
       },
       "correction": {
-        "title": "反復訂正",
-        "toggleLabel": "訂正を話す",
+        "title": "声で言い直す",
+        "toggleLabel": "声で言い直す",
         "toggleDescription": "直前の音声入力を、話した訂正で置き換えるための専用ショートカットを追加します。キーワードでは自動的に起動しません。割り当てたキーを押し、修正を話すと、直前の出力がその場で編集されます。"
       },
       "api": {
-        "title": "API (OpenAI 互換)",
+        "title": "整形モデル",
         "provider": {
           "title": "プロバイダー",
           "description": "OpenAI 互換のプロバイダーを選択。"
@@ -424,22 +482,22 @@
         }
       },
       "prompts": {
-        "title": "プロンプト",
+        "title": "指示文",
         "selectedPrompt": {
-          "title": "選択したプロンプト",
+          "title": "整形スタイル",
           "description": "文字起こしを改善するテンプレートを選択するか、新しく作成します。プロンプトテキスト内で ${output} を使用して、キャプチャした文字起こしを参照します。"
         },
         "noPrompts": "プロンプトがありません",
         "selectPrompt": "プロンプトを選択",
-        "createNew": "新しいプロンプトを作成",
-        "promptLabel": "プロンプト名",
+        "createNew": "新しいスタイル",
+        "promptLabel": "名前",
         "promptLabelPlaceholder": "プロンプト名を入力",
-        "promptInstructions": "プロンプトの指示",
+        "promptInstructions": "指示内容",
         "promptInstructionsPlaceholder": "文字起こし後に実行する指示を記述します。例: 以下のテキストの文法と明瞭さを改善してください: ${output}",
         "promptTip": "ヒント: <code>${output}</code> を使用して、文字起こしテキストをプロンプトに挿入します。",
-        "updatePrompt": "プロンプトを更新",
-        "deletePrompt": "プロンプトを削除",
-        "createPrompt": "プロンプトを作成",
+        "updatePrompt": "変更を保存",
+        "deletePrompt": "削除",
+        "createPrompt": "作成",
         "cancel": "キャンセル",
         "selectToEdit": "上からプロンプトを選択して、詳細を表示・編集します。",
         "createFirst": "上の「新しいプロンプトを作成」をクリックして、最初の後処理プロンプトを作成してください。"
@@ -458,12 +516,17 @@
       "retranscribe": "再文字起こし",
       "retranscribeError": "再文字起こしに失敗しました。もう一度お試しください。",
       "transcribing": "文字起こし中…",
+      "edit": "編集",
+      "saveEdit": "保存",
+      "editError": "編集を保存できませんでした",
+      "learnedOne": "置換を学習しました: 「{{from}}」→「{{to}}」",
+      "learnedMany": "編集から {{count}} 件の置換を学習しました",
       "transcriptionFailed": "文字起こしに失敗しました。リトライアイコンを使用して再文字起こしできます。"
     },
     "debug": {
       "title": "デバッグ",
       "logDirectory": {
-        "title": "ログディレクトリ",
+        "title": "ログフォルダ",
         "description": "ログファイルの保存場所"
       },
       "logLevel": {
@@ -487,6 +550,7 @@
       },
       "soundTheme": {
         "label": "サウンドテーマ",
+        "preview": "効果音を試聴",
         "description": "録音開始・停止フィードバックのサウンドテーマを選択"
       },
       "wordCorrectionThreshold": {
@@ -517,8 +581,8 @@
         "description": "ノートパソコンの蓋を閉じたときに使用するマイク"
       },
       "postProcessingToggle": {
-        "label": "後処理",
-        "description": "文字起こし後の AI によるテキスト改善を有効化"
+        "label": "整形",
+        "description": "文字起こし後にフィラーや句読点、言い直しを整形します"
       },
       "muteWhileRecording": {
         "label": "録音中にミュート",
@@ -529,21 +593,23 @@
         "description": "貼り付けた文字起こしの後にスペースを追加"
       },
       "keyboardImplementation": {
-        "title": "キーボード実装",
+        "title": "キーボード処理方式",
         "description": "キーボードショートカットのバックエンドを選択してください。",
         "bindingsReset": "キーボードショートカットに互換性がなかったため、デフォルトにリセットされました"
       },
       "paths": {
+        "title": "アプリのパス",
+        "description": "トラブルシューティング用の内部フォルダとファイル",
         "appData": "アプリデータ:",
         "models": "モデル:",
         "settings": "設定:"
       },
       "pasteDelay": {
-        "title": "貼り付け遅延(前)",
+        "title": "貼り付け前の待ち時間",
         "description": "テキストをコピーした後、貼り付けキーを送信する前の遅延(ミリ秒)。何も貼り付けられない場合は増やしてください。"
       },
       "pasteDelayAfter": {
-        "title": "貼り付け遅延(後)",
+        "title": "貼り付け後の待ち時間",
         "description": "貼り付けキーを送信した後、以前のクリップボードを復元する前の遅延(ミリ秒)。文字起こしではなく古いクリップボードの内容が貼り付けられる場合は増やしてください。"
       },
       "recordingBuffer": {
@@ -565,7 +631,7 @@
         "description": "Coco Voice の現在のバージョン"
       },
       "appDataDirectory": {
-        "title": "アプリデータディレクトリ",
+        "title": "アプリデータのフォルダ",
         "description": "Coco Voice がデータを保存する場所"
       },
       "sourceCode": {
@@ -585,6 +651,32 @@
         "label": "新機能を表示",
         "description": "Coco Voice のアップデート後にリリースノートを表示"
       }
+    },
+    "online": {
+      "eyebrow": "設定",
+      "title": "オンライン通信の内容",
+      "intro": "音声はこの Mac 上でテキストに変換されます。以下は、このバージョンの Coco Voice が接続し得る相手と、それぞれに送信される内容です。",
+      "leavesLabel": "この Mac から送信されるもの:",
+      "openHeading": "アプリの起動時毎回",
+      "githubName": "GitHub（Coco Voice リリース）",
+      "githubWhen": "アプリを開くたびに更新を確認します。停止するには上の「概要」にある更新確認をオフにしてください。クリックしたリンクはブラウザで開きます。",
+      "githubLeaves": "リリース一覧のリクエスト、およびインストールする場合は更新ファイル。音声もテキストも送信されません。",
+      "updateChecksOn": "更新確認オン",
+      "updateChecksOff": "更新確認オフ",
+      "clickHeading": "クリックしたときのみ",
+      "modelFilesName": "Coco Voice モデルファイル",
+      "modelFilesWhen": "内蔵の音声モデルで「ダウンロード」をクリックしたとき。",
+      "modelFilesLeaves": "要求したモデルファイルの名前。音声もテキストも送信されません。",
+      "huggingFaceWhen": "カタログモデルで「ダウンロード」をクリックしたとき、またはライセンスをクリックしてブラウザで開くとき。",
+      "huggingFaceLeaves": "モデル名・バージョン・ファイル名、およびこの Mac に設定済みの場合は Hugging Face トークン。音声もテキストも送信されません。",
+      "cleanupHeading": "整形プロバイダを選択したときのみ",
+      "cloudWhen": "選択したクラウドプロバイダでテキスト整形を実行したとき。",
+      "cloudLeaves": "発話のテキスト、整形指示、および API キー。モデル一覧の取得時は API キーのみを送信します。",
+      "customName": "カスタム整形（Ollama）",
+      "customWhen": "プロバイダとしてカスタムを選択して整形を実行したとき。アドレスを変更しない限り、この Mac 上のプログラムと通信します。",
+      "customLeaves": "初期アドレスでは外部送信なし。発話のテキストと整形指示はこの Mac 上のプログラムに渡されます。",
+      "staysOnMac": "この Mac 内で完結",
+      "onDeviceNote": "オンデバイス整形（Apple Intelligence またはローカルモデル）はこれらのいずれにも接続しません。"
     }
   },
   "footer": {
@@ -607,6 +699,11 @@
     "open": "開く",
     "copy": "コピー",
     "clear": "クリア",
+    "selectOption": "選択してください...",
+    "notAvailable": "利用できません",
+    "moreInfo": "詳細情報",
+    "play": "再生",
+    "pause": "一時停止",
     "noOptionsFound": "オプションが見つかりません"
   },
   "accessibility": {
@@ -657,11 +754,21 @@
   },
   "overlay": {
     "transcribing": "文字起こし中…",
-    "processing": "処理中…",
-    "polishing": "推敲中…"
+    "processing": "整形中…",
+    "polishing": "推敲中…",
+    "pillStates": {
+      "listening": "Listening",
+      "working": "Working",
+      "sentToApp": "Sent to {{app}}",
+      "onClipboard": "On the clipboard",
+      "wordsKeptPressPaste": "Words kept · press ⌘V"
+    }
   },
   "whatsNew": {
-    "title": "Coco Voice v{{version}} の新機能"
+    "title": "Coco Voice v{{version}} の新機能",
+    "rollbackTitle": "If an update fails",
+    "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
+    "reportIt": "Report it"
   },
   "cleanupStatus": {
     "chip": {
@@ -706,6 +813,221 @@
     "toggle": {
       "label": "Meetings",
       "description": "Show the Meetings section. It stays hidden on macOS older than 14.4."
+    },
+    "list": {
+      "heading": "All meetings",
+      "countOne": "1 meeting",
+      "countMany": "{{count}} meetings",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Title, notes, or transcript",
+      "searchAria": "Search meetings",
+      "untitled": "Meeting",
+      "dateAndDuration": "{{date}} · {{minutes}} min",
+      "notesReady": "Notes ready",
+      "transcriptOnly": "Transcript only",
+      "exportMarkdown": "Export Markdown",
+      "delete": "Delete",
+      "confirmPrompt": "Delete this meeting?",
+      "confirmDelete": "Confirm delete",
+      "cancelDelete": "Cancel",
+      "emptyList": "No meetings yet. Start notes from the menu bar.",
+      "emptySearch": "No meetings match your search.",
+      "audioLeftWarning": "Meeting deleted, but its audio folder is still on disk.",
+      "loadFailed": "Could not load meetings.",
+      "exportFailed": "Could not export Markdown.",
+      "deleteFailed": "Could not delete the meeting."
+    },
+    "pill": {
+      "recording": "Recording",
+      "stop": "Stop"
+    },
+    "consent": {
+      "title": "最初に参加者へ伝えてください",
+      "reminder": "In many places, including California, Florida, Illinois, Maryland, Massachusetts, Pennsylvania and Washington, everyone in the conversation must agree to being recorded. Tell participants before you start.",
+      "copyAnnouncement": "Copy announcement",
+      "announcement": "I'm taking notes with an app that records and transcribes on my computer. Tell me if you'd rather I didn't.",
+      "orgRules": "Check your organisation's rules before using this in work meetings.",
+      "toldEveryone": "I've told everyone",
+      "start": "Start",
+      "cancel": "Cancel",
+      "cannotStart": "Could not start the meeting."
+    },
+    "offer": {
+      "title": "Start notes?",
+      "zoomInCall": "Zoom is in a call.",
+      "zoomOpen": "Zoom is open.",
+      "teamsInCall": "Teams is in a call.",
+      "teamsOpen": "Teams is open.",
+      "meet": "Google Meet may be open.",
+      "notRecording": "Not recording",
+      "neverOnItsOwn": "Coco Voice never records on its own.",
+      "start": "Start notes",
+      "notNow": "Not now"
+    },
+    "view": {
+      "title": "Meeting, {{time}}",
+      "channels": "Me and Others",
+      "channel": {
+        "me": "Me",
+        "others": "Others"
+      },
+      "recording": "Recording",
+      "finished": "Finished",
+      "stop": "Stop",
+      "autoScrolling": "Auto-scrolling",
+      "scrollPaused": "Scroll paused",
+      "mic": "Me: {{name}}",
+      "noMeeting": "No meeting is open. Start notes from the menu bar.",
+      "loadFailed": "Could not load the saved lines.",
+      "stopFailed": "Could not stop the meeting.",
+      "warnings": {
+        "systemAudioSilent": "No call audio heard yet. Check that System Audio Recording is allowed for Coco Voice in System Settings.",
+        "micFellBackToDefault": "Your selected microphone was not found, so Me uses the default microphone."
+      },
+      "hints": {
+        "headphones": "Use headphones. On speakers, the call can leak into your microphone.",
+        "dictation": "Dictation still works during a meeting."
+      },
+      "shortcutFailed": "会議のショートカットを登録できませんでした。ここから、またはメニューバーから開始・停止できます。"
+    },
+    "record": {
+      "startNowHeading": "今すぐ開始",
+      "whenCallStartsHeading": "通話が始まったとき",
+      "offerLabel": "メモの開始を提案する",
+      "offerDescription": "Zoom、Meet、Teams の通話中に「メモを開始しますか？」を表示します。自動で録音することはありません。",
+      "wordsHeading": "会議用の単語と名前",
+      "wordsDescription": "会議でのみ使用され、音声入力のカスタム単語とは分けて保存されます。",
+      "wordsPlaceholder": "会議の名前や用語を追加...",
+      "addWord": "追加",
+      "removeWordAria": "{{word}} を削除",
+      "dictationKeepsWorking": "会議を録音しても音声入力は止まりません。ショートカットはそのまま使えます。"
+    },
+    "notes": {
+      "ready": "ノート作成完了",
+      "finishing": "ノートを作成中: {{seconds}} 秒",
+      "yourNotes": "あなたのメモ",
+      "placeholder": "会議中の要点をメモ...",
+      "heading": "ノート",
+      "subtitle": "メモと文字起こしから作成",
+      "summary": "要約",
+      "decisions": "決定事項",
+      "actions": "アクション項目",
+      "yourNote": "あなたのメモ",
+      "oversized": "ノート作成時に長すぎるセグメント {{count}} 件をスキップしました。",
+      "transcriptHeading": "文字起こし",
+      "failed": "ノートを作成できませんでした。文字起こしとメモは安全に保存されています。",
+      "retry": "再試行",
+      "openQuestions": "未解決の質問",
+      "citeRule": "すべての行は元の発言時刻にリンクします。出典のない行は表示されません。",
+      "notesSoFar": "ここまでのメモ",
+      "notesSoFarHint": "数分ごとに更新されます。",
+      "timeToNotes": "{{seconds}} 秒で完了",
+      "leftOutHeading": "メモから除外",
+      "smallTalkLabel": "雑談として処理",
+      "uncoveredLabel": "どのメモにも未収録",
+      "showInTranscript": "文字起こしで表示",
+      "leftOutRule": "却下された案や保留の案はメモに含めず、文字起こしに残します。",
+      "catchUpButton": "聞き逃した内容は？",
+      "catchUpWindow": "直近 5 分",
+      "foldersHeading": "フォルダ",
+      "templatesHeading": "メモテンプレート",
+      "openFolder": "開く",
+      "closedFolder": "閉じる",
+      "newFolderPlaceholder": "新しいフォルダ名...",
+      "createFolder": "フォルダを追加",
+      "editTemplates": "テンプレートを編集",
+      "flatFoldersHint": "この Mac 上のローカルフォルダ（1 階層のみ）。"
+    },
+    "retention": {
+      "title": "会議 · 保存期間",
+      "deleteAudioLabel": "ノート作成後に音声を削除",
+      "deleteAudioDescription": "デフォルトでオン。ノートが完成すると音声ファイルは削除されます。",
+      "keepTranscriptsLabel": "文字起こしをこの Mac に保持",
+      "keepTranscriptsDescription": "削除するまで文字起こしはこの Mac に残ります。",
+      "onThisMac": "この Mac 内",
+      "deleteAll": "すべて削除",
+      "confirmPrompt": "すべての会議・文字起こし・ノート・録音を削除しますか？",
+      "confirmDeleteAll": "すべて削除を確定",
+      "cancel": "キャンセル",
+      "audioLeftWarning": "会議は削除されましたが、1 つ以上の音声フォルダを削除できませんでした。",
+      "actionFailed": "会議の保存設定を更新できませんでした。",
+      "continueDeleteAll": "続行",
+      "confirmStep2Prompt": "最終確認: この Mac 上のすべての会議・文字起こし・メモ・音声を完全に削除しますか？",
+      "deleteTimerLabel": "文字起こしの自動削除",
+      "deleteTimerOff": "オフ（手動で削除するまで保持）"
+    },
+    "storage": {
+      "filesTitle": "Meetings · Files",
+      "saveMarkdownLabel": "Save notes as Markdown files",
+      "saveMarkdownDescription": "Off by default. Writes one plain .md file per meeting into your chosen folder.",
+      "folderLabel": "Folder",
+      "chooseFolder": "Choose folder",
+      "syncRule": "Written locally on this Mac. Coco Voice never uploads files.",
+      "syncWarning": "This folder syncs with {{service}}. Files saved here follow your {{service}} settings.",
+      "languageTitle": "Meeting language",
+      "autoDetect": "Auto-detect",
+      "thisMeetingOverride": "Override for this meeting",
+      "pause": "Pause",
+      "resume": "Resume",
+      "pausedBadge": "Paused",
+      "pausedHint": "Paused: nothing is recorded. Still one meeting.",
+      "addAudio": "Add audio to this meeting",
+      "trashTab": "Trash",
+      "kept30Days": "Deleted today · kept 30 days",
+      "restore": "Restore",
+      "searchTranscriptPlaceholder": "Search this transcript",
+      "deleteSpan": "Delete this part",
+      "olderNoteBanner": "Recording {{title}} {{elapsed}}",
+      "olderNoteHint": "{{title}} keeps recording while you read this. The timer keeps running.",
+      "backToLive": "Back to live notes",
+      "importTab": "Import notes",
+      "importDescription": "Bring notes from another meeting app. Exported Markdown or text files; nothing is fetched online.",
+      "chooseImportFiles": "Choose files or a folder",
+      "importIntoFolder": "Import into folder: {{folder}}",
+      "importAction": "Import {{count}} notes"
+    },
+    "ask": {
+      "singleHeading": "Ask this meeting",
+      "acrossHeading": "Ask across meetings",
+      "scopeThisMeeting": "This meeting only",
+      "scopeAll": "All meetings on this Mac",
+      "scopeFolder": "Folder",
+      "scopePicked": "Picked set",
+      "placeholderSingle": "Ask a question about this meeting...",
+      "placeholderAcross": "Ask across your meetings...",
+      "askButton": "Ask",
+      "voiceAskAria": "Ask by voice",
+      "listeningQuestion": "Listening for your question...",
+      "citationRule": "Every answer cites the meeting and exact moment it came from.",
+      "todosTab": "Your to-dos"
+    },
+    "agent": {
+      "todosSubtitle": "From your last 14 days of meetings",
+      "todosDone": "Done",
+      "todosFooter": "Each to-do opens the moment you said it. Found on this Mac; updated after every meeting.",
+      "subtitle": "Let an AI agent on this Mac (Claude Code, Cursor, Codex) read your meetings while you work. Off until you turn it on. Nothing leaves this Mac through Coco Voice.",
+      "masterLabel": "Allow local agents to read meetings",
+      "offByDefault": "Off by default",
+      "canReadHeading": "What an agent can read",
+      "liveMeetingLabel": "The meeting happening now",
+      "pastMeetingsLabel": "Past meetings",
+      "audioLabel": "Meeting audio",
+      "audioNever": "Never · Not offered",
+      "connectHeading": "Connect an agent",
+      "copyCommand": "Copy",
+      "recentReadsHeading": "Recent reads"
     }
+  },
+  "homeNotices": {
+    "staleAccessibility": "Accessibility stopped working after the update.",
+    "fixThreeSteps": "Fix it (3 steps)",
+    "shortcutUnset": "Your shortcut is not set up.",
+    "chooseShortcut": "Choose a shortcut",
+    "typingOff": "Typing is off. Dictations copy to your clipboard.",
+    "turnTypingOn": "Turn typing on",
+    "cleanupModelMissing": "Clean-up skipped: local model not downloaded.",
+    "openModels": "Open Models",
+    "updateReady": "Update ready: {{version}}",
+    "restartNow": "Restart now"
   }
 }
