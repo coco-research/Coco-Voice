@@ -142,6 +142,14 @@
     "downloadSpeed": "{{speed}} ميجابايت/ث",
     "cancel": "إلغاء",
     "cancelDownload": "إلغاء التنزيل",
+    "downloadFailed": {
+      "network": "فشل التنزيل: تحقق من اتصالك بالإنترنت.",
+      "diskSpace": "فشل التنزيل: لا توجد مساحة كافية على القرص.",
+      "checksum": "فشل التنزيل: لم يجتز الملف فحص السلامة.",
+      "other": "فشل التنزيل.",
+      "retry": "إعادة المحاولة",
+      "skip": "تخطَّ الآن"
+    },
     "capabilities": {
       "languageSelection": "يدعم اختيار اللغة",
       "singleLanguage": "يدعم هذه اللغة فقط",
