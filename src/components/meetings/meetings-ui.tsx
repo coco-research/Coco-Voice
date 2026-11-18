@@ -5,6 +5,9 @@ import { Users } from "lucide-react";
 import { platform, version } from "@tauri-apps/plugin-os";
 import { MeetingsToggle } from "../settings/MeetingsToggle";
 import { commands } from "../../bindings.meetings";
+import { CalendarPicker } from "../settings/CalendarPicker";
+import { UpcomingMeetings } from "./UpcomingMeetings";
+import { useSettings } from "../../hooks/useSettings";
 import type { MeetingsUi } from "./gate";
 
 export const MEETINGS_UI_SENTINEL = "coco-meetings-ui-v1";
@@ -146,9 +149,11 @@ export function ConsentDialog() {
 
 export function MeetingsView() {
   const { t } = useTranslation();
+  const { settings } = useSettings();
   return (
-    <div className="max-w-3xl w-full mx-auto">
+    <div className="max-w-3xl w-full mx-auto space-y-6">
       <p className="text-sm font-medium">{t("meetings.sidebar")}</p>
+      <UpcomingMeetings settings={settings} />
     </div>
   );
 }
@@ -157,6 +162,8 @@ export const meetingsUi = {
   MEETINGS_UI_SENTINEL,
   MeetingsToggle,
   ConsentDialog,
+  CalendarPicker,
+  settingEnabled: meetingsEnabled,
   MeetingsView,
   icon: Users,
   sidebarVisible,
