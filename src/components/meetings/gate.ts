@@ -8,6 +8,7 @@ export interface MeetingsUi {
   }>;
   ConsentDialog: ComponentType;
   MeetingsView: ComponentType;
+  OfferPanel: ComponentType;
   icon: ComponentType<{
     width?: number | string;
     height?: number | string;
