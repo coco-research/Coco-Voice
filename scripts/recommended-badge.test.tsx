@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "bun:test";
 import i18next from "i18next";
 import { I18nextProvider, initReactI18next } from "react-i18next";
@@ -95,4 +96,19 @@ test("the reason states the measured numbers", () => {
   expect(html).toContain("8× faster than real time");
   expect(html).toContain("1500 MB of memory");
   expect(html).toContain("of 3 models");
+});
+
+test("onboarding offers the tag on every model it lets you download", () => {
+  const src = readFileSync(
+    new URL("../src/components/onboarding/Onboarding.tsx", import.meta.url),
+    "utf8",
+  );
+  const downloadSection = src.slice(
+    src.indexOf("onboarding.downloadModelsTitle"),
+  );
+  expect(downloadSection).not.toContain("showRecommended={false}");
+  // Models already on disk are a choice, not a suggestion.
+  expect(src.slice(0, src.indexOf("onboarding.downloadModelsTitle"))).toContain(
+    "showRecommended={false}",
+  );
 });

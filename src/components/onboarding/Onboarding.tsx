@@ -187,7 +187,6 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
                   onDownload={handleDownloadModel}
                   downloadProgress={getModelDownloadProgress(model.id)}
                   downloadSpeed={getModelDownloadSpeed(model.id)}
-                  showRecommended={false}
                 />
               ))}
 
@@ -201,7 +200,6 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
                   onDownload={handleDownloadModel}
                   downloadProgress={getModelDownloadProgress(model.id)}
                   downloadSpeed={getModelDownloadSpeed(model.id)}
-                  showRecommended={false}
                 />
               ))}
 
@@ -235,7 +233,6 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
                     onDownload={handleDownloadModel}
                     downloadProgress={getModelDownloadProgress(model.id)}
                     downloadSpeed={getModelDownloadSpeed(model.id)}
-                    showRecommended={false}
                   />
                 ))}
             </div>
