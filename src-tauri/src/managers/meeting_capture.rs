@@ -205,6 +205,7 @@ pub struct MeetingMic {
     /// audio callback, which sets it on the first write error.
     error: Arc<Mutex<Option<String>>>,
     held: AtomicBool,
+    user_paused: Arc<AtomicBool>,
 }
 
 #[allow(dead_code)]
@@ -251,13 +252,27 @@ impl MeetingMic {
             recorder: Mutex::new(None),
             error: Arc::new(Mutex::new(None)),
             held: AtomicBool::new(false),
+            user_paused: Arc::new(AtomicBool::new(false)),
         })
+    }
+
+    /// Pause or resume user capture without ending the meeting. While user-paused,
+    /// incoming frames write zero WAV samples.
+    pub fn set_user_paused(&self, paused: bool) {
+        self.user_paused.store(paused, Ordering::Release);
+    }
+
+    pub fn is_user_paused(&self) -> bool {
+        self.user_paused.load(Ordering::Acquire)
     }
 
     /// Push one frame by hand, with no device. The callback below reaches this
     /// through `record_frame`; frames arrive untouched because the recorder
     /// runs `VadPolicy::Disabled`, and tests feed generated PCM here.
     pub fn push(&self, samples: &[f32]) -> Result<()> {
+        if self.user_paused.load(Ordering::Acquire) {
+            return Ok(());
+        }
         self.track
             .lock()
             .unwrap_or_else(|p| p.into_inner())
@@ -367,9 +382,13 @@ impl MeetingMic {
         let device = self.resolve_device();
         let track = Arc::clone(&self.track);
         let error = Arc::clone(&self.error);
+        let user_paused = Arc::clone(&self.user_paused);
         let mut recorder = AudioRecorder::new()
             .map_err(|e| anyhow!("Failed to create the meeting recorder: {e}"))?
             .with_audio_callback(move |frame: &[f32]| {
+                if user_paused.load(Ordering::Acquire) {
+                    return;
+                }
                 // Runs on the recorder's consumer thread, not the cpal callback.
                 // Never panic: a poisoned lock is recovered. The first write
                 // error pauses the track and records why, so `is_paused()` and
