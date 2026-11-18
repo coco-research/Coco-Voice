@@ -121,13 +121,13 @@ pub fn close_upcoming_meetings(state: State<'_, CalendarState>) -> Result<(), St
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::calendar_upcoming::fake::{cal, ev, FakeCalendar};
+    use crate::calendar_upcoming::fake::{ev, make_calendar, FakeCalendar};
 
     fn state() -> CalendarState {
         CalendarState::with_source(Box::new(FakeCalendar::new(
             vec![
-                cal("h", "Home", "iCloud", "iCloud"),
-                cal("w", "Work", "x", "Exchange"),
+                make_calendar("h", "Home", "iCloud", "iCloud"),
+                make_calendar("w", "Work", "x", "Exchange"),
             ],
             vec![ev("h", "Dentist", i64::MAX / 4, i64::MAX / 4 + 10, &[])],
         )))
