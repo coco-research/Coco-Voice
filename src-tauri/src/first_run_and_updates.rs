@@ -1,10 +1,12 @@
 //! First-run onboarding checks (fail-closed permission gates, stale Accessibility
 //! entry detection, continue-without-typing, Try-it sample), recording pill outcome
-//! states, and Home health notices.
+//! states, Home health notices, and post-update notices (What's new once per upgrade
+//! plus rollback notice).
 // ponytail: ceiling = pure state machines + settings helpers; upgrade path = native macOS TCC event listener.
 
 use crate::settings::{AppSettings, ClipboardHandling, PasteMethod};
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
@@ -164,6 +166,88 @@ pub fn evaluate_try_it_sample(raw_spoken: &str, clean_up_enabled: bool) -> Strin
     raw_spoken.trim().to_string()
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum UpdateNoticeState {
+    None,
+    WhatsNew {
+        version: String,
+        previous_version: String,
+    },
+    WentBack {
+        rolled_back_from: String,
+        current_version: String,
+        message: String,
+    },
+}
+
+pub fn parse_semver_triplet(version: &str) -> Option<(u64, u64, u64)> {
+    let clean = version.trim().trim_start_matches('v');
+    if clean.is_empty() {
+        return None;
+    }
+    let core = clean.split(['-', '+']).next().unwrap_or(clean);
+    let mut parts = core.split('.');
+    let major = parts.next()?.parse::<u64>().ok()?;
+    let minor = parts.next().unwrap_or("0").parse::<u64>().ok()?;
+    let patch = parts.next().unwrap_or("0").parse::<u64>().ok()?;
+    Some((major, minor, patch))
+}
+
+pub fn compare_versions(a: &str, b: &str) -> Option<Ordering> {
+    Some(parse_semver_triplet(a)?.cmp(&parse_semver_triplet(b)?))
+}
+
+/// Evaluates whether to show "What's new" once or the "Went back" rollback notice,
+/// and advances `settings.whats_new_last_seen_version` to `current_version` so neither repeats.
+pub fn evaluate_update_notice_and_advance(
+    settings: &mut AppSettings,
+    current_version: &str,
+) -> UpdateNoticeState {
+    let current = current_version.trim();
+    if current.is_empty() {
+        return UpdateNoticeState::None;
+    }
+    let stored = settings.whats_new_last_seen_version.trim().to_string();
+    if stored == current {
+        return UpdateNoticeState::None;
+    }
+    if stored.is_empty() {
+        settings.whats_new_last_seen_version = current.to_string();
+        if settings.show_whats_new_on_update {
+            return UpdateNoticeState::WhatsNew {
+                version: current.to_string(),
+                previous_version: String::new(),
+            };
+        }
+        return UpdateNoticeState::None;
+    }
+    match compare_versions(&stored, current) {
+        Some(Ordering::Greater) => {
+            settings.whats_new_last_seen_version = current.to_string();
+            UpdateNoticeState::WentBack {
+                rolled_back_from: stored.clone(),
+                current_version: current.to_string(),
+                message: format!(
+                    "{stored} did not start, so Coco Voice went back to {current}. Your settings and history are unchanged."
+                ),
+            }
+        }
+        Some(Ordering::Less) => {
+            settings.whats_new_last_seen_version = current.to_string();
+            if settings.show_whats_new_on_update {
+                UpdateNoticeState::WhatsNew {
+                    version: current.to_string(),
+                    previous_version: stored,
+                }
+            } else {
+                UpdateNoticeState::None
+            }
+        }
+        _ => UpdateNoticeState::None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -264,6 +348,40 @@ mod tests {
         assert_eq!(
             evaluate_try_it_sample("Monday, scratch that, Tuesday", true),
             "Tuesday"
+        );
+    }
+
+    #[test]
+    fn update_notice_shows_whats_new_once_and_detects_version_rollback() {
+        let mut settings = get_default_settings();
+        settings.show_whats_new_on_update = true;
+        settings.whats_new_last_seen_version = "0.10.1".to_string();
+
+        assert_eq!(
+            evaluate_update_notice_and_advance(&mut settings, "0.11.0"),
+            UpdateNoticeState::WhatsNew {
+                version: "0.11.0".to_string(),
+                previous_version: "0.10.1".to_string(),
+            }
+        );
+        assert_eq!(settings.whats_new_last_seen_version, "0.11.0");
+        assert_eq!(
+            evaluate_update_notice_and_advance(&mut settings, "0.11.0"),
+            UpdateNoticeState::None
+        );
+
+        assert_eq!(
+            evaluate_update_notice_and_advance(&mut settings, "0.10.1"),
+            UpdateNoticeState::WentBack {
+                rolled_back_from: "0.11.0".to_string(),
+                current_version: "0.10.1".to_string(),
+                message: "0.11.0 did not start, so Coco Voice went back to 0.10.1. Your settings and history are unchanged.".to_string(),
+            }
+        );
+        assert_eq!(settings.whats_new_last_seen_version, "0.10.1");
+        assert_eq!(
+            evaluate_update_notice_and_advance(&mut settings, "0.10.1"),
+            UpdateNoticeState::None
         );
     }
 }
