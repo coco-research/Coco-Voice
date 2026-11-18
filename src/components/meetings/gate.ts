@@ -6,6 +6,9 @@ export interface MeetingsUi {
     descriptionMode?: "inline" | "tooltip";
     grouped?: boolean;
   }>;
+  CalendarPicker: ComponentType;
+  /** True when the setting is on, so Settings can show the Meetings group. */
+  settingEnabled: (settings: unknown) => boolean;
   MeetingsView: ComponentType;
   icon: ComponentType<{
     width?: number | string;

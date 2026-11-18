@@ -513,6 +513,11 @@ pub struct AppSettings {
     #[cfg(feature = "meetings")]
     #[serde(default = "default_meetings_enabled")]
     pub meetings_enabled: bool,
+    /// Calendars the person picked for "Coming up". Empty until they pick one;
+    /// a work calendar is never read even if its id is stored here.
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub selected_calendars: Vec<String>,
 }
 
 fn default_model() -> String {
@@ -1194,6 +1199,8 @@ pub fn get_default_settings() -> AppSettings {
         overlay_style: default_overlay_style(),
         #[cfg(feature = "meetings")]
         meetings_enabled: default_meetings_enabled(),
+        #[cfg(feature = "meetings")]
+        selected_calendars: Vec::new(),
     }
 }
 
@@ -2675,6 +2682,24 @@ mod tests {
         assert_eq!(loaded.custom_words, vec!["Coco".to_string()]);
 
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn no_calendar_is_selected_by_default() {
+        assert!(get_default_settings().selected_calendars.is_empty());
+        let missing: AppSettings = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert!(missing.selected_calendars.is_empty());
+        let stored: AppSettings = serde_json::from_value(
+            serde_json::to_value({
+                let mut s = get_default_settings();
+                s.selected_calendars = vec!["abc".into()];
+                s
+            })
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(stored.selected_calendars, vec!["abc".to_string()]);
     }
 
     #[test]

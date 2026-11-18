@@ -3,6 +3,12 @@ mod actions;
 mod apple_intelligence;
 mod audio_feedback;
 pub mod audio_toolkit;
+#[cfg(feature = "meetings")]
+mod calendar_commands;
+#[cfg(all(feature = "meetings", target_os = "macos"))]
+mod calendar_eventkit;
+#[cfg(feature = "meetings")]
+mod calendar_upcoming;
 mod catalog;
 mod cleanup_eval;
 mod cleanup_resolver;
@@ -563,7 +569,14 @@ fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
 fn meetings_command_names() -> &'static [&'static str] {
     #[cfg(feature = "meetings")]
     {
-        &["change_meetings_enabled_setting"]
+        &[
+            "change_meetings_enabled_setting",
+            "list_calendar_choices",
+            "change_selected_calendars_setting",
+            "list_upcoming_meetings",
+            "keep_upcoming_for_notes",
+            "close_upcoming_meetings",
+        ]
     }
     #[cfg(not(feature = "meetings"))]
     {
@@ -574,7 +587,15 @@ fn meetings_command_names() -> &'static [&'static str] {
 #[cfg(feature = "meetings")]
 macro_rules! collect_app_commands {
     ($($($seg:ident)::+),* $(,)?) => {
-        collect_commands![$($($seg)::+,)* shortcut::change_meetings_enabled_setting]
+        collect_commands![
+            $($($seg)::+,)*
+            shortcut::change_meetings_enabled_setting,
+            calendar_commands::list_calendar_choices,
+            calendar_commands::change_selected_calendars_setting,
+            calendar_commands::list_upcoming_meetings,
+            calendar_commands::keep_upcoming_for_notes,
+            calendar_commands::close_upcoming_meetings
+        ]
     };
 }
 
@@ -945,6 +966,9 @@ pub fn run(cli_args: CliArgs) {
             WEBVIEW_LOG_STREAMING.store(settings.debug_mode, Ordering::Relaxed);
             let app_handle = app.handle().clone();
             app.manage(TranscriptionCoordinator::new(app_handle.clone()));
+            // Holds nothing and asks for nothing until the Meetings picker or list is opened.
+            #[cfg(feature = "meetings")]
+            app.manage(calendar_commands::CalendarState::new());
 
             initialize_core_logic(&app_handle);
             // Now the managers exist: run any toggle that arrived meanwhile (#212).
@@ -1053,6 +1077,15 @@ mod meetings_gate_tests {
                 "a meetings build registers the meetings setting command"
             );
             assert!(names.contains(&"change_meetings_enabled_setting"));
+            for name in [
+                "list_calendar_choices",
+                "change_selected_calendars_setting",
+                "list_upcoming_meetings",
+                "keep_upcoming_for_notes",
+                "close_upcoming_meetings",
+            ] {
+                assert!(names.contains(&name), "missing {name}");
+            }
         }
     }
 }
