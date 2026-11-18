@@ -28,7 +28,7 @@ echo "key loaded: $([ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ] && echo yes || echo 
 echo "date:  $(date)"
 
 echo "=== tauri build (app + dmg, updater artifacts signed) ==="
-bun run tauri build --bundles app,dmg 2>&1
+VITE_MEETINGS=1 bun run tauri build --features meetings --config src-tauri/tauri.meetings.conf.json --bundles app,dmg 2>&1
 echo "TAURI_EXIT=$?"
 
 echo "=== artifacts ==="
