@@ -31,6 +31,8 @@ mod meeting_notes_merge;
 #[cfg(feature = "meetings")]
 mod meeting_notes_pieces;
 #[cfg(feature = "meetings")]
+mod meeting_session;
+#[cfg(feature = "meetings")]
 pub mod meeting_todos;
 #[cfg(feature = "meetings")]
 mod meetings;
@@ -227,7 +229,16 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     app_handle.manage(history_manager.clone());
     app_handle.manage(tray::CurrentTrayIconState::new());
     #[cfg(feature = "meetings")]
-    app_handle.manage(Arc::new(meeting_controller::MeetingController::default()));
+    {
+        app_handle.manage(Arc::new(meeting_controller::MeetingController::new(
+            Box::new(meeting_session::MeetingSession::new(app_handle.clone())),
+        )));
+        // Open runs unfinished-row recovery. A later meeting start opens the
+        // same file again; the update is a no-op once no row is still recording.
+        if let Err(err) = managers::meetings::MeetingsStore::open_app(app_handle) {
+            log::warn!("meetings store recovery failed: {err}");
+        }
+    }
 
     // Note: Shortcuts are NOT initialized here.
     // The frontend is responsible for calling the `initialize_shortcuts` command
