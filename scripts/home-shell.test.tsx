@@ -4,6 +4,7 @@ import i18next from "i18next";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import en from "../src/i18n/locales/en/translation.json";
 import type { HistoryEntry } from "../src/bindings";
+import type { MeetingsUi } from "../src/components/meetings/gate";
 import {
   HomeSection,
   HomeView,
@@ -141,4 +142,64 @@ test("capability changes normalize selected routes to visible current pages", ()
     "voice-history",
   );
   expect(normalizeShellSection("debug", true, true)).toBe("debug");
+});
+
+test("meetings-record omits the not-available-yet status line when meetings and MeetingsView are present, while other sections and disabled state keep their status lines", () => {
+  const stubMeetingsUi: MeetingsUi = {
+    MEETINGS_UI_SENTINEL: "stub",
+    MeetingsToggle: () => null,
+    ConsentDialog: () => null,
+    MeetingsView: () => (
+      <div data-meetings-view="active">Live meetings view</div>
+    ),
+    icon: () => null,
+    sidebarVisible: () => true,
+  };
+
+  const recordOn = wrap(
+    <ShellContent
+      section="meetings-record"
+      meetingsUi={stubMeetingsUi}
+      showMeetings={true}
+      onNavigate={() => {}}
+      about={null}
+      debug={null}
+    />,
+  );
+  expect(recordOn).toContain('data-meetings-view="active"');
+  expect(recordOn).not.toContain(en.sidebar.meetingReady);
+  expect(recordOn).not.toContain(en.sidebar.meetingsUnavailable);
+
+  const recordOff = wrap(
+    <ShellContent
+      section="meetings-record"
+      meetingsUi={stubMeetingsUi}
+      showMeetings={false}
+      onNavigate={() => {}}
+      about={null}
+      debug={null}
+    />,
+  );
+  expect(recordOff).toContain(en.sidebar.meetingsUnavailable);
+  expect(recordOff).not.toContain('data-meetings-view="active"');
+
+  for (const otherSection of [
+    "meetings-history",
+    "meetings-ask",
+    "meetings-folders",
+    "meetings-agent",
+  ] as const) {
+    const otherOn = wrap(
+      <ShellContent
+        section={otherSection}
+        meetingsUi={stubMeetingsUi}
+        showMeetings={true}
+        onNavigate={() => {}}
+        about={null}
+        debug={null}
+      />,
+    );
+    expect(otherOn).toContain(en.sidebar.meetingReady);
+    expect(otherOn).not.toContain('data-meetings-view="active"');
+  }
 });
