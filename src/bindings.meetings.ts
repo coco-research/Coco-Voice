@@ -104,5 +104,4 @@ export type MeetingStatus = { state: MeetingState; elapsed_secs: number };
 import { invoke as TAURI_INVOKE } from "@tauri-apps/api/core";
 
 export type Result<T, E> =
-  | { status: "ok"; data: T }
-  | { status: "error"; error: E };
+  { status: "ok"; data: T } | { status: "error"; error: E };
