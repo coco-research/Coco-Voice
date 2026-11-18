@@ -199,3 +199,132 @@ pub fn sample_model_info(
         supports_language_detection: autodetect,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_meeting_language_is_auto_and_independent_of_dictation() {
+        let mut settings = crate::settings::get_default_settings();
+        assert_eq!(settings.meeting_language, "auto");
+        settings.selected_language = "fr".to_string();
+        assert_eq!(settings.meeting_language, "auto");
+
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .unwrap();
+        let tm = crate::managers::transcription::TranscriptionManager::new_for_test(
+            app.handle().clone(),
+        );
+        assert_eq!(tm.resolved_meeting_language(), "auto");
+        tm.set_meeting_language_override(Some("de_DE"));
+        assert_eq!(tm.resolved_meeting_language(), "de");
+        tm.clear_meeting_pin();
+        assert_eq!(tm.resolved_meeting_language(), "auto");
+    }
+
+    #[test]
+    fn auto_prefers_downloaded_multilingual_turbo_and_resolves_21_plus_languages() {
+        let twenty_two_langs = [
+            "en", "de", "es", "fr", "it", "pt", "nl", "pl", "ru", "uk", "cs", "bg", "sv", "tr",
+            "ar", "he", "hi", "ja", "ko", "vi", "zh-Hans", "zh-Hant",
+        ];
+        assert!(twenty_two_langs.len() >= 21);
+        let models = vec![
+            sample_model_info("moonshine-base", true, &["en"], false),
+            sample_model_info("turbo", true, &twenty_two_langs, true),
+            sample_model_info("large", false, &twenty_two_langs, true),
+        ];
+        let plan = plan_meeting_language(None, "auto", "moonshine-base", &models).unwrap();
+        assert_eq!(plan.model_id, "turbo");
+        assert_eq!(plan.effective_language, "auto");
+        assert!(plan.multilingual_capable);
+
+        for lang in twenty_two_langs {
+            let resolved =
+                plan_meeting_language(Some(lang), "auto", "moonshine-base", &models).unwrap();
+            assert_eq!(resolved.model_id, "turbo");
+            assert_eq!(resolved.effective_language, lang);
+        }
+    }
+
+    #[test]
+    fn explicit_german_and_spanish_resolve_installed_model_and_refuse_missing_without_download() {
+        let multilingual = vec![
+            sample_model_info("moonshine-base", true, &["en"], false),
+            sample_model_info("parakeet-tdt-0.6b-v3", true, &["en", "de", "es"], true),
+        ];
+        let de =
+            plan_meeting_language(Some("de_DE"), "auto", "moonshine-base", &multilingual).unwrap();
+        assert_eq!(de.model_id, "parakeet-tdt-0.6b-v3");
+        assert_eq!(de.effective_language, "de");
+
+        let es =
+            plan_meeting_language(Some("es-ES"), "auto", "moonshine-base", &multilingual).unwrap();
+        assert_eq!(es.model_id, "parakeet-tdt-0.6b-v3");
+        assert_eq!(es.effective_language, "es");
+
+        let english_only = vec![
+            sample_model_info("moonshine-base", true, &["en"], false),
+            sample_model_info("turbo", false, &["en", "de", "es"], true),
+        ];
+        let err =
+            plan_meeting_language(Some("de"), "auto", "moonshine-base", &english_only).unwrap_err();
+        assert_eq!(
+            err,
+            MeetingLanguageRefusal::NoInstalledModelForLanguage {
+                language: "de".to_string(),
+                model_id: "moonshine-base".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn word_error_rate_scores_german_and_spanish_hypotheses() {
+        assert_eq!(
+            word_error_rate("Guten Morgen zusammen!", "guten morgen zusammen"),
+            0.0
+        );
+        let wer = word_error_rate(
+            "Buenos dias equipo hoy lanzamos",
+            "Buenos dias equipo lanzamos",
+        );
+        assert!((wer - 0.2).abs() < 1e-6, "wer={wer}");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_say_generates_offline_german_anna_and_spanish_eddy_16khz_wavs() {
+        let dir = tempfile::tempdir().unwrap();
+        for (voice, phrase, name) in [
+            ("Anna", "Guten Morgen zusammen wir beginnen", "de.wav"),
+            (
+                "Eddy (Spanish (Spain))",
+                "Buenos dias equipo empezamos ahora",
+                "es.wav",
+            ),
+        ] {
+            let out = dir.path().join(name);
+            let status = std::process::Command::new("say")
+                .args([
+                    "-v",
+                    voice,
+                    "-o",
+                    out.to_str().unwrap(),
+                    "--data-format=LEI16@16000",
+                    phrase,
+                ])
+                .status()
+                .unwrap();
+            assert!(status.success(), "say failed for {voice}");
+            let samples = crate::audio_toolkit::read_wav_samples(&out).unwrap();
+            assert!(
+                samples.len() > 8_000,
+                "expected >0.5s 16 kHz PCM for {voice}, got {}",
+                samples.len()
+            );
+        }
+    }
+}
