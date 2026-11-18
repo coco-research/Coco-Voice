@@ -107,7 +107,14 @@
       },
       "accessibility": {
         "title": "Acesso à Acessibilidade",
-        "description": "Necessário para digitar o texto transcrito em seus aplicativos."
+        "description": "Necessário para digitar o texto transcrito em seus aplicativos.",
+        "stale": {
+          "description": "O macOS mostra o Coco Voice como permitido, mas a entrada está desatualizada (é comum após uma atualização), por isso colar não vai funcionar. Para corrigir:",
+          "step1": "Abra Ajustes do Sistema > Privacidade e Segurança > Acessibilidade.",
+          "step2": "Selecione o Coco Voice e remova-o com o botão menos (-).",
+          "step3": "Adicione o Coco Voice novamente com o botão mais (+) e ative-o.",
+          "checkAgain": "Verificar novamente"
+        }
       },
       "grant": "Conceder Permissão",
       "granted": "Concedido",

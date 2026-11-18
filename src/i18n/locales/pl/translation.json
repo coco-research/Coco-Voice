@@ -107,7 +107,14 @@
       },
       "accessibility": {
         "title": "Dostęp do dostępności",
-        "description": "Wymagany do wpisywania transkrybowanego tekstu w Twoich aplikacjach."
+        "description": "Wymagany do wpisywania transkrybowanego tekstu w Twoich aplikacjach.",
+        "stale": {
+          "description": "macOS pokazuje Coco Voice jako dozwolony, ale wpis jest nieaktualny (często po aktualizacji), więc wklejanie nie zadziała. Aby to naprawić:",
+          "step1": "Otwórz Ustawienia systemowe > Prywatność i ochrona > Dostępność.",
+          "step2": "Zaznacz Coco Voice i usuń go przyciskiem minus (-).",
+          "step3": "Dodaj ponownie Coco Voice przyciskiem plus (+) i włącz go.",
+          "checkAgain": "Sprawdź ponownie"
+        }
       },
       "grant": "Przyznaj uprawnienie",
       "granted": "Przyznano",

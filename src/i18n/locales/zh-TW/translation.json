@@ -107,7 +107,14 @@
       },
       "accessibility": {
         "title": "輔助使用存取",
-        "description": "需要將轉錄文字輸入到您的應用程式中"
+        "description": "需要將轉錄文字輸入到您的應用程式中",
+        "stale": {
+          "description": "macOS 顯示 Coco Voice 已獲允許，但該項目已過期（常見於更新之後），因此無法貼上。修正方法：",
+          "step1": "打開 系統設定 > 隱私權與安全性 > 輔助使用。",
+          "step2": "選取 Coco Voice，然後用減號 (-) 按鈕將其移除。",
+          "step3": "用加號 (+) 按鈕重新加入 Coco Voice 並將其開啟。",
+          "checkAgain": "再次檢查"
+        }
       },
       "grant": "授予權限",
       "granted": "已授予",

@@ -107,7 +107,14 @@
       },
       "accessibility": {
         "title": "Erişilebilirlik Erişimi",
-        "description": "Transkribe edilen metni uygulamalarınıza yazabilmek için gereklidir."
+        "description": "Transkribe edilen metni uygulamalarınıza yazabilmek için gereklidir.",
+        "stale": {
+          "description": "macOS, Coco Voice'u izinli olarak gösteriyor ancak kayıt güncel değil (genellikle bir güncellemeden sonra olur), bu yüzden yapıştırma çalışmaz. Düzeltmek için:",
+          "step1": "Sistem Ayarları > Gizlilik ve Güvenlik > Erişilebilirlik'i açın.",
+          "step2": "Coco Voice'u seçin ve eksi (-) düğmesiyle kaldırın.",
+          "step3": "Coco Voice'u artı (+) düğmesiyle yeniden ekleyin ve açın.",
+          "checkAgain": "Yeniden kontrol et"
+        }
       },
       "grant": "İzin Ver",
       "granted": "Verildi",

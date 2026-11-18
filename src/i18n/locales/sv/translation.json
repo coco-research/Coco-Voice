@@ -107,7 +107,14 @@
       },
       "accessibility": {
         "title": "Hjälpmedelsåtkomst",
-        "description": "Krävs för att skriva transkriberad text i dina program."
+        "description": "Krävs för att skriva transkriberad text i dina program.",
+        "stale": {
+          "description": "macOS visar Coco Voice som tillåten, men posten är inaktuell (händer ofta efter en uppdatering), så inklistring fungerar inte. Så åtgärdar du det:",
+          "step1": "Öppna Systeminställningar > Integritet och säkerhet > Hjälpmedel.",
+          "step2": "Markera Coco Voice och ta bort den med minusknappen (-).",
+          "step3": "Lägg till Coco Voice igen med plusknappen (+) och slå på den.",
+          "checkAgain": "Kontrollera igen"
+        }
       },
       "grant": "Bevilja behörighet",
       "granted": "Beviljad",
