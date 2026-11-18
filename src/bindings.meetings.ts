@@ -2,6 +2,18 @@
 
 /** user-defined commands **/
 
+export interface MeetingRetentionState {
+  delete_audio_after_notes: boolean;
+  meeting_audio_retention_secs: number | null;
+  save_notes_as_markdown: boolean;
+  notes_markdown_folder: string | null;
+}
+
+export interface DeleteAllMeetingsResult {
+  deleted_count: number;
+  audio_left_count: number;
+}
+
 export const commands = {
   async changeMeetingsEnabledSetting(
     enabled: boolean,
@@ -78,6 +90,67 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async meetingRetentionState(): Promise<MeetingRetentionState> {
+    return await TAURI_INVOKE("meeting_retention_state");
+  },
+  async changeDeleteAudioAfterNotesSetting(
+    enabled: boolean,
+  ): Promise<Result<MeetingRetentionState, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("change_delete_audio_after_notes_setting", {
+          enabled,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async changeNotesMarkdownFolderSetting(
+    enabled: boolean,
+    folder: string | null,
+  ): Promise<Result<MeetingRetentionState, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("change_notes_markdown_folder_setting", {
+          enabled,
+          folder,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async requestDeleteAllMeetings(): Promise<Result<string, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("request_delete_all_meetings"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async deleteAllMeetings(
+    confirmationToken: string | null = null,
+  ): Promise<Result<DeleteAllMeetingsResult, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("delete_all_meetings", {
+          confirmationToken,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
 };
 
 /** user-defined types **/
@@ -106,4 +179,5 @@ export type MeetingWarning = "system_audio_silent" | "mic_fell_back_to_default";
 import { invoke as TAURI_INVOKE } from "@tauri-apps/api/core";
 
 export type Result<T, E> =
-  { status: "ok"; data: T } | { status: "error"; error: E };
+  | { status: "ok"; data: T }
+  | { status: "error"; error: E };
