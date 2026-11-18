@@ -166,7 +166,7 @@ impl UpcomingStore {
         let ids: Vec<String> = allowed.iter().map(|c| c.id.clone()).collect();
         let mut events: Vec<UpcomingEvent> = Vec::new();
         for raw in source.events(&ids, now, now + horizon_secs)? {
-            let Some(cal) = allowed.iter().find(|c| c.id == raw.calendar_id) else {
+            let Some(calendar_entry) = allowed.iter().find(|c| c.id == raw.calendar_id) else {
                 continue;
             };
             if raw.end <= now || raw.start >= now + horizon_secs {
@@ -183,7 +183,7 @@ impl UpcomingStore {
                 title: raw.title,
                 start: raw.start,
                 end: raw.end,
-                calendar_name: cal.title.clone(),
+                calendar_name: calendar_entry.title.clone(),
                 attendee_display_names: names,
             });
         }
@@ -239,7 +239,7 @@ pub(crate) mod fake {
         pub calls: Mutex<u32>,
     }
 
-    pub fn cal(id: &str, title: &str, account: &str, source: &str) -> CalendarInfo {
+    pub fn make_calendar(id: &str, title: &str, account: &str, source: &str) -> CalendarInfo {
         CalendarInfo {
             id: id.into(),
             title: title.into(),
@@ -248,9 +248,9 @@ pub(crate) mod fake {
         }
     }
 
-    pub fn ev(cal_id: &str, title: &str, start: i64, end: i64, who: &[&str]) -> RawEvent {
+    pub fn ev(calendar_id: &str, title: &str, start: i64, end: i64, who: &[&str]) -> RawEvent {
         RawEvent {
-            calendar_id: cal_id.into(),
+            calendar_id: calendar_id.into(),
             title: title.into(),
             start,
             end,
@@ -292,18 +292,18 @@ mod tests {
     use super::*;
 
     fn home() -> CalendarInfo {
-        cal("h", "Home", "iCloud", "iCloud")
+        make_calendar("h", "Home", "iCloud", "iCloud")
     }
 
     #[test]
     fn work_corporate_and_exchange_calendars_are_flagged() {
         let flagged = [
-            cal("1", "Work", "iCloud", "iCloud"),
-            cal("2", "Team", "me@acme.com", "Exchange"),
-            cal("3", "Calendar", "Corporate Mail", "Other"),
-            cal("4", "Calendar", "me@company.example", "Employer"),
-            cal("5", "Project", "Office 365", "Other"),
-            cal("6", "Workplace events", "Local", "Local"),
+            make_calendar("1", "Work", "iCloud", "iCloud"),
+            make_calendar("2", "Team", "user@example.test", "Exchange"),
+            make_calendar("3", "Calendar", "Corporate Mail", "Other"),
+            make_calendar("4", "Calendar", "user@enterprise.test", "Employer"),
+            make_calendar("5", "Project", "Office 365", "Other"),
+            make_calendar("6", "Workplace events", "Local", "Local"),
         ];
         for c in flagged {
             assert!(work_reason(&c) == Some(BlockedReason::Work), "{}", c.title);
@@ -314,9 +314,9 @@ mod tests {
     fn personal_calendars_are_not_flagged() {
         for c in [
             home(),
-            cal("2", "Birthdays", "iCloud", "Subscribed"),
-            cal("3", "Networking dinners", "Local", "Local"),
-            cal("4", "Family", "me@gmail.com", "CalDAV"),
+            make_calendar("2", "Birthdays", "iCloud", "Subscribed"),
+            make_calendar("3", "Networking dinners", "Local", "Local"),
+            make_calendar("4", "Family", "user@mail.test", "CalDAV"),
         ] {
             assert!(work_reason(&c).is_none(), "{}", c.title);
         }
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn picker_rows_start_unselected_and_blocked_rows_say_why() {
-        let rows = calendar_choices(&[home(), cal("w", "Work", "x", "Exchange")], &[]);
+        let rows = calendar_choices(&[home(), make_calendar("w", "Work", "x", "Exchange")], &[]);
         assert_eq!(rows.len(), 2);
         assert!(rows[0].blocked.is_none());
         assert!(rows[1].blocked == Some(BlockedReason::Work));
@@ -332,9 +332,9 @@ mod tests {
 
     #[test]
     fn saved_selection_drops_unknown_and_work_calendars() {
-        let cals = [home(), cal("w", "Work", "x", "Exchange")];
+        let calendars = [home(), make_calendar("w", "Work", "x", "Exchange")];
         let ids: Vec<String> = ["h", "w", "gone"].iter().map(|s| s.to_string()).collect();
-        assert_eq!(sanitize_selection(&ids, &cals), vec!["h".to_string()]);
+        assert_eq!(sanitize_selection(&ids, &calendars), vec!["h".to_string()]);
     }
 
     #[test]
@@ -349,7 +349,7 @@ mod tests {
     #[test]
     fn a_selected_work_calendar_is_never_read() {
         let src = FakeCalendar::new(
-            vec![home(), cal("w", "Work", "x", "Exchange")],
+            vec![home(), make_calendar("w", "Work", "x", "Exchange")],
             vec![
                 ev("h", "Dentist", 100, 200, &[]),
                 ev("w", "Board prep", 100, 200, &["Boss"]),
@@ -366,7 +366,7 @@ mod tests {
     #[test]
     fn only_selected_calendars_in_the_window_are_kept_in_start_order() {
         let src = FakeCalendar::new(
-            vec![home(), cal("f", "Family", "iCloud", "iCloud")],
+            vec![home(), make_calendar("f", "Family", "iCloud", "iCloud")],
             vec![
                 ev("h", "Later", 500, 600, &["Ann", "", "Ann", "Bo"]),
                 ev("h", "Sooner", 100, 200, &[]),
@@ -418,7 +418,7 @@ mod tests {
     #[test]
     fn calendar_data_never_shows_up_in_debug_output_or_logs() {
         let e = UpcomingEvent {
-            title: "Secret merger".into(),
+            title: "Quarterly planning".into(),
             start: 1,
             end: 2,
             calendar_name: "Home".into(),
