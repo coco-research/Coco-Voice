@@ -78,9 +78,82 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async listCalendarChoices(): Promise<Result<CalendarChoice[], string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("list_calendar_choices"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async changeSelectedCalendarsSetting(
+    ids: string[],
+  ): Promise<Result<string[], string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("change_selected_calendars_setting", { ids }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async listUpcomingMeetings(): Promise<Result<UpcomingEvent[], string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("list_upcoming_meetings"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async keepUpcomingForNotes(
+    start: number,
+    title: string,
+    calendarName: string,
+  ): Promise<Result<UpcomingEvent | null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("keep_upcoming_for_notes", {
+          start,
+          title,
+          calendarName,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async closeUpcomingMeetings(): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("close_upcoming_meetings"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
 };
 
 /** user-defined types **/
+
+export type BlockedReason = "work";
+export type CalendarChoice = {
+  id: string;
+  title: string;
+  account: string;
+  blocked: BlockedReason | null;
+};
 
 export type MeetingChannel = "me" | "others";
 export type MeetingRefusal = "already_recording";
@@ -100,6 +173,13 @@ export type MeetingStatus = {
   warnings: MeetingWarning[];
 };
 export type MeetingWarning = "system_audio_silent" | "mic_fell_back_to_default";
+export type UpcomingEvent = {
+  title: string;
+  start: number;
+  end: number;
+  calendar_name: string;
+  attendee_display_names: string[];
+};
 
 /** tauri-specta globals **/
 
