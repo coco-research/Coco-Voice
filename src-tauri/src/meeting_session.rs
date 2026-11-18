@@ -255,10 +255,12 @@ impl MeetingSession {
             }
         }
         crate::managers::meetings::set_meeting_active(true);
+        crate::meetings::set_meeting_recording(true);
     }
 
     fn clear_runtime(&self) {
         crate::managers::meetings::set_meeting_active(false);
+        crate::meetings::set_meeting_recording(false);
         if let Some(clear) = &self.test_clear {
             clear();
         }
@@ -672,6 +674,7 @@ mod tests {
         harness
             .session
             .end(crate::meeting_controller::MeetingEnd::Slept);
+        assert!(!crate::meetings::meeting_is_recording());
         assert!(!set_meeting_active_now());
         let store = MeetingsStore::open(harness.dir.path()).unwrap();
         let row = store.meeting(id).unwrap();
