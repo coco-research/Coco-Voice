@@ -871,6 +871,7 @@ name = "coco-voice"
 version = "0.11.0"
 dependencies = [
  "anyhow",
+ "block2",
  "chrono",
  "cidre",
  "clap",
@@ -889,6 +890,8 @@ dependencies = [
  "llama-cpp-2",
  "log",
  "natural",
+ "objc2",
+ "objc2-foundation",
  "once_cell",
  "plist",
  "regex",
