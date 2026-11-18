@@ -4,6 +4,12 @@ pub mod agent_ask;
 mod apple_intelligence;
 mod audio_feedback;
 pub mod audio_toolkit;
+#[cfg(feature = "meetings")]
+mod calendar_commands;
+#[cfg(all(feature = "meetings", target_os = "macos"))]
+mod calendar_eventkit;
+#[cfg(feature = "meetings")]
+mod calendar_upcoming;
 mod catalog;
 mod cleanup_eval;
 mod cleanup_resolver;
@@ -576,6 +582,11 @@ fn meetings_command_names() -> &'static [&'static str] {
             "confirm_meeting_start",
             "cancel_meeting_consent",
             "stop_meeting",
+            "list_calendar_choices",
+            "change_selected_calendars_setting",
+            "list_upcoming_meetings",
+            "keep_upcoming_for_notes",
+            "close_upcoming_meetings",
         ]
     }
     #[cfg(not(feature = "meetings"))]
@@ -593,7 +604,12 @@ macro_rules! collect_app_commands {
             meeting_controller::open_meeting_consent,
             meeting_controller::confirm_meeting_start,
             meeting_controller::cancel_meeting_consent,
-            meeting_controller::stop_meeting
+            meeting_controller::stop_meeting,
+            calendar_commands::list_calendar_choices,
+            calendar_commands::change_selected_calendars_setting,
+            calendar_commands::list_upcoming_meetings,
+            calendar_commands::keep_upcoming_for_notes,
+            calendar_commands::close_upcoming_meetings
         ]
     };
 }
@@ -969,6 +985,9 @@ pub fn run(cli_args: CliArgs) {
             WEBVIEW_LOG_STREAMING.store(settings.debug_mode, Ordering::Relaxed);
             let app_handle = app.handle().clone();
             app.manage(TranscriptionCoordinator::new(app_handle.clone()));
+            // Holds nothing and asks for nothing until the Meetings picker or list is opened.
+            #[cfg(feature = "meetings")]
+            app.manage(calendar_commands::CalendarState::new());
 
             initialize_core_logic(&app_handle);
             // Now the managers exist: run any toggle that arrived meanwhile (#212).
@@ -1077,6 +1096,15 @@ mod meetings_gate_tests {
                 "a meetings build registers the meetings setting command"
             );
             assert!(names.contains(&"change_meetings_enabled_setting"));
+            for name in [
+                "list_calendar_choices",
+                "change_selected_calendars_setting",
+                "list_upcoming_meetings",
+                "keep_upcoming_for_notes",
+                "close_upcoming_meetings",
+            ] {
+                assert!(names.contains(&name), "missing {name}");
+            }
         }
     }
 }
