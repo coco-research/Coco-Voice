@@ -38,7 +38,7 @@ Talking is faster than typing, but most dictation tools record you, send the aud
 
 ### For users
 
-Release 0.9.6 ships installers for macOS, Windows, and Linux. macOS: `Coco.Voice_0.9.6_aarch64.dmg` (Apple Silicon) and `Coco.Voice_0.9.6_x64.dmg` (Intel). Windows: x64 and arm64 installers (`-setup.exe` and `.msi`). Linux: an AppImage, a `.deb`, and an `.rpm` for x86_64/amd64 and aarch64/arm64. Builds are ad-hoc signed and not notarized, so Gatekeeper warns the first time you open the Mac app. Updater artifacts carry `.sig` files and `latest.json`. There is also a `SHA256SUMS` file. On a Mac, [INSTALL.md](INSTALL.md) covers the one-time quarantine step.
+Release 0.11.0 ships installers for macOS, Windows, and Linux. macOS: `Coco.Voice_0.11.0_aarch64.dmg` (Apple Silicon) and `Coco.Voice_0.11.0_x64.dmg` (Intel). Windows: x64 and arm64 installers (`-setup.exe` and `.msi`). Linux: an AppImage, a `.deb`, and an `.rpm` for x86_64/amd64 and aarch64/arm64. Builds are ad-hoc signed and not notarized, so Gatekeeper warns the first time you open the Mac app. Updater artifacts carry `.sig` files and `latest.json`. There is also a `SHA256SUMS` file. On a Mac, [INSTALL.md](INSTALL.md) covers the one-time quarantine step.
 
 On an Apple Silicon Mac, one command downloads the latest release, copies Coco Voice into Applications, clears the quarantine flag, and launches it:
 
@@ -102,7 +102,7 @@ The shortcut opens the microphone through cpal. Silero voice activity detection 
 
 ## Status and roadmap
 
-This is a beta. The latest release is 0.9.6. See [CHANGELOG.md](CHANGELOG.md) for what changed. Today, on an Apple Silicon Mac, you can hold the shortcut, speak, and paste a local transcript, with history, custom words, and corrections. The app includes an updater that reads the latest GitHub release. The Mac build is ad-hoc signed and not notarized. Apple Intelligence is not in the 0.9.5 download.
+This is a beta. The latest release is 0.11.0. See [CHANGELOG.md](CHANGELOG.md) for what changed. Today, on an Apple Silicon Mac, you can hold the shortcut, speak, and paste a local transcript, with history, custom words, and corrections. The app includes an updater that reads the latest GitHub release. The Mac build is ad-hoc signed and not notarized. Apple Intelligence is not in the 0.9.5 download.
 
 Next:
 
