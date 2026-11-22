@@ -6,6 +6,7 @@ import { platform, version } from "@tauri-apps/plugin-os";
 import { MeetingsToggle } from "../settings/MeetingsToggle";
 import { commands } from "../../bindings.meetings";
 import type { MeetingsUi } from "./gate";
+import { MeetingsView } from "./MeetingsView";
 
 export const MEETINGS_UI_SENTINEL = "coco-meetings-ui-v1";
 
@@ -142,15 +143,6 @@ export function ConsentDialog() {
 
   if (!open) return null;
   return <ConsentDialogPanel onClose={() => setOpen(false)} />;
-}
-
-export function MeetingsView() {
-  const { t } = useTranslation();
-  return (
-    <div className="max-w-3xl w-full mx-auto">
-      <p className="text-sm font-medium">{t("meetings.sidebar")}</p>
-    </div>
-  );
 }
 
 export const meetingsUi = {
