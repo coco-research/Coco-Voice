@@ -348,12 +348,50 @@ fn create_audio_recorder(
             move |frame| {
                 router.feed(frame);
             }
+        })
+        .with_silent_mic_callback({
+            let app_handle = app_handle.clone();
+            move || {
+                let _ = app_handle.emit("silent-microphone", ());
+            }
         });
 
     Ok(recorder)
 }
 
 /* ──────────────────────────────────────────────────────────────── */
+
+pub fn is_builtin_laptop_mic(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.contains("macbook") || lower.contains("built-in") || lower.contains("internal microphone")
+}
+
+pub fn select_effective_microphone(
+    available: &[String],
+    priority: &[String],
+    selected: Option<&str>,
+    clamshell: Option<&str>,
+    lid_closed: bool,
+) -> Option<String> {
+    let avail = |n: &str| available.iter().any(|a| a == n);
+    let ext = |n: &str| avail(n) && !is_builtin_laptop_mic(n);
+    if lid_closed {
+        if let Some(m) = clamshell
+            .filter(|c| avail(c))
+            .map(str::to_string)
+            .or_else(|| priority.iter().find(|p| ext(p)).cloned())
+            .or_else(|| selected.filter(|s| ext(s)).map(str::to_string))
+            .or_else(|| available.iter().find(|a| ext(a)).cloned())
+        {
+            return Some(m);
+        }
+    }
+    priority
+        .iter()
+        .find(|p| avail(p))
+        .cloned()
+        .or_else(|| selected.filter(|s| avail(s)).map(str::to_string))
+}
 
 pub struct AudioRecordingManager<R: tauri::Runtime = tauri::Wry> {
     state: Arc<Mutex<RecordingState>>,
@@ -545,6 +583,29 @@ impl AudioRecordingManager {
     }
 
     fn get_effective_microphone_device(&self, settings: &AppSettings) -> Option<cpal::Device> {
+        if !settings.microphone_priority.is_empty()
+            || settings.clamshell_microphone.is_some()
+            || settings
+                .selected_microphone
+                .as_deref()
+                .is_some_and(is_builtin_laptop_mic)
+        {
+            let lid_closed = clamshell::is_clamshell().unwrap_or(false);
+            if !settings.microphone_priority.is_empty() || lid_closed {
+                let devices = list_input_devices().ok()?;
+                let names: Vec<String> = devices.iter().map(|d| d.name.clone()).collect();
+                let chosen = select_effective_microphone(
+                    &names,
+                    &settings.microphone_priority,
+                    settings.selected_microphone.as_deref(),
+                    settings.clamshell_microphone.as_deref(),
+                    lid_closed,
+                )?;
+                let dev = devices.into_iter().find(|d| d.name == chosen)?.device;
+                *self.cached_device.lock().unwrap() = Some((chosen, dev.clone()));
+                return Some(dev);
+            }
+        }
         let device_name = match self.desired_device_name(settings) {
             Some(name) => name,
             None => {
@@ -1049,5 +1110,42 @@ mod tests {
         );
         rm.apply_mute(rm.mute_token());
         assert_eq!(may_apply_watch::hits(), 0);
+    }
+
+    #[test]
+    fn ranked_microphones_hot_swap_and_lid_closed_fallback_select_expected_device() {
+        let (mbp, bi, ap, sh, usb, dock) = (
+            "MacBook Pro Microphone",
+            "Built-in Microphone",
+            "AirPods Pro",
+            "Shure MV7",
+            "USB Headset",
+            "CalDigit",
+        );
+        let cases: &[(&[&str], &[&str], Option<&str>, Option<&str>, bool, &str)] = &[
+            (&[mbp, ap, sh], &[sh, ap], None, None, false, sh),
+            (&[mbp, ap], &[sh, ap], None, None, false, ap),
+            (&[mbp, ap], &[mbp, ap], None, None, true, ap),
+            (&[bi, usb], &[], Some(bi), Some(dock), true, usb),
+            (&[bi, dock], &[], None, Some(dock), true, dock),
+        ];
+        for &(av, pr, sel, cl, closed, exp) in cases {
+            let av: Vec<String> = av.iter().map(|s| (*s).into()).collect();
+            let pr: Vec<String> = pr.iter().map(|s| (*s).into()).collect();
+            let got = select_effective_microphone(&av, &pr, sel, cl, closed);
+            assert_eq!(got.as_deref(), Some(exp));
+        }
+    }
+
+    #[test]
+    fn silent_mic_detector_warns_once_at_start_and_ignores_active_speech() {
+        use crate::audio_toolkit::audio::{SilentMicDetector, SILENT_START_WINDOW_SAMPLES};
+        let mut det = SilentMicDetector::default();
+        assert!(!det.feed(&vec![0.0; SILENT_START_WINDOW_SAMPLES - 480]));
+        assert!(det.feed(&vec![0.0; 480]));
+        assert!(!det.feed(&vec![0.0; 4800]));
+        det.reset();
+        assert!(!det.feed(&vec![0.02; 480]));
+        assert!(!det.feed(&vec![0.0; SILENT_START_WINDOW_SAMPLES]));
     }
 }

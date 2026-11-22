@@ -305,6 +305,29 @@ pub fn get_clamshell_microphone(app: AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 #[specta::specta]
+pub fn set_microphone_priority(app: AppHandle, priority: Vec<String>) -> Result<(), String> {
+    let rm = app.state::<Arc<AudioRecordingManager>>();
+    if rm.is_recording() {
+        return Err("Cannot change the microphone while recording".to_string());
+    }
+    let cleaned: Vec<String> = priority
+        .into_iter()
+        .map(|p| p.trim().to_string())
+        .filter(|p| !p.is_empty() && p != "default")
+        .collect();
+    update_settings(&app, |s| s.microphone_priority = cleaned);
+    rm.update_selected_device()
+        .map_err(|e| format!("Failed to update selected device: {}", e))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_microphone_priority(app: AppHandle) -> Result<Vec<String>, String> {
+    Ok(get_settings(&app).microphone_priority)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn is_recording(app: AppHandle) -> bool {
     let audio_manager = app.state::<Arc<AudioRecordingManager>>();
     audio_manager.is_recording()

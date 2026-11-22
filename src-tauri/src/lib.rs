@@ -725,6 +725,8 @@ pub fn run(cli_args: CliArgs) {
             commands::audio::check_custom_sounds,
             commands::audio::set_clamshell_microphone,
             commands::audio::get_clamshell_microphone,
+            commands::audio::set_microphone_priority,
+            commands::audio::get_microphone_priority,
             commands::audio::is_recording,
             commands::transcription::set_model_unload_timeout,
             commands::transcription::get_model_load_status,
