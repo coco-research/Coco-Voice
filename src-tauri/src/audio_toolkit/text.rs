@@ -186,10 +186,37 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
     result.join(" ")
 }
 
+/// True when `word` carries explicit code-identifier casing (`camelCase`,
+/// `PascalCase`, `snake_case`, `SCREAMING_SNAKE_CASE`, or `kebab-case`).
+pub fn has_identifier_casing(word: &str) -> bool {
+    let trimmed = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '-');
+    if trimmed.len() < 2 {
+        return false;
+    }
+    if trimmed.contains('_') || trimmed.contains('-') {
+        return true;
+    }
+    let mut seen_lower = false;
+    let mut upper_count = 0usize;
+    for ch in trimmed.chars() {
+        if ch.is_lowercase() {
+            seen_lower = true;
+        } else if ch.is_uppercase() {
+            upper_count += 1;
+            if seen_lower {
+                return true;
+            }
+        }
+    }
+    upper_count >= 2
+}
+
 /// Preserves the case pattern of the original word when applying a replacement
 fn preserve_case_pattern(original: &str, replacement: &str) -> String {
     if original.chars().all(|c| c.is_uppercase()) {
         replacement.to_uppercase()
+    } else if has_identifier_casing(replacement) {
+        replacement.to_string()
     } else if original.chars().next().is_some_and(|c| c.is_uppercase()) {
         let mut chars: Vec<char> = replacement.chars().collect();
         if let Some(first_char) = chars.get_mut(0) {

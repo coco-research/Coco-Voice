@@ -109,6 +109,7 @@ pub fn unregister_cancel_shortcut(app: &AppHandle) {
 /// Register a shortcut using the appropriate implementation
 pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<(), String> {
     let id = binding.id.clone();
+    let current_binding = binding.current_binding.clone();
     let settings = get_settings(app);
     let result = match settings.keyboard_implementation {
         KeyboardImplementation::Tauri => tauri_impl::register_shortcut(app, binding),
@@ -116,6 +117,7 @@ pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<()
     };
     if result.is_ok() {
         note_shortcut_registered(&id);
+        crate::dictation_features::on_shortcut_registered(&current_binding);
     }
     result
 }
