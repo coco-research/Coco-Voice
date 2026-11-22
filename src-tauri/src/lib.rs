@@ -30,6 +30,8 @@ mod meeting_notes_merge;
 mod meeting_notes_pieces;
 #[cfg(feature = "meetings")]
 pub mod meeting_todos;
+#[cfg(feature = "meetings")]
+mod meetings;
 #[cfg(all(feature = "meetings", target_os = "macos"))]
 pub mod meetings_tap;
 mod overlay;
@@ -576,6 +578,8 @@ fn meetings_command_names() -> &'static [&'static str] {
             "confirm_meeting_start",
             "cancel_meeting_consent",
             "stop_meeting",
+            "current_meeting_offer",
+            "dismiss_meeting_offer",
         ]
     }
     #[cfg(not(feature = "meetings"))]
@@ -593,7 +597,9 @@ macro_rules! collect_app_commands {
             meeting_controller::open_meeting_consent,
             meeting_controller::confirm_meeting_start,
             meeting_controller::cancel_meeting_consent,
-            meeting_controller::stop_meeting
+            meeting_controller::stop_meeting,
+            meetings::current_meeting_offer,
+            meetings::dismiss_meeting_offer
         ]
     };
 }
@@ -929,6 +935,9 @@ pub fn run(cli_args: CliArgs) {
                 return Ok(());
             }
 
+            #[cfg(feature = "meetings")]
+            meetings::install(app.handle());
+
             // Create main window programmatically so we can set data_directory
             // for portable mode (redirects WebView2 cache to portable Data dir)
             let mut win_builder =
@@ -1052,6 +1061,8 @@ pub fn run(cli_args: CliArgs) {
             }
             // Teardown transcribe.cpp before exit
             tauri::RunEvent::Exit => {
+                #[cfg(feature = "meetings")]
+                meetings::stop_offer_poll();
                 if let Some(tm) = app.try_state::<Arc<TranscriptionManager>>() {
                     let _ = tm.unload_model();
                 }
@@ -1079,6 +1090,8 @@ mod meetings_gate_tests {
                 "a meetings build registers the meetings setting command"
             );
             assert!(names.contains(&"change_meetings_enabled_setting"));
+            assert!(names.contains(&"current_meeting_offer"));
+            assert!(names.contains(&"dismiss_meeting_offer"));
         }
     }
 }
