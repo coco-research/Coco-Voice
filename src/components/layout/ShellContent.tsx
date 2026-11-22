@@ -49,22 +49,25 @@ export function ShellContent({
     const label =
       SHELL_ROUTES.find((route) => route.id === section)?.labelKey ??
       "meetings.sidebar";
+    const hasMeetingsRecordView =
+      section === "meetings-record" && showMeetings && meetingsUi !== null;
     return (
       <section
         data-route-domain="meetings"
         className="max-w-3xl w-full mx-auto space-y-3"
       >
         <h1 className="text-2xl font-semibold">{t(label)}</h1>
-        <p role="status" className="text-sm text-mid-gray">
-          {t(
-            showMeetings
-              ? "sidebar.meetingReady"
-              : "sidebar.meetingsUnavailable",
-          )}
-        </p>
-        {section === "meetings-record" && showMeetings && meetingsUi ? (
+        {hasMeetingsRecordView ? (
           <meetingsUi.MeetingsView />
-        ) : null}
+        ) : (
+          <p role="status" className="text-sm text-mid-gray">
+            {t(
+              showMeetings
+                ? "sidebar.meetingReady"
+                : "sidebar.meetingsUnavailable",
+            )}
+          </p>
+        )}
       </section>
     );
   }
