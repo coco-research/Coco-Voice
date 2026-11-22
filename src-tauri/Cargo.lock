@@ -886,6 +886,7 @@ dependencies = [
  "handy-keys",
  "hf-hub",
  "hound",
+ "libc",
  "llama-cpp-2",
  "log",
  "natural",
