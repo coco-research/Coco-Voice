@@ -26,10 +26,9 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
 use std::future::Future;
-use std::sync::atomic::AtomicBool;
 #[cfg(all(test, feature = "meetings"))]
 use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::Manager;
@@ -1175,12 +1174,15 @@ pub(crate) async fn process_transcription_output(
         post_processed_text = Some(final_text.clone());
     }
 
-    // Deterministic user correction map: the final output pass on the pasted text.
-    // Runs after LLM post-processing (above) and after apply_custom_words (which
-    // runs earlier in the transcription pipeline), so the user always gets a
-    // predictable last-word override via case-insensitive whole-word replacement.
+    // Deterministic user correction map runs after LLM post-processing (above) and
+    // after apply_custom_words (which runs earlier in the transcription pipeline),
+    // followed by saved-block expansion so spoken cues benefit from word/correction
+    // fixes while literal words inside a saved block are never mutated.
     if !settings.corrections.is_empty() {
         final_text = crate::audio_toolkit::apply_corrections(&final_text, &settings.corrections);
+    }
+    if !settings.saved_blocks.is_empty() {
+        final_text = crate::audio_toolkit::expand_saved_blocks(&final_text, &settings.saved_blocks);
     }
 
     // Remember this dictation so a later correction-hotkey press can edit it.
@@ -1579,54 +1581,39 @@ impl ShortcutAction for TranscribeAction {
                                 .await;
 
                                 let mut cancelled_before_paste = false;
-                                let mut show_notice = false;
-                                let mut paste_failed = false;
-                                let mut paste_lost = false;
-                                match pasted {
+                                let mut task_panicked = false;
+                                let outcome = match &pasted {
                                     Ok(Some(Ok(restored))) => {
                                         debug!(
                                             "Text pasted successfully in {:?}",
                                             paste_time.elapsed()
                                         );
-                                        // Restored means DontModify put the old clipboard
-                                        // back, so we cannot tell whether the paste landed.
-                                        show_notice = restored;
+                                        Some(Ok(*restored))
                                     }
                                     Ok(Some(Err(e))) => {
                                         error!("Failed to paste transcription: {}", e);
-                                        show_notice = true;
-                                        paste_failed = true;
+                                        Some(Err(e))
                                     }
                                     Ok(None) => {
                                         debug!("Transcription operation cancelled before paste");
                                         cancelled_before_paste = true;
+                                        None
                                     }
                                     Err(e) => {
-                                        // JoinError: the blocking paste task panicked or was
-                                        // cancelled, not a main-thread dispatch failure.
                                         error!("Paste task panicked or was cancelled: {e:?}");
-                                        // The keep-on-clipboard step never ran, so don't
-                                        // claim the clipboard holds the words.
-                                        show_notice = true;
-                                        paste_lost = true;
+                                        task_panicked = true;
+                                        None
                                     }
-                                }
-                                if show_notice {
-                                    let (on_clipboard, in_history) =
-                                        crate::clipboard::paste_word_locations(
-                                            clipboard_handling,
-                                            paste_failed,
-                                            history_saved,
-                                            history_limit,
-                                            retention,
-                                        );
-                                    let _ = ah.emit(
-                                        "paste-notice",
-                                        crate::clipboard::paste_notice(
-                                            on_clipboard && !paste_lost,
-                                            in_history,
-                                        ),
-                                    );
+                                };
+                                if let Some(notice) = crate::clipboard::decide_paste_notice(
+                                    outcome,
+                                    task_panicked,
+                                    clipboard_handling,
+                                    history_saved,
+                                    history_limit,
+                                    retention,
+                                ) {
+                                    let _ = ah.emit("paste-notice", notice);
                                 }
                                 if cancelled_before_paste {
                                     utils::hide_recording_overlay(&ah);
@@ -1745,6 +1732,13 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
         Arc::new(TranscribeAction {
             post_process: true,
             correction: true,
+        }) as Arc<dyn ShortcutAction>,
+    );
+    map.insert(
+        "hands_free".to_string(),
+        Arc::new(TranscribeAction {
+            post_process: false,
+            correction: false,
         }) as Arc<dyn ShortcutAction>,
     );
     map.insert(

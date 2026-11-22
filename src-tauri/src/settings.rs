@@ -110,6 +110,13 @@ pub struct CorrectionPair {
     pub to: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Type)]
+pub struct SavedBlock {
+    pub id: String,
+    pub cue: String,
+    pub content: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct PostProcessProvider {
     pub id: String,
@@ -370,6 +377,10 @@ pub struct AppSettings {
     pub bindings: HashMap<String, ShortcutBinding>,
     #[serde(default = "default_push_to_talk")]
     pub push_to_talk: bool,
+    /// When push-to-talk is on, double-tapping a transcribe shortcut latches
+    /// hands-free recording until the next tap (or Escape to cancel).
+    #[serde(default)]
+    pub double_tap_hands_free: bool,
     #[serde(default)]
     pub audio_feedback: bool,
     #[serde(default = "default_audio_feedback_volume")]
@@ -421,6 +432,9 @@ pub struct AppSettings {
     /// by default; each pair is a case-insensitive, whole-word `from` → `to`.
     #[serde(default)]
     pub corrections: Vec<CorrectionPair>,
+    /// Reusable text blocks triggered by a spoken cue, stored strictly on this Mac.
+    #[serde(default)]
+    pub saved_blocks: Vec<SavedBlock>,
     #[serde(default)]
     pub model_unload_timeout: ModelUnloadTimeout,
     #[serde(default = "default_word_correction_threshold")]
@@ -1145,10 +1159,24 @@ pub fn get_default_settings() -> AppSettings {
         },
     );
 
+    bindings.insert(
+        "hands_free".to_string(),
+        ShortcutBinding {
+            id: "hands_free".to_string(),
+            name: "Hands-Free Transcribe".to_string(),
+            description:
+                "Starts and stops hands-free dictation without holding the key. Assign a key to enable."
+                    .to_string(),
+            default_binding: String::new(),
+            current_binding: String::new(),
+        },
+    );
+
     AppSettings {
         settings_schema_version: default_settings_schema_version(),
         bindings,
         push_to_talk: default_push_to_talk(),
+        double_tap_hands_free: false,
         audio_feedback: false,
         audio_feedback_volume: default_audio_feedback_volume(),
         sound_theme: default_sound_theme(),
@@ -1171,6 +1199,7 @@ pub fn get_default_settings() -> AppSettings {
         old_logs_cleared: false,
         custom_words: Vec::new(),
         corrections: Vec::new(),
+        saved_blocks: Vec::new(),
         model_unload_timeout: ModelUnloadTimeout::default(),
         word_correction_threshold: default_word_correction_threshold(),
         history_limit: default_history_limit(),
