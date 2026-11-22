@@ -23,11 +23,17 @@ pub mod meeting_ask_index;
 #[cfg(feature = "meetings")]
 mod meeting_controller;
 #[cfg(feature = "meetings")]
+pub mod meeting_import;
+#[cfg(feature = "meetings")]
 mod meeting_notes;
 #[cfg(feature = "meetings")]
 mod meeting_notes_merge;
 #[cfg(feature = "meetings")]
 mod meeting_notes_pieces;
+#[cfg(feature = "meetings")]
+pub mod meeting_notes_runner;
+#[cfg(feature = "meetings")]
+pub mod meeting_notes_v42;
 #[cfg(feature = "meetings")]
 pub mod meeting_todos;
 #[cfg(all(feature = "meetings", target_os = "macos"))]

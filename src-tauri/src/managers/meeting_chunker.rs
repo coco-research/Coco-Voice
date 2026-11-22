@@ -32,6 +32,16 @@ pub fn channel_label(channel: &str) -> Option<&'static str> {
     }
 }
 
+/// Bias raw meeting chunk text with the meeting-only custom word list.
+pub fn bias_meeting_words(raw: &str, meeting_words: &[String], threshold: f64) -> String {
+    crate::managers::transcription::apply_words_unless_prompted(
+        raw.to_string(),
+        meeting_words,
+        threshold,
+        false,
+    )
+}
+
 fn ms(samples: u64) -> i64 {
     (samples * 1000 / SAMPLE_RATE) as i64
 }
@@ -1182,5 +1192,44 @@ mod tests {
         }
         .to_string()
         .contains(model_id)
+    }
+
+    #[test]
+    fn meeting_words_stay_apart_from_dictation_and_dictation_works_during_meeting() {
+        let _lock = test_lock();
+        let _reset = ResetMeeting;
+        let app = test_app();
+        crate::settings::update_settings(app.handle(), |s| {
+            s.custom_words = vec!["Priya".to_string()];
+            s.meeting_custom_words = vec!["Halvorsen".to_string()];
+        });
+
+        let tm = TranscriptionManager::new_for_test(app.handle().clone());
+        tm.install_fake_engine(PARAKEET);
+        tm.pin_meeting_model(PARAKEET);
+        assert!(crate::managers::meetings::meeting_is_active());
+
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let meeting_id = store.start_meeting("Roadmap", PARAKEET).unwrap();
+
+        tm.set_fake_raw_text_for_test(Some("we discussed halvorson with priyaa"));
+        let mut me = ChannelChunker::new(CHANNEL_ME, Box::new(EnergySpeech));
+        let first_chunk = collect(&mut me, &speech_silence_speech()).remove(0);
+        let committed = commit_chunk(&tm, &store, meeting_id, first_chunk).unwrap();
+        assert_eq!(committed, "we discussed Halvorsen with priyaa");
+
+        // Adding a meeting word mid-call biases the very next chunk.
+        crate::settings::update_settings(app.handle(), |s| {
+            s.meeting_custom_words.push("Parakeet".to_string());
+        });
+        tm.set_fake_raw_text_for_test(Some("we discussed parakit with priyaa"));
+        let second_chunk = collect(&mut me, &speech_silence_speech()).remove(0);
+        let committed_two = commit_chunk(&tm, &store, meeting_id, second_chunk).unwrap();
+        assert_eq!(committed_two, "we discussed Parakeet with priyaa");
+
+        // A dictation take during the active meeting uses only dictation custom_words.
+        let dictated = tm.transcribe_with_meeting_lock(vec![0.3; 1600]).unwrap();
+        assert_eq!(dictated, "we discussed parakit with Priya");
     }
 }
