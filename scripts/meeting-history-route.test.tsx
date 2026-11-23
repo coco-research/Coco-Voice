@@ -1,15 +1,26 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import en from "../src/i18n/locales/en/translation.json";
-import {
-  renderShellSection,
-  SHELL_ROUTES,
-  Sidebar,
-} from "../src/components/layout/shellRoutes";
-import { MeetingsListSection } from "../src/components/meetings/MeetingsList";
+
+mock.module("../src/components/whats-new/releaseNotes", () => ({
+  findReleaseNoteToShow: () => null,
+  findLatestReleaseNote: () => null,
+}));
+mock.module("../src/i18n", () => ({
+  default: i18next,
+  SUPPORTED_LANGUAGES: [{ code: "en", name: "English", nativeName: "English" }],
+  syncLanguageFromSettings: async () => {},
+  getLanguageDirection: () => "ltr",
+  isRTLLanguage: () => false,
+}));
+
+const { renderShellSection, SHELL_ROUTES, Sidebar } =
+  await import("../src/components/layout/shellRoutes");
+const { MeetingsListSection } =
+  await import("../src/components/meetings/MeetingsList");
 
 const i18n = i18next.createInstance();
 void i18n.use(initReactI18next).init({
