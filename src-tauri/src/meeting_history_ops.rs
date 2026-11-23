@@ -181,7 +181,7 @@ pub fn purge_expired_trash(store: &MeetingsStore, now_secs: i64) -> Result<usize
         store.delete_meeting_forever(*id)?;
     }
     if !expired.is_empty() {
-        let _ = store.checkpoint_and_vacuum_secure();
+        store.checkpoint_and_vacuum_secure_or_defer("purge_expired_trash");
         sync_and_compact_ask_index(store);
     }
     Ok(expired.len())
@@ -312,7 +312,7 @@ pub fn delete_transcript_span(
         (removed_segments, removed_notes)
     };
 
-    let _ = store.checkpoint_and_vacuum_secure();
+    store.checkpoint_and_vacuum_secure_or_defer("delete_transcript_span");
     sync_and_compact_ask_index(store);
 
     let wiped_audio_files = with_meeting_io_lock(meeting_id, || -> Result<usize> {
@@ -394,7 +394,7 @@ pub fn delete_transcript_segments_by_ids(
         (removed_segments, removed_notes)
     };
 
-    let _ = store.checkpoint_and_vacuum_secure();
+    store.checkpoint_and_vacuum_secure_or_defer("delete_transcript_segments");
     sync_and_compact_ask_index(store);
 
     let wiped_audio_files = with_meeting_io_lock(meeting_id, || -> Result<usize> {
@@ -451,7 +451,7 @@ pub fn apply_transcript_retention(
     }
     tx.commit()?;
     if !ids.is_empty() {
-        let _ = store.checkpoint_and_vacuum_secure();
+        store.checkpoint_and_vacuum_secure_or_defer("apply_transcript_retention");
         sync_and_compact_ask_index(store);
     }
     Ok(ids.len())

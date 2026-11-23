@@ -14,11 +14,58 @@ use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
 use serde::Serialize;
 use specta::Type;
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::AppHandle;
+
+/// Background wake interval for retrying a deferred secure database clean.
+pub const SECURE_CLEAN_RETRY_INTERVAL: Duration = Duration::from_secs(10 * 60);
+
+/// Interval between scheduled trash purges (startup purge is unchanged).
+pub const DAILY_TRASH_PURGE_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
+
+/// True once at least 24 hours have elapsed since the previous daily trash purge.
+pub fn should_run_daily_purge(elapsed: Duration) -> bool {
+    elapsed >= DAILY_TRASH_PURGE_INTERVAL
+}
+
+// ponytail: ceiling = the pending-clean flag lives in memory per database path,
+// which is safe because SQLite checkpoints and drops the WAL when the last
+// connection closes on exit; upgrade path = persist a marker file beside
+// meetings.db if cross-restart recovery cleans are needed.
+fn pending_secure_clean_set() -> &'static Mutex<HashSet<PathBuf>> {
+    static PENDING: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
+    PENDING.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+/// True when any meetings store has a deferred secure clean waiting to retry.
+pub fn any_secure_clean_pending() -> bool {
+    let guard = pending_secure_clean_set()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    !guard.is_empty()
+}
+
+fn wal_checkpoint_truncate(conn: &Connection) -> Result<()> {
+    let mut stmt = conn.prepare("PRAGMA wal_checkpoint(TRUNCATE);")?;
+    let mut rows = stmt.query([])?;
+    let mut saw_row = false;
+    while let Some(row) = rows.next()? {
+        saw_row = true;
+        let busy: i64 = row.get(0)?;
+        if busy != 0 {
+            anyhow::bail!("wal checkpoint busy");
+        }
+    }
+    if !saw_row {
+        anyhow::bail!("wal checkpoint returned no status row");
+    }
+    Ok(())
+}
 
 /// One meeting at a time. Mute and the meeting controller read this.
 static MEETING_ACTIVE: AtomicBool = AtomicBool::new(false);
@@ -649,7 +696,7 @@ impl MeetingsStore {
             return Err(anyhow!("meeting {id} not found"));
         }
         tx.commit()?;
-        let _ = self.checkpoint_and_vacuum_secure();
+        self.checkpoint_and_vacuum_secure_or_defer("delete_meeting");
 
         match fs::remove_dir_all(&dir) {
             Ok(()) => Ok(DeleteOutcome::Deleted),
@@ -672,15 +719,75 @@ impl MeetingsStore {
 
     /// Force WAL truncation and vacuum with `secure_delete = ON` so deleted text
     /// cannot linger in `meetings.db`, `-wal`, or free pages.
+    ///
+    /// Returns an error if `VACUUM` fails or either `wal_checkpoint(TRUNCATE)`
+    /// reports `busy != 0`.
     pub fn checkpoint_and_vacuum_secure(&self) -> Result<()> {
         let conn = self.connection()?;
-        let _ = conn.execute_batch(
-            "PRAGMA secure_delete = ON;
-             PRAGMA wal_checkpoint(TRUNCATE);
-             VACUUM;
-             PRAGMA wal_checkpoint(TRUNCATE);",
-        );
+        conn.execute_batch("PRAGMA secure_delete = ON;")?;
+        wal_checkpoint_truncate(&conn)?;
+        conn.execute_batch("VACUUM;")?;
+        wal_checkpoint_truncate(&conn)?;
         Ok(())
+    }
+
+    fn pending_clean_key(&self) -> PathBuf {
+        fs::canonicalize(&self.db_path).unwrap_or_else(|_| self.db_path.clone())
+    }
+
+    /// True when a previous secure clean on this database did not finish and
+    /// is queued for background retry.
+    pub fn is_secure_clean_pending(&self) -> bool {
+        let guard = pending_secure_clean_set()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        guard.contains(&self.pending_clean_key())
+    }
+
+    /// Run `checkpoint_and_vacuum_secure`; on error log without meeting content
+    /// and mark a retry pending while keeping the completed delete successful.
+    pub fn checkpoint_and_vacuum_secure_or_defer(&self, context: &str) {
+        match self.checkpoint_and_vacuum_secure() {
+            Ok(()) => {
+                let mut guard = pending_secure_clean_set()
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                guard.remove(&self.pending_clean_key());
+            }
+            Err(err) => {
+                let mut guard = pending_secure_clean_set()
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                guard.insert(self.pending_clean_key());
+                log::warn!("meetings secure clean deferred after {context}: {err}");
+            }
+        }
+    }
+
+    /// Retry a pending secure clean once. Returns `Ok(true)` if a pending clean
+    /// ran and completed, `Ok(false)` if none was pending, or `Err` (re-setting
+    /// the pending flag) if it still could not finish.
+    pub fn run_pending_secure_clean(&self) -> Result<bool> {
+        let key = self.pending_clean_key();
+        let was_pending = {
+            let mut guard = pending_secure_clean_set()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            guard.remove(&key)
+        };
+        if !was_pending {
+            return Ok(false);
+        }
+        match self.checkpoint_and_vacuum_secure() {
+            Ok(()) => Ok(true),
+            Err(err) => {
+                let mut guard = pending_secure_clean_set()
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                guard.insert(key);
+                Err(err)
+            }
+        }
     }
 
     /// Append PCM. On a write error the writer is stopped, this meeting is
@@ -1969,5 +2076,103 @@ mod tests {
             )
             .unwrap();
         assert_eq!(raw_flag, 0);
+    }
+
+    #[test]
+    fn secure_clean_reports_busy_wal_checkpoint_and_clears_after_reader_drops() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = store.start_meeting("Sync", "parakeet").unwrap();
+        store
+            .insert_segment(id, 0, 1_000, MeetingChannel::Me, "Line one.")
+            .unwrap();
+
+        // Hold an active read transaction on a second connection so WAL truncation is busy.
+        let reader = Connection::open(store.db_path()).unwrap();
+        reader.execute_batch("BEGIN DEFERRED;").unwrap();
+        let count: i64 = reader
+            .query_row("SELECT COUNT(*) FROM meetings", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+
+        // Write another frame so the WAL has data beyond the reader snapshot.
+        store
+            .insert_segment(id, 1_000, 2_000, MeetingChannel::Others, "Line two.")
+            .unwrap();
+
+        assert!(
+            store.checkpoint_and_vacuum_secure().is_err(),
+            "checkpoint_and_vacuum_secure must return Err while a reader holds the WAL"
+        );
+
+        drop(reader);
+
+        store
+            .checkpoint_and_vacuum_secure()
+            .expect("checkpoint_and_vacuum_secure must succeed once the reader drops");
+        let wal_path = store.db_path().with_file_name("meetings.db-wal");
+        let wal_len = fs::metadata(&wal_path).map(|m| m.len()).unwrap_or(0);
+        assert_eq!(wal_len, 0, "meetings.db-wal must be 0 bytes after clean");
+    }
+
+    #[test]
+    fn failed_secure_clean_sets_pending_flag_and_retry_clears_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = store.start_meeting("Cleanup", "parakeet").unwrap();
+        store
+            .insert_segment(id, 0, 1_000, MeetingChannel::Me, "Line to remove.")
+            .unwrap();
+        assert!(!store.is_secure_clean_pending());
+
+        // Hold an active read transaction on a second connection across the delete.
+        let reader = Connection::open(store.db_path()).unwrap();
+        reader.execute_batch("BEGIN DEFERRED;").unwrap();
+        let count: i64 = reader
+            .query_row("SELECT COUNT(*) FROM meetings", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+
+        // Delete succeeds because rows are gone, while deferred clean sets the pending flag.
+        let outcome = store.delete_meeting(id).unwrap();
+        assert_eq!(outcome, DeleteOutcome::Deleted);
+        assert!(
+            store.is_secure_clean_pending(),
+            "failed clean must set the pending flag"
+        );
+
+        // Retrying while the reader is still held fails and keeps the flag set.
+        assert!(store.run_pending_secure_clean().is_err());
+        assert!(
+            store.is_secure_clean_pending(),
+            "pending flag must stay set when retry fails"
+        );
+
+        drop(reader);
+
+        // Once the reader drops, the pending runner succeeds, clears the flag, and zeroes WAL.
+        assert_eq!(store.run_pending_secure_clean().unwrap(), true);
+        assert!(
+            !store.is_secure_clean_pending(),
+            "pending flag must clear after clean succeeds"
+        );
+        let wal_path = store.db_path().with_file_name("meetings.db-wal");
+        let wal_len = fs::metadata(&wal_path).map(|m| m.len()).unwrap_or(0);
+        assert_eq!(wal_len, 0, "meetings.db-wal must be 0 bytes after retry");
+        assert_eq!(store.run_pending_secure_clean().unwrap(), false);
+    }
+
+    #[test]
+    fn daily_trash_purge_interval_stays_24h_across_10m_wakes() {
+        assert_eq!(SECURE_CLEAN_RETRY_INTERVAL, Duration::from_secs(10 * 60));
+        assert_eq!(
+            DAILY_TRASH_PURGE_INTERVAL,
+            Duration::from_secs(24 * 60 * 60)
+        );
+        assert!(!should_run_daily_purge(Duration::from_secs(10 * 60)));
+        assert!(!should_run_daily_purge(Duration::from_secs(
+            24 * 60 * 60 - 1
+        )));
+        assert!(should_run_daily_purge(Duration::from_secs(24 * 60 * 60)));
     }
 }

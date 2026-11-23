@@ -334,14 +334,31 @@ fn initialize_core_logic(app_handle: &AppHandle) {
             }
         }
         meeting_pipeline::sweep_interrupted_on_startup(app_handle);
+        // ponytail: ceiling = the 10-minute wake checks an in-memory pending-clean flag
+        // while keeping the daily trash purge at 24 hours by elapsed monotonic time
+        // (the startup purge above is unchanged); upgrade path = replace with a shared
+        // scheduler if additional background maintenance tasks are introduced.
         let purge_app = app_handle.clone();
-        std::thread::spawn(move || loop {
-            std::thread::sleep(std::time::Duration::from_secs(24 * 60 * 60));
-            if let Ok(store) = managers::meetings::MeetingsStore::open_app(&purge_app) {
-                let _ = meeting_history_ops::purge_expired_trash(
-                    &store,
-                    chrono::Utc::now().timestamp(),
-                );
+        std::thread::spawn(move || {
+            let mut last_purge = std::time::Instant::now();
+            loop {
+                std::thread::sleep(managers::meetings::SECURE_CLEAN_RETRY_INTERVAL);
+                let run_purge = managers::meetings::should_run_daily_purge(last_purge.elapsed());
+                if !run_purge && !managers::meetings::any_secure_clean_pending() {
+                    continue;
+                }
+                if let Ok(store) = managers::meetings::MeetingsStore::open_app(&purge_app) {
+                    if let Err(err) = store.run_pending_secure_clean() {
+                        log::warn!("meetings background secure clean deferred: {err}");
+                    }
+                    if run_purge {
+                        let _ = meeting_history_ops::purge_expired_trash(
+                            &store,
+                            chrono::Utc::now().timestamp(),
+                        );
+                        last_purge = std::time::Instant::now();
+                    }
+                }
             }
         });
     }
