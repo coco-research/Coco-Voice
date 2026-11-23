@@ -23,7 +23,7 @@ import {
   AddAudioControl,
   OlderNoteWhileRecordingBanner,
 } from "./MeetingHistoryExtras";
-import { runOptimisticCommand } from "./meetings-ui";
+import { runOptimisticCommand } from "./optimisticCommand";
 import { EditableMeetingTitle } from "./MeetingEntryPanels";
 import { MeetingNotesSection } from "./MeetingNotesPanel";
 import { AskMeetingsView } from "./AskMeetingsView";

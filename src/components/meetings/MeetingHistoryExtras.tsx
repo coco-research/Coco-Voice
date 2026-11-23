@@ -9,7 +9,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { ConsentDialog, formatMeetingClock } from "./MeetingEntryPanels";
 import { MeetingsList } from "./MeetingsList";
-import { runOptimisticCommand } from "./meetings-ui";
+import { runOptimisticCommand } from "./optimisticCommand";
 
 const DOT_FILLED = "●";
 const MORE_DOTS = "…";

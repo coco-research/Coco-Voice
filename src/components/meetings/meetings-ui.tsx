@@ -6,7 +6,6 @@ import {
   commands,
   type MeetingOffer,
   type MeetingStatus,
-  type Result,
 } from "../../bindings.meetings";
 import { useSettings } from "../../hooks/useSettings";
 import { MeetingsToggle } from "../settings/MeetingsToggle";
@@ -29,25 +28,10 @@ import {
 import { RecordMeetingPage as MeetingsView } from "./RecordMeetingPage";
 export const MEETINGS_UI_SENTINEL = "coco-meetings-ui-v1";
 
-export type OptimisticActionOutcome<T> = { ok: true; data: T } | { ok: false };
-
-export async function runOptimisticCommand<T, E = string>(
-  apply: () => void,
-  run: () => Promise<Result<T, E>>,
-  undo: () => void,
-): Promise<OptimisticActionOutcome<T>> {
-  apply();
-  try {
-    const res = await run();
-    if (res.status === "ok") {
-      return { ok: true, data: res.data };
-    }
-  } catch {
-    // Undo optimistic update below on unexpected rejection.
-  }
-  undo();
-  return { ok: false };
-}
+export {
+  runOptimisticCommand,
+  type OptimisticActionOutcome,
+} from "./optimisticCommand";
 
 function meetingsEnabled(settings: unknown): boolean {
   return (
