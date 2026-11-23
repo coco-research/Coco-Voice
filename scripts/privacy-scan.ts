@@ -281,6 +281,132 @@ function isAllowEntry(value: unknown): value is PrivacyAllowEntry {
   );
 }
 
+export interface Y7PrivacyGuardReport {
+  usageOrWordCountViolations: string[];
+  audioOrFeedbackUploadViolations: string[];
+  unapprovedOutboundViolations: string[];
+}
+
+function listCodeFiles(dir: string, out: string[]): void {
+  let info: ReturnType<typeof statSync>;
+  try {
+    info = statSync(dir);
+  } catch {
+    return;
+  }
+  if (!info.isDirectory()) return;
+  for (const name of readdirSync(dir)) {
+    if (SKIP_DIRS.has(name) || name === "dist" || name === ".git") continue;
+    const child = join(dir, name);
+    const st = statSync(child);
+    if (st.isDirectory()) {
+      listCodeFiles(child, out);
+    } else if (/\.(rs|ts|tsx)$/.test(name)) {
+      out.push(child);
+    }
+  }
+}
+
+function prodBody(path: string, raw: string): string {
+  if (path.endsWith(".rs")) {
+    const idx = raw.indexOf("#[cfg(test)]");
+    if (idx >= 0) return raw.slice(0, idx);
+  }
+  return raw;
+}
+
+/**
+ * Verifies the Y7 do-not-copy privacy invariants (D61, D62, D63, D72, D73):
+ * 1. Zero usage telemetry or word-count collection (D63).
+ * 2. Zero audio or feedback-carrying-audio upload routes (D62).
+ * 3. Outbound HTTP clients strictly limited to model downloads, update check,
+ *    and opt-in user-key cloud cleanup, with zero remote kill-switches or
+ *    cloud transcript residency/retention copies (D61, D72, D73).
+ */
+export function verifyY7PrivacyGuards(root: string): Y7PrivacyGuardReport {
+  const usageOrWordCountViolations: string[] = [];
+  const audioOrFeedbackUploadViolations: string[] = [];
+  const unapprovedOutboundViolations: string[] = [];
+
+  for (const manifestRel of ["src-tauri/Cargo.toml", "package.json"]) {
+    const body = readFileSync(join(root, manifestRel), "utf8").toLowerCase();
+    for (const sdk of [
+      "posthog",
+      "mixpanel",
+      "amplitude",
+      "sentry",
+      "opentelemetry",
+      "google-analytics",
+    ]) {
+      if (body.includes(sdk)) {
+        usageOrWordCountViolations.push(`${manifestRel}: ${sdk}`);
+      }
+    }
+  }
+
+  const files: string[] = [];
+  listCodeFiles(join(root, "src-tauri/src"), files);
+  listCodeFiles(join(root, "src"), files);
+
+  for (const abs of files) {
+    const rel = relative(root, abs).split(sep).join("/");
+    if (rel === "src-tauri/src/y7_privacy_guards.rs") continue;
+    const raw = readFileSync(abs, "utf8");
+    const prod = prodBody(abs, raw);
+
+    for (const marker of [
+      "usage_metrics",
+      "words_dictated",
+      "analytics_events",
+      "words_per_minute_telemetry",
+    ]) {
+      if (prod.includes(marker)) {
+        usageOrWordCountViolations.push(`${rel}: ${marker}`);
+      }
+    }
+
+    for (const marker of [
+      "upload_audio",
+      "uploadAudio",
+      "audio_upload",
+      "feedback_audio",
+      "send_feedback_with_audio",
+      "multipart::Form",
+    ]) {
+      if (prod.includes(marker)) {
+        audioOrFeedbackUploadViolations.push(`${rel}: ${marker}`);
+      }
+    }
+
+    if (
+      rel.endsWith(".rs") &&
+      prod.includes("reqwest::") &&
+      rel !== "src-tauri/src/managers/model.rs" &&
+      rel !== "src-tauri/src/llm_client.rs"
+    ) {
+      unapprovedOutboundViolations.push(`${rel}: reqwest::`);
+    }
+
+    for (const marker of [
+      "remote_kill_switch",
+      "health_agreement_gate",
+      "cloud_retention_days",
+      "data_residency_region",
+      "sync_transcript_to_cloud",
+    ]) {
+      if (prod.includes(marker)) {
+        unapprovedOutboundViolations.push(`${rel}: ${marker}`);
+      }
+    }
+  }
+
+  return {
+    usageOrWordCountViolations,
+    audioOrFeedbackUploadViolations,
+    unapprovedOutboundViolations,
+  };
+}
+
 if (import.meta.main) {
   const root = join(import.meta.dir, "..");
   const hits = scanPrivacyHosts(root);

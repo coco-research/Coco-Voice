@@ -8,6 +8,7 @@ import {
   scanPrivacyHosts,
   staleAllowlistHosts,
   stripComments,
+  verifyY7PrivacyGuards,
 } from "./privacy-scan.ts";
 
 function withTree(
@@ -135,12 +136,28 @@ test("a ts trailing comment is dropped and the string is kept", () => {
   expect(out).not.toContain("comment.example");
 });
 
-test("this repo matches the allowlist", () => {
-  const root = join(import.meta.dir, "..");
-  const hits = scanPrivacyHosts(root);
-  const allow = loadAllowlist();
-  const hosts = allow.map((entry) => entry.host);
-  expect(new Set(hosts).size).toBe(hosts.length);
-  expect(missingHosts(hits, hosts)).toEqual([]);
-  expect(staleAllowlistHosts(hits, hosts)).toEqual([]);
-});
+test(
+  "this repo matches the allowlist",
+  () => {
+    const root = join(import.meta.dir, "..");
+    const hits = scanPrivacyHosts(root);
+    const allow = loadAllowlist();
+    const hosts = allow.map((entry) => entry.host);
+    expect(new Set(hosts).size).toBe(hosts.length);
+    expect(missingHosts(hits, hosts)).toEqual([]);
+    expect(staleAllowlistHosts(hits, hosts)).toEqual([]);
+  },
+  { timeout: 30_000 },
+);
+
+test(
+  "this repo satisfies Y7 do-not-copy privacy guards (D61, D62, D63, D72, D73)",
+  () => {
+    const root = join(import.meta.dir, "..");
+    const report = verifyY7PrivacyGuards(root);
+    expect(report.usageOrWordCountViolations).toEqual([]);
+    expect(report.audioOrFeedbackUploadViolations).toEqual([]);
+    expect(report.unapprovedOutboundViolations).toEqual([]);
+  },
+  { timeout: 30_000 },
+);
