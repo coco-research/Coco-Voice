@@ -1186,7 +1186,8 @@
       "trashEmpty": "垃圾桶是空的。",
       "selectedTag": "（已選取）",
       "selectedCount": "已選取 {{count}} 項",
-      "importIntoFolderLabel": "匯入至資料夾"
+      "importIntoFolderLabel": "匯入至資料夾",
+      "deletePartFailed": "無法刪除此部分。"
     },
     "ask": {
       "singleHeading": "Ask this meeting",

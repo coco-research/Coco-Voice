@@ -1186,7 +1186,8 @@
       "trashEmpty": "האשפה ריקה.",
       "selectedTag": "(נבחר)",
       "selectedCount": "{{count}} נבחרו",
-      "importIntoFolderLabel": "ייבוא לתיקייה"
+      "importIntoFolderLabel": "ייבוא לתיקייה",
+      "deletePartFailed": "לא ניתן למחוק חלק זה."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

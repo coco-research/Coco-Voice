@@ -1186,7 +1186,8 @@
       "trashEmpty": "Koš je prázdný.",
       "selectedTag": "(vybráno)",
       "selectedCount": "Vybráno: {{count}}",
-      "importIntoFolderLabel": "Importovat do složky"
+      "importIntoFolderLabel": "Importovat do složky",
+      "deletePartFailed": "Tuto část se nepodařilo smazat."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

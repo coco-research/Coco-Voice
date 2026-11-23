@@ -1186,7 +1186,8 @@
       "trashEmpty": "Кошчето е празно.",
       "selectedTag": "(избрано)",
       "selectedCount": "{{count}} избрани",
-      "importIntoFolderLabel": "Импортирай в папка"
+      "importIntoFolderLabel": "Импортирай в папка",
+      "deletePartFailed": "Неуспешно изтриване на тази част."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

@@ -1186,7 +1186,8 @@
       "trashEmpty": "Корзина пуста.",
       "selectedTag": "(выбрано)",
       "selectedCount": "Выбрано: {{count}}",
-      "importIntoFolderLabel": "Импортировать в папку"
+      "importIntoFolderLabel": "Импортировать в папку",
+      "deletePartFailed": "Не удалось удалить эту часть."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

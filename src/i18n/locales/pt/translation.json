@@ -1186,7 +1186,8 @@
       "trashEmpty": "A lixeira está vazia.",
       "selectedTag": "(selecionado)",
       "selectedCount": "{{count}} selecionados",
-      "importIntoFolderLabel": "Importar para a pasta"
+      "importIntoFolderLabel": "Importar para a pasta",
+      "deletePartFailed": "Não foi possível excluir esta parte."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

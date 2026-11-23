@@ -1186,7 +1186,8 @@
       "trashEmpty": "Il cestino è vuoto.",
       "selectedTag": "(selezionato)",
       "selectedCount": "{{count}} selezionati",
-      "importIntoFolderLabel": "Importa nella cartella"
+      "importIntoFolderLabel": "Importa nella cartella",
+      "deletePartFailed": "Impossibile eliminare questa parte."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

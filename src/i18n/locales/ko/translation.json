@@ -1186,7 +1186,8 @@
       "trashEmpty": "휴지통이 비어 있습니다.",
       "selectedTag": "(선택됨)",
       "selectedCount": "{{count}}개 선택됨",
-      "importIntoFolderLabel": "폴더로 가져오기"
+      "importIntoFolderLabel": "폴더로 가져오기",
+      "deletePartFailed": "이 부분을 삭제하지 못했습니다."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

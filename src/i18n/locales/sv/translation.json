@@ -1186,7 +1186,8 @@
       "trashEmpty": "Papperskorgen är tom.",
       "selectedTag": "(vald)",
       "selectedCount": "{{count}} valda",
-      "importIntoFolderLabel": "Importera till mapp"
+      "importIntoFolderLabel": "Importera till mapp",
+      "deletePartFailed": "Kunde inte ta bort den här delen."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

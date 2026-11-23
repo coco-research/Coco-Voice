@@ -1186,7 +1186,8 @@
       "trashEmpty": "De prullenmand is leeg.",
       "selectedTag": "(geselecteerd)",
       "selectedCount": "{{count}} geselecteerd",
-      "importIntoFolderLabel": "Importeren in map"
+      "importIntoFolderLabel": "Importeren in map",
+      "deletePartFailed": "Kon dit deel niet verwijderen."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

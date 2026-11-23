@@ -1186,7 +1186,8 @@
       "trashEmpty": "Çöp kutusu boş.",
       "selectedTag": "(seçili)",
       "selectedCount": "{{count}} seçildi",
-      "importIntoFolderLabel": "Klasöre aktar"
+      "importIntoFolderLabel": "Klasöre aktar",
+      "deletePartFailed": "Bu bölüm silinemedi."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

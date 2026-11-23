@@ -1186,7 +1186,8 @@
       "trashEmpty": "La corbeille est vide.",
       "selectedTag": "(sélectionné)",
       "selectedCount": "{{count}} sélectionnés",
-      "importIntoFolderLabel": "Importer dans le dossier"
+      "importIntoFolderLabel": "Importer dans le dossier",
+      "deletePartFailed": "Impossible de supprimer cette partie."
     },
     "ask": {
       "singleHeading": "Interroger cette réunion",

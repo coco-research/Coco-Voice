@@ -1186,7 +1186,8 @@
       "trashEmpty": "Thùng rác trống.",
       "selectedTag": "(đã chọn)",
       "selectedCount": "Đã chọn {{count}}",
-      "importIntoFolderLabel": "Nhập vào thư mục"
+      "importIntoFolderLabel": "Nhập vào thư mục",
+      "deletePartFailed": "Không thể xóa phần này."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

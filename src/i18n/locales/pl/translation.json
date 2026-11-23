@@ -1186,7 +1186,8 @@
       "trashEmpty": "Kosz jest pusty.",
       "selectedTag": "(zaznaczone)",
       "selectedCount": "Wybrano: {{count}}",
-      "importIntoFolderLabel": "Importuj do folderu"
+      "importIntoFolderLabel": "Importuj do folderu",
+      "deletePartFailed": "Nie udało się usunąć tej części."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

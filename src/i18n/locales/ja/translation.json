@@ -1186,7 +1186,8 @@
       "trashEmpty": "ゴミ箱は空です。",
       "selectedTag": "（選択中）",
       "selectedCount": "{{count}} 件選択中",
-      "importIntoFolderLabel": "フォルダへインポート"
+      "importIntoFolderLabel": "フォルダへインポート",
+      "deletePartFailed": "この部分を削除できませんでした。"
     },
     "ask": {
       "singleHeading": "Ask this meeting",

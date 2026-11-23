@@ -14,6 +14,7 @@ import {
   loadFailedTranscriptSegments,
   MeetingNotesSection,
 } from "../src/components/meetings/MeetingNotesPanel";
+import { runOptimisticCommand } from "../src/components/meetings/meetings-ui";
 
 const root = join(import.meta.dir, "..");
 
@@ -117,5 +118,66 @@ describe("failed meeting transcript truth", () => {
       if (matches) hits += matches.length;
     }
     expect(hits).toBe(0);
+  });
+});
+
+describe("optimistic part delete truth", () => {
+  test("optimistic command helper covers ok, error, and throw", async () => {
+    let applied = 0;
+    let undone = 0;
+    const okRes = await runOptimisticCommand(
+      () => {
+        applied += 1;
+      },
+      async () => ({ status: "ok", data: true }),
+      () => {
+        undone += 1;
+      },
+    );
+    expect(applied).toBe(1);
+    expect(undone).toBe(0);
+    expect(okRes).toEqual({ ok: true, data: true });
+
+    applied = 0;
+    undone = 0;
+    const errRes = await runOptimisticCommand(
+      () => {
+        applied += 1;
+      },
+      async () => ({ status: "error", error: "failed" }),
+      () => {
+        undone += 1;
+      },
+    );
+    expect(applied).toBe(1);
+    expect(undone).toBe(1);
+    expect(errRes).toEqual({ ok: false });
+
+    applied = 0;
+    undone = 0;
+    const throwRes = await runOptimisticCommand(
+      () => {
+        applied += 1;
+      },
+      async () => {
+        throw new Error("ipc down");
+      },
+      () => {
+        undone += 1;
+      },
+    );
+    expect(applied).toBe(1);
+    expect(undone).toBe(1);
+    expect(throwRes).toEqual({ ok: false });
+  });
+
+  test("MeetingsList has no unchecked deleteTranscriptSpanSecure statement", () => {
+    const src = readFileSync(
+      join(root, "src/components/meetings/MeetingsList.tsx"),
+      "utf-8",
+    );
+    expect(
+      /^\s*await\s+meetingCommands\.deleteTranscriptSpanSecure\(/m.test(src),
+    ).toBe(false);
   });
 });

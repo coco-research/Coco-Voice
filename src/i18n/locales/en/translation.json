@@ -1186,7 +1186,8 @@
       "trashEmpty": "Trash is empty.",
       "selectedTag": "(selected)",
       "selectedCount": "{{count}} selected",
-      "importIntoFolderLabel": "Import into folder"
+      "importIntoFolderLabel": "Import into folder",
+      "deletePartFailed": "Could not delete this part."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

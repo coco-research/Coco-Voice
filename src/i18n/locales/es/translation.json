@@ -1186,7 +1186,8 @@
       "trashEmpty": "La papelera está vacía.",
       "selectedTag": "(seleccionado)",
       "selectedCount": "{{count}} seleccionados",
-      "importIntoFolderLabel": "Importar en carpeta"
+      "importIntoFolderLabel": "Importar en carpeta",
+      "deletePartFailed": "No se pudo eliminar esta parte."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

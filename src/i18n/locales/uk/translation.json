@@ -1186,7 +1186,8 @@
       "trashEmpty": "Кошик порожній.",
       "selectedTag": "(вибрано)",
       "selectedCount": "Вибрано: {{count}}",
-      "importIntoFolderLabel": "Імпортувати до папки"
+      "importIntoFolderLabel": "Імпортувати до папки",
+      "deletePartFailed": "Не вдалося видалити цю частину."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
