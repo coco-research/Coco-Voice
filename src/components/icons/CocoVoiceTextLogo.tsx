@@ -1,10 +1,10 @@
 import React from "react";
+import CocoVoiceIcon from "./CocoVoiceIcon";
 
 const WORDMARK = "Coco Voice";
 
 const CocoVoiceTextLogo = ({
   width,
-  height,
   className,
 }: {
   width?: number;
@@ -12,40 +12,18 @@ const CocoVoiceTextLogo = ({
   className?: string;
 }) => {
   return (
-    <svg
-      width={width || 280}
-      height={height || 48}
-      className={className}
-      viewBox="0 0 280 48"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+    <div
+      className={`inline-flex items-center gap-2.5 select-none ${className ?? ""}`}
+      style={width ? { maxWidth: width } : undefined}
     >
-      <defs>
-        <linearGradient
-          id="coco-grad"
-          x1="0"
-          y1="0"
-          x2="280"
-          y2="0"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop stopColor="#4D7CFF" />
-          <stop offset="0.5" stopColor="#2251FF" />
-          <stop offset="1" stopColor="#4D7CFF" />
-        </linearGradient>
-      </defs>
-      <text
-        x="0"
-        y="38"
-        fontFamily="system-ui, -apple-system, sans-serif"
-        fontSize="40"
-        fontWeight="700"
-        fill="url(#coco-grad)"
-        letterSpacing="-0.5"
+      <CocoVoiceIcon width={28} height={28} />
+      <span
+        style={{ fontFamily: "var(--font-display)" }}
+        className="text-[22px] font-bold tracking-[-0.02em] text-text"
       >
         {WORDMARK}
-      </text>
-    </svg>
+      </span>
+    </div>
   );
 };
 

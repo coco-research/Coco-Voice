@@ -1,52 +1,40 @@
 import { useEffect, useState, useRef, type ReactNode } from "react";
 import { toast, Toaster } from "sonner";
 import { useTranslation } from "react-i18next";
+import { getVersion } from "@tauri-apps/api/app";
 import { listen } from "@tauri-apps/api/event";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   checkAccessibilityPermission,
   checkMicrophonePermission,
 } from "tauri-plugin-macos-permissions-api";
-import {
-  ModelStateEvent,
-  RecordingErrorEvent,
-  ShortcutRegistrationFailure,
-} from "./lib/types/events";
+import { ModelStateEvent, RecordingErrorEvent } from "./lib/types/events";
 import "./App.css";
 import AccessibilityPermissions from "./components/AccessibilityPermissions";
 import Footer from "./components/footer";
 import Onboarding, { AccessibilityOnboarding } from "./components/onboarding";
-import { Sidebar, type SidebarSection } from "./components/Sidebar";
-import { ShellContent } from "./components/layout/ShellContent";
-import { normalizeShellSection } from "./components/layout/shellNavigation";
+import { TryItStepCard } from "./components/onboarding/AccessibilityStaleNotice";
+import { resolveOnboardingShortcut } from "./components/onboarding/Onboarding";
+import {
+  renderShellSection,
+  Sidebar,
+  type ShellSectionId as SidebarSection,
+} from "./components/layout/shellRoutes";
 import { AboutSettings, DebugSettings } from "./components/settings";
 import { useMeetingsUi } from "./components/meetings/gate";
+import { onMeetingStartRefusalHandOff } from "./components/meetings/meetingEvents";
 import { WhatsNewGate } from "./components/whats-new";
 import { useSettings } from "./hooks/useSettings";
+import { useShortcutRegistration } from "./hooks/useShortcutRegistration";
 import { useSettingsStore } from "./stores/settingsStore";
 import { commands, events } from "@/bindings";
 import { getLanguageDirection, initializeRTL } from "@/lib/utils/rtl";
+
 import {
-  runPermissionCheck,
-  windowsMicrophoneAccess,
-  type PermissionCheckResult,
-} from "@/lib/utils/permissions";
-
-type OnboardingStep = "accessibility" | "model" | "done";
-
-function shortcutFailureBodyKey(
-  cause: ShortcutRegistrationFailure["cause"],
-): string {
-  switch (cause) {
-    case "taken":
-      return "errors.shortcutRegistrationFailedTaken";
-    case "rejected":
-      return "errors.shortcutRegistrationFailedRejected";
-    case "other":
-    default:
-      return "errors.shortcutRegistrationFailedOther";
-  }
-}
+  resolveInitialOnboardingStep,
+  type OnboardingStep,
+} from "./components/onboarding/onboardingStep";
+export { resolveInitialOnboardingStep, type OnboardingStep };
 
 function App() {
   const { t, i18n } = useTranslation();
@@ -56,11 +44,10 @@ function App() {
   // Track if this is a returning user who just needs to grant permissions
   // (vs a new user who needs full onboarding including model selection)
   const [isReturningUser, setIsReturningUser] = useState(false);
+  const [appVersion, setAppVersion] = useState("");
   const [currentSection, setCurrentSection] = useState<SidebarSection>("home");
   const { settings, updateSetting } = useSettings();
   const meetingsUi = useMeetingsUi();
-  const showMeetings =
-    meetingsUi !== null && meetingsUi.sidebarVisible(settings);
   const direction = getLanguageDirection(i18n.language);
   const refreshAudioDevices = useSettingsStore(
     (state) => state.refreshAudioDevices,
@@ -73,64 +60,30 @@ function App() {
 
   useEffect(() => {
     checkOnboardingStatus();
+    void getVersion()
+      .then((v) => {
+        if (v) setAppVersion(v);
+      })
+      .catch(() => {});
   }, []);
-
-  useEffect(() => {
-    const availableSection = normalizeShellSection(
-      currentSection,
-      showMeetings,
-      settings?.debug_mode ?? false,
-    );
-    if (availableSection !== currentSection)
-      setCurrentSection(availableSection);
-  }, [currentSection, showMeetings, settings?.debug_mode]);
 
   // Initialize RTL direction when language changes
   useEffect(() => {
     initializeRTL(i18n.language);
   }, [i18n.language]);
 
-  // A failed registration stays uninitialized on the Rust side, so a later
-  // initializeShortcuts() tries again. This listener has to be up first.
+  // Amendment R3 step 3e: a refused start from the app-wide consent dialog closes
+  // the dialog and hands off to Record a meeting showing the approved panel.
   useEffect(() => {
-    const unlisten = listen<ShortcutRegistrationFailure[]>(
-      "shortcut-registration-failed",
-      (event) => {
-        const failures = event.payload;
-        const first = failures[0];
-        if (!first) return;
-        const more =
-          failures.length > 1
-            ? t("errors.shortcutRegistrationFailedMore", {
-                count: failures.length - 1,
-              })
-            : "";
-        // A dead shortcut leaves the app unusable, and a tray app's window is
-        // often hidden: bring it forward and keep the notice until dismissed.
-        void commands.showMainWindowCommand();
-        toast(t("errors.shortcutRegistrationFailedTitle"), {
-          description:
-            t(shortcutFailureBodyKey(first.cause), {
-              binding: first.binding,
-            }) + more,
-          duration: Infinity,
-          action: {
-            label: t("errors.shortcutRegistrationOpenSettings"),
-            onClick: () => setCurrentSection("settings"),
-          },
-          cancel: {
-            label: t("errors.shortcutRegistrationTryAgain"),
-            onClick: () => {
-              void commands.initializeShortcuts();
-            },
-          },
-        });
-      },
-    );
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [t, setCurrentSection]);
+    return onMeetingStartRefusalHandOff(() => {
+      setCurrentSection("meetings-record");
+    });
+  }, []);
+
+  // A failed registration stays in Registration::Failed on the Rust side, so a
+  // later initializeShortcuts() tries again. This hook owns the toast, dismiss,
+  // and macOS focus-return retry.
+  useShortcutRegistration(() => setCurrentSection("settings"));
 
   // Initialize Enigo, shortcuts, and refresh audio devices when main app loads
   useEffect(() => {
@@ -337,27 +290,39 @@ function App() {
         // Returning user - check if they need to grant permissions first
         setIsReturningUser(true);
 
-        // A check that can't complete counts as not granted (runPermissionCheck).
-        const checks: Promise<PermissionCheckResult>[] = [];
         if (currentPlatform === "macos") {
-          checks.push(
-            runPermissionCheck(checkAccessibilityPermission),
-            runPermissionCheck(checkMicrophonePermission),
-          );
-        } else if (currentPlatform === "windows") {
-          checks.push(
-            runPermissionCheck(async () =>
-              windowsMicrophoneAccess(
-                await commands.getWindowsMicrophonePermissionStatus(),
-              ),
-            ),
-          );
+          try {
+            const [hasAccessibility, hasMicrophone] = await Promise.all([
+              checkAccessibilityPermission(),
+              checkMicrophonePermission(),
+            ]);
+            if (!hasAccessibility || !hasMicrophone) {
+              await revealMainWindowForPermissions();
+              setOnboardingStep("accessibility");
+              return;
+            }
+          } catch (e) {
+            console.warn("Failed to check macOS permissions:", e);
+            // If we can't check, proceed to main app and let them fix it there
+          }
         }
-        const results = await Promise.all(checks);
-        if (results.some((result) => result !== "granted")) {
-          await revealMainWindowForPermissions();
-          setOnboardingStep("accessibility");
-          return;
+
+        if (currentPlatform === "windows") {
+          try {
+            const microphoneStatus =
+              await commands.getWindowsMicrophonePermissionStatus();
+            if (
+              microphoneStatus.supported &&
+              microphoneStatus.overall_access === "denied"
+            ) {
+              await revealMainWindowForPermissions();
+              setOnboardingStep("accessibility");
+              return;
+            }
+          } catch (e) {
+            console.warn("Failed to check Windows microphone permissions:", e);
+            // If we can't check, proceed to main app and let them fix it there
+          }
         }
 
         setOnboardingStep("done");
@@ -373,20 +338,34 @@ function App() {
   };
 
   const handleAccessibilityComplete = () => {
-    // Returning users already have models, skip to main app
-    // New users need to select a model
-    setOnboardingStep(isReturningUser ? "done" : "model");
+    // Returning users already have models, skip straight to Home
+    // New users go to the single default-model download step
+    setOnboardingStep(isReturningUser ? "done" : "download");
   };
 
-  const handleModelSelected = () => {
-    // Transition to main app - user has started a download
+  const handleFreshOnboardingDone = () => {
+    void (async () => {
+      const ver = appVersion || (await getVersion().catch(() => ""));
+      if (ver) {
+        await updateSetting("whats_new_last_seen_version", ver).catch(() => {});
+      }
+    })();
     setOnboardingStep("done");
+  };
+
+  const handleDownloadComplete = () => {
+    setOnboardingStep("try");
+  };
+
+  const handleFixStaleAccessibilityFromHome = () => {
+    setIsReturningUser(true);
+    setOnboardingStep("accessibility");
   };
 
   // Rendered once around every step below (including onboarding) so
   // toast.error() calls surface to the user. sonner renders via a portal, so
   // its position in the tree doesn't affect layout. Without this, errors during
-  // onboarding (e.g. a model download failing because blob.handy.computer is
+  // onboarding (e.g. a model download failing because the model host is
   // unreachable) are silently swallowed and the wizard just appears to "blink".
   const toaster = (
     <Toaster
@@ -413,13 +392,36 @@ function App() {
   // Select the content for the current step. The Toaster is rendered once, in a
   // stable wrapper around this node, so crossing between onboarding steps and
   // the main app never remounts it (which would drop any in-flight toast).
+  const tryItShortcut = resolveOnboardingShortcut(
+    settings?.bindings?.transcribe?.current_binding,
+    t("sidebar.shortcutNotSet", "Shortcut not set"),
+  );
+  const showMeetingsOnHome = Boolean(
+    meetingsUi && meetingsUi.sidebarVisible(settings),
+  );
+
   let content: ReactNode;
   if (onboardingStep === "accessibility") {
     content = (
       <AccessibilityOnboarding onComplete={handleAccessibilityComplete} />
     );
-  } else if (onboardingStep === "model") {
-    content = <Onboarding onModelSelected={handleModelSelected} />;
+  } else if (onboardingStep === "download") {
+    content = (
+      <Onboarding
+        onModelSelected={handleFreshOnboardingDone}
+        onDownloadComplete={handleDownloadComplete}
+        onSkip={handleFreshOnboardingDone}
+      />
+    );
+  } else if (onboardingStep === "try") {
+    content = (
+      <div className="min-h-screen w-full bg-background">
+        <TryItStepCard
+          shortcut={tryItShortcut}
+          onDone={handleFreshOnboardingDone}
+        />
+      </div>
+    );
   } else {
     content = (
       <div
@@ -427,27 +429,28 @@ function App() {
         className="h-screen flex flex-col select-none cursor-default"
       >
         <WhatsNewGate />
-        {meetingsUi && <meetingsUi.ConsentDialog />}
+        {meetingsUi && currentSection !== "meetings-record" ? (
+          <meetingsUi.ConsentDialog />
+        ) : null}
         {/* Main content area that takes remaining space */}
         <div className="flex-1 flex overflow-hidden">
           <Sidebar
             activeSection={currentSection}
             onSectionChange={setCurrentSection}
-            showMeetings={showMeetings}
+            appVersion={appVersion}
           />
           {/* Scrollable content area */}
           <div className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto">
               <div className="flex flex-col items-center p-4 gap-4">
                 <AccessibilityPermissions />
-                <ShellContent
-                  section={currentSection}
-                  meetingsUi={meetingsUi}
-                  showMeetings={showMeetings}
-                  onNavigate={setCurrentSection}
-                  about={<AboutSettings />}
-                  debug={<DebugSettings />}
-                />
+                {renderShellSection(currentSection, meetingsUi, {
+                  about: <AboutSettings />,
+                  debug: <DebugSettings />,
+                  showMeetings: showMeetingsOnHome,
+                  onNavigate: setCurrentSection,
+                  onFixStaleAccessibility: handleFixStaleAccessibilityFromHome,
+                })}
               </div>
             </div>
           </div>

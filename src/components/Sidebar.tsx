@@ -42,24 +42,29 @@ export function Sidebar({
     <aside className="flex w-[200px] shrink-0 flex-col h-full overflow-y-auto border-e border-mid-gray/20 py-3">
       <CocoVoiceTextLogo width={120} className="m-4" />
       <nav aria-label={t("sidebar.navigation")} className="flex flex-col">
+        {/* eslint-disable-next-line i18next/no-literal-string */}
         {group("top")}
         {showMeetings && (
           <>
             <h2 data-nav-heading="meetings" className={headingClass}>
               {t("meetings.sidebar")}
             </h2>
+            {/* eslint-disable-next-line i18next/no-literal-string */}
             {group("meetings")}
           </>
         )}
         <h2 data-nav-heading="voice" className={headingClass}>
           {t("sidebar.voiceSection")}
         </h2>
+        {/* eslint-disable-next-line i18next/no-literal-string */}
         {group("voice")}
         <div
           data-nav-group="shared"
           className="mt-4 flex flex-col border-t border-mid-gray/20 pt-3"
         >
+          {/* eslint-disable-next-line i18next/no-literal-string */}
           {group("shared")}
+          {/* eslint-disable-next-line i18next/no-literal-string */}
           {settings?.debug_mode ? button("debug", "sidebar.debug") : null}
         </div>
       </nav>

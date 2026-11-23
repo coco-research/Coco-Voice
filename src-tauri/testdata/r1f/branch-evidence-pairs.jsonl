@@ -1,0 +1,14 @@
+{"id":"b1y","kind":"retract","input":"Send the deck to Priya, sorry, send it to Ana."}
+{"id":"b1n","kind":"keep","input":"Give the deck to Priya, sorry, send it to Ana."}
+{"id":"b2y","kind":"retract","input":"Meet me at the station, no wait, at the hotel."}
+{"id":"b2n","kind":"keep","input":"Meet me at the station, no wait, by the hotel."}
+{"id":"b3y","kind":"retract","input":"We need ten chairs, sorry, twelve chairs."}
+{"id":"b3n","kind":"keep","input":"We need ten chairs, sorry, twelve tables."}
+{"id":"b3sy","kind":"retract","input":"Dana baked three pies, I mean four pies."}
+{"id":"b3sn","kind":"keep","input":"Dana baked three pies, I mean fresh pies."}
+{"id":"b4y","kind":"retract","input":"Book the big room, scratch that, we can use my office."}
+{"id":"b4n","kind":"keep","input":"Book the big room, scratch that, my office."}
+{"id":"b5y","kind":"retract","input":"meeting on tuesday, scratch that, wednesday"}
+{"id":"b5n","kind":"keep","input":"meeting on tuesday, scratch that, downstairs"}
+{"id":"b6y","kind":"retract","input":"Call Sam, sorry, Ana."}
+{"id":"b6n","kind":"keep","input":"Call Sam, sorry, later."}
