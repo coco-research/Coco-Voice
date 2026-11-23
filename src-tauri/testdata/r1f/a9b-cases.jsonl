@@ -1,0 +1,23 @@
+{"id": "tb01", "input": "meeting on tuesday, scratch that, wednesday"}
+{"id": "tb02", "input": "Meeting on Tuesday. Scratch that, Wednesday."}
+{"id": "tb03", "input": "Meeting on Tuesday. Scratch that. Wednesday."}
+{"id": "tb04", "input": "Meeting on Tuesday, scratch that. Wednesday."}
+{"id": "tb05", "input": "Meeting on Tuesday. I mean Wednesday."}
+{"id": "tb06", "input": "Send it to Priya. Sorry, I mean Jordan."}
+{"id": "tb07", "input": "Lunch is at one. Scratch that, two."}
+{"id": "tb08", "input": "We met in Paris. I mean Rome."}
+{"id": "tb09", "input": "Ship it on Friday. No wait, Monday."}
+{"id": "tb10", "input": "We'll start at nine. Correction, ten."}
+{"id": "tb11", "input": "Book it for Friday. I mean Saturday."}
+{"id": "tb12", "input": "The report is for Q3. Scratch that, Q4."}
+{"id": "tb13", "input": "Lunch on Thursday. Scratch that, Friday."}
+{"id": "tb14", "input": "The flight is in March. No wait, April."}
+{"id": "tb15", "input": "Call Mom. No wait, Dad."}
+{"id": "tb16", "input": "Send it to Alex. Scratch that, Jamie."}
+{"id": "tb17", "input": "meeting on tuesday. scratch that, wednesday."}
+{"id": "tb18", "input": "Pick it up at four. Sorry, I mean five."}
+{"id": "ex01", "input": "The talk was at noon. Or rather, around noon."}
+{"id": "km1", "input": "Book the room. No wait, the hall."}
+{"id": "km2", "input": "It goes in the oven. No wait, the fridge."}
+{"id": "km3", "input": "This is for the team. Scratch that, for everyone."}
+{"id": "km4", "input": "The deadline is the 3rd. Correction, the 5th."}

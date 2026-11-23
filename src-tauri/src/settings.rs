@@ -104,6 +104,40 @@ pub struct LLMPrompt {
 /// A single user-defined text correction. Every occurrence of `from` in the
 /// output is replaced with `to` as a case-insensitive, whole-word match. Applied
 /// as a deterministic final pass, after LLM post-processing and custom words.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Type)]
+pub struct SavedBlock {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default, alias = "trigger", alias = "name")]
+    pub cue: String,
+    #[serde(default, alias = "expansion")]
+    pub content: String,
+}
+
+fn default_true_flag() -> bool {
+    true
+}
+
+#[cfg(feature = "meetings")]
+pub(crate) fn default_delete_audio_after_notes() -> bool {
+    true
+}
+
+#[cfg(feature = "meetings")]
+pub(crate) fn default_meeting_language() -> String {
+    "auto".to_string()
+}
+
+#[cfg(feature = "meetings")]
+fn default_agent_scope_live() -> bool {
+    true
+}
+
+#[cfg(feature = "meetings")]
+fn default_agent_scope_past() -> bool {
+    true
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct CorrectionPair {
     pub from: String,
@@ -192,11 +226,100 @@ pub enum AutoSubmitKey {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
 #[serde(rename_all = "snake_case")]
 pub enum RecordingRetentionPeriod {
+    /// Legacy "never auto-delete" (keep forever). Stored as `"never"` for
+    /// backward compatibility with existing settings files; `"Never"` (never
+    /// store anything to disk) is controlled by `AppSettings::never_store_history`.
+    #[serde(alias = "forever")]
     Never,
     PreserveLimit,
+    #[serde(alias = "hours_24")]
+    Hours24,
+    #[serde(alias = "days_3")]
     Days3,
+    #[serde(alias = "weeks_2")]
     Weeks2,
+    #[serde(alias = "days_30")]
+    Days30,
+    #[serde(alias = "months_3")]
     Months3,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Type)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum KeepDictationsChoice {
+    Never,
+    #[serde(alias = "hours_24")]
+    Hours24,
+    #[serde(alias = "days_30")]
+    Days30,
+    Forever,
+    KeepLatest {
+        count: usize,
+    },
+    #[serde(alias = "days_3")]
+    Days3,
+    #[serde(alias = "weeks_2")]
+    Weeks2,
+    #[serde(alias = "months_3")]
+    Months3,
+}
+
+/// Applies a `KeepDictationsChoice` atomically to `never_store_history`,
+/// `recording_retention_period`, and `history_limit` without altering
+/// `keep_dictation_audio` (preserved for when storage is turned back on).
+pub fn apply_keep_dictations_choice(settings: &mut AppSettings, choice: &KeepDictationsChoice) {
+    match *choice {
+        KeepDictationsChoice::Never => {
+            settings.never_store_history = true;
+        }
+        KeepDictationsChoice::Hours24 => {
+            settings.never_store_history = false;
+            settings.recording_retention_period = RecordingRetentionPeriod::Hours24;
+        }
+        KeepDictationsChoice::Days30 => {
+            settings.never_store_history = false;
+            settings.recording_retention_period = RecordingRetentionPeriod::Days30;
+        }
+        KeepDictationsChoice::Forever => {
+            settings.never_store_history = false;
+            settings.recording_retention_period = RecordingRetentionPeriod::Never;
+        }
+        KeepDictationsChoice::KeepLatest { count } => {
+            settings.never_store_history = false;
+            settings.recording_retention_period = RecordingRetentionPeriod::PreserveLimit;
+            settings.history_limit = count;
+        }
+        KeepDictationsChoice::Days3 => {
+            settings.never_store_history = false;
+            settings.recording_retention_period = RecordingRetentionPeriod::Days3;
+        }
+        KeepDictationsChoice::Weeks2 => {
+            settings.never_store_history = false;
+            settings.recording_retention_period = RecordingRetentionPeriod::Weeks2;
+        }
+        KeepDictationsChoice::Months3 => {
+            settings.never_store_history = false;
+            settings.recording_retention_period = RecordingRetentionPeriod::Months3;
+        }
+    }
+}
+
+/// Reads the effective `KeepDictationsChoice` represented by the stored settings.
+pub fn keep_dictations_choice(settings: &AppSettings) -> KeepDictationsChoice {
+    if settings.never_store_history {
+        return KeepDictationsChoice::Never;
+    }
+    match settings.recording_retention_period {
+        RecordingRetentionPeriod::Hours24 => KeepDictationsChoice::Hours24,
+        RecordingRetentionPeriod::Days30 => KeepDictationsChoice::Days30,
+        RecordingRetentionPeriod::Never => KeepDictationsChoice::Forever,
+        RecordingRetentionPeriod::PreserveLimit => KeepDictationsChoice::KeepLatest {
+            count: settings.history_limit,
+        },
+        RecordingRetentionPeriod::Days3 => KeepDictationsChoice::Days3,
+        RecordingRetentionPeriod::Weeks2 => KeepDictationsChoice::Weeks2,
+        RecordingRetentionPeriod::Months3 => KeepDictationsChoice::Months3,
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
@@ -455,7 +578,7 @@ pub struct AppSettings {
     pub post_process_models: HashMap<String, String>,
     #[serde(default = "default_post_process_prompts")]
     pub post_process_prompts: Vec<LLMPrompt>,
-    #[serde(default)]
+    #[serde(default = "default_post_process_selected_prompt_id")]
     pub post_process_selected_prompt_id: Option<String>,
     /// Enables the explicit iterative-correction feature. When on, the dedicated
     /// "correction" hotkey (empty by default; assigned in settings) lets the user
@@ -511,12 +634,88 @@ pub struct AppSettings {
     // Off by default; only when true may a local agent ask a question.
     #[serde(default)]
     pub agents_can_ask_enabled: bool,
+    #[serde(default)]
+    pub app_profiles: Vec<crate::app_profiles::AppProfile>,
+    #[serde(default)]
+    pub blocked_apps: Vec<String>,
+    #[serde(default)]
+    pub blocked_sites: Vec<crate::app_profiles::BlockedSite>,
+    #[serde(default)]
+    pub never_dictate_apps: Vec<String>,
+    #[serde(default)]
+    pub voice_pages_seeded: bool,
+    #[serde(default)]
+    pub saved_blocks: Vec<SavedBlock>,
+    #[serde(default)]
+    pub double_tap_hands_free: bool,
+    #[serde(default)]
+    pub hands_free_enabled: bool,
+    #[serde(default)]
+    pub never_store_history: bool,
+    #[serde(default)]
+    pub keep_dictation_audio: bool,
+    #[serde(default)]
+    pub pill_placement: Option<String>,
+    #[serde(default)]
+    pub microphone_priority: Vec<String>,
+    #[serde(default)]
+    pub agent_ask_enabled: bool,
+    #[serde(default = "default_true_flag")]
+    pub offer_remember_fix_enabled: bool,
+    #[serde(default = "default_true_flag")]
+    pub filler_word_removal_enabled: bool,
+    #[serde(default = "default_true_flag")]
+    pub repo_words_enabled: bool,
+    #[serde(default = "default_true_flag")]
+    pub code_editor_mode_enabled: bool,
+    #[serde(default)]
+    pub read_focused_text_enabled: bool,
+    #[serde(default)]
+    pub read_focused_window_context_enabled: bool,
+    #[serde(default)]
+    pub meeting_templates_seeded: bool,
+    #[cfg(feature = "meetings")]
+    #[serde(default = "default_delete_audio_after_notes")]
+    pub delete_audio_after_notes: bool,
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub save_notes_as_markdown: bool,
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub notes_markdown_folder: Option<String>,
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub meeting_audio_retention_secs: Option<i64>,
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub transcript_delete_after_days: Option<u32>,
+    #[cfg(feature = "meetings")]
+    #[serde(default = "default_meeting_language")]
+    pub meeting_language: String,
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub meeting_custom_words: Vec<String>,
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub agent_access_enabled: bool,
+    #[cfg(feature = "meetings")]
+    #[serde(default = "default_agent_scope_live")]
+    pub agent_access_live: bool,
+    #[cfg(feature = "meetings")]
+    #[serde(default = "default_agent_scope_past")]
+    pub agent_access_past: bool,
     /// Beta switch for Meetings. Only present when the crate is built with
     /// `--features meetings`. A default build has no field, so a stored
     /// `meetings_enabled` key is ignored.
     #[cfg(feature = "meetings")]
     #[serde(default = "default_meetings_enabled")]
     pub meetings_enabled: bool,
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub selected_calendars: Vec<String>,
+    #[cfg(feature = "meetings")]
+    #[serde(default)]
+    pub blocked_work_calendars: Vec<String>,
 }
 
 fn default_model() -> String {
@@ -594,7 +793,7 @@ fn default_overlay_style() -> OverlayStyle {
 
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn default_meetings_enabled() -> bool {
-    false
+    true
 }
 
 /// Meetings UI shows only when the setting is on and `os` is macOS 14.4 or newer.
@@ -675,7 +874,7 @@ fn default_history_limit() -> usize {
 }
 
 fn default_recording_retention_period() -> RecordingRetentionPeriod {
-    RecordingRetentionPeriod::PreserveLimit
+    RecordingRetentionPeriod::Days30
 }
 
 fn default_audio_feedback_volume() -> f32 {
@@ -690,15 +889,21 @@ fn default_theme() -> Theme {
     Theme::System
 }
 
+pub const DEFAULT_POST_PROCESS_PROMPT_ID: &str = "default_improve_transcriptions";
+
+fn default_post_process_selected_prompt_id() -> Option<String> {
+    Some(DEFAULT_POST_PROCESS_PROMPT_ID.to_string())
+}
+
 fn default_post_process_enabled() -> bool {
-    // Coco: on-device post-processing is ON by default on Apple Silicon (uses the
-    // local Apple Intelligence provider — nothing leaves the machine). Off on other
-    // targets so the default never triggers an accidental cloud call.
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    // On-device post-processing is ON by default on macOS (Apple Intelligence on
+    // Apple Silicon, or the local llama.cpp model — nothing leaves the machine).
+    // Off on other targets so the default never triggers an accidental cloud call.
+    #[cfg(target_os = "macos")]
     {
         true
     }
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    #[cfg(not(target_os = "macos"))]
     {
         false
     }
@@ -728,13 +933,16 @@ fn default_show_tray_icon() -> bool {
 }
 
 fn default_post_process_provider_id() -> String {
-    // Coco: default to the on-device Apple Intelligence provider on Apple Silicon so
-    // the default post-processing path never leaves the machine.
+    // Default to an on-device provider on macOS so clean-up never leaves the machine.
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     {
         APPLE_INTELLIGENCE_PROVIDER_ID.to_string()
     }
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    #[cfg(all(target_os = "macos", not(target_arch = "aarch64")))]
+    {
+        LOCAL_LLM_PROVIDER_ID.to_string()
+    }
+    #[cfg(not(target_os = "macos"))]
     {
         "openai".to_string()
     }
@@ -1054,6 +1262,19 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
         }
     }
 
+    if settings.post_process_selected_prompt_id.is_none() {
+        let fallback_id = settings
+            .post_process_prompts
+            .iter()
+            .find(|p| p.id == DEFAULT_POST_PROCESS_PROMPT_ID)
+            .or_else(|| settings.post_process_prompts.first())
+            .map(|p| p.id.clone());
+        if fallback_id.is_some() {
+            settings.post_process_selected_prompt_id = fallback_id;
+            changed = true;
+        }
+    }
+
     changed
 }
 
@@ -1116,6 +1337,17 @@ pub fn get_default_settings() -> AppSettings {
     // like a normal dictation but edits the last output and REPLACES it at the
     // cursor (see the "correction" action in actions.rs). Registered only while
     // `iterative_correction_enabled` is true and a key has been assigned.
+    bindings.insert(
+        "hands_free".to_string(),
+        ShortcutBinding {
+            id: "hands_free".to_string(),
+            name: "Hands-Free Dictation".to_string(),
+            description: "Starts or stops hands-free dictation on press. Assign a key to enable."
+                .to_string(),
+            default_binding: String::new(),
+            current_binding: String::new(),
+        },
+    );
     bindings.insert(
         "correction".to_string(),
         ShortcutBinding {
@@ -1191,7 +1423,7 @@ pub fn get_default_settings() -> AppSettings {
         post_process_api_keys: default_post_process_api_keys(),
         post_process_models: default_post_process_models(),
         post_process_prompts: default_post_process_prompts(),
-        post_process_selected_prompt_id: None,
+        post_process_selected_prompt_id: default_post_process_selected_prompt_id(),
         iterative_correction_enabled: default_iterative_correction_enabled(),
         mute_while_recording: false,
         append_trailing_space: false,
@@ -1213,8 +1445,52 @@ pub fn get_default_settings() -> AppSettings {
         vad_enabled: default_vad_enabled(),
         overlay_style: default_overlay_style(),
         agents_can_ask_enabled: false,
+        app_profiles: Vec::new(),
+        blocked_apps: Vec::new(),
+        blocked_sites: Vec::new(),
+        never_dictate_apps: Vec::new(),
+        voice_pages_seeded: false,
+        saved_blocks: Vec::new(),
+        double_tap_hands_free: false,
+        hands_free_enabled: false,
+        never_store_history: false,
+        keep_dictation_audio: false,
+        pill_placement: None,
+        microphone_priority: Vec::new(),
+        agent_ask_enabled: false,
+        offer_remember_fix_enabled: true,
+        filler_word_removal_enabled: true,
+        repo_words_enabled: true,
+        code_editor_mode_enabled: true,
+        read_focused_text_enabled: false,
+        read_focused_window_context_enabled: false,
+        meeting_templates_seeded: false,
+        #[cfg(feature = "meetings")]
+        delete_audio_after_notes: default_delete_audio_after_notes(),
+        #[cfg(feature = "meetings")]
+        save_notes_as_markdown: false,
+        #[cfg(feature = "meetings")]
+        notes_markdown_folder: None,
+        #[cfg(feature = "meetings")]
+        meeting_audio_retention_secs: None,
+        #[cfg(feature = "meetings")]
+        transcript_delete_after_days: None,
+        #[cfg(feature = "meetings")]
+        meeting_language: default_meeting_language(),
+        #[cfg(feature = "meetings")]
+        meeting_custom_words: Vec::new(),
+        #[cfg(feature = "meetings")]
+        agent_access_enabled: false,
+        #[cfg(feature = "meetings")]
+        agent_access_live: default_agent_scope_live(),
+        #[cfg(feature = "meetings")]
+        agent_access_past: default_agent_scope_past(),
         #[cfg(feature = "meetings")]
         meetings_enabled: default_meetings_enabled(),
+        #[cfg(feature = "meetings")]
+        selected_calendars: Vec::new(),
+        #[cfg(feature = "meetings")]
+        blocked_work_calendars: Vec::new(),
     }
 }
 
@@ -1256,7 +1532,14 @@ pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
 }
 
 pub fn get_settings<R: tauri::Runtime>(app: &AppHandle<R>) -> AppSettings {
-    let store = match app.store(crate::portable::store_path(SETTINGS_STORE_PATH)) {
+    get_settings_from_store_path(app, crate::portable::store_path(SETTINGS_STORE_PATH))
+}
+
+fn get_settings_from_store_path<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    store_path: std::path::PathBuf,
+) -> AppSettings {
+    let store = match app.store(store_path) {
         Ok(store) => store,
         Err(e) => {
             // Keep the app running (and the hotkey thread alive) on defaults.
@@ -1306,7 +1589,33 @@ pub fn get_settings<R: tauri::Runtime>(app: &AppHandle<R>) -> AppSettings {
         store.set("settings", serde_json::to_value(&settings).unwrap());
     }
 
+    if ensure_voice_pages_seeded(&mut settings) {
+        store.set("settings", serde_json::to_value(&settings).unwrap());
+    }
+
     settings
+}
+
+/// Plan C F9 strict seeding order (runs once on load, after legacy migration):
+/// 1. Union legacy `never_dictate_apps` into `blocked_apps` (0 lost entries).
+/// 2. Seed 1Password once if `blocked_apps` is empty and not yet seeded.
+/// 3. Seed Mail, Messages, Cursor, Terminal profiles once and flip `voice_pages_seeded = true`.
+fn ensure_voice_pages_seeded(settings: &mut AppSettings) -> bool {
+    let had_legacy = !settings.never_dictate_apps.is_empty();
+    let was_seeded = settings.voice_pages_seeded;
+    if !had_legacy && was_seeded {
+        return false;
+    }
+    crate::app_profiles::merge_legacy_never_dictate_into_blocked(
+        &mut settings.blocked_apps,
+        &mut settings.never_dictate_apps,
+    );
+    crate::app_profiles::seed_blocked_apps(&mut settings.blocked_apps, settings.voice_pages_seeded);
+    crate::app_profiles::seed_app_profiles(
+        &mut settings.app_profiles,
+        &mut settings.voice_pages_seeded,
+    );
+    true
 }
 
 /// Rebuilds settings from a store value that failed to deserialize as a whole.
@@ -1472,6 +1781,23 @@ fn apply_settings_migrations(
         updated = true;
     }
 
+    // Plan E Part 6: one-time upgrade sync from legacy `agent_ask_enabled` to
+    // `agents_can_ask_enabled` so users who opted in previously stay opted in.
+    if !settings.agents_can_ask_enabled && settings.agent_ask_enabled {
+        settings.agents_can_ask_enabled = true;
+        updated = true;
+    }
+
+    // Plan C F9: union any legacy `never_dictate_apps` into `blocked_apps` so
+    // zero legacy entries are lost before seeding defaults.
+    if !settings.never_dictate_apps.is_empty() {
+        crate::app_profiles::merge_legacy_never_dictate_into_blocked(
+            &mut settings.blocked_apps,
+            &mut settings.never_dictate_apps,
+        );
+        updated = true;
+    }
+
     updated
 }
 
@@ -1489,6 +1815,37 @@ pub fn write_settings<R: tauri::Runtime>(app: &AppHandle<R>, settings: AppSettin
     };
 
     store.set("settings", serde_json::to_value(&settings).unwrap());
+}
+
+/// Apply the "Agents can ask" toggle to `settings` and return the effective
+/// state. Turning it off also clears the legacy `agent_ask_enabled` flag so
+/// the load-time upgrade migration cannot re-enable it on next launch.
+pub fn apply_agents_can_ask_setting(settings: &mut AppSettings, enabled: bool) -> bool {
+    settings.agents_can_ask_enabled = enabled;
+    if !enabled {
+        settings.agent_ask_enabled = false;
+    }
+    crate::agent_ask_bridge::effective_agents_can_ask(
+        settings.agents_can_ask_enabled,
+        settings.agent_ask_enabled,
+    )
+}
+
+/// Flush the settings store to `settings_store.json` on disk immediately so
+/// external processes (such as `--mcp-ask-user` reading `AgentsCanAskPolicy::load`)
+/// observe the updated value without waiting for auto-save debounce.
+pub fn save_settings_store<R: tauri::Runtime>(app: &AppHandle<R>) {
+    if STORE_READ_FAILED.load(Ordering::SeqCst) {
+        return;
+    }
+    match app.store(crate::portable::store_path(SETTINGS_STORE_PATH)) {
+        Ok(store) => {
+            if let Err(e) = store.save() {
+                error!("Failed to flush settings store to disk ({e})");
+            }
+        }
+        Err(e) => error!("Failed to open settings store for immediate flush ({e})"),
+    }
 }
 
 /// Serializes read-modify-write cycles of the settings document so two
@@ -1547,6 +1904,11 @@ pub fn get_history_limit(app: &AppHandle) -> usize {
 pub fn get_recording_retention_period(app: &AppHandle) -> RecordingRetentionPeriod {
     let settings = get_settings(app);
     settings.recording_retention_period
+}
+
+pub fn get_never_store_history(app: &AppHandle) -> bool {
+    let settings = get_settings(app);
+    settings.never_store_history
 }
 
 /// Truncate `coco-voice.log` and delete rotated `coco-voice*.log` files in
@@ -2699,8 +3061,8 @@ mod tests {
     }
 
     #[test]
-    fn meetings_default_off_and_hidden_below_14_4() {
-        assert!(!default_meetings_enabled());
+    fn meetings_default_on_and_hidden_below_14_4() {
+        assert!(default_meetings_enabled());
         // The plugin read must not show Meetings while the setting is off.
         assert!(!meetings_visible_on_this_host(false));
 
@@ -2721,9 +3083,9 @@ mod tests {
 
         #[cfg(feature = "meetings")]
         {
-            assert!(!get_default_settings().meetings_enabled);
+            assert!(get_default_settings().meetings_enabled);
             let missing: AppSettings = serde_json::from_value(serde_json::json!({})).unwrap();
-            assert!(!missing.meetings_enabled);
+            assert!(missing.meetings_enabled);
             let enabled: AppSettings =
                 serde_json::from_value(serde_json::json!({ "meetings_enabled": true })).unwrap();
             assert!(enabled.meetings_enabled);
@@ -2738,5 +3100,349 @@ mod tests {
                 .get("meetings_enabled")
                 .is_none());
         }
+    }
+
+    /// T-mc4 (M-c3): store load path defaults `meetings_enabled` to true on fresh
+    /// and missing-key stores, while keeping explicit stored false or true values.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn t_mc4_meetings_enabled_store_load_defaults_on_and_preserves_explicit_values() {
+        let dir = tempfile::tempdir().expect("tempdir for store load test");
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+
+        // 1. Fresh store (no settings file on disk) -> meetings_enabled == true.
+        let fresh_path = dir.path().join("fresh-settings.json");
+        let fresh = get_settings_from_store_path(app.handle(), fresh_path);
+        assert!(
+            fresh.meetings_enabled,
+            "fresh store must default meetings_enabled to true"
+        );
+
+        // 2. Stored settings object with no meetings_enabled key -> meetings_enabled == true.
+        let missing_path = dir.path().join("missing-key-settings.json");
+        std::fs::write(
+            &missing_path,
+            serde_json::to_vec(&serde_json::json!({
+                "settings": { "push_to_talk": true }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let missing = get_settings_from_store_path(app.handle(), missing_path);
+        assert!(
+            missing.meetings_enabled,
+            "stored object missing meetings_enabled must default to true"
+        );
+
+        // 3. Stored explicit false stays false (no migration, no flip).
+        let off_path = dir.path().join("explicit-false-settings.json");
+        std::fs::write(
+            &off_path,
+            serde_json::to_vec(&serde_json::json!({
+                "settings": { "meetings_enabled": false }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let off = get_settings_from_store_path(app.handle(), off_path);
+        assert!(
+            !off.meetings_enabled,
+            "explicit stored meetings_enabled=false must stay false"
+        );
+
+        // 4. Stored explicit true stays true.
+        let on_path = dir.path().join("explicit-true-settings.json");
+        std::fs::write(
+            &on_path,
+            serde_json::to_vec(&serde_json::json!({
+                "settings": { "meetings_enabled": true }
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let on = get_settings_from_store_path(app.handle(), on_path);
+        assert!(
+            on.meetings_enabled,
+            "explicit stored meetings_enabled=true must stay true"
+        );
+    }
+
+    #[test]
+    fn fresh_settings_enable_cleanup_and_select_default_prompt_out_of_the_box() {
+        let defaults = get_default_settings();
+        #[cfg(target_os = "macos")]
+        assert!(defaults.post_process_enabled);
+        assert_eq!(
+            defaults.post_process_selected_prompt_id.as_deref(),
+            Some(DEFAULT_POST_PROCESS_PROMPT_ID)
+        );
+
+        let prompt = crate::cleanup_resolver::check_global_preconditions(
+            "um hello world",
+            defaults.post_process_selected_prompt_id.as_deref(),
+            |id| {
+                defaults
+                    .post_process_prompts
+                    .iter()
+                    .find(|p| p.id == id)
+                    .map(|p| p.prompt.as_str())
+            },
+        )
+        .expect("fresh settings must pass cleanup preconditions out of the box");
+        assert!(prompt.contains(SPOKEN_SELF_CORRECTION_RULE));
+
+        let empty_parsed: AppSettings =
+            serde_json::from_value(serde_json::json!({})).expect("parse empty store");
+        assert_eq!(
+            empty_parsed.post_process_selected_prompt_id.as_deref(),
+            Some(DEFAULT_POST_PROCESS_PROMPT_ID)
+        );
+
+        let mut legacy = get_default_settings();
+        legacy.post_process_selected_prompt_id = None;
+        assert!(ensure_post_process_defaults(&mut legacy));
+        assert_eq!(
+            legacy.post_process_selected_prompt_id.as_deref(),
+            Some(DEFAULT_POST_PROCESS_PROMPT_ID)
+        );
+    }
+
+    #[test]
+    fn dictation_retention_and_privacy_settings_round_trip_and_preserve_legacy_never() {
+        let defaults = get_default_settings();
+        assert_eq!(
+            defaults.recording_retention_period,
+            RecordingRetentionPeriod::Days30
+        );
+        assert!(!defaults.never_store_history);
+        assert!(!defaults.keep_dictation_audio);
+
+        // Legacy settings with "never" ("Auto-Delete: Never") must load as Keep Forever
+        // with never_store_history = false so upgrading users do not lose history.
+        let legacy: AppSettings = serde_json::from_value(serde_json::json!({
+            "recording_retention_period": "never"
+        }))
+        .expect("parse legacy never retention");
+        assert_eq!(
+            legacy.recording_retention_period,
+            RecordingRetentionPeriod::Never
+        );
+        assert!(!legacy.never_store_history);
+        assert!(!legacy.keep_dictation_audio);
+
+        // Compact aliases (days30 / hours24 / forever) and snake_case both deserialize cleanly.
+        let compact: AppSettings = serde_json::from_value(serde_json::json!({
+            "recording_retention_period": "hours24",
+            "never_store_history": true,
+            "keep_dictation_audio": true
+        }))
+        .expect("parse compact privacy settings");
+        assert_eq!(
+            compact.recording_retention_period,
+            RecordingRetentionPeriod::Hours24
+        );
+        assert!(compact.never_store_history);
+        assert!(compact.keep_dictation_audio);
+
+        let encoded = serde_json::to_value(&compact).expect("serialize settings");
+        assert_eq!(encoded["recording_retention_period"], "hours24");
+        assert_eq!(encoded["never_store_history"], true);
+        assert_eq!(encoded["keep_dictation_audio"], true);
+
+        // Snake-case alias ("hours_24" / "days_30") also deserializes cleanly.
+        let snake_alias: AppSettings = serde_json::from_value(serde_json::json!({
+            "recording_retention_period": "days_30"
+        }))
+        .expect("parse snake_case alias");
+        assert_eq!(
+            snake_alias.recording_retention_period,
+            RecordingRetentionPeriod::Days30
+        );
+
+        let reloaded: AppSettings =
+            serde_json::from_value(encoded).expect("reload serialized settings");
+        assert_eq!(
+            reloaded.recording_retention_period,
+            RecordingRetentionPeriod::Hours24
+        );
+        assert!(reloaded.never_store_history);
+        assert!(reloaded.keep_dictation_audio);
+
+        // AC-C1: all 8 KeepDictationsChoice variants apply atomically and round-trip,
+        // and Never preserves keep_dictation_audio without overwriting it.
+        let mut s = get_default_settings();
+        s.keep_dictation_audio = true;
+        for choice in [
+            KeepDictationsChoice::Never,
+            KeepDictationsChoice::Hours24,
+            KeepDictationsChoice::Days30,
+            KeepDictationsChoice::Forever,
+            KeepDictationsChoice::KeepLatest { count: 10 },
+            KeepDictationsChoice::Days3,
+            KeepDictationsChoice::Weeks2,
+            KeepDictationsChoice::Months3,
+        ] {
+            apply_keep_dictations_choice(&mut s, &choice);
+            assert_eq!(keep_dictations_choice(&s), choice);
+            assert!(
+                s.keep_dictation_audio,
+                "choice {choice:?} must preserve keep_dictation_audio"
+            );
+            let round: AppSettings =
+                serde_json::from_value(serde_json::to_value(&s).unwrap()).unwrap();
+            assert_eq!(keep_dictations_choice(&round), choice);
+        }
+
+        // AC-C8: legacy settings preserve exact meaning without wiping or enabling audio.
+        let legacy_limit: AppSettings = serde_json::from_value(serde_json::json!({
+            "recording_retention_period": "preserve_limit",
+            "history_limit": 10
+        }))
+        .unwrap();
+        assert_eq!(
+            keep_dictations_choice(&legacy_limit),
+            KeepDictationsChoice::KeepLatest { count: 10 }
+        );
+        assert!(!legacy_limit.never_store_history);
+        assert!(!legacy_limit.keep_dictation_audio);
+
+        for (raw, expected) in [
+            ("days3", KeepDictationsChoice::Days3),
+            ("weeks2", KeepDictationsChoice::Weeks2),
+            ("months3", KeepDictationsChoice::Months3),
+        ] {
+            let parsed: AppSettings = serde_json::from_value(serde_json::json!({
+                "recording_retention_period": raw
+            }))
+            .unwrap();
+            assert_eq!(keep_dictations_choice(&parsed), expected);
+            assert!(!parsed.never_store_history);
+            assert!(!parsed.keep_dictation_audio);
+        }
+    }
+
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn agent_access_defaults_match_mcp_policy_and_preserve_stored_live_false() {
+        let d = get_default_settings();
+        assert!(!d.agent_access_enabled);
+        assert!(d.agent_access_live);
+        assert!(d.agent_access_past);
+
+        // Stored live = false must stay false on deserialize.
+        let parsed: AppSettings = serde_json::from_str(
+            r#"{"agent_access_enabled":true,"agent_access_live":false,"agent_access_past":true}"#,
+        )
+        .unwrap();
+        assert!(parsed.agent_access_enabled);
+        assert!(!parsed.agent_access_live);
+        assert!(parsed.agent_access_past);
+    }
+
+    #[test]
+    fn voice_pages_f9_migration_merges_legacy_then_seeds_once_and_syncs_agent_ask() {
+        let mut s = get_default_settings();
+        s.agent_ask_enabled = true;
+        s.agents_can_ask_enabled = false;
+        s.never_dictate_apps = vec!["com.example.secret".to_string()];
+        let raw = serde_json::to_value(&s).unwrap();
+        assert!(apply_settings_migrations(&mut s, &raw));
+        assert!(s.agents_can_ask_enabled);
+        assert!(s.never_dictate_apps.is_empty());
+        assert!(s.blocked_apps.iter().any(|b| b == "com.example.secret"));
+
+        assert!(ensure_voice_pages_seeded(&mut s));
+        assert!(s.voice_pages_seeded);
+        assert!(s.blocked_apps.iter().any(|b| b == "com.example.secret"));
+        // Subsequent call is a no-op once seeded.
+        assert!(!ensure_voice_pages_seeded(&mut s));
+    }
+
+    #[test]
+    fn d1_agents_can_ask_setter_saves_to_disk_and_off_clears_legacy_key() {
+        let dir = tempfile::tempdir().expect("tempdir for D1");
+        let store_path = dir.path().join(SETTINGS_STORE_PATH);
+
+        // Turn ON from defaults, persist to settings_store.json, read back via both
+        // AppSettings and AgentsCanAskPolicy::load (used by --mcp-ask-user).
+        let mut s = get_default_settings();
+        assert!(!s.agents_can_ask_enabled);
+        let eff_on = apply_agents_can_ask_setting(&mut s, true);
+        assert!(eff_on);
+        assert!(s.agents_can_ask_enabled);
+
+        let doc_on = serde_json::json!({ "settings": &s });
+        std::fs::write(&store_path, serde_json::to_vec_pretty(&doc_on).unwrap()).unwrap();
+        let disk_on: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&store_path).unwrap()).unwrap();
+        let loaded_on: AppSettings = serde_json::from_value(disk_on["settings"].clone()).unwrap();
+        assert!(loaded_on.agents_can_ask_enabled);
+        assert!(crate::agent_ask::AgentsCanAskPolicy::load(dir.path()).enabled);
+
+        // Turn OFF when legacy `agent_ask_enabled` is true: both keys must become false.
+        s.agent_ask_enabled = true;
+        let eff_off = apply_agents_can_ask_setting(&mut s, false);
+        assert!(!eff_off);
+        assert!(!s.agents_can_ask_enabled);
+        assert!(!s.agent_ask_enabled);
+
+        let doc_off = serde_json::json!({ "settings": &s });
+        std::fs::write(&store_path, serde_json::to_vec_pretty(&doc_off).unwrap()).unwrap();
+        let disk_off: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&store_path).unwrap()).unwrap();
+        let loaded_off: AppSettings = serde_json::from_value(disk_off["settings"].clone()).unwrap();
+        assert!(!loaded_off.agents_can_ask_enabled);
+        assert!(!loaded_off.agent_ask_enabled);
+        assert!(!crate::agent_ask::AgentsCanAskPolicy::load(dir.path()).enabled);
+    }
+
+    #[test]
+    fn d2_agents_can_ask_survives_fresh_settings_reload_with_migrations() {
+        let dir = tempfile::tempdir().expect("tempdir for D2");
+        let store_path = dir.path().join(SETTINGS_STORE_PATH);
+
+        // After ON -> fresh settings load (including apply_settings_migrations) gives true.
+        let mut s_on = get_default_settings();
+        assert!(apply_agents_can_ask_setting(&mut s_on, true));
+        std::fs::write(
+            &store_path,
+            serde_json::to_vec_pretty(&serde_json::json!({ "settings": &s_on })).unwrap(),
+        )
+        .unwrap();
+        let raw_on: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&store_path).unwrap()).unwrap();
+        let stored_on = raw_on["settings"].clone();
+        let mut reloaded_on: AppSettings = serde_json::from_value(stored_on.clone()).unwrap();
+        let _ = apply_settings_migrations(&mut reloaded_on, &stored_on);
+        assert!(reloaded_on.agents_can_ask_enabled);
+        assert!(crate::agent_ask_bridge::effective_agents_can_ask(
+            reloaded_on.agents_can_ask_enabled,
+            reloaded_on.agent_ask_enabled,
+        ));
+
+        // After OFF with legacy `agent_ask_enabled` previously true -> fresh load stays false.
+        let mut s_off = get_default_settings();
+        s_off.agent_ask_enabled = true;
+        s_off.agents_can_ask_enabled = true;
+        assert!(!apply_agents_can_ask_setting(&mut s_off, false));
+        std::fs::write(
+            &store_path,
+            serde_json::to_vec_pretty(&serde_json::json!({ "settings": &s_off })).unwrap(),
+        )
+        .unwrap();
+        let raw_off: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&store_path).unwrap()).unwrap();
+        let stored_off = raw_off["settings"].clone();
+        let mut reloaded_off: AppSettings = serde_json::from_value(stored_off.clone()).unwrap();
+        let _ = apply_settings_migrations(&mut reloaded_off, &stored_off);
+        assert!(!reloaded_off.agents_can_ask_enabled);
+        assert!(!reloaded_off.agent_ask_enabled);
+        assert!(!crate::agent_ask_bridge::effective_agents_can_ask(
+            reloaded_off.agents_can_ask_enabled,
+            reloaded_off.agent_ask_enabled,
+        ));
     }
 }
