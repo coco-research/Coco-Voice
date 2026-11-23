@@ -886,8 +886,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "Rapportera",
     "eyebrow": "Nyheter i {{version}}",
-    "v020Body": "Spela in ett möte från Hem. Möten och diktering har nu egna sektioner.",
-    "v020Heading": "Möten och en ny layout"
+    "v020Body": "",
+    "v020Heading": "En ny layout"
   },
   "cleanupStatus": {
     "chip": {

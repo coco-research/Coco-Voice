@@ -886,8 +886,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "Segnala",
     "eyebrow": "Novità in {{version}}",
-    "v020Body": "Registra una riunione dalla Home. Riunioni e dettatura hanno ora sezioni dedicate.",
-    "v020Heading": "Riunioni e nuovo layout"
+    "v020Body": "",
+    "v020Heading": "Nuovo layout"
   },
   "cleanupStatus": {
     "chip": {

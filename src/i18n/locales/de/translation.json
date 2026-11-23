@@ -886,8 +886,8 @@
     "rollbackMessage": "{{failedVersion}} konnte nicht starten, daher kehrte Coco Voice zu {{currentVersion}} zurück. Einstellungen und Verlauf sind unverändert.",
     "reportIt": "Melden",
     "eyebrow": "Neu in {{version}}",
-    "v020Body": "Nehmen Sie Meetings direkt von der Startseite auf. Meetings und Diktate haben jetzt eigene Bereiche.",
-    "v020Heading": "Meetings und ein neues Layout"
+    "v020Body": "",
+    "v020Heading": "Ein neues Layout"
   },
   "cleanupStatus": {
     "chip": {

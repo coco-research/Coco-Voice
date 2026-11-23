@@ -789,8 +789,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "रिपोर्ट गर्नुहोस्",
     "eyebrow": "{{version}} मा नयाँ के छ",
-    "v020Body": "गृह पृष्ठबाटै बैठक रेकर्ड गर्नुहोस्। बैठक र डिक्टेसनका अब आफ्नै खण्ड छन्।",
-    "v020Heading": "बैठकहरू र नयाँ लेआउट"
+    "v020Body": "",
+    "v020Heading": "नयाँ लेआउट"
   },
   "common": {
     "loading": "लोड गरिँदैछ...",

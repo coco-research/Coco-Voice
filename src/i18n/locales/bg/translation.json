@@ -886,8 +886,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "Докладвай",
     "eyebrow": "Ново във {{version}}",
-    "v020Body": "Записвайте среща от Начало. Срещите и диктуването вече имат отделни раздели.",
-    "v020Heading": "Срещи и ново оформление"
+    "v020Body": "",
+    "v020Heading": "Ново оформление"
   },
   "cleanupStatus": {
     "chip": {

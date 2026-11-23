@@ -886,8 +886,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "דווח",
     "eyebrow": "מה חדש בגרסה {{version}}",
-    "v020Body": "הקליטו פגישה מדף הבית. לפגישות ולהכתבה יש כעת אזורים נפרדים.",
-    "v020Heading": "פגישות ופריסה חדשה"
+    "v020Body": "",
+    "v020Heading": "פריסה חדשה"
   },
   "cleanupStatus": {
     "chip": {

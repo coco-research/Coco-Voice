@@ -886,8 +886,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "신고하기",
     "eyebrow": "{{version}}의 새로운 기능",
-    "v020Body": "홈에서 바로 회의를 녹음하세요. 회의와 받아쓰기가 각자의 섹션으로 나뉘었습니다.",
-    "v020Heading": "회의 기능과 새로운 레이아웃"
+    "v020Body": "",
+    "v020Heading": "새로운 레이아웃"
   },
   "cleanupStatus": {
     "chip": {

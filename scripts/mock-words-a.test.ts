@@ -239,14 +239,8 @@ const APPENDIX_PATTERNS: Array<{
   },
   {
     section: "A7",
-    label: "Meetings, and a new layout",
-    pattern: /^Meetings, and a new layout$/,
-  },
-  {
-    section: "A7",
-    label: "What's new body",
-    pattern:
-      /^Record a meeting from Home\. Meetings and dictation now have their own sections\.$/,
+    label: "A new layout",
+    pattern: /^A new layout$/,
   },
   { section: "A7", label: "Close", pattern: /^Close$/ },
   {

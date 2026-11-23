@@ -789,8 +789,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "Report it",
     "eyebrow": "What's new in {{version}}",
-    "v020Body": "Record a meeting from Home. Meetings and dictation now have their own sections.",
-    "v020Heading": "Meetings, and a new layout"
+    "v020Body": "",
+    "v020Heading": "A new layout"
   },
   "common": {
     "loading": "Loading...",

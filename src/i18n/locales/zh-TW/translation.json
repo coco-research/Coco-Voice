@@ -886,8 +886,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "回報問題",
     "eyebrow": "{{version}} 新功能",
-    "v020Body": "從首頁直接錄製會議。會議與聽寫現在各自擁有專屬分區。",
-    "v020Heading": "會議功能與全新版面"
+    "v020Body": "",
+    "v020Heading": "全新版面"
   },
   "cleanupStatus": {
     "chip": {

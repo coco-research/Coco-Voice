@@ -587,10 +587,9 @@ describe("Checkpoint A / Plan A (Rows 1-7 & AC-A2..AC-A17)", () => {
       />,
     );
     expect(modalHtml).toContain("What's new in 0.20.0");
-    expect(modalHtml).toContain("Meetings, and a new layout");
-    expect(modalHtml).toContain(
-      "Record a meeting from Home. Meetings and dictation now have their own sections.",
-    );
+    expect(modalHtml).toContain("A new layout");
+    expect(modalHtml).not.toContain("Record a meeting from Home");
+    expect(modalHtml).not.toContain("Meetings, and a new layout");
     expect(modalHtml).toContain("Close");
     expect(modalHtml).toContain("Report it");
     expect(modalHtml).not.toContain("If an update fails");

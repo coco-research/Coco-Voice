@@ -172,10 +172,9 @@ describe("Group 5 (V-R1..V-R5 + G8) UI components", () => {
       />,
     ).replaceAll("&#x27;", "'");
     expect(whatsNewHtml).toContain("What's new in 0.20.0");
-    expect(whatsNewHtml).toContain("Meetings, and a new layout");
-    expect(whatsNewHtml).toContain(
-      "Record a meeting from Home. Meetings and dictation now have their own sections.",
-    );
+    expect(whatsNewHtml).toContain("A new layout");
+    expect(whatsNewHtml).not.toContain("Record a meeting from Home");
+    expect(whatsNewHtml).not.toContain("Meetings, and a new layout");
     expect(whatsNewHtml).toContain("Close");
     expect(whatsNewHtml).toContain(
       "0.20.1 did not start, so Coco Voice went back to 0.20.0. Your settings and history are unchanged.",

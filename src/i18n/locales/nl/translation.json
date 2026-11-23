@@ -789,8 +789,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "Melden",
     "eyebrow": "Nieuw in {{version}}",
-    "v020Body": "Neem een vergadering op vanaf Start. Vergaderingen en dicteren hebben nu eigen secties.",
-    "v020Heading": "Vergaderingen en een nieuwe indeling"
+    "v020Body": "",
+    "v020Heading": "Een nieuwe indeling"
   },
   "common": {
     "loading": "Laden...",

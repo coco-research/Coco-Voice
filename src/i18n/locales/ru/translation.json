@@ -886,8 +886,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "Сообщить",
     "eyebrow": "Новое в {{version}}",
-    "v020Body": "Записывайте встречи с главного экрана. У встреч и диктовки теперь свои разделы.",
-    "v020Heading": "Встречи и новый интерфейс"
+    "v020Body": "",
+    "v020Heading": "Новый интерфейс"
   },
   "cleanupStatus": {
     "chip": {

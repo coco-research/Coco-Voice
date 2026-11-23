@@ -886,8 +886,8 @@
     "rollbackMessage": "{{failedVersion}} n’a pas démarré, Coco Voice est revenu à {{currentVersion}}. Vos réglages et votre historique sont intacts.",
     "reportIt": "Signaler",
     "eyebrow": "Nouveautés de {{version}}",
-    "v020Body": "Enregistrez une réunion depuis Accueil. Réunions et dictée ont désormais leurs propres sections.",
-    "v020Heading": "Réunions et nouvelle présentation"
+    "v020Body": "",
+    "v020Heading": "Nouvelle présentation"
   },
   "cleanupStatus": {
     "chip": {

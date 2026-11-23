@@ -886,8 +886,8 @@
     "rollbackMessage": "لم يبدأ {{failedVersion}}، فعاد Coco Voice إلى {{currentVersion}}. إعداداتك وسجلك دون تغيير.",
     "reportIt": "الإبلاغ عنه",
     "eyebrow": "الجديد في {{version}}",
-    "v020Body": "سجّل اجتماعاً من الرئيسية. للاجتماعات والإملاء الآن أقسامهما الخاصة.",
-    "v020Heading": "الاجتماعات، وتخطيط جديد"
+    "v020Body": "",
+    "v020Heading": "تخطيط جديد"
   },
   "cleanupStatus": {
     "chip": {

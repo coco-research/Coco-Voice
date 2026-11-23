@@ -886,8 +886,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "Bildir",
     "eyebrow": "{{version}} yenilikleri",
-    "v020Body": "Ana sayfadan toplantı kaydedin. Toplantılar ve dikte artık kendi bölümlerinde.",
-    "v020Heading": "Toplantılar ve yeni düzen"
+    "v020Body": "",
+    "v020Heading": "Yeni düzen"
   },
   "cleanupStatus": {
     "chip": {

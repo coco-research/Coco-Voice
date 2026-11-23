@@ -886,8 +886,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "Relatar",
     "eyebrow": "Novidades na {{version}}",
-    "v020Body": "Grave uma reunião na tela Início. Reuniões e ditado agora têm suas próprias seções.",
-    "v020Heading": "Reuniões e um novo layout"
+    "v020Body": "",
+    "v020Heading": "Um novo layout"
   },
   "cleanupStatus": {
     "chip": {

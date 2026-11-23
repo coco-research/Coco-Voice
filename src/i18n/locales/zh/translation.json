@@ -886,8 +886,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "反馈问题",
     "eyebrow": "{{version}} 新功能",
-    "v020Body": "从主页直接录制会议。会议与听写现在各自拥有独立分区。",
-    "v020Heading": "会议功能与全新布局"
+    "v020Body": "",
+    "v020Heading": "全新布局"
   },
   "cleanupStatus": {
     "chip": {

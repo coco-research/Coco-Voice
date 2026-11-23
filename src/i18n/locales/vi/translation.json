@@ -886,8 +886,8 @@
     "rollbackMessage": "{{failedVersion}} did not start, so Coco Voice went back to {{currentVersion}}. Your settings and history are unchanged.",
     "reportIt": "Báo cáo",
     "eyebrow": "Có gì mới trong {{version}}",
-    "v020Body": "Ghi âm cuộc họp ngay từ Trang chủ. Cuộc họp và đọc chính tả nay có mục riêng.",
-    "v020Heading": "Cuộc họp và giao diện mới"
+    "v020Body": "",
+    "v020Heading": "Giao diện mới"
   },
   "cleanupStatus": {
     "chip": {
