@@ -153,9 +153,7 @@ pub fn capture(
 /// `CoreAudio.framework/Headers/CATapDescription.h:79-80` requires AudioObjectIDs of process
 /// objects, never raw Unix PIDs. If translation errors or returns `Obj::UNKNOWN` (0), exclude
 /// nothing and log one info line naming the result so starting never fails for lack of an object.
-pub(crate) fn exclude_process_object_ids(
-    translated: os::Result<hardware::Process>,
-) -> Vec<u32> {
+pub(crate) fn exclude_process_object_ids(translated: os::Result<hardware::Process>) -> Vec<u32> {
     match translated {
         Ok(proc_obj) if proc_obj.0 != Obj::UNKNOWN => vec![proc_obj.0 .0],
         Ok(proc_obj) => {
@@ -198,9 +196,7 @@ pub(crate) fn map_os_call(call: &'static str, err: os::Error) -> TapError {
         // to the function doesn't map to a valid AudioObject") — maps to Device, never Permission.
         TapFailureCause::Device
     };
-    log::warn!(
-        "system audio tap: Core Audio call `{call}` failed ({cause:?}): {code} ({err:?})"
-    );
+    log::warn!("system audio tap: Core Audio call `{call}` failed ({cause:?}): {code} ({err:?})");
     TapError::CoreAudio { cause, call, code }
 }
 
@@ -416,7 +412,9 @@ fn destroy_aggregate(id: u32) -> Result<(), TapError> {
         log::warn!(
             "system audio tap: Core Audio call `destroy_aggregate_device` failed: {code} ({status:?})"
         );
-        Err(TapError::Device(format!("destroy_aggregate_device: {code}")))
+        Err(TapError::Device(format!(
+            "destroy_aggregate_device: {code}"
+        )))
     }
 }
 
@@ -460,8 +458,8 @@ fn private_aggregate(tap_uid: &cf::String) -> Result<(AggregateDevice, u32), Tap
         ],
         &[&name, &agg_uid, &private_flag, &taps],
     );
-    let aggregate =
-        AggregateDevice::with_desc(&desc).map_err(|err| map_os_call("create_aggregate_device", err))?;
+    let aggregate = AggregateDevice::with_desc(&desc)
+        .map_err(|err| map_os_call("create_aggregate_device", err))?;
     let id = aggregate.as_ref().0 .0;
     Ok((aggregate, id))
 }
@@ -529,9 +527,8 @@ impl SystemAudioSession<StartedAggregate> {
     pub fn start(plist_text: &str, sink: TapSink) -> Result<Self, TapError> {
         require_usage_string(plist_text)?;
 
-        let excluded_ids = exclude_process_object_ids(hardware::Process::with_pid(
-            std::process::id() as i32,
-        ));
+        let excluded_ids =
+            exclude_process_object_ids(hardware::Process::with_pid(std::process::id() as i32));
         let excluded_nums: Vec<_> = excluded_ids
             .iter()
             .map(|&id| ns::Number::with_u32(id))
@@ -1429,7 +1426,11 @@ mod tests {
         );
         assert_ne!(err_other_bad_obj.code(), "system_audio_permission_denied");
 
-        for call in ["create_process_tap", "create_aggregate_device", "device_start"] {
+        for call in [
+            "create_process_tap",
+            "create_aggregate_device",
+            "device_start",
+        ] {
             let err_perm = map_os_call(call, hardware_err::PERMISSIONS);
             assert!(matches!(
                 err_perm,
@@ -1453,11 +1454,17 @@ mod tests {
         assert!(!ok_list.contains(&raw_pid));
 
         let unknown_list = exclude_process_object_ids(Ok(hardware::Process(Obj::UNKNOWN)));
-        assert!(unknown_list.is_empty(), "Obj::UNKNOWN (0) must yield empty exclude list, got {unknown_list:?}");
+        assert!(
+            unknown_list.is_empty(),
+            "Obj::UNKNOWN (0) must yield empty exclude list, got {unknown_list:?}"
+        );
         assert!(!unknown_list.contains(&raw_pid));
 
         let err_list = exclude_process_object_ids(Err(hardware_err::BAD_OBJ));
-        assert!(err_list.is_empty(), "translation Err must yield empty exclude list, got {err_list:?}");
+        assert!(
+            err_list.is_empty(),
+            "translation Err must yield empty exclude list, got {err_list:?}"
+        );
         assert!(!err_list.contains(&raw_pid));
     }
 
@@ -1465,9 +1472,8 @@ mod tests {
     #[test]
     #[ignore = "AC-B19m: live Core Audio call; run by Voice Brain with -- --ignored tap_"]
     fn tap_with_translated_id() {
-        let excluded_ids = exclude_process_object_ids(hardware::Process::with_pid(
-            std::process::id() as i32,
-        ));
+        let excluded_ids =
+            exclude_process_object_ids(hardware::Process::with_pid(std::process::id() as i32));
         let excluded_nums: Vec<_> = excluded_ids
             .iter()
             .map(|&id| ns::Number::with_u32(id))

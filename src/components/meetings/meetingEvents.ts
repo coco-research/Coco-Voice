@@ -11,9 +11,7 @@ const startRefusalHandOffListeners = new Set<
 >();
 
 /** Hand off a refused start from the app-wide consent dialog to RecordMeetingPage (one-shot). */
-export function handOffMeetingStartRefusal(
-  refusal: PendingStartRefusal,
-): void {
+export function handOffMeetingStartRefusal(refusal: PendingStartRefusal): void {
   pendingStartRefusal = refusal;
   for (const listener of [...startRefusalHandOffListeners]) {
     listener(refusal);

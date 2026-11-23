@@ -3163,16 +3163,56 @@ mod tests {
         ];
 
         let r1c_take_back: &[(&str, &str, &str, &str)] = &[
-            ("Lunch is at one. Scratch that, two.", "two", "one", "scratch that"),
+            (
+                "Lunch is at one. Scratch that, two.",
+                "two",
+                "one",
+                "scratch that",
+            ),
             ("We met in Paris. I mean Rome.", "rome", "paris", "i mean"),
-            ("Ship it on Friday. No wait, Monday.", "monday", "friday", "no wait"),
-            ("We'll start at nine. Correction, ten.", "ten", "nine", "correction"),
-            ("Book it for Friday. I mean Saturday.", "saturday", "friday", "i mean"),
-            ("The report is for Q3. Scratch that, Q4.", "q4", "q3", "scratch that"),
-            ("Lunch on Thursday. Scratch that, Friday.", "friday", "thursday", "scratch that"),
-            ("The flight is in March. No wait, April.", "april", "march", "no wait"),
+            (
+                "Ship it on Friday. No wait, Monday.",
+                "monday",
+                "friday",
+                "no wait",
+            ),
+            (
+                "We'll start at nine. Correction, ten.",
+                "ten",
+                "nine",
+                "correction",
+            ),
+            (
+                "Book it for Friday. I mean Saturday.",
+                "saturday",
+                "friday",
+                "i mean",
+            ),
+            (
+                "The report is for Q3. Scratch that, Q4.",
+                "q4",
+                "q3",
+                "scratch that",
+            ),
+            (
+                "Lunch on Thursday. Scratch that, Friday.",
+                "friday",
+                "thursday",
+                "scratch that",
+            ),
+            (
+                "The flight is in March. No wait, April.",
+                "april",
+                "march",
+                "no wait",
+            ),
             ("Call Mom. No wait, Dad.", "dad", "mom", "no wait"),
-            ("Send it to Alex. Scratch that, Jamie.", "jamie", "alex", "scratch that"),
+            (
+                "Send it to Alex. Scratch that, Jamie.",
+                "jamie",
+                "alex",
+                "scratch that",
+            ),
             (
                 "meeting on tuesday. scratch that, wednesday.",
                 "wednesday",
@@ -3196,8 +3236,11 @@ mod tests {
         ];
         assert_eq!(_r1d_known_misses.len(), 4);
 
-        let must_take_back: Vec<(&str, &str, &str, &str)> =
-            [r1b_take_back, r1c_take_back].into_iter().flatten().copied().collect();
+        let must_take_back: Vec<(&str, &str, &str, &str)> = [r1b_take_back, r1c_take_back]
+            .into_iter()
+            .flatten()
+            .copied()
+            .collect();
         assert_eq!(must_take_back.len(), 18);
 
         // Exact output (R1f v11: ex01 is pasted byte-identical as said so no word is lost):
@@ -3386,14 +3429,14 @@ mod tests {
             // Test all 66 byte-identical through the retraction-only real path (`remove_fillers = false`)
             // across echo / model_miss / fallback / model_cuts, AND also with `remove_fillers = true`
             // for all inputs that do not contain a configured English filler token ("hmm").
-            let pre_no_fill = filter_transcription_output_with_policy(input, "en", &None, false, true);
+            let pre_no_fill =
+                filter_transcription_output_with_policy(input, "en", &None, false, true);
             let (out_echo_nf, _) =
                 apply_post_process_cleanup_core(&pre_no_fill, true, |s| Some(s.to_string()));
             let (out_miss_nf, _) =
                 apply_post_process_cleanup_core(&pre_no_fill, true, |_| Some(input.to_string()));
             let (out_fb_nf, _) = apply_post_process_cleanup_core(&pre_no_fill, true, |_| None);
-            let (out_cuts_nf, _) =
-                apply_post_process_cleanup_core(&pre_no_fill, true, model_cuts);
+            let (out_cuts_nf, _) = apply_post_process_cleanup_core(&pre_no_fill, true, model_cuts);
             if out_cuts_nf.as_str() != input {
                 model_cuts_changed_count += 1;
             }
@@ -3418,8 +3461,7 @@ mod tests {
                 let (out_model_miss, _) =
                     apply_post_process_cleanup_core(&pre, true, |_| Some(input.to_string()));
                 let (out_fallback, _) = apply_post_process_cleanup_core(&pre, true, |_| None);
-                let (out_model_cuts, _) =
-                    apply_post_process_cleanup_core(&pre, true, model_cuts);
+                let (out_model_cuts, _) = apply_post_process_cleanup_core(&pre, true, model_cuts);
 
                 for (mode, got) in [
                     ("echo+fillers", &out_echo),
@@ -3531,23 +3573,20 @@ mod tests {
             stub_model_cuts_before_cue(k29).as_deref(),
             Some("No wait, tomorrow.")
         );
-        let (k29_out, _) =
-            apply_post_process_cleanup_core(k29, true, stub_model_cuts_before_cue);
+        let (k29_out, _) = apply_post_process_cleanup_core(k29, true, stub_model_cuts_before_cue);
 
         let rows = load_must_not_change_66();
         let mut fail_no_fill: Vec<String> = Vec::new();
         let mut fail_with_fill: Vec<String> = Vec::new();
         for (id, input) in &rows {
-            let pre_nf =
-                filter_transcription_output_with_policy(input, "en", &None, false, true);
+            let pre_nf = filter_transcription_output_with_policy(input, "en", &None, false, true);
             let (out_nf, _) =
                 apply_post_process_cleanup_core(&pre_nf, true, stub_model_cuts_before_cue);
             if out_nf != *input {
                 fail_no_fill.push(format!("{id}: got={out_nf:?}"));
             }
 
-            let pre_f =
-                filter_transcription_output_with_policy(input, "en", &None, true, true);
+            let pre_f = filter_transcription_output_with_policy(input, "en", &None, true, true);
             let (out_f, _) =
                 apply_post_process_cleanup_core(&pre_f, true, stub_model_cuts_before_cue);
             if out_f != pre_f {
@@ -3576,15 +3615,13 @@ mod tests {
             stub_model_cuts_after_cue(k29).as_deref(),
             Some("I'll send it to you. No wait.")
         );
-        let (k29_out, _) =
-            apply_post_process_cleanup_core(k29, true, stub_model_cuts_after_cue);
+        let (k29_out, _) = apply_post_process_cleanup_core(k29, true, stub_model_cuts_after_cue);
 
         let rows = load_must_not_change_66();
         let mut fail_no_fill: Vec<String> = Vec::new();
         let mut fail_with_fill: Vec<String> = Vec::new();
         for (id, input) in &rows {
-            let pre_nf =
-                filter_transcription_output_with_policy(input, "en", &None, false, true);
+            let pre_nf = filter_transcription_output_with_policy(input, "en", &None, false, true);
             let (out_nf, _) =
                 apply_post_process_cleanup_core(&pre_nf, true, stub_model_cuts_after_cue);
             // k38 ("Send it to the client. No wait, hmm.") drops only the exempt English filler
@@ -3599,8 +3636,7 @@ mod tests {
                 fail_no_fill.push(format!("{id}: expected={expected_nf:?} got={out_nf:?}"));
             }
 
-            let pre_f =
-                filter_transcription_output_with_policy(input, "en", &None, true, true);
+            let pre_f = filter_transcription_output_with_policy(input, "en", &None, true, true);
             let (out_f, _) =
                 apply_post_process_cleanup_core(&pre_f, true, stub_model_cuts_after_cue);
             if out_f != pre_f {
@@ -3650,11 +3686,7 @@ mod tests {
                 apply_post_process_cleanup_core(&pre, true, |_| Some(polished.clone()));
             assert_eq!(out_polish, polished, "polish rejected for {input:?}");
 
-            let dropped = pre
-                .split_whitespace()
-                .skip(1)
-                .collect::<Vec<_>>()
-                .join(" ");
+            let dropped = pre.split_whitespace().skip(1).collect::<Vec<_>>().join(" ");
             assert!(!dropped.is_empty(), "expected multi-word pre for {input:?}");
             let (out_drop, _) =
                 apply_post_process_cleanup_core(&pre, true, |_| Some(dropped.clone()));
@@ -3663,8 +3695,9 @@ mod tests {
 
         let r1 = "meeting on tuesday, scratch that, wednesday";
         let pre_r1 = filter_transcription_output_with_policy(r1, "en", &None, true, true);
-        let (out_r1, _) =
-            apply_post_process_cleanup_core(&pre_r1, true, |_| Some("Meeting on Wednesday.".to_string()));
+        let (out_r1, _) = apply_post_process_cleanup_core(&pre_r1, true, |_| {
+            Some("Meeting on Wednesday.".to_string())
+        });
         assert_eq!(out_r1, "Meeting on Wednesday.");
     }
 
@@ -3684,8 +3717,9 @@ mod tests {
         assert_eq!(t6_model, "Call Sam, sorry, Ana.");
 
         let mut failures: Vec<String> = Vec::new();
-        let (t6_out, _) =
-            apply_post_process_cleanup_core(t6_input, true, |s| Some(s.replace(". Sorry,", ", sorry,")));
+        let (t6_out, _) = apply_post_process_cleanup_core(t6_input, true, |s| {
+            Some(s.replace(". Sorry,", ", sorry,"))
+        });
         if t6_out != t6_model {
             failures.push(format!("T6 expected={t6_model:?} got={t6_out:?}"));
         }
@@ -3697,7 +3731,9 @@ mod tests {
             Some(s.replace(". Scratch that,", ", scratch that,"))
         });
         if old_t6_out != old_t6_expected {
-            failures.push(format!("OLD_T6 expected={old_t6_expected:?} got={old_t6_out:?}"));
+            failures.push(format!(
+                "OLD_T6 expected={old_t6_expected:?} got={old_t6_out:?}"
+            ));
         }
 
         // T7 (c11): punctuation-only stub output stays verbatim.
@@ -3752,12 +3788,10 @@ mod tests {
             !crate::audio_toolkit::text::has_repair_cue_hint(&after_manager),
             "app-order text has no cue left after manager rules"
         );
-        let (out, _) = apply_post_process_cleanup_core_with_policy(
-            &after_manager,
-            true,
-            true,
-            |_| Some("final v3".to_string()),
-        );
+        let (out, _) =
+            apply_post_process_cleanup_core_with_policy(&after_manager, true, true, |_| {
+                Some("final v3".to_string())
+            });
         assert_eq!(out, "Save the file as final v3.");
     }
 
@@ -3766,12 +3800,9 @@ mod tests {
         use crate::actions::apply_post_process_cleanup_core_with_policy;
 
         let plain = "Save the file as final v3.";
-        let (out, _) = apply_post_process_cleanup_core_with_policy(
-            plain,
-            true,
-            true,
-            |_| Some("final v3".to_string()),
-        );
+        let (out, _) = apply_post_process_cleanup_core_with_policy(plain, true, true, |_| {
+            Some("final v3".to_string())
+        });
         assert_eq!(out, "Save the file as final v3.");
     }
 
@@ -3786,23 +3817,18 @@ mod tests {
         );
 
         let dropped_first = "you want the red one or the black one?";
-        let (out_keep, _) = apply_post_process_cleanup_core_with_policy(
-            k02,
-            true,
-            true,
-            |_| Some(dropped_first.to_string()),
-        );
+        let (out_keep, _) = apply_post_process_cleanup_core_with_policy(k02, true, true, |_| {
+            Some(dropped_first.to_string())
+        });
         assert_eq!(
             out_keep, k02,
             "keep_every_word=true must fall back to pre when first word is dropped"
         );
 
-        let (out_other_prompt, _) = apply_post_process_cleanup_core_with_policy(
-            k02,
-            true,
-            false,
-            |_| Some(dropped_first.to_string()),
-        );
+        let (out_other_prompt, _) =
+            apply_post_process_cleanup_core_with_policy(k02, true, false, |_| {
+                Some(dropped_first.to_string())
+            });
         assert_eq!(
             out_other_prompt, dropped_first,
             "keep_every_word=false must keep cue-free ceiling for non-stock prompts"
@@ -3810,12 +3836,9 @@ mod tests {
 
         // Polish stays: case and punctuation only must still be taken with keep_every_word=true.
         let polished = "do you want the red one, or the black one!";
-        let (out_polish, _) = apply_post_process_cleanup_core_with_policy(
-            k02,
-            true,
-            true,
-            |_| Some(polished.to_string()),
-        );
+        let (out_polish, _) = apply_post_process_cleanup_core_with_policy(k02, true, true, |_| {
+            Some(polished.to_string())
+        });
         assert_eq!(
             out_polish, polished,
             "case and punctuation polish must still be taken with keep_every_word=true"

@@ -801,12 +801,9 @@ mod tests {
             &["you", "no wait", "tomorrow"],
             &[],
         );
-        let pasted = eval_pasted_output(
-            &keep_take.input,
-            Ok("I'll send it to you tomorrow."),
-            false,
-        )
-        .expect("guard falls back to rules text");
+        let pasted =
+            eval_pasted_output(&keep_take.input, Ok("I'll send it to you tomorrow."), false)
+                .expect("guard falls back to rules text");
         assert_eq!(pasted, "I'll send it to you. No wait, tomorrow.");
         let row = judge(&keep_take, Ok(&pasted));
         assert!(row.score.meaning_ok, "reason={}", row.score.reason);

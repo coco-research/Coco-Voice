@@ -109,10 +109,7 @@ export const AboutSettings: React.FC<{
         );
       } else {
         setUpdateStatusNote(
-          t(
-            "v022.about.checkUpdatesFailed",
-            "Couldn't check. Try again.",
-          ),
+          t("v022.about.checkUpdatesFailed", "Couldn't check. Try again."),
         );
       }
     } catch {

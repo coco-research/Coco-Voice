@@ -95,7 +95,10 @@ describe("W39 segmented switch + W41 sticky revert + s1/s4/s8 polish", () => {
 
   test("W39 clicking Left out switches to Frame 15 Notes | Left out with 16 px margins", async () => {
     const src = await Bun.file(
-      new URL("../src/components/meetings/MeetingNotesPanel.tsx", import.meta.url),
+      new URL(
+        "../src/components/meetings/MeetingNotesPanel.tsx",
+        import.meta.url,
+      ),
     ).text();
     expect(src).toContain('setActiveView("left_out")');
     expect(src).toContain('activeView === "left_out"');
@@ -166,7 +169,10 @@ describe("W39 segmented switch + W41 sticky revert + s1/s4/s8 polish", () => {
     const bannerPos = ml.indexOf("<OlderNoteWhileRecordingBanner", detailStart);
     const eyebrowPos = ml.indexOf('t("meetings.sidebar")', detailStart);
     const notesPos = ml.indexOf("<MeetingNotesSection", detailStart);
-    const hintPos = ml.indexOf('data-testid="older-note-live-hint"', detailStart);
+    const hintPos = ml.indexOf(
+      'data-testid="older-note-live-hint"',
+      detailStart,
+    );
     const addAudioPos = ml.indexOf("<AddAudioControl", detailStart);
     expect(bannerPos).toBeGreaterThan(detailStart);
     expect(bannerPos).toBeLessThan(eyebrowPos);
@@ -306,7 +312,10 @@ describe("W39 segmented switch + W41 sticky revert + s1/s4/s8 polish", () => {
 
   test("s4 Hands-free pill placement radios render on the right of each row", async () => {
     const src = await Bun.file(
-      new URL("../src/components/settings/SettingsV022Page.tsx", import.meta.url),
+      new URL(
+        "../src/components/settings/SettingsV022Page.tsx",
+        import.meta.url,
+      ),
     ).text();
     const blockStart = src.indexOf('data-testid="pill-placement-rows"');
     expect(blockStart).toBeGreaterThan(-1);
@@ -325,7 +334,10 @@ describe("W39 segmented switch + W41 sticky revert + s1/s4/s8 polish", () => {
       new URL("../src/components/meetings/MeetingsList.tsx", import.meta.url),
     ).text();
     const ap = await Bun.file(
-      new URL("../src/components/settings/AppProfilesView.tsx", import.meta.url),
+      new URL(
+        "../src/components/settings/AppProfilesView.tsx",
+        import.meta.url,
+      ),
     ).text();
     expect(ml).not.toContain("meeting-detail-sticky-header");
     expect(ml).not.toContain("sticky top-0");

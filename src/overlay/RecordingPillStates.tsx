@@ -318,10 +318,7 @@ export const AgentAskPillView: React.FC<AgentAskPillProps> = ({
           <span aria-hidden="true">{QUESTION_MARK}</span>
           <span>
             {queuedCount === 1
-              ? t(
-                  "overlay.agentAsk.oneMoreWaiting",
-                  "1 more question waiting",
-                )
+              ? t("overlay.agentAsk.oneMoreWaiting", "1 more question waiting")
               : t("overlay.agentAsk.manyMoreWaiting", {
                   count: queuedCount,
                   defaultValue: `${queuedCount} more questions waiting`,

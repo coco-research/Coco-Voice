@@ -8,10 +8,16 @@ import en from "../src/i18n/locales/en/translation.json";
 const SILENT_WARNING_TEXT =
   "No call audio heard yet. Check that System Audio Recording is allowed for Coco Voice in System Settings.";
 
-type InvokeFn = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
+type InvokeFn = (
+  cmd: string,
+  args?: Record<string, unknown>,
+) => Promise<unknown>;
 let invokeHandler: InvokeFn = async () => null;
 
-const listenHandlers = new Map<string, Array<(ev: { payload: unknown }) => void>>();
+const listenHandlers = new Map<
+  string,
+  Array<(ev: { payload: unknown }) => void>
+>();
 
 mock.module("@tauri-apps/api/core", () => ({
   invoke: (cmd: string, args?: Record<string, unknown>) =>
@@ -40,7 +46,8 @@ mock.module("@tauri-apps/plugin-dialog", () => ({
   open: async () => null,
 }));
 
-const { MeetingsList } = await import("../src/components/meetings/MeetingsList");
+const { MeetingsList } =
+  await import("../src/components/meetings/MeetingsList");
 
 function makeTestI18n() {
   const inst = i18next.createInstance();
@@ -147,7 +154,10 @@ function mountInteractiveTree(rootElement: React.ReactElement) {
     if (typeof type === "function") {
       const fn = type as (...args: unknown[]) => React.ReactNode;
       const keySeg = node.key !== null ? `#${String(node.key)}` : "";
-      const fnName = (fn as { displayName?: string; name?: string }).displayName || fn.name || "anon";
+      const fnName =
+        (fn as { displayName?: string; name?: string }).displayName ||
+        fn.name ||
+        "anon";
       const nodeKey = `${pathKey}/${fnName}${keySeg}`;
       seen.add(nodeKey);
       let stateNode = nodes.get(nodeKey);
@@ -167,7 +177,9 @@ function mountInteractiveTree(rootElement: React.ReactElement) {
       let hookIdx = 0;
 
       const dispatcher = {
-        useState<T>(init: T | (() => T)): [T, (next: T | ((p: T) => T)) => void] {
+        useState<T>(
+          init: T | (() => T),
+        ): [T, (next: T | ((p: T) => T)) => void] {
           const i = hookIdx++;
           let slot = activeNode.hooks[i];
           if (!slot) {
@@ -179,9 +191,7 @@ function mountInteractiveTree(rootElement: React.ReactElement) {
           const setter = (next: T | ((p: T) => T)) => {
             const prev = slot!.value as T;
             const resolved =
-              typeof next === "function"
-                ? (next as (p: T) => T)(prev)
-                : next;
+              typeof next === "function" ? (next as (p: T) => T)(prev) : next;
             if (!Object.is(prev, resolved)) {
               slot!.value = resolved;
               dirty = true;
@@ -257,7 +267,8 @@ function mountInteractiveTree(rootElement: React.ReactElement) {
           return slot.value as T;
         },
         useContext<T>(ctx: React.Context<T>): T {
-          const current = (ctx as unknown as { _currentValue: T })._currentValue;
+          const current = (ctx as unknown as { _currentValue: T })
+            ._currentValue;
           return current;
         },
         useId() {
@@ -375,7 +386,8 @@ function mountInteractiveTree(rootElement: React.ReactElement) {
   }
 
   function textOf(node: React.ReactNode): string {
-    if (typeof node === "string" || typeof node === "number") return String(node);
+    if (typeof node === "string" || typeof node === "number")
+      return String(node);
     if (Array.isArray(node)) return node.map(textOf).join("");
     if (React.isValidElement(node)) {
       return textOf((node.props as { children?: React.ReactNode }).children);
@@ -405,7 +417,9 @@ function mountInteractiveTree(rootElement: React.ReactElement) {
         );
       });
       if (!hit) {
-        throw new Error(`Could not find clickable meeting row with title "${title}"`);
+        throw new Error(
+          `Could not find clickable meeting row with title "${title}"`,
+        );
       }
       (hit.props as { onClick: () => void }).onClick();
       flushRender();

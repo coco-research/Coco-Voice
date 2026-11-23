@@ -13,10 +13,7 @@ import { useSettings } from "../../hooks/useSettings";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { OUTLINED_BTN_SM } from "../meetings/MeetingsList";
 import type { ShellSectionId } from "../layout/shellRoutes";
-import {
-  NeverDictateCard,
-  type BlockedSiteEntry,
-} from "./NeverDictateCard";
+import { NeverDictateCard, type BlockedSiteEntry } from "./NeverDictateCard";
 
 export type CleanupLevelChoice = "default" | "on" | "light" | "off";
 
@@ -205,7 +202,11 @@ export const AppProfilesSection: React.FC<AppProfilesSectionProps> = ({
       app_identifier: id,
       cleanup: level,
       post_process_enabled:
-        level === "on" ? true : level === "off" || level === "light" ? false : null,
+        level === "on"
+          ? true
+          : level === "off" || level === "light"
+            ? false
+            : null,
     };
     const next = profiles.some((p) => p.id === clean.id)
       ? profiles.map((p) => (p.id === clean.id ? clean : p))
@@ -307,7 +308,9 @@ export const AppProfilesSection: React.FC<AppProfilesSectionProps> = ({
                 <option value="default">
                   {t("profiles.sameAsDefault", "Same as default")}
                 </option>
-                <option value="on">{t("profiles.cleanupOptionOn", "On")}</option>
+                <option value="on">
+                  {t("profiles.cleanupOptionOn", "On")}
+                </option>
                 <option value="light">
                   {t("profiles.cleanupOptionLight", "Light")}
                 </option>
@@ -345,7 +348,9 @@ export const AppProfilesSection: React.FC<AppProfilesSectionProps> = ({
                 <option value="default">
                   {t("profiles.sameAsDefault", "Same as default")}
                 </option>
-                <option value="on">{t("profiles.cleanupOptionOn", "On")}</option>
+                <option value="on">
+                  {t("profiles.cleanupOptionOn", "On")}
+                </option>
                 <option value="off">
                   {t("profiles.cleanupOptionOff", "Off")}
                 </option>
@@ -460,8 +465,7 @@ export const AppProfilesView: React.FC<{
   const blockedApps = settings?.blocked_apps ?? [];
   const blockedSites =
     ((settings as Record<string, unknown> | null)?.blocked_sites as
-      | BlockedSiteEntry[]
-      | undefined) ?? [];
+      BlockedSiteEntry[] | undefined) ?? [];
 
   useEffect(() => {
     if (blockedApps.length === 0) {

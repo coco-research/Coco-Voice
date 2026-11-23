@@ -28,11 +28,8 @@ mock.module("../src/i18n", () => ({
   isRTLLanguage: () => false,
 }));
 
-const {
-  ModelsSettings,
-  formatCleanModelSize,
-  formatSpeechModelSubtitle,
-} = await import("../src/components/settings/models/ModelsSettings");
+const { ModelsSettings, formatCleanModelSize, formatSpeechModelSubtitle } =
+  await import("../src/components/settings/models/ModelsSettings");
 const { AboutSettings } =
   await import("../src/components/settings/about/AboutSettings");
 
@@ -157,7 +154,11 @@ describe("Plan D Models (D6) and About (D7)", () => {
           models_compared: 2,
         },
       }),
-      makeModel({ id: "whisper-small", name: "Whisper Small", is_downloaded: true }),
+      makeModel({
+        id: "whisper-small",
+        name: "Whisper Small",
+        is_downloaded: true,
+      }),
       makeModel({ id: "whisper-medium", name: "Whisper Medium" }),
       makeModel({ id: "whisper-large", name: "Whisper Large" }),
       makeModel({ id: "sense-voice", name: "SenseVoice" }),
@@ -230,7 +231,11 @@ describe("Plan D Models (D6) and About (D7)", () => {
       {
         currentModel: "parakeet-ultra",
         models: [
-          makeModel({ id: "parakeet-ultra", name: "Parakeet Ultra", is_downloaded: true }),
+          makeModel({
+            id: "parakeet-ultra",
+            name: "Parakeet Ultra",
+            is_downloaded: true,
+          }),
           makeModel({
             id: "qwen3-4b",
             name: "Qwen3-4B",
@@ -262,7 +267,11 @@ describe("Plan D Models (D6) and About (D7)", () => {
       {
         currentModel: "parakeet-ultra",
         models: [
-          makeModel({ id: "parakeet-ultra", name: "Parakeet Ultra", is_downloaded: true }),
+          makeModel({
+            id: "parakeet-ultra",
+            name: "Parakeet Ultra",
+            is_downloaded: true,
+          }),
           makeModel({
             id: "qwen3-4b",
             name: "Qwen3-4B",
@@ -278,7 +287,9 @@ describe("Plan D Models (D6) and About (D7)", () => {
           </I18nextProvider>,
         ),
     );
-    expect(notDownloadedHtml).not.toContain('data-testid="cleanup-model-in-use"');
+    expect(notDownloadedHtml).not.toContain(
+      'data-testid="cleanup-model-in-use"',
+    );
     const cleanupSlice2 = notDownloadedHtml.slice(
       notDownloadedHtml.indexOf('data-testid="local-cleanup-models-section"'),
     );

@@ -30,7 +30,8 @@ const {
   WordsAndCleanupV022,
   formatWhereCleanupRuns,
   normalizeCanonicalSavedBlock,
-} = await import("../src/components/settings/post-processing/PostProcessingSettings");
+} =
+  await import("../src/components/settings/post-processing/PostProcessingSettings");
 
 const ROOT = join(import.meta.dir, "..");
 

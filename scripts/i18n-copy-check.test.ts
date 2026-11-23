@@ -139,7 +139,9 @@ export function findUntranslatedEnglishCopies(
 
 describe("W18 · Plan map v1.1 translation copy-check", () => {
   const enFlat = flatten(
-    JSON.parse(readFileSync(join(LOCALES_DIR, "en", "translation.json"), "utf8")),
+    JSON.parse(
+      readFileSync(join(LOCALES_DIR, "en", "translation.json"), "utf8"),
+    ),
   );
   const langs = readdirSync(LOCALES_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory() && d.name !== "en")

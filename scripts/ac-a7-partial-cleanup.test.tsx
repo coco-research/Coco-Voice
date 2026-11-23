@@ -68,10 +68,8 @@ mock.module("sonner", () => ({
 
 const { renderToStaticMarkup } = await import("react-dom/server");
 const { useModelStore } = await import("../src/stores/modelStore");
-const {
-  default: Onboarding,
-  cleanupPartialOnDownloadFailure,
-} = await import("../src/components/onboarding/Onboarding");
+const { default: Onboarding, cleanupPartialOnDownloadFailure } =
+  await import("../src/components/onboarding/Onboarding");
 
 const defaultModel: ModelInfo = {
   id: FIRST_RUN_DEFAULT_MODEL_ID,

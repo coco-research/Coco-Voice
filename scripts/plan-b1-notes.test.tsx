@@ -96,7 +96,9 @@ describe("Plan B1 frontend flows (AC-B9, AC-B10, AC-B12..AC-B18)", () => {
     expect(html).toContain("Action items");
     expect(html).toContain("Open questions");
     expect(html.indexOf("Summary")).toBeLessThan(html.indexOf("Decisions"));
-    expect(html.indexOf("Decisions")).toBeLessThan(html.indexOf("Action items"));
+    expect(html.indexOf("Decisions")).toBeLessThan(
+      html.indexOf("Action items"),
+    );
     expect(html.indexOf("Action items")).toBeLessThan(
       html.indexOf("Open questions"),
     );

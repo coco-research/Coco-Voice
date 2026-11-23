@@ -4,8 +4,7 @@ import type {
   MeetingSpeakerSlot,
 } from "../../bindings.meetings";
 
-export const SPEAKER_SPLIT_ENABLED =
-  import.meta.env.VITE_SPEAKER_SPLIT === "1";
+export const SPEAKER_SPLIT_ENABLED = import.meta.env.VITE_SPEAKER_SPLIT === "1";
 
 export interface SpeakerSplitSectionProps {
   meetingId: number;

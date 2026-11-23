@@ -57,9 +57,8 @@ mock.module("@tauri-apps/plugin-http", () => ({
 }));
 
 const { commands } = await import("../src/bindings.meetings");
-const { UpcomingMeetingsList } = await import(
-  "../src/components/meetings/UpcomingMeetings"
-);
+const { UpcomingMeetingsList } =
+  await import("../src/components/meetings/UpcomingMeetings");
 
 const i18n = i18next.createInstance();
 await i18n.use(initReactI18next).init({

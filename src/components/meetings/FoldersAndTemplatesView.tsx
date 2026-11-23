@@ -221,7 +221,10 @@ export const FoldersAndTemplatesSection: React.FC<
                           if (e.key === "Enter") commitRenameFolder(folder.id);
                           if (e.key === "Escape") setRenamingId(null);
                         }}
-                        aria-label={t("meetings.notes.renameFolder", "Rename folder")}
+                        aria-label={t(
+                          "meetings.notes.renameFolder",
+                          "Rename folder",
+                        )}
                         className="min-w-0 flex-1 rounded-[7px] border border-logo-primary bg-background px-2 py-1 text-[12px] text-text"
                       />
                     </div>
@@ -552,32 +555,35 @@ export const FoldersAndTemplatesView: React.FC = () => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
 
-  const reload = useCallback(async (preferredOpenId?: string | null) => {
-    const [folderRes, tplRes] = await Promise.all([
-      commands.listMeetingFolders(),
-      commands.listMeetingTemplates(),
-    ]);
-    if (tplRes.status === "ok") {
-      const mapped = tplRes.data.map(toLocalTemplate);
-      setTemplates(mapped);
-      setSelectedTemplateId((prev) => prev || mapped[0]?.id || "");
-    }
-    if (folderRes.status === "ok") {
-      const targetOpen =
-        preferredOpenId ??
-        openFolderId ??
-        (folderRes.data[0] ? String(folderRes.data[0].id) : null);
-      setOpenFolderId(targetOpen);
-      const mappedFolders = folderRes.data.map((row) =>
-        toLocalFolder(row, targetOpen),
-      );
-      setFolders(mappedFolders);
-      const active = mappedFolders.find((f) => f.id === targetOpen);
-      if (active?.lastTemplateId) {
-        setSelectedTemplateId(active.lastTemplateId);
+  const reload = useCallback(
+    async (preferredOpenId?: string | null) => {
+      const [folderRes, tplRes] = await Promise.all([
+        commands.listMeetingFolders(),
+        commands.listMeetingTemplates(),
+      ]);
+      if (tplRes.status === "ok") {
+        const mapped = tplRes.data.map(toLocalTemplate);
+        setTemplates(mapped);
+        setSelectedTemplateId((prev) => prev || mapped[0]?.id || "");
       }
-    }
-  }, [openFolderId]);
+      if (folderRes.status === "ok") {
+        const targetOpen =
+          preferredOpenId ??
+          openFolderId ??
+          (folderRes.data[0] ? String(folderRes.data[0].id) : null);
+        setOpenFolderId(targetOpen);
+        const mappedFolders = folderRes.data.map((row) =>
+          toLocalFolder(row, targetOpen),
+        );
+        setFolders(mappedFolders);
+        const active = mappedFolders.find((f) => f.id === targetOpen);
+        if (active?.lastTemplateId) {
+          setSelectedTemplateId(active.lastTemplateId);
+        }
+      }
+    },
+    [openFolderId],
+  );
 
   useEffect(() => {
     void reload();
@@ -598,9 +604,7 @@ export const FoldersAndTemplatesView: React.FC = () => {
       onCloseTemplateDialog={() => setTemplateDialogOpen(false)}
       onToggleFolder={(id) => {
         setOpenFolderId(id);
-        setFolders((prev) =>
-          prev.map((f) => ({ ...f, open: f.id === id })),
-        );
+        setFolders((prev) => prev.map((f) => ({ ...f, open: f.id === id })));
         const picked = folders.find((f) => f.id === id);
         if (picked?.lastTemplateId) {
           setSelectedTemplateId(picked.lastTemplateId);

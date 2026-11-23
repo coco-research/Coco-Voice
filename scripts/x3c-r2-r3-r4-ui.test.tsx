@@ -17,8 +17,8 @@ const ROOT = join(import.meta.dir, "..");
 
 const invokeCalls: Array<{ cmd: string; args?: Record<string, unknown> }> = [];
 let nextInvokeHandler:
-  | ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>)
-  | null = null;
+  ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | null =
+  null;
 const applyThemeCalls: string[] = [];
 const eventListeners = new Map<
   string,
@@ -93,8 +93,7 @@ const { RecordMeetingPage, RecordMeetingSection } =
   await import("../src/components/meetings/RecordMeetingPage");
 const { MeetingFloatingPill } =
   await import("../src/components/meetings/MeetingEntryPanels");
-const { MeetingPillView } =
-  await import("../src/overlay/RecordingPillStates");
+const { MeetingPillView } = await import("../src/overlay/RecordingPillStates");
 
 async function makeI18n() {
   const inst = i18next.createInstance();
@@ -122,9 +121,7 @@ function withSettings<T>(
       ...(prevState.settings ?? {}),
       ...partial,
     } as never,
-    ...(onUpdateSetting
-      ? { updateSetting: onUpdateSetting as never }
-      : {}),
+    ...(onUpdateSetting ? { updateSetting: onUpdateSetting as never } : {}),
   };
   Object.assign(useSettingsStore.getInitialState(), nextState);
   useSettingsStore.setState(nextState);
@@ -223,8 +220,11 @@ function mountInteractive<P extends Record<string, unknown>>(
   // React 18 / 19 hook dispatcher shim (only for test-local single-component interaction)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const reactAny = React as any;
-  const r18 = reactAny.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED?.ReactCurrentDispatcher;
-  const r19 = reactAny.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+  const r18 =
+    reactAny.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED
+      ?.ReactCurrentDispatcher;
+  const r19 =
+    reactAny.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
   const getDisp = () => (r18 ? r18.current : r19.H);
   const setDisp = (d: unknown) => {
     if (r18) r18.current = d;
@@ -250,7 +250,11 @@ function mountInteractive<P extends Record<string, unknown>>(
     refCursor = 0;
     effectCursor = 0;
     cbCursor = 0;
-    const pendingEffects: Array<{ idx: number; fn: () => void | (() => void); deps?: readonly unknown[] }> = [];
+    const pendingEffects: Array<{
+      idx: number;
+      fn: () => void | (() => void);
+      deps?: readonly unknown[];
+    }> = [];
     setDisp({
       useState<T>(init: T | (() => T)): [T, (next: T | ((p: T) => T)) => void] {
         const idx = stateCursor++;
@@ -293,10 +297,7 @@ function mountInteractive<P extends Record<string, unknown>>(
       useContext(ctx: { _currentValue?: unknown }) {
         return ctx._currentValue;
       },
-      useSyncExternalStore<T>(
-        _sub: unknown,
-        getSnap: () => T,
-      ): T {
+      useSyncExternalStore<T>(_sub: unknown, getSnap: () => T): T {
         return getSnap();
       },
       useId: () => "test-id",
@@ -411,7 +412,9 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
         const mounted = mountInteractive(SettingsV022Page, {});
         const buttons = collectElements(
           mounted.getTree(),
-          (el) => el.type === "button" && el.props["data-testid"] === "appearance-option-light",
+          (el) =>
+            el.type === "button" &&
+            el.props["data-testid"] === "appearance-option-light",
         );
         expect(buttons.length).toBe(1);
         const onClick = buttons[0].props.onClick as (() => void) | undefined;
@@ -474,7 +477,9 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
         />
       </I18nextProvider>,
     );
-    const retBackIdx = retentionHtml.indexOf('data-testid="settings-back-link"');
+    const retBackIdx = retentionHtml.indexOf(
+      'data-testid="settings-back-link"',
+    );
     const retEyebrowIdx = retentionHtml.indexOf("Settings › Meetings");
     expect(retBackIdx).toBeGreaterThan(-1);
     expect(retEyebrowIdx).toBeGreaterThan(retBackIdx);
@@ -499,7 +504,9 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
     });
     const retBackBtns = collectElements(
       retMounted.getTree(),
-      (el) => el.type === "button" && el.props["data-testid"] === "settings-back-link",
+      (el) =>
+        el.type === "button" &&
+        el.props["data-testid"] === "settings-back-link",
     );
     expect(retBackBtns.length).toBe(1);
     (retBackBtns[0].props.onClick as () => void)();
@@ -547,7 +554,9 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
       });
       const btns = collectElements(
         mounted.getTree(),
-        (el) => el.type === "button" && el.props["data-testid"] === "settings-back-link",
+        (el) =>
+          el.type === "button" &&
+          el.props["data-testid"] === "settings-back-link",
       );
       expect(btns.length).toBe(1);
       (btns[0].props.onClick as () => void)();
@@ -574,7 +583,9 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
         const mounted = mountInteractive(SettingsV022Page, { target });
         const btns = collectElements(
           mounted.getTree(),
-          (el) => el.type === "button" && el.props["data-testid"] === "settings-back-link",
+          (el) =>
+            el.type === "button" &&
+            el.props["data-testid"] === "settings-back-link",
         );
         expect(btns.length).toBe(1);
         (btns[0].props.onClick as () => void)();
@@ -653,22 +664,28 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
     // 1. Permission refusal (`system_audio_permission_denied`) -> panel right after Start now, 3 buttons in order.
     const perm1 = await driveStartRefusal("system_audio_permission_denied");
     expect(perm1.afterSection.props.consentOpen).toBe(false);
-    expect(perm1.renderedHtml).toContain('data-testid="meeting-start-problem-panel"');
-    expect(perm1.renderedHtml).toContain("Your Mac's sound isn't being recorded");
+    expect(perm1.renderedHtml).toContain(
+      'data-testid="meeting-start-problem-panel"',
+    );
+    expect(perm1.renderedHtml).toContain(
+      "Your Mac's sound isn't being recorded",
+    );
     expect(perm1.renderedHtml).toContain(
       "Coco Voice needs permission to record your Mac's audio.",
     );
     const startNowIdx = perm1.renderedHtml.indexOf("Start now");
-    const panelIdx = perm1.renderedHtml.indexOf('data-testid="meeting-start-problem-panel"');
+    const panelIdx = perm1.renderedHtml.indexOf(
+      'data-testid="meeting-start-problem-panel"',
+    );
     expect(panelIdx).toBeGreaterThan(startNowIdx);
 
     const permPanelSlice = perm1.renderedHtml.slice(
       panelIdx,
       perm1.renderedHtml.indexOf("</section>", panelIdx),
     );
-    const permButtons = [...permPanelSlice.matchAll(/<button[^>]*>(.*?)<\/button>/g)].map(
-      (m) => m[1].replace(/<[^>]+>/g, "").trim(),
-    );
+    const permButtons = [
+      ...permPanelSlice.matchAll(/<button[^>]*>(.*?)<\/button>/g),
+    ].map((m) => m[1].replace(/<[^>]+>/g, "").trim());
     expect(permButtons).toEqual([
       "Record my mic only",
       "Open System Settings",
@@ -690,8 +707,7 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
 
     // Clicking "Open System Settings" calls zero-arg open_system_audio_privacy_settings (no URL argument).
     const onOpenSysSettings = perm2.afterSection.props.onOpenSystemSettings as
-      | (() => void)
-      | undefined;
+      (() => void) | undefined;
     expect(typeof onOpenSysSettings).toBe("function");
     onOpenSysSettings?.();
     const sysCall = invokeCalls.find(
@@ -710,28 +726,33 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
     });
     expect(dev.afterSection.props.consentOpen).toBe(false);
     expect(dev.renderedHtml).toContain("Your Mac's sound isn't being recorded");
-    expect(dev.renderedHtml).toContain("The audio device didn't start (error !dev).");
-    const devPanelIdx = dev.renderedHtml.indexOf('data-testid="meeting-start-problem-panel"');
+    expect(dev.renderedHtml).toContain(
+      "The audio device didn't start (error !dev).",
+    );
+    const devPanelIdx = dev.renderedHtml.indexOf(
+      'data-testid="meeting-start-problem-panel"',
+    );
     const devPanelSlice = dev.renderedHtml.slice(
       devPanelIdx,
       dev.renderedHtml.indexOf("</section>", devPanelIdx),
     );
-    const devButtons = [...devPanelSlice.matchAll(/<button[^>]*>(.*?)<\/button>/g)].map(
-      (m) => m[1].replace(/<[^>]+>/g, "").trim(),
-    );
+    const devButtons = [
+      ...devPanelSlice.matchAll(/<button[^>]*>(.*?)<\/button>/g),
+    ].map((m) => m[1].replace(/<[^>]+>/g, "").trim());
     expect(devButtons).toEqual(["Record my mic only", "Cancel"]);
     expect(devPanelSlice).not.toContain("Open System Settings");
 
     // 3. "Record my mic only" calls confirm_meeting_start_mic_only exactly once.
     const onMicOnly = dev.afterSection.props.onConfirmStartMicOnly as
-      | (() => void)
-      | undefined;
+      (() => void) | undefined;
     expect(typeof onMicOnly).toBe("function");
     onMicOnly?.();
     await new Promise((r) => setTimeout(r, 0));
     expect(dev.getMicOnlyCalls()).toBe(1);
     const afterMicOnly = dev.rerender();
-    expect((afterMicOnly.props.status as MeetingStatus).state).toBe("recording");
+    expect((afterMicOnly.props.status as MeetingStatus).state).toBe(
+      "recording",
+    );
     expect((afterMicOnly.props.status as MeetingStatus).mic_only).toBe(true);
 
     // Step 3b AC-B19d: "!dev (560227702)" -> "(error !dev)" and "-10875" -> "(error -10875)".
@@ -822,9 +843,13 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
     );
     expect(pageMicOnlyHtml).toContain('data-testid="mic-only-chip"');
     expect(pageMicOnlyHtml).toContain("Mic only");
-    const pageChipStart = pageMicOnlyHtml.indexOf('data-testid="mic-only-chip"');
+    const pageChipStart = pageMicOnlyHtml.indexOf(
+      'data-testid="mic-only-chip"',
+    );
     const pageChipEnd = pageMicOnlyHtml.indexOf("</span>", pageChipStart);
-    expect(pageMicOnlyHtml.slice(pageChipStart, pageChipEnd)).not.toMatch(/\bbg-/);
+    expect(pageMicOnlyHtml.slice(pageChipStart, pageChipEnd)).not.toMatch(
+      /\bbg-/,
+    );
 
     // Paused meeting header chip also carries no bg- class.
     const pagePausedMicOnlyHtml = renderToStaticMarkup(
@@ -855,10 +880,17 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
         />
       </I18nextProvider>,
     );
-    const pausedChipStart = pagePausedMicOnlyHtml.indexOf('data-testid="mic-only-chip"');
+    const pausedChipStart = pagePausedMicOnlyHtml.indexOf(
+      'data-testid="mic-only-chip"',
+    );
     expect(pausedChipStart).toBeGreaterThan(-1);
-    const pausedChipEnd = pagePausedMicOnlyHtml.indexOf("</span>", pausedChipStart);
-    expect(pagePausedMicOnlyHtml.slice(pausedChipStart, pausedChipEnd)).not.toMatch(/\bbg-/);
+    const pausedChipEnd = pagePausedMicOnlyHtml.indexOf(
+      "</span>",
+      pausedChipStart,
+    );
+    expect(
+      pagePausedMicOnlyHtml.slice(pausedChipStart, pausedChipEnd),
+    ).not.toMatch(/\bbg-/);
 
     // Meeting page header: mic_only=false hides chip.
     const pageNormalHtml = renderToStaticMarkup(
@@ -894,7 +926,11 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
     // Direct MeetingFloatingPill check too.
     const floatOn = renderToStaticMarkup(
       <I18nextProvider i18n={i18n}>
-        <MeetingFloatingPill elapsedSecs={768} micOnly={true} onStop={() => {}} />
+        <MeetingFloatingPill
+          elapsedSecs={768}
+          micOnly={true}
+          onStop={() => {}}
+        />
       </I18nextProvider>,
     );
     expect(floatOn).toContain('data-testid="mic-only-chip"');
@@ -903,7 +939,11 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
     expect(floatOn.slice(floatChipStart, floatChipEnd)).not.toMatch(/\bbg-/);
     const floatOff = renderToStaticMarkup(
       <I18nextProvider i18n={i18n}>
-        <MeetingFloatingPill elapsedSecs={768} micOnly={false} onStop={() => {}} />
+        <MeetingFloatingPill
+          elapsedSecs={768}
+          micOnly={false}
+          onStop={() => {}}
+        />
       </I18nextProvider>,
     );
     expect(floatOff).not.toContain('data-testid="mic-only-chip"');
@@ -945,12 +985,16 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
     });
     expect(micOnlyHtml).not.toContain("Me and Others");
     expect(
-      micOnlyHtml.match(/data-testid="live-meeting-participants"[^>]*>(.*?)<\/p>/)?.[1]?.trim(),
+      micOnlyHtml
+        .match(/data-testid="live-meeting-participants"[^>]*>(.*?)<\/p>/)?.[1]
+        ?.trim(),
     ).toBe("Me");
     expect(
-      micOnlyHtml.match(
-        /data-testid="transcript-channels-outside"[\s\S]*?<h3[^>]*>(.*?)<\/h3>/,
-      )?.[1]?.trim(),
+      micOnlyHtml
+        .match(
+          /data-testid="transcript-channels-outside"[\s\S]*?<h3[^>]*>(.*?)<\/h3>/,
+        )?.[1]
+        ?.trim(),
     ).toBe("Me");
 
     // 2. mic_only=false, no attendees -> both lines read "Me and Others".
@@ -963,12 +1007,16 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
       warnings: [],
     });
     expect(
-      normalHtml.match(/data-testid="live-meeting-participants"[^>]*>(.*?)<\/p>/)?.[1]?.trim(),
+      normalHtml
+        .match(/data-testid="live-meeting-participants"[^>]*>(.*?)<\/p>/)?.[1]
+        ?.trim(),
     ).toBe("Me and Others");
     expect(
-      normalHtml.match(
-        /data-testid="transcript-channels-outside"[\s\S]*?<h3[^>]*>(.*?)<\/h3>/,
-      )?.[1]?.trim(),
+      normalHtml
+        .match(
+          /data-testid="transcript-channels-outside"[\s\S]*?<h3[^>]*>(.*?)<\/h3>/,
+        )?.[1]
+        ?.trim(),
     ).toBe("Me and Others");
 
     // 3. mic_only=true with known calendar attendees -> names still show on both lines.
@@ -982,12 +1030,16 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
       warnings: [],
     });
     expect(
-      attendeesHtml.match(/data-testid="live-meeting-participants"[^>]*>(.*?)<\/p>/)?.[1]?.trim(),
+      attendeesHtml
+        .match(/data-testid="live-meeting-participants"[^>]*>(.*?)<\/p>/)?.[1]
+        ?.trim(),
     ).toBe("Sam with Dana, Raj");
     expect(
-      attendeesHtml.match(
-        /data-testid="transcript-channels-outside"[\s\S]*?<h3[^>]*>(.*?)<\/h3>/,
-      )?.[1]?.trim(),
+      attendeesHtml
+        .match(
+          /data-testid="transcript-channels-outside"[\s\S]*?<h3[^>]*>(.*?)<\/h3>/,
+        )?.[1]
+        ?.trim(),
     ).toBe("Sam with Dana, Raj");
     expect(attendeesHtml).not.toContain("Me and Others");
   });
@@ -1068,7 +1120,9 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
       expect(openConsentCalls).toBe(1);
       emitMockEvent(MEETING_STATE_EVENT, consentOpenStatus);
       section = withSettings({}, () => mounted.rerender()) as Elem;
-      expect((section.props.status as MeetingStatus).state).toBe("consent_open");
+      expect((section.props.status as MeetingStatus).state).toBe(
+        "consent_open",
+      );
       expect(section.props.consentOpen).toBe(true);
 
       // Step 3: confirm_meeting_start returns refusal; controller stays consent_open (no cancel).
@@ -1097,10 +1151,16 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
       },
     });
     try {
-      expect(permRun.htmlAfterRefusal).toContain('data-testid="meeting-start-problem-panel"');
-      expect(permRun.htmlAfterRefusal).not.toContain('data-testid="frame-2-consent"');
+      expect(permRun.htmlAfterRefusal).toContain(
+        'data-testid="meeting-start-problem-panel"',
+      );
+      expect(permRun.htmlAfterRefusal).not.toContain(
+        'data-testid="frame-2-consent"',
+      );
       expect(permRun.section.props.consentOpen).toBe(false);
-      expect((permRun.section.props.status as MeetingStatus).state).toBe("consent_open");
+      expect((permRun.section.props.status as MeetingStatus).state).toBe(
+        "consent_open",
+      );
       expect(permRun.getCancelCalls()).toBe(0);
 
       // Step 4: Click "Record my mic only".
@@ -1111,7 +1171,9 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
       const htmlMicOnly = renderSection(afterMicOnly);
       expect(htmlMicOnly).toContain('data-testid="mic-only-chip"');
       expect(htmlMicOnly).toContain("Mic only");
-      expect((afterMicOnly.props.status as MeetingStatus).state).toBe("recording");
+      expect((afterMicOnly.props.status as MeetingStatus).state).toBe(
+        "recording",
+      );
       expect((afterMicOnly.props.status as MeetingStatus).mic_only).toBe(true);
     } finally {
       permRun.mounted.unmount();
@@ -1127,14 +1189,18 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
       },
     });
     try {
-      expect(cancelRun.htmlAfterRefusal).toContain('data-testid="meeting-start-problem-panel"');
+      expect(cancelRun.htmlAfterRefusal).toContain(
+        'data-testid="meeting-start-problem-panel"',
+      );
       (cancelRun.section.props.onDismissStartRefusal as () => void)();
       await new Promise((r) => setTimeout(r, 0));
       expect(cancelRun.getCancelCalls()).toBe(1);
       emitMockEvent(MEETING_STATE_EVENT, idleStatus);
       const afterCancel = cancelRun.rerender();
       const htmlCancel = renderSection(afterCancel);
-      expect(htmlCancel).not.toContain('data-testid="meeting-start-problem-panel"');
+      expect(htmlCancel).not.toContain(
+        'data-testid="meeting-start-problem-panel"',
+      );
       expect(htmlCancel).not.toContain('data-testid="frame-2-consent"');
       expect(htmlCancel).toContain("Start now");
     } finally {
@@ -1145,9 +1211,13 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
     // consent dialog NOT in page.
     const unavailRun = await runRealClickRefusal("system_audio_unavailable");
     try {
-      expect(unavailRun.htmlAfterRefusal).toContain("Could not start the meeting.");
+      expect(unavailRun.htmlAfterRefusal).toContain(
+        "Could not start the meeting.",
+      );
       expect(unavailRun.htmlAfterRefusal).toContain('role="alert"');
-      expect(unavailRun.htmlAfterRefusal).not.toContain('data-testid="frame-2-consent"');
+      expect(unavailRun.htmlAfterRefusal).not.toContain(
+        'data-testid="frame-2-consent"',
+      );
       expect(unavailRun.section.props.consentOpen).toBe(false);
     } finally {
       unavailRun.mounted.unmount();
@@ -1163,12 +1233,16 @@ describe("X3c UI (AC-D-R2, AC-D-R4, AC-B19d, AC-B19e)", () => {
       },
     });
     try {
-      expect(shortcutRun.htmlAfterRefusal).toContain('data-testid="meeting-start-problem-panel"');
+      expect(shortcutRun.htmlAfterRefusal).toContain(
+        'data-testid="meeting-start-problem-panel"',
+      );
       emitMockEvent(MEETINGS_OPEN_CONSENT_EVENT, null);
       const afterShortcut = shortcutRun.rerender();
       const htmlShortcut = renderSection(afterShortcut);
       expect(htmlShortcut).toContain('data-testid="frame-2-consent"');
-      expect(htmlShortcut).not.toContain('data-testid="meeting-start-problem-panel"');
+      expect(htmlShortcut).not.toContain(
+        'data-testid="meeting-start-problem-panel"',
+      );
       expect(afterShortcut.props.consentOpen).toBe(true);
     } finally {
       shortcutRun.mounted.unmount();

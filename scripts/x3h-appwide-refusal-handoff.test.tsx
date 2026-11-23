@@ -12,8 +12,8 @@ import {
 
 const invokeCalls: Array<{ cmd: string; args?: Record<string, unknown> }> = [];
 let nextInvokeHandler:
-  | ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>)
-  | null = null;
+  ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | null =
+  null;
 const eventListeners = new Map<
   string,
   Array<(ev: { event: string; payload: unknown }) => void>
@@ -152,7 +152,10 @@ function mountAppTree(rootFactory: () => React.ReactNode) {
     refs: Array<{ current: unknown }>;
     callbacks: Array<{ fn: unknown; deps?: readonly unknown[] }>;
     memos: Array<{ value: unknown; deps?: readonly unknown[] }>;
-    effects: Array<{ deps?: readonly unknown[]; cleanup?: void | (() => void) }>;
+    effects: Array<{
+      deps?: readonly unknown[];
+      cleanup?: void | (() => void);
+    }>;
   }
   const instances = new Map<string, Instance>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -239,7 +242,9 @@ function mountAppTree(rootFactory: () => React.ReactNode) {
         let effCursor = 0;
 
         setDisp({
-          useState<T>(init: T | (() => T)): [T, (next: T | ((p: T) => T)) => void] {
+          useState<T>(
+            init: T | (() => T),
+          ): [T, (next: T | ((p: T) => T)) => void] {
             const idx = stateCursor++;
             if (idx >= inst!.states.length) {
               inst!.states[idx] =
@@ -314,7 +319,10 @@ function mountAppTree(rootFactory: () => React.ReactNode) {
         return React.cloneElement(
           el,
           undefined,
-          walk(el.props.children as React.ReactNode, `${path}.${String(el.type)}`),
+          walk(
+            el.props.children as React.ReactNode,
+            `${path}.${String(el.type)}`,
+          ),
         );
       }
       return el;
@@ -637,11 +645,15 @@ describe("X3h App-wide refusal hand-off (AC-B19j)", () => {
         const htmlAfter = permRun.getHtml();
         expect(htmlAfter).not.toContain('data-testid="frame-2-consent"');
         expect(htmlAfter).toContain('data-testid="page-2-record-meeting"');
-        expect(htmlAfter).toContain('data-testid="meeting-start-problem-panel"');
+        expect(htmlAfter).toContain(
+          'data-testid="meeting-start-problem-panel"',
+        );
         expect(permRun.getStatus().state).toBe("consent_open");
         expect(permRun.getCancelCalls()).toBe(0);
 
-        const panelIdx = htmlAfter.indexOf('data-testid="meeting-start-problem-panel"');
+        const panelIdx = htmlAfter.indexOf(
+          'data-testid="meeting-start-problem-panel"',
+        );
         const panelSlice = htmlAfter.slice(
           panelIdx,
           htmlAfter.indexOf("</section>", panelIdx),
@@ -658,14 +670,14 @@ describe("X3h App-wide refusal hand-off (AC-B19j)", () => {
         // Step 6: Go to Home and back to Record a meeting with no new refusal -> no panel shows (one-shot).
         const homeNavBtns = collectElements(
           permRun.mounted.getTree(),
-          (el) =>
-            el.type === "button" &&
-            textContent(el).trim() === "Home",
+          (el) => el.type === "button" && textContent(el).trim() === "Home",
         );
         expect(homeNavBtns.length).toBeGreaterThan(0);
         (homeNavBtns[0].props.onClick as () => void)();
         await permRun.mounted.flushAndRerender(3);
-        expect(permRun.getHtml()).not.toContain('data-testid="page-2-record-meeting"');
+        expect(permRun.getHtml()).not.toContain(
+          'data-testid="page-2-record-meeting"',
+        );
 
         const recordNavBtns = collectElements(
           permRun.mounted.getTree(),
@@ -678,7 +690,9 @@ describe("X3h App-wide refusal hand-off (AC-B19j)", () => {
         await permRun.mounted.flushAndRerender(3);
         const revisitHtml = permRun.getHtml();
         expect(revisitHtml).toContain('data-testid="page-2-record-meeting"');
-        expect(revisitHtml).not.toContain('data-testid="meeting-start-problem-panel"');
+        expect(revisitHtml).not.toContain(
+          'data-testid="meeting-start-problem-panel"',
+        );
       } finally {
         permRun.mounted.unmount();
       }
@@ -731,7 +745,9 @@ describe("X3h App-wide refusal hand-off (AC-B19j)", () => {
         expect(devHtml).toContain('data-testid="page-2-record-meeting"');
         expect(devHtml).toContain('data-testid="meeting-start-problem-panel"');
         expect(devHtml).toContain("(error !dev)");
-        const idx = devHtml.indexOf('data-testid="meeting-start-problem-panel"');
+        const idx = devHtml.indexOf(
+          'data-testid="meeting-start-problem-panel"',
+        );
         const slice = devHtml.slice(idx, devHtml.indexOf("</section>", idx));
         const devButtons = [
           ...slice.matchAll(/<button[^>]*>(.*?)<\/button>/g),
@@ -766,7 +782,9 @@ describe("X3h App-wide refusal hand-off (AC-B19j)", () => {
         const okHtml = okRun.getHtml();
         expect(okHtml).not.toContain('data-testid="frame-2-consent"');
         expect(okHtml).not.toContain('data-testid="page-2-record-meeting"');
-        expect(okHtml).not.toContain('data-testid="meeting-start-problem-panel"');
+        expect(okHtml).not.toContain(
+          'data-testid="meeting-start-problem-panel"',
+        );
       } finally {
         okRun.mounted.unmount();
       }

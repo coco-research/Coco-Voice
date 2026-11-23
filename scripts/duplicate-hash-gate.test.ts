@@ -14,13 +14,19 @@ describe("Duplicate-hash gate (duplicate-hash-gate.mjs)", () => {
     try {
       const a = path.join(tmp, "shot-12-light.png");
       const b = path.join(tmp, "shot-26-light.png");
-      const bytes = Buffer.from("identical-png-payload-for-duplicate-gate-test");
+      const bytes = Buffer.from(
+        "identical-png-payload-for-duplicate-gate-test",
+      );
       fs.writeFileSync(a, bytes);
       fs.writeFileSync(b, bytes);
 
-      const res = spawnSync(process.execPath, [HARNESS, "--check-duplicates", a, b], {
-        encoding: "utf8",
-      });
+      const res = spawnSync(
+        process.execPath,
+        [HARNESS, "--check-duplicates", a, b],
+        {
+          encoding: "utf8",
+        },
+      );
       expect(res.status).not.toBe(0);
       expect(res.stderr).toContain("DUPLICATE_HASH_IN_CHECKPOINT");
       expect(res.stderr).toContain("shot-12-light.png == shot-26-light.png");
@@ -38,9 +44,13 @@ describe("Duplicate-hash gate (duplicate-hash-gate.mjs)", () => {
       fs.writeFileSync(a, Buffer.from("frame-3-recording-indicator"));
       fs.writeFileSync(b, Buffer.from("frame-16a-notes-so-far"));
 
-      const res = spawnSync(process.execPath, [HARNESS, "--check-duplicates", a, b], {
-        encoding: "utf8",
-      });
+      const res = spawnSync(
+        process.execPath,
+        [HARNESS, "--check-duplicates", a, b],
+        {
+          encoding: "utf8",
+        },
+      );
       expect(res.status).toBe(0);
       expect(res.stdout).toContain("DUPLICATE_HASH_GATE_OK");
     } finally {

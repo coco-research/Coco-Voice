@@ -58,7 +58,10 @@ pub(crate) fn order_attendees_current_user_first(entries: &[(String, bool)]) -> 
         if trimmed.is_empty() {
             return;
         }
-        if !out.iter().any(|existing| existing.eq_ignore_ascii_case(trimmed)) {
+        if !out
+            .iter()
+            .any(|existing| existing.eq_ignore_ascii_case(trimmed))
+        {
             out.push(trimmed.to_string());
         }
     };

@@ -18,14 +18,10 @@ mock.module("../src/i18n", () => ({
   isRTLLanguage: () => false,
 }));
 
-const { SHELL_ROUTES, Sidebar } = await import(
-  "../src/components/layout/shellRoutes"
-);
-const {
-  HistorySettings,
-  resolveKeepDictationsChoice,
-  selectDictationEntries,
-} = await import("../src/components/settings/history/HistorySettings");
+const { SHELL_ROUTES, Sidebar } =
+  await import("../src/components/layout/shellRoutes");
+const { HistorySettings, resolveKeepDictationsChoice, selectDictationEntries } =
+  await import("../src/components/settings/history/HistorySettings");
 
 const i18n = i18next.createInstance();
 void i18n.use(initReactI18next).init({
@@ -195,12 +191,16 @@ describe("Dictation history under Voice (V-L4 / v0.2.2 Page 6)", () => {
       expect(neverHtml).not.toContain("Kept 30 days");
       // Keep the audio switch stays usable (not disabled) in Never mode per C1 state d.
       expect(neverHtml).toContain('role="switch" aria-checked="false"');
-      expect(neverHtml).not.toContain('role="switch" aria-checked="false" aria-label="Keep the audio" disabled');
+      expect(neverHtml).not.toContain(
+        'role="switch" aria-checked="false" aria-label="Keep the audio" disabled',
+      );
       // When a drawn button is lit, Auto-Delete Recordings select is empty-but-neutral/muted and still clickable.
       expect(neverHtml).toContain('aria-label="Auto-Delete Recordings"');
       expect(neverHtml).toContain("opacity-60");
       expect(neverHtml).toContain('<option value="" selected=""></option>');
-      expect(neverHtml).not.toContain('aria-label="Auto-Delete Recordings" disabled');
+      expect(neverHtml).not.toContain(
+        'aria-label="Auto-Delete Recordings" disabled',
+      );
 
       // Legacy preserve_limit lights NO drawn button and shows "Keep latest 10".
       const legacyHtml = renderToStaticMarkup(

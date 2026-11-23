@@ -26,11 +26,7 @@ import { CLEANUP_NOTE } from "@/lib/utils/cleanupStatus";
 import { getLanguageDirection } from "@/lib/utils/rtl";
 
 type OverlayState =
-  | "recording"
-  | "streaming"
-  | "transcribing"
-  | "processing"
-  | "meeting";
+  "recording" | "streaming" | "transcribing" | "processing" | "meeting";
 
 // Number of reactive bars in the waveform (the simple, smoothed style shared by
 // every overlay form). Mic levels arrive as 16 FFT buckets; we take the first N.
@@ -186,10 +182,7 @@ const RecordingOverlay: React.FC = () => {
         return;
       }
       const gap = performance.now() - lastPolishApplyRef.current;
-      if (
-        lastPolishApplyRef.current === 0 ||
-        gap >= REDUCED_MOTION_GAP_MS
-      ) {
+      if (lastPolishApplyRef.current === 0 || gap >= REDUCED_MOTION_GAP_MS) {
         apply(next);
         return;
       }

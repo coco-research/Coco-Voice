@@ -58,8 +58,8 @@ export function isInstallableUpdate(
 ): update is PendingUpdateHandle {
   return Boolean(
     update &&
-      (typeof update.install === "function" ||
-        typeof update.downloadAndInstall === "function"),
+    (typeof update.install === "function" ||
+      typeof update.downloadAndInstall === "function"),
   );
 }
 

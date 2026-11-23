@@ -252,12 +252,22 @@ describe("A2 Meetings screens (Frames 5, 11, 14, 15, 16 + Catch up)", () => {
           {
             id: "one-to-one",
             name: "One-to-one",
-            sections: ["Updates", "Decisions", "Action items", "Open questions"],
+            sections: [
+              "Updates",
+              "Decisions",
+              "Action items",
+              "Open questions",
+            ],
           },
           {
             id: "customer-call",
             name: "Customer call",
-            sections: ["Their needs", "Decisions", "Action items", "Follow-ups"],
+            sections: [
+              "Their needs",
+              "Decisions",
+              "Action items",
+              "Follow-ups",
+            ],
           },
         ]}
         selectedTemplateId="one-to-one"

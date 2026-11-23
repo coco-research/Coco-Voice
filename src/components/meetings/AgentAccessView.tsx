@@ -34,9 +34,7 @@ export interface LegacyAgentReadAuditEntry {
 }
 
 export type AgentReadInput =
-  | AgentReadAuditRow
-  | AgentReadAuditEntry
-  | LegacyAgentReadAuditEntry;
+  AgentReadAuditRow | AgentReadAuditEntry | LegacyAgentReadAuditEntry;
 
 export interface AgentAccessStateSnapshot {
   enabled: boolean;
@@ -163,13 +161,17 @@ export function formatAgentReadWhen(
   const weekday = parts.find((p) => p.type === "weekday")?.value ?? "";
   const day = parts.find((p) => p.type === "day")?.value ?? "";
   const month = parts.find((p) => p.type === "month")?.value ?? "";
-  return t("meetings.agent.whenDate", "{{weekday}} {{day}} {{month}} {{time}}", {
-    weekday,
-    day,
-    month,
-    time,
-    interpolation: { escapeValue: false },
-  });
+  return t(
+    "meetings.agent.whenDate",
+    "{{weekday}} {{day}} {{month}} {{time}}",
+    {
+      weekday,
+      day,
+      month,
+      time,
+      interpolation: { escapeValue: false },
+    },
+  );
 }
 
 export function formatAgentReadLine(

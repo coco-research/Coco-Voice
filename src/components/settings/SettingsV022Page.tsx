@@ -25,12 +25,7 @@ import { AdvancedSettings } from "./advanced/AdvancedSettings";
 import { TrayMenuSurface } from "../whats-new/UpdateAndTraySurfaces";
 
 export type SettingsSubPage =
-  | null
-  | "retention"
-  | "files"
-  | "language"
-  | "calendars"
-  | "hands_free";
+  null | "retention" | "files" | "language" | "calendars" | "hands_free";
 
 export type SettingsTarget =
   | null
@@ -143,10 +138,7 @@ export function formatMeetingAudioSummary(
   t: TFunction,
 ): string {
   if (deleteAudioAfterNotes) {
-    return t(
-      "v022.settings.deletedAfterNotes",
-      "Deleted after notes are made",
-    );
+    return t("v022.settings.deletedAfterNotes", "Deleted after notes are made");
   }
   if (transcriptDeleteAfterDays !== null && transcriptDeleteAfterDays > 0) {
     return t("v022.settings.keptForDaysThenDeleted", {
@@ -259,7 +251,8 @@ export const SettingsV022Page: React.FC<{
   const pushToTalk = settings?.push_to_talk ?? true;
   const transcribeBinding = settings?.bindings?.transcribe?.current_binding;
   const prettyShortcutKey =
-    formatShortcutKey(transcribeBinding) || t("v022.settings.yourShortcut", "your shortcut");
+    formatShortcutKey(transcribeBinding) ||
+    t("v022.settings.yourShortcut", "your shortcut");
   const shortcutSummary = formatShortcutDisplay(transcribeBinding, pushToTalk);
   const micSummary =
     settings?.selected_microphone ||
@@ -288,8 +281,7 @@ export const SettingsV022Page: React.FC<{
   const notesFolder = settings?.notes_markdown_folder || "";
   const selectedCalendars =
     ((settings as Record<string, unknown> | null)?.selected_calendars as
-      | string[]
-      | undefined) ?? [];
+      string[] | undefined) ?? [];
 
   const autostartEnabled = Boolean(settings?.autostart_enabled);
   const showTrayIcon = settings?.show_tray_icon ?? true;
@@ -299,7 +291,7 @@ export const SettingsV022Page: React.FC<{
 
   const handsFreeEnabled = Boolean(
     settings?.double_tap_hands_free ??
-      (settings as Record<string, unknown> | null)?.hands_free_enabled,
+    (settings as Record<string, unknown> | null)?.hands_free_enabled,
   );
   const handsFreeSecondKey =
     settings?.bindings?.hands_free?.current_binding || "";
@@ -313,12 +305,7 @@ export const SettingsV022Page: React.FC<{
 
   const toggleInlineEditor = (
     key:
-      | "shortcut"
-      | "mic"
-      | "lang"
-      | "pasteMethod"
-      | "pasteDelay"
-      | "secondKey",
+      "shortcut" | "mic" | "lang" | "pasteMethod" | "pasteDelay" | "secondKey",
   ) => {
     setOpenEditor((prev) => (prev === key ? null : key));
   };
@@ -485,9 +472,7 @@ export const SettingsV022Page: React.FC<{
             ) : (
               <span className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-mid-gray/30 bg-surface px-3.5 py-1.5 text-xs font-semibold text-text shadow-sm">
                 <PillWave />
-                <span>
-                  {t("v022.settings.listeningPreview", "Listening")}
-                </span>
+                <span>{t("v022.settings.listeningPreview", "Listening")}</span>
               </span>
             )}
           </div>
@@ -687,7 +672,10 @@ export const SettingsV022Page: React.FC<{
               </div>
               {openEditor === "mic" ? (
                 <div className="pt-1">
-                  <MicrophoneSelector descriptionMode="tooltip" grouped={true} />
+                  <MicrophoneSelector
+                    descriptionMode="tooltip"
+                    grouped={true}
+                  />
                 </div>
               ) : null}
             </div>
@@ -757,7 +745,10 @@ export const SettingsV022Page: React.FC<{
               </div>
               {openEditor === "pasteMethod" ? (
                 <div className="pt-1">
-                  <PasteMethodSetting descriptionMode="tooltip" grouped={true} />
+                  <PasteMethodSetting
+                    descriptionMode="tooltip"
+                    grouped={true}
+                  />
                 </div>
               ) : null}
             </div>
@@ -802,10 +793,7 @@ export const SettingsV022Page: React.FC<{
                   className="text-xs text-mid-gray"
                 >
                   {keepClipboardAfterPasting
-                    ? t(
-                        "v022.settings.clipboardAlways",
-                        "Also after pasting",
-                      )
+                    ? t("v022.settings.clipboardAlways", "Also after pasting")
                     : t(
                         "v022.settings.clipboardOnFailOnly",
                         "Only if pasting fails",
@@ -937,10 +925,7 @@ export const SettingsV022Page: React.FC<{
               </div>
               <button
                 type="button"
-                aria-label={t(
-                  "v022.settings.openCalendars",
-                  "Open Calendars",
-                )}
+                aria-label={t("v022.settings.openCalendars", "Open Calendars")}
                 onClick={() => setActiveSub("calendars")}
                 className="rounded-lg border border-mid-gray/40 px-2.5 py-1 text-xs font-semibold text-text cursor-pointer hover:bg-mid-gray/10"
               >
@@ -1090,10 +1075,7 @@ export const SettingsV022Page: React.FC<{
       </div>
 
       {/* D-D7: Single "More settings" section below the 4 cards, plain heading, NO fold, rendered ONCE */}
-      <section
-        data-testid="settings-more-section"
-        className="space-y-4 pt-2"
-      >
+      <section data-testid="settings-more-section" className="space-y-4 pt-2">
         <h2 className="text-[15px] font-semibold text-text">
           {t("v022.settings.moreSettingsHeading", "More settings")}
         </h2>

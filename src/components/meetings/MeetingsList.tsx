@@ -18,10 +18,7 @@ import {
   resolveSelectedSpanBounds,
   segmentKey,
 } from "./LiveTranscriptSection";
-import {
-  buildSpeakerNameMapFromSlots,
-  useSpeakerSplitSection,
-} from "./gate";
+import { buildSpeakerNameMapFromSlots, useSpeakerSplitSection } from "./gate";
 import {
   AddAudioControl,
   OlderNoteWhileRecordingBanner,
@@ -709,7 +706,7 @@ export function MeetingsList({
 
     const isLiveActive = Boolean(
       liveStatus &&
-        (liveStatus.state === "recording" || liveStatus.state === "paused"),
+      (liveStatus.state === "recording" || liveStatus.state === "paused"),
     );
     const liveBannerTitle =
       liveStatus?.title?.trim() ||
@@ -945,81 +942,78 @@ export function MeetingsList({
           />
         ) : null}
         <LiveTranscriptSection
-            status={{
-              state: "idle",
-              elapsed_secs: Math.max(
-                0,
-                (selectedMeeting.ended_at ?? selectedMeeting.started_at) -
-                  selectedMeeting.started_at,
-              ),
-              attendees: selectedMeeting.attendees ?? [],
-              meeting_id: selectedMeeting.id,
-              mic_name: null,
-              warnings: selectedMeeting.system_audio_silent
-                ? ["system_audio_silent"]
-                : [],
-            }}
-            segments={detailSegments}
-            showSpeakerLabels={Boolean(SpeakerSplitSection)}
-            speakerNames={speakerNames}
-            jumpTarget={jumpTarget}
-            onStop={() => {}}
-            searchQuery={transcriptQuery}
-            selectedKeys={selectedSpanKeys}
-            onSelectSegment={handleSelectSegment}
-            childrenBelowHeader={
-              selectedSpanKeys.length > 0 || confirmDeletePart ? (
-                <div className="space-y-2">
-                  {selectedSpanKeys.length > 0 && !confirmDeletePart ? (
-                    <div className="flex flex-wrap items-center justify-end gap-2 text-[12px]">
+          status={{
+            state: "idle",
+            elapsed_secs: Math.max(
+              0,
+              (selectedMeeting.ended_at ?? selectedMeeting.started_at) -
+                selectedMeeting.started_at,
+            ),
+            attendees: selectedMeeting.attendees ?? [],
+            meeting_id: selectedMeeting.id,
+            mic_name: null,
+            warnings: selectedMeeting.system_audio_silent
+              ? ["system_audio_silent"]
+              : [],
+          }}
+          segments={detailSegments}
+          showSpeakerLabels={Boolean(SpeakerSplitSection)}
+          speakerNames={speakerNames}
+          jumpTarget={jumpTarget}
+          onStop={() => {}}
+          searchQuery={transcriptQuery}
+          selectedKeys={selectedSpanKeys}
+          onSelectSegment={handleSelectSegment}
+          childrenBelowHeader={
+            selectedSpanKeys.length > 0 || confirmDeletePart ? (
+              <div className="space-y-2">
+                {selectedSpanKeys.length > 0 && !confirmDeletePart ? (
+                  <div className="flex flex-wrap items-center justify-end gap-2 text-[12px]">
+                    <button
+                      type="button"
+                      data-testid="delete-this-part-btn"
+                      onClick={() => setConfirmDeletePart(true)}
+                      className="rounded-[8px] border border-red-500/45 px-2.5 py-1 text-[12px] font-semibold text-red-600 cursor-pointer hover:bg-red-500/10"
+                    >
+                      {t("meetings.storage.deleteThisPart", "Delete this part")}
+                    </button>
+                  </div>
+                ) : null}
+
+                {confirmDeletePart ? (
+                  <div
+                    role="alertdialog"
+                    data-testid="confirm-delete-part"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-red-500/40 bg-red-500/10 p-3 text-[12.5px]"
+                  >
+                    <p className="font-medium text-text">
+                      {t(
+                        "meetings.storage.deletePartConfirm",
+                        "Delete these lines from the transcript, the audio and the notes? This can't be undone.",
+                      )}
+                    </p>
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        data-testid="delete-this-part-btn"
-                        onClick={() => setConfirmDeletePart(true)}
-                        className="rounded-[8px] border border-red-500/45 px-2.5 py-1 text-[12px] font-semibold text-red-600 cursor-pointer hover:bg-red-500/10"
+                        onClick={() => void handleDeleteSelectedPart()}
+                        className="rounded-[8px] border border-red-600 bg-red-600 px-3 py-1 text-[12px] font-semibold text-white cursor-pointer"
                       >
-                        {t(
-                          "meetings.storage.deleteThisPart",
-                          "Delete this part",
-                        )}
+                        {t("meetings.list.delete")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeletePart(false)}
+                        className="rounded-[8px] border border-mid-gray/45 px-2.5 py-1 text-[12px] text-text cursor-pointer"
+                      >
+                        {t("meetings.consent.cancel")}
                       </button>
                     </div>
-                  ) : null}
-
-                  {confirmDeletePart ? (
-                    <div
-                      role="alertdialog"
-                      data-testid="confirm-delete-part"
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border border-red-500/40 bg-red-500/10 p-3 text-[12.5px]"
-                    >
-                      <p className="font-medium text-text">
-                        {t(
-                          "meetings.storage.deletePartConfirm",
-                          "Delete these lines from the transcript, the audio and the notes? This can't be undone.",
-                        )}
-                      </p>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => void handleDeleteSelectedPart()}
-                          className="rounded-[8px] border border-red-600 bg-red-600 px-3 py-1 text-[12px] font-semibold text-white cursor-pointer"
-                        >
-                          {t("meetings.list.delete")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDeletePart(false)}
-                          className="rounded-[8px] border border-mid-gray/45 px-2.5 py-1 text-[12px] text-text cursor-pointer"
-                        >
-                          {t("meetings.consent.cancel")}
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null
-            }
-          />
+                  </div>
+                ) : null}
+              </div>
+            ) : null
+          }
+        />
       </div>
     );
   }

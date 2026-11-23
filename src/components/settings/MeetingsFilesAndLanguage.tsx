@@ -536,9 +536,7 @@ export const MeetingsFilesAndLanguage: React.FC<{
       setSaveMarkdown(enabled && trimmed.length > 0);
       setFolder(trimmed);
     } catch (error) {
-      setFolderError(
-        error instanceof Error ? error.message : String(error),
-      );
+      setFolderError(error instanceof Error ? error.message : String(error));
       if (enabled) {
         setSaveMarkdown(false);
       }

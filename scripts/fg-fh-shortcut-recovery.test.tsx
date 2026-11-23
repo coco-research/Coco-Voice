@@ -378,8 +378,7 @@ function makeControllerHarness(options: {
   const dismissedIds: string[] = [];
 
   const stop = startShortcutRegistrationListener({
-    t: (key, opts) =>
-      opts ? `${key}(${JSON.stringify(opts)})` : key,
+    t: (key, opts) => (opts ? `${key}(${JSON.stringify(opts)})` : key),
     onOpenSettings: () => {
       openSettingsCalls += 1;
     },

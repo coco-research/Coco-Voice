@@ -44,7 +44,11 @@ function extractHttpsHosts(text: string): string[] {
   for (const m of matches) {
     const host = m[1].toLowerCase().replace(/\.$/, "");
     if (!host || host === "localhost") continue;
-    if (host.endsWith(".example") || host === "example.com" || host === "example.invalid") {
+    if (
+      host.endsWith(".example") ||
+      host === "example.com" ||
+      host === "example.invalid"
+    ) {
       continue;
     }
     hosts.push(host);

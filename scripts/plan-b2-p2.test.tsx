@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -380,58 +386,56 @@ describe("Plan B2 Part 2 — X-d..X-l & Amendment 3 (AC-X41, Q-X4, AC-X42)", () 
       }),
     );
     expect(pausedHtml).toContain("Resume");
-    expect(pausedHtml).toContain("Paused: nothing is recorded. Still one meeting.");
+    expect(pausedHtml).toContain(
+      "Paused: nothing is recorded. Still one meeting.",
+    );
   });
 
-  test(
-    "Amendment 3 (AC-X41): speaker-split is OFF by default in Cargo.toml, gate.ts, MeetingsList.tsx, and SpeakerSplitSection is tree-shaken out of VITE_MEETINGS=1 Vite dist/",
-    () => {
-      expect(SPEAKER_SPLIT_ENABLED).toBe(false);
+  test("Amendment 3 (AC-X41): speaker-split is OFF by default in Cargo.toml, gate.ts, MeetingsList.tsx, and SpeakerSplitSection is tree-shaken out of VITE_MEETINGS=1 Vite dist/", () => {
+    expect(SPEAKER_SPLIT_ENABLED).toBe(false);
 
-      const cargoToml = readFileSync(
-        join(ROOT, "src-tauri", "Cargo.toml"),
-        "utf8",
-      );
-      expect(cargoToml).toContain('speaker-split = ["meetings"]');
-      expect(cargoToml).not.toMatch(/default\s*=\s*\[[^\]]*speaker-split/);
+    const cargoToml = readFileSync(
+      join(ROOT, "src-tauri", "Cargo.toml"),
+      "utf8",
+    );
+    expect(cargoToml).toContain('speaker-split = ["meetings"]');
+    expect(cargoToml).not.toMatch(/default\s*=\s*\[[^\]]*speaker-split/);
 
-      const meetingsListTs = readFileSync(
-        join(ROOT, "src", "components", "meetings", "MeetingsList.tsx"),
-        "utf8",
-      );
-      expect(meetingsListTs).not.toContain('from "./SpeakerSplitSection"');
-      expect(meetingsListTs).toContain("useSpeakerSplitSection");
+    const meetingsListTs = readFileSync(
+      join(ROOT, "src", "components", "meetings", "MeetingsList.tsx"),
+      "utf8",
+    );
+    expect(meetingsListTs).not.toContain('from "./SpeakerSplitSection"');
+    expect(meetingsListTs).toContain("useSpeakerSplitSection");
 
-      const outDir = mkdtempSync(join(tmpdir(), "coco-voice-b2-p2-dist-"));
-      try {
-        const res = spawnSync(
-          "bunx",
-          ["vite", "build", "--outDir", outDir, "--emptyOutDir"],
-          {
-            cwd: ROOT,
-            env: {
-              ...process.env,
-              VITE_MEETINGS: "1",
-              VITE_SPEAKER_SPLIT: "",
-            },
-            encoding: "utf8",
+    const outDir = mkdtempSync(join(tmpdir(), "coco-voice-b2-p2-dist-"));
+    try {
+      const res = spawnSync(
+        "bunx",
+        ["vite", "build", "--outDir", outDir, "--emptyOutDir"],
+        {
+          cwd: ROOT,
+          env: {
+            ...process.env,
+            VITE_MEETINGS: "1",
+            VITE_SPEAKER_SPLIT: "",
           },
-        );
-        expect(res.status).toBe(0);
-        const distText = walkFiles(outDir)
-          .filter((f) => /\.(js|mjs|css|html)$/i.test(f))
-          .map((f) => readFileSync(f, "utf8"))
-          .join("\n");
-        expect(distText).not.toContain("frame-8-speakers");
-        expect(distText).not.toContain("Speaker split needs a 31 MB download");
-        expect(distText).not.toContain("Working out speakers…");
-        expect(distText).not.toContain("github.com/k2-fsa");
-      } finally {
-        rmSync(outDir, { recursive: true, force: true });
-      }
-    },
-    20_000,
-  );
+          encoding: "utf8",
+        },
+      );
+      expect(res.status).toBe(0);
+      const distText = walkFiles(outDir)
+        .filter((f) => /\.(js|mjs|css|html)$/i.test(f))
+        .map((f) => readFileSync(f, "utf8"))
+        .join("\n");
+      expect(distText).not.toContain("frame-8-speakers");
+      expect(distText).not.toContain("Speaker split needs a 31 MB download");
+      expect(distText).not.toContain("Working out speakers…");
+      expect(distText).not.toContain("github.com/k2-fsa");
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  }, 20_000);
 
   test("AC-X40 & AC-X42: calendar, notes, todos, and pipeline Rust production modules contain zero network calls and calendar modules contain zero model calls", () => {
     const netForbidden = [
@@ -451,26 +455,24 @@ describe("Plan B2 Part 2 — X-d..X-l & Amendment 3 (AC-X41, Q-X4, AC-X42)", () 
       "meeting_pipeline.rs",
     ];
     for (const file of localOnlyFiles) {
-      const full = readFileSync(
-        join(ROOT, "src-tauri", "src", file),
-        "utf8",
-      );
+      const full = readFileSync(join(ROOT, "src-tauri", "src", file), "utf8");
       const prodOnly = full.split("#[cfg(test)]")[0] ?? full;
       for (const tok of netForbidden) {
         expect(prodOnly).not.toContain(tok);
       }
     }
 
-    const modelForbidden = ["local_llm", "apple_intelligence", "NotesGenerator"];
+    const modelForbidden = [
+      "local_llm",
+      "apple_intelligence",
+      "NotesGenerator",
+    ];
     for (const file of [
       "calendar_commands.rs",
       "calendar_eventkit.rs",
       "calendar_upcoming.rs",
     ]) {
-      const full = readFileSync(
-        join(ROOT, "src-tauri", "src", file),
-        "utf8",
-      );
+      const full = readFileSync(join(ROOT, "src-tauri", "src", file), "utf8");
       const prodOnly = full.split("#[cfg(test)]")[0] ?? full;
       for (const tok of modelForbidden) {
         expect(prodOnly).not.toContain(tok);

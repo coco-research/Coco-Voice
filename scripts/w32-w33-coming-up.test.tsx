@@ -58,7 +58,9 @@ describe("W32 & W33 / AC-X47 (B2 Amendment 5): Coming up card on Record a meetin
       />,
     );
 
-    expect(cardHtml).toContain("From the calendar on this Mac, once you turn it on.");
+    expect(cardHtml).toContain(
+      "From the calendar on this Mac, once you turn it on.",
+    );
     expect(cardHtml).not.toContain("(frame 10)");
     expect(cardHtml).not.toContain("Nothing starts by itself.");
     expect(cardHtml).toContain("Design review");
@@ -147,7 +149,8 @@ describe("W32 & W33 / AC-X47 (B2 Amendment 5): Coming up card on Record a meetin
       />,
     );
 
-    const expected = "Pick calendars in Settings › Meetings to see what&#x27;s coming up.";
+    const expected =
+      "Pick calendars in Settings › Meetings to see what&#x27;s coming up.";
     expect(cardEmpty).toContain(expected);
     expect(cardEmpty).toContain('data-testid="coming-up-open-settings"');
     expect(cardEmpty).toContain(">Open<");

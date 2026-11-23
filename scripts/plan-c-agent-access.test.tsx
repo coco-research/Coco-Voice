@@ -25,9 +25,7 @@ await i18n.use(initReactI18next).init({
 });
 
 const wrap = (node: React.ReactNode) =>
-  renderToStaticMarkup(
-    <I18nextProvider i18n={i18n}>{node}</I18nextProvider>,
-  )
+  renderToStaticMarkup(<I18nextProvider i18n={i18n}>{node}</I18nextProvider>)
     .replaceAll("&#x27;", "'")
     .replaceAll("&quot;", '"');
 
@@ -35,7 +33,9 @@ describe("Plan C Step P-a · Agent access (AC-P4, AC-P5, AC-P6)", () => {
   test("AC-P4: formats all four read kinds, Today / Yesterday / older dates, and all three mapped agent names", () => {
     // Fixed reference local clock: Wed 28 Oct 2026 15:30 local time
     const now = new Date(2026, 9, 28, 15, 30, 0);
-    const todayTs = Math.floor(new Date(2026, 9, 28, 10, 12, 0).getTime() / 1000);
+    const todayTs = Math.floor(
+      new Date(2026, 9, 28, 10, 12, 0).getTime() / 1000,
+    );
     const yesterdayTs = Math.floor(
       new Date(2026, 9, 27, 18, 40, 0).getTime() / 1000,
     );
@@ -256,7 +256,8 @@ describe("Plan C Step P-a · Agent access (AC-P4, AC-P5, AC-P6)", () => {
       { length: 100 },
       (_, idx) => ({
         id: `r-${idx}`,
-        client: idx % 3 === 0 ? "claude-code" : idx % 3 === 1 ? "cursor" : "codex",
+        client:
+          idx % 3 === 0 ? "claude-code" : idx % 3 === 1 ? "cursor" : "codex",
         kind: idx % 2 === 0 ? "notes" : "transcript",
         target_title: `Meeting ${idx}`,
         ts: baseTs - idx * 60,

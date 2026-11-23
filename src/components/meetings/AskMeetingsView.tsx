@@ -152,7 +152,9 @@ export const AskMeetingsSection: React.FC<AskMeetingsSectionProps> = ({
         <p className="mt-0.5 text-[13px] text-mid-gray">{subtitle}</p>
       </div>
 
-      {!singleMeetingMode && scope === "folder" && availableFolders.length > 0 ? (
+      {!singleMeetingMode &&
+      scope === "folder" &&
+      availableFolders.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-[10px] border border-mid-gray/20 bg-mid-gray/[0.03] px-3 py-2 text-[12.5px]">
           <span className="text-mid-gray">
             {t("meetings.ask.chooseFolder", "Folder:")}
@@ -388,9 +390,15 @@ export function buildAskMeetingsV2Params(
 }
 
 export interface AskByVoiceControllerDeps {
-  startAskByVoice: () => Promise<{ status: "ok"; data: null } | { status: "error"; error: string }>;
-  finishAskByVoice: () => Promise<{ status: "ok"; data: string } | { status: "error"; error: string }>;
-  cancelAskByVoice: () => Promise<{ status: "ok"; data: null } | { status: "error"; error: string }>;
+  startAskByVoice: () => Promise<
+    { status: "ok"; data: null } | { status: "error"; error: string }
+  >;
+  finishAskByVoice: () => Promise<
+    { status: "ok"; data: string } | { status: "error"; error: string }
+  >;
+  cancelAskByVoice: () => Promise<
+    { status: "ok"; data: null } | { status: "error"; error: string }
+  >;
   onListeningChange: (listening: boolean) => void;
   onVoiceErrorKeyChange: (key: string | null) => void;
   onSpokenQuestion: (spoken: string) => void | Promise<void>;
@@ -491,9 +499,7 @@ export const AskMeetingsView: React.FC<{
     void invoke<Array<{ id: number; title: string }>>("list_meetings")
       .then((rows) => {
         if (!cancelled && Array.isArray(rows)) {
-          setAvailableMeetings(
-            rows.map((r) => ({ id: r.id, title: r.title })),
-          );
+          setAvailableMeetings(rows.map((r) => ({ id: r.id, title: r.title })));
         }
       })
       .catch(() => {});
@@ -635,7 +641,10 @@ export const AskMeetingsView: React.FC<{
 };
 
 export function formatTodoSourceLine(
-  item: Pick<MeetingTodoItem, "meeting_id" | "meeting_title" | "meeting_date" | "said_by_me">,
+  item: Pick<
+    MeetingTodoItem,
+    "meeting_id" | "meeting_title" | "meeting_date" | "said_by_me"
+  >,
   prevMeetingId: number | null,
   t: (
     key: string,

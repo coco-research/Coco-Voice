@@ -240,7 +240,9 @@ export const MeetingsRetentionSection: React.FC<MeetingsRetentionProps> = ({
             }}
             className="rounded-lg border border-mid-gray/30 bg-background px-2.5 py-1.5 text-xs text-text"
           >
-            <option value="off">{t("meetings.retention.deleteTimerOff")}</option>
+            <option value="off">
+              {t("meetings.retention.deleteTimerOff")}
+            </option>
             {[30, 90, 365].map((days) => (
               <option key={days} value={String(days)}>
                 {`${days}d`}

@@ -202,7 +202,11 @@ describe("Group 3 (A3, A4, A5, A6, A10) screens", () => {
 
     const importHtml = wrap(
       <ImportNotesPanel
-        selectedPaths={["weekly-sync.md", "customer-interview.md", "roadmap-q4.txt"]}
+        selectedPaths={[
+          "weekly-sync.md",
+          "customer-interview.md",
+          "roadmap-q4.txt",
+        ]}
         onImport={() => {}}
       />,
     );

@@ -12,11 +12,16 @@
   --color-logo-stroke: var(--color-logo-stroke);
   --color-text-stroke: var(--color-text-stroke);
   --color-mid-gray: var(--color-mid-gray);
-  --font-mono: 'Martian Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: "Martian Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 :root {
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   font-size: 15px;
   line-height: 24px;
   font-weight: 400;
@@ -27,18 +32,27 @@
   -webkit-text-size-adjust: 100%;
 
   --scrollbar-thumb: color-mix(in srgb, var(--color-text), transparent 82%);
-  --scrollbar-thumb-hover: color-mix(in srgb, var(--color-text), transparent 68%);
+  --scrollbar-thumb-hover: color-mix(
+    in srgb,
+    var(--color-text),
+    transparent 68%
+  );
   --color-log-surface: var(--color-surface-elevated);
 
   color: var(--color-text);
   background-color: var(--color-background);
 }
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   font-family: var(--font-display);
 }
 
-code, kbd, pre, .font-mono {
+code,
+kbd,
+pre,
+.font-mono {
   font-family: var(--font-mono-brand);
 }
 

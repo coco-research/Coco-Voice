@@ -12,7 +12,7 @@
   --color-logo-stroke: var(--color-logo-stroke);
   --color-text-stroke: var(--color-text-stroke);
   --color-mid-gray: var(--color-mid-gray);
-  --font-mono: 'Martian Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: "Martian Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 html,

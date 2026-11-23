@@ -980,12 +980,53 @@ const NUMBER_WORDS: &[&str] = &[
 ];
 
 const NON_NAME_INTERJECTIONS: &[&str] = &[
-    "i", "ok", "okay", "yes", "no", "yeah", "yep", "nope", "sure", "thanks", "please", "sorry",
-    "hi", "hello", "hey", "wow", "oh", "right", "fine", "great", "cool",
+    "i",
+    "ok",
+    "okay",
+    "yes",
+    "no",
+    "yeah",
+    "yep",
+    "nope",
+    "sure",
+    "thanks",
+    "please",
+    "sorry",
+    "hi",
+    "hello",
+    "hey",
+    "wow",
+    "oh",
+    "right",
+    "fine",
+    "great",
+    "cool",
     // R1f: capitalised discourse words after a cue are not names.
-    "wait", "bye", "seriously", "really", "exactly", "anyway", "maybe", "done", "good", "true",
-    "cheers", "never", "nothing", "whatever", "absolutely", "definitely", "perfect", "nice",
-    "alright", "agreed", "correct", "honestly", "totally", "later", "thank",
+    "wait",
+    "bye",
+    "seriously",
+    "really",
+    "exactly",
+    "anyway",
+    "maybe",
+    "done",
+    "good",
+    "true",
+    "cheers",
+    "never",
+    "nothing",
+    "whatever",
+    "absolutely",
+    "definitely",
+    "perfect",
+    "nice",
+    "alright",
+    "agreed",
+    "correct",
+    "honestly",
+    "totally",
+    "later",
+    "thank",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1068,7 +1109,10 @@ fn can_bridge_retraction_across_sentence_break(
         let prev_kind = retraction_word_kind(prev_last, false);
         let rep_kind = retraction_word_kind(first_tok, repl_is_sentence_first);
         // A name someone is spoken to ("Thanks, Sam.") is never swapped.
-        let before_last = prev_tokens.len().checked_sub(2).and_then(|i| prev_tokens.get(i));
+        let before_last = prev_tokens
+            .len()
+            .checked_sub(2)
+            .and_then(|i| prev_tokens.get(i));
         let spoken_to = prev_kind == Some(RetractionWordKind::Name)
             && before_last.is_some_and(|w| w.ends_with(','));
         if prev_kind.is_some() && prev_kind == rep_kind && !spoken_to {
@@ -1143,11 +1187,7 @@ pub fn rewrite_spoken_self_corrections(text: &str) -> String {
                     let repl = extract_bridge_replacement(repl_source);
                     if (!rest.is_empty() || has_next)
                         && !repair_cue_is_guarded(&cue_lc, rest)
-                        && can_bridge_retraction_across_sentence_break(
-                            prev,
-                            repl,
-                            rest.is_empty(),
-                        )
+                        && can_bridge_retraction_across_sentence_break(prev, repl, rest.is_empty())
                     {
                         let prev_base =
                             prev.trim_end_matches(|c: char| matches!(c, '.' | '?' | '!'));
@@ -1860,7 +1900,10 @@ mod tests {
                 }
                 right_count += 1;
             } else {
-                assert_eq!(out, input, "row {id} should be pasted as said under R1f v11");
+                assert_eq!(
+                    out, input,
+                    "row {id} should be pasted as said under R1f v11"
+                );
                 as_said_count += 1;
             }
             count += 1;
@@ -2240,10 +2283,7 @@ mod tests {
             non_filler_word_count("Send it to the client. No wait, hmm."),
             7
         );
-        assert_eq!(
-            non_filler_word_count("Send it to the client. No wait."),
-            7
-        );
+        assert_eq!(non_filler_word_count("Send it to the client. No wait."), 7);
     }
 
     #[test]
@@ -2260,7 +2300,10 @@ mod tests {
                 .unwrap_or_else(|e| panic!("line {line_no}: invalid json: {e}"));
             let id = v["id"].as_str().expect("id string");
             assert!(!id.is_empty(), "line {line_no}: empty id");
-            assert!(seen.insert(id.to_string()), "line {line_no}: duplicate id {id}");
+            assert!(
+                seen.insert(id.to_string()),
+                "line {line_no}: duplicate id {id}"
+            );
             let kind = v["kind"].as_str().expect("kind string");
             let input = v["input"].as_str().expect("input string");
             assert!(!input.is_empty(), "line {line_no}: empty input for {id}");
@@ -2269,11 +2312,17 @@ mod tests {
             match kind {
                 "keep" => {
                     assert!(!keep.is_empty(), "line {line_no}: keep empty for {id}");
-                    assert!(drop.is_empty(), "line {line_no}: drop non-empty for keep {id}");
+                    assert!(
+                        drop.is_empty(),
+                        "line {line_no}: drop non-empty for keep {id}"
+                    );
                 }
                 "retract" => {
                     assert!(!keep.is_empty(), "line {line_no}: keep empty for {id}");
-                    assert!(!drop.is_empty(), "line {line_no}: drop empty for retract {id}");
+                    assert!(
+                        !drop.is_empty(),
+                        "line {line_no}: drop empty for retract {id}"
+                    );
                 }
                 other => panic!("line {line_no}: unknown kind {other:?} for {id}"),
             }
@@ -2285,38 +2334,64 @@ mod tests {
     #[test]
     fn r1f_t_rules_v11_guards_pairs_repros_and_95_adversarial_keeps() {
         let mut failures: Vec<String> = Vec::new();
-        let check_exact = |failures: &mut Vec<String>, group: &str, id: &str, input: &str, expected: &str| {
-            let got = rewrite_spoken_self_corrections(input);
-            if got != expected {
-                failures.push(format!(
-                    "[{group}] {id}: expected={expected:?} got={got:?} input={input:?}"
-                ));
-            }
-        };
+        let check_exact =
+            |failures: &mut Vec<String>, group: &str, id: &str, input: &str, expected: &str| {
+                let got = rewrite_spoken_self_corrections(input);
+                if got != expected {
+                    failures.push(format!(
+                        "[{group}] {id}: expected={expected:?} got={got:?} input={input:?}"
+                    ));
+                }
+            };
 
         // Plan A v11 F3 table: exact "yes" take-backs, everything else in the pair/case files as said.
-        let expected_yes: std::collections::HashMap<&str, &str> = std::collections::HashMap::from([
-            ("b3y", "We need twelve chairs."),
-            ("b3sy", "Dana baked four pies."),
-            ("b5y", "meeting on wednesday"),
-            ("b7y", "Meet on Wednesday."),
-            ("b6y", "Call Ana."),
-            ("r1a", "meeting on wednesday"),
-            ("r1b", "Meeting on Wednesday."),
-            ("r1c", "Meeting on Wednesday."),
-            ("r1d", "Meeting on Wednesday."),
-            ("c13", "Four pies."),
-        ]);
+        let expected_yes: std::collections::HashMap<&str, &str> =
+            std::collections::HashMap::from([
+                ("b3y", "We need twelve chairs."),
+                ("b3sy", "Dana baked four pies."),
+                ("b5y", "meeting on wednesday"),
+                ("b7y", "Meet on Wednesday."),
+                ("b6y", "Call Ana."),
+                ("r1a", "meeting on wednesday"),
+                ("r1b", "Meeting on Wednesday."),
+                ("r1c", "Meeting on Wednesday."),
+                ("r1d", "Meeting on Wednesday."),
+                ("c13", "Four pies."),
+            ]);
 
         let pair_files: &[(&str, &str)] = &[
-            ("pairs-1", include_str!("../../testdata/r1f/branch-evidence-pairs.jsonl")),
-            ("pairs-2", include_str!("../../testdata/r1f/branch-evidence-pairs-2.jsonl")),
-            ("pairs-3", include_str!("../../testdata/r1f/branch-evidence-pairs-3.jsonl")),
-            ("pairs-4", include_str!("../../testdata/r1f/branch-evidence-pairs-4.jsonl")),
-            ("pairs-5", include_str!("../../testdata/r1f/branch-evidence-pairs-5.jsonl")),
-            ("pairs-6", include_str!("../../testdata/r1f/branch-evidence-pairs-6.jsonl")),
-            ("rijul", include_str!("../../testdata/r1f/rijul-r1-clip4.jsonl")),
-            ("repros", include_str!("../../testdata/r1f/cleo-531a-repros.jsonl")),
+            (
+                "pairs-1",
+                include_str!("../../testdata/r1f/branch-evidence-pairs.jsonl"),
+            ),
+            (
+                "pairs-2",
+                include_str!("../../testdata/r1f/branch-evidence-pairs-2.jsonl"),
+            ),
+            (
+                "pairs-3",
+                include_str!("../../testdata/r1f/branch-evidence-pairs-3.jsonl"),
+            ),
+            (
+                "pairs-4",
+                include_str!("../../testdata/r1f/branch-evidence-pairs-4.jsonl"),
+            ),
+            (
+                "pairs-5",
+                include_str!("../../testdata/r1f/branch-evidence-pairs-5.jsonl"),
+            ),
+            (
+                "pairs-6",
+                include_str!("../../testdata/r1f/branch-evidence-pairs-6.jsonl"),
+            ),
+            (
+                "rijul",
+                include_str!("../../testdata/r1f/rijul-r1-clip4.jsonl"),
+            ),
+            (
+                "repros",
+                include_str!("../../testdata/r1f/cleo-531a-repros.jsonl"),
+            ),
         ];
 
         for &(group, raw) in pair_files {
@@ -2331,9 +2406,21 @@ mod tests {
 
         // All 95 adversarial keeps (28 + 30 + 37) must come back byte-identical.
         let adv_files: &[(&str, &str, usize)] = &[
-            ("adv-28", include_str!("../../testdata/r1f/adv/cleo-533a-keeps-28.jsonl"), 28),
-            ("adv-30", include_str!("../../testdata/r1f/adv/brain-keeps-30.jsonl"), 30),
-            ("adv-37", include_str!("../../testdata/r1f/adv/fresh-536-blind.jsonl"), 37),
+            (
+                "adv-28",
+                include_str!("../../testdata/r1f/adv/cleo-533a-keeps-28.jsonl"),
+                28,
+            ),
+            (
+                "adv-30",
+                include_str!("../../testdata/r1f/adv/brain-keeps-30.jsonl"),
+                30,
+            ),
+            (
+                "adv-37",
+                include_str!("../../testdata/r1f/adv/fresh-536-blind.jsonl"),
+                37,
+            ),
         ];
         let mut adv_total = 0usize;
         for &(group, raw, expected_len) in adv_files {
@@ -2353,7 +2440,9 @@ mod tests {
             if id.starts_with("tb") {
                 let got = rewrite_spoken_self_corrections(&input);
                 if got == input {
-                    failures.push(format!("[a9b] {id}: expected take-back, got unchanged {got:?}"));
+                    failures.push(format!(
+                        "[a9b] {id}: expected take-back, got unchanged {got:?}"
+                    ));
                 }
             } else {
                 check_exact(&mut failures, "a9b", &id, &input, &input);
@@ -2361,7 +2450,8 @@ mod tests {
         }
 
         // All 66 must-not-change sentences stay byte-identical.
-        let mnc_rows = parse_jsonl_id_input(include_str!("../../../docs/eval/must-not-change-66.jsonl"));
+        let mnc_rows =
+            parse_jsonl_id_input(include_str!("../../../docs/eval/must-not-change-66.jsonl"));
         assert_eq!(mnc_rows.len(), 66);
         for (id, input) in mnc_rows {
             check_exact(&mut failures, "mnc-66", &id, &input, &input);
@@ -2466,23 +2556,101 @@ mod tests {
         // Copied verbatim from r1f-proto/rules-probe/src/main_v11_fuzz.rs (sha 287b3b9a957d).
         // No std::panic::set_hook in unit tests.
         const WORDS: &[&str] = &[
-            "Sam", "Ana", "Priya", "Jordan", "Lee", "call", "meet", "on", "at", "the", "to", "a",
-            "I", "we", "it", "you", "they", "my", "Tuesday", "wednesday", "May", "March", "one",
-            "two", "twelve", "5", "4:50", "27th", "chairs", "pies", "boss", "wait", "thanks",
-            "yes", "no", "never", "mind", "sorry", "mean", "actually", "rather", "scratch", "that",
-            ",", ".", "?", "!", "'", "\u{2019}", "\u{2014}", "\u{00E9}", "\u{65E5}\u{672C}", "",
-            "Sam,", "Ana?", "it's", "o'clock",
+            "Sam",
+            "Ana",
+            "Priya",
+            "Jordan",
+            "Lee",
+            "call",
+            "meet",
+            "on",
+            "at",
+            "the",
+            "to",
+            "a",
+            "I",
+            "we",
+            "it",
+            "you",
+            "they",
+            "my",
+            "Tuesday",
+            "wednesday",
+            "May",
+            "March",
+            "one",
+            "two",
+            "twelve",
+            "5",
+            "4:50",
+            "27th",
+            "chairs",
+            "pies",
+            "boss",
+            "wait",
+            "thanks",
+            "yes",
+            "no",
+            "never",
+            "mind",
+            "sorry",
+            "mean",
+            "actually",
+            "rather",
+            "scratch",
+            "that",
+            ",",
+            ".",
+            "?",
+            "!",
+            "'",
+            "\u{2019}",
+            "\u{2014}",
+            "\u{00E9}",
+            "\u{65E5}\u{672C}",
+            "",
+            "Sam,",
+            "Ana?",
+            "it's",
+            "o'clock",
         ];
         const CUES: &[&str] = &[
-            ", sorry, ", ", I mean ", ", sorry, I mean ", ", actually ", ", actually make it ",
-            ", or rather, ", ", no wait, ", ", no, ", ", correction, ", ", let me rephrase, ",
-            ", scratch that, ", ", never mind, ", ". Sorry, ", ". Scratch that. ",
-            " scratch that ", " I mean ", " or rather ", ". No wait, ", ",sorry,", ", sorry,",
+            ", sorry, ",
+            ", I mean ",
+            ", sorry, I mean ",
+            ", actually ",
+            ", actually make it ",
+            ", or rather, ",
+            ", no wait, ",
+            ", no, ",
+            ", correction, ",
+            ", let me rephrase, ",
+            ", scratch that, ",
+            ", never mind, ",
+            ". Sorry, ",
+            ". Scratch that. ",
+            " scratch that ",
+            " I mean ",
+            " or rather ",
+            ". No wait, ",
+            ",sorry,",
+            ", sorry,",
             " , scratch that , ",
         ];
         const EDGES: &[&str] = &[
-            "", " ", ",", ".", ", sorry,", "sorry", ", sorry, ,", ". . .", "Scratch that.",
-            ", scratch that, ,", "Sam, sorry,", ", sorry, Ana", "Sam. Sorry, Ana",
+            "",
+            " ",
+            ",",
+            ".",
+            ", sorry,",
+            "sorry",
+            ", sorry, ,",
+            ". . .",
+            "Scratch that.",
+            ", scratch that, ,",
+            "Sam, sorry,",
+            ", sorry, Ana",
+            "Sam. Sorry, Ana",
             "a, sorry, b, sorry, c, sorry, d",
         ];
 
@@ -2588,10 +2756,38 @@ mod tests {
         // Copied from r1f-proto/rules-probe/src/main_wide_sweep.rs (sha e96a76ae168d), 2,000 strings.
         // No std::panic::set_hook in unit tests.
         const W: &[&str] = &[
-            "Sam", "sam", "Kubernetes", "kubernetes", "the", "to", "um", "uh", "I", "it's",
-            "sorry,", "scratch", "that", "\u{201C}Sam", "Sam\u{201D}", "\u{2014}", "\u{2026}",
-            "\u{AB}Sam\u{BB}", "é", "日本", "Ñandú", "'", "\u{2019}", ",", ".", "",
-            "Kuber\u{2011}netes", "\u{1F600}", "Sam\u{1F600}", "\u{1F600}Sam", "naïve", "café,",
+            "Sam",
+            "sam",
+            "Kubernetes",
+            "kubernetes",
+            "the",
+            "to",
+            "um",
+            "uh",
+            "I",
+            "it's",
+            "sorry,",
+            "scratch",
+            "that",
+            "\u{201C}Sam",
+            "Sam\u{201D}",
+            "\u{2014}",
+            "\u{2026}",
+            "\u{AB}Sam\u{BB}",
+            "é",
+            "日本",
+            "Ñandú",
+            "'",
+            "\u{2019}",
+            ",",
+            ".",
+            "",
+            "Kuber\u{2011}netes",
+            "\u{1F600}",
+            "Sam\u{1F600}",
+            "\u{1F600}Sam",
+            "naïve",
+            "café,",
             "\u{FEFF}",
         ];
         let mut s: u64 = 0x9E3779B97F4A7C15;
@@ -2735,10 +2931,9 @@ mod tests {
         let explicit_punct = ["?", "-", "...", ",", "--", "!?", ".", "'"];
         let mut explicit_diffs: Vec<String> = Vec::new();
         for tok in explicit_punct {
-            let got = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                extract_punctuation(tok)
-            }))
-            .expect("extract_punctuation panicked on explicit ASCII token");
+            let got =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| extract_punctuation(tok)))
+                    .expect("extract_punctuation panicked on explicit ASCII token");
             let want = extract_punctuation_x3l(tok);
             if got != want {
                 explicit_diffs.push(format!("{tok:?}: got={got:?} want={want:?}"));
@@ -2747,10 +2942,38 @@ mod tests {
 
         // Exact F-a2 2,000-string sweep generator.
         const W: &[&str] = &[
-            "Sam", "sam", "Kubernetes", "kubernetes", "the", "to", "um", "uh", "I", "it's",
-            "sorry,", "scratch", "that", "\u{201C}Sam", "Sam\u{201D}", "\u{2014}", "\u{2026}",
-            "\u{AB}Sam\u{BB}", "é", "日本", "Ñandú", "'", "\u{2019}", ",", ".", "",
-            "Kuber\u{2011}netes", "\u{1F600}", "Sam\u{1F600}", "\u{1F600}Sam", "naïve", "café,",
+            "Sam",
+            "sam",
+            "Kubernetes",
+            "kubernetes",
+            "the",
+            "to",
+            "um",
+            "uh",
+            "I",
+            "it's",
+            "sorry,",
+            "scratch",
+            "that",
+            "\u{201C}Sam",
+            "Sam\u{201D}",
+            "\u{2014}",
+            "\u{2026}",
+            "\u{AB}Sam\u{BB}",
+            "é",
+            "日本",
+            "Ñandú",
+            "'",
+            "\u{2019}",
+            ",",
+            ".",
+            "",
+            "Kuber\u{2011}netes",
+            "\u{1F600}",
+            "Sam\u{1F600}",
+            "\u{1F600}Sam",
+            "naïve",
+            "café,",
             "\u{FEFF}",
         ];
         let mut s: u64 = 0x9E3779B97F4A7C15;
@@ -3025,7 +3248,10 @@ mod tests {
         assert_eq!(total_rows, 189, "expected 166 T5 rows + 23 a9b cases");
 
         let scratch_that_cases: &[(&str, &str)] = &[
-            ("Send it to Priya, scratch that, Devon.", "Send it to Devon."),
+            (
+                "Send it to Priya, scratch that, Devon.",
+                "Send it to Devon.",
+            ),
             (
                 "The meeting is Tuesday, scratch that, Wednesday.",
                 "The meeting is Wednesday.",

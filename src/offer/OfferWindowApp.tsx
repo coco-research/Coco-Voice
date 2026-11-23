@@ -87,11 +87,7 @@ function OfferWindowRoot() {
     commands
       .currentMeetingOffer()
       .then((result) => {
-        if (
-          cancelled ||
-          sawOfferEvent.current ||
-          result.status === "error"
-        ) {
+        if (cancelled || sawOfferEvent.current || result.status === "error") {
           return;
         }
         setViewState((prev) => applyOfferEvent(prev, result.data));

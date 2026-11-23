@@ -207,7 +207,10 @@ export const MeetingTrashPanel: React.FC<{
                         <>
                           <button
                             type="button"
-                            aria-label={t("meetings.storage.moreActions", "More actions")}
+                            aria-label={t(
+                              "meetings.storage.moreActions",
+                              "More actions",
+                            )}
                             aria-expanded={menuOpen}
                             onClick={() =>
                               setMenuOpenId(menuOpen ? null : item.id)
@@ -550,10 +553,7 @@ export const MeetingHistoryHub: React.FC<{
     });
     void meetingCommands.listMeetingFolders().then((res) => {
       if (!cancelled && res.status === "ok") {
-        setFolderNames([
-          DEFAULT_IMPORT_FOLDER,
-          ...res.data.map((f) => f.name),
-        ]);
+        setFolderNames([DEFAULT_IMPORT_FOLDER, ...res.data.map((f) => f.name)]);
       }
     });
     return () => {
@@ -566,9 +566,7 @@ export const MeetingHistoryHub: React.FC<{
       const picked = await openDialog({
         multiple: true,
         directory: false,
-        filters: [
-          { name: "Notes", extensions: ["md", "markdown", "txt"] },
-        ],
+        filters: [{ name: "Notes", extensions: ["md", "markdown", "txt"] }],
       });
       const list = Array.isArray(picked)
         ? picked

@@ -8,7 +8,10 @@ import en from "../src/i18n/locales/en/translation.json";
 const TUE_27_OCT = Math.floor(new Date(2026, 9, 27, 9, 0, 0).getTime() / 1000);
 const MON_26_OCT = Math.floor(new Date(2026, 9, 26, 14, 0, 0).getTime() / 1000);
 
-const invokeCalls: Array<{ cmd: string; args: Record<string, unknown> | undefined }> = [];
+const invokeCalls: Array<{
+  cmd: string;
+  args: Record<string, unknown> | undefined;
+}> = [];
 
 const PRODUCT_SYNC_SNAPSHOT = {
   meeting_id: 101,
@@ -131,21 +134,16 @@ mock.module("@tauri-apps/plugin-dialog", () => ({
 }));
 
 const { commands } = await import("../src/bindings.meetings");
-const { formatShortDateDddDDMon } = await import(
-  "../src/components/meetings/UpcomingMeetings"
-);
-const { formatDurationMinutes } = await import(
-  "../src/components/meetings/MeetingsList"
-);
-const { MeetingNotesSection } = await import(
-  "../src/components/meetings/MeetingNotesPanel"
-);
-const { OlderNoteWhileRecordingBanner } = await import(
-  "../src/components/meetings/MeetingHistoryExtras"
-);
-const { EditableMeetingTitle } = await import(
-  "../src/components/meetings/MeetingEntryPanels"
-);
+const { formatShortDateDddDDMon } =
+  await import("../src/components/meetings/UpcomingMeetings");
+const { formatDurationMinutes } =
+  await import("../src/components/meetings/MeetingsList");
+const { MeetingNotesSection } =
+  await import("../src/components/meetings/MeetingNotesPanel");
+const { OlderNoteWhileRecordingBanner } =
+  await import("../src/components/meetings/MeetingHistoryExtras");
+const { EditableMeetingTitle } =
+  await import("../src/components/meetings/MeetingEntryPanels");
 
 const i18n = i18next.createInstance();
 await i18n.use(initReactI18next).init({
@@ -169,7 +167,9 @@ describe("W7 (CX-11): opening older meeting while recording isolates snapshot & 
     expect(segRes.status).toBe("ok");
     if (snapRes.status !== "ok" || segRes.status !== "ok") return;
 
-    const snapCall = invokeCalls.find((c) => c.cmd === "meeting_notes_snapshot");
+    const snapCall = invokeCalls.find(
+      (c) => c.cmd === "meeting_notes_snapshot",
+    );
     const segCall = invokeCalls.find((c) => c.cmd === "meeting_segments");
     expect(snapCall?.args).toEqual({ meetingId: 102 });
     expect(segCall?.args).toEqual({ meetingId: 102 });
@@ -209,7 +209,9 @@ describe("W7 (CX-11): opening older meeting while recording isolates snapshot & 
     expect(html).toContain("Mon 26 Oct · 45 min");
     expect(html).toContain("check typography contrast");
     expect(html).toContain("Tightened sidebar vertical rhythm");
-    expect(html).toContain("Standardize meeting header dates to Ddd DD Mon format.");
+    expect(html).toContain(
+      "Standardize meeting header dates to Ddd DD Mon format.",
+    );
 
     // Strict isolation: ZERO Product sync notes or notepad lines may appear.
     expect(html).not.toContain("Ship the desktop update this week.");
@@ -221,7 +223,10 @@ describe("W7 (CX-11): opening older meeting while recording isolates snapshot & 
     const fs = await import("node:fs");
     const path = await import("node:path");
     const src = fs.readFileSync(
-      path.resolve(import.meta.dir, "../src/components/meetings/MeetingsList.tsx"),
+      path.resolve(
+        import.meta.dir,
+        "../src/components/meetings/MeetingsList.tsx",
+      ),
       "utf8",
     );
     expect(src).toContain("selectedIdRef.current = item.id;");
@@ -245,7 +250,9 @@ describe("W7 (CX-11): opening older meeting while recording isolates snapshot & 
     );
 
     const validAppSettingsKeys = new Set<string>();
-    const tsBlock = bindingsSrc.match(/export type AppSettings = \{([\s\S]*?)\n\}/);
+    const tsBlock = bindingsSrc.match(
+      /export type AppSettings = \{([\s\S]*?)\n\}/,
+    );
     if (tsBlock?.[1]) {
       for (const m of tsBlock[1].matchAll(/([a-z][a-z0-9_]*)\??:/g)) {
         validAppSettingsKeys.add(m[1]!);
@@ -267,7 +274,9 @@ describe("W7 (CX-11): opening older meeting while recording isolates snapshot & 
       "expansion",
     ]);
 
-    const validateFixtureSettings = (obj: Record<string, unknown>): string[] => {
+    const validateFixtureSettings = (
+      obj: Record<string, unknown>,
+    ): string[] => {
       const unknown: string[] = [];
       for (const key of Object.keys(obj)) {
         if (!validAppSettingsKeys.has(key)) {

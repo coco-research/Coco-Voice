@@ -167,7 +167,10 @@ export const CatchUpCard: React.FC<{
         {onSelectMinutes ? (
           <div
             role="group"
-            aria-label={t("meetings.notes.catchUpChooseWindow", "Catch-up window")}
+            aria-label={t(
+              "meetings.notes.catchUpChooseWindow",
+              "Catch-up window",
+            )}
             className="inline-flex items-center gap-1"
           >
             {CATCH_UP_WINDOWS.map((m) => {
@@ -261,7 +264,9 @@ export const MeetingNotesSection: React.FC<MeetingNotesSectionProps> = ({
   onRetry,
 }) => {
   const { t } = useTranslation();
-  const [activeView, setActiveView] = useState<"both" | "left_out">(initialView);
+  const [activeView, setActiveView] = useState<"both" | "left_out">(
+    initialView,
+  );
   const [failedSegments, setFailedSegments] = useState<MeetingSegmentView[]>(
     segments && segments.length > 0 ? segments : FALLBACK_FAILED_SEGMENTS,
   );
@@ -640,10 +645,7 @@ export const MeetingNotesSection: React.FC<MeetingNotesSectionProps> = ({
   // Scene 14 (Frame 5), Scene 24 (Frame 14), Scene 25 (Frame 15): compact 2-column Notes + dedicated Left out view (W29, W39, W43, S4)
   if (!recording && snapshot?.state === "ready") {
     const leftOutSection = (
-      <section
-        data-testid="frame-15-left-out"
-        className="space-y-2.5"
-      >
+      <section data-testid="frame-15-left-out" className="space-y-2.5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
           <div className="rounded-[12px] border border-mid-gray/25 bg-background p-3 space-y-1.5">
             <h4 className="text-[14px] font-semibold text-text">

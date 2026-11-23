@@ -160,7 +160,10 @@ export function OfferPanel() {
     };
   }, []);
 
-  if (!isOfferVisible(viewState, sidebarVisible(settings)) || !viewState.offer) {
+  if (
+    !isOfferVisible(viewState, sidebarVisible(settings)) ||
+    !viewState.offer
+  ) {
     return null;
   }
 

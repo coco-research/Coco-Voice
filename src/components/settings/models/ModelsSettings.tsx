@@ -50,10 +50,7 @@ export function formatSpeechModelSubtitle(
   }
 
   if (idLower.includes("whisper") && !idLower.includes(".en")) {
-    return [
-      t("v022.models.whisper99Languages", "99 languages"),
-      sizeText,
-    ]
+    return [t("v022.models.whisper99Languages", "99 languages"), sizeText]
       .filter(Boolean)
       .join(" · ");
   }
@@ -273,9 +270,9 @@ export const ModelsSettings: React.FC = () => {
   const selectedLocalModel = settings?.post_process_models?.local_llm || "";
   const isLocalCleanupInUse = Boolean(
     settings?.post_process_enabled &&
-      cleanupProviderId === "local_llm" &&
-      localCleanupModel?.is_downloaded &&
-      (!selectedLocalModel || selectedLocalModel === localCleanupModel.id),
+    cleanupProviderId === "local_llm" &&
+    localCleanupModel?.is_downloaded &&
+    (!selectedLocalModel || selectedLocalModel === localCleanupModel.id),
   );
 
   const cleanupStatus = localCleanupModel
@@ -367,9 +364,7 @@ export const ModelsSettings: React.FC = () => {
                       type="text"
                       value={languageSearch}
                       onChange={(e) => setLanguageSearch(e.target.value)}
-                      placeholder={t(
-                        "settings.models.filters.searchLanguages",
-                      )}
+                      placeholder={t("settings.models.filters.searchLanguages")}
                       className="w-full px-2.5 py-1.5 text-xs bg-mid-gray/10 border border-mid-gray/20 rounded-md focus:outline-none focus:ring-1 focus:ring-logo-primary"
                     />
                   </div>

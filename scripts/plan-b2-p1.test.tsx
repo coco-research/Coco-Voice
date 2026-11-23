@@ -52,8 +52,12 @@ describe("Plan B2 Part 1 (X-a, X-b, X-c, X-j)", () => {
     expect(meetingsStore).toContain("PRAGMA secure_delete = ON;");
     expect(meetingsStore).toContain("PRAGMA wal_checkpoint(TRUNCATE);");
     expect(meetingsStore).toContain("CREATE TABLE meeting_left_out");
-    expect(meetingsStore).toContain("ALTER TABLE meetings ADD COLUMN template_id");
-    expect(meetingsStore).toContain("ALTER TABLE meetings ADD COLUMN attendees");
+    expect(meetingsStore).toContain(
+      "ALTER TABLE meetings ADD COLUMN template_id",
+    );
+    expect(meetingsStore).toContain(
+      "ALTER TABLE meetings ADD COLUMN attendees",
+    );
     expect(meetingsStore).toContain(
       "ALTER TABLE meeting_folders ADD COLUMN last_template_id",
     );
@@ -94,7 +98,11 @@ describe("Plan B2 Part 1 (X-a, X-b, X-c, X-j)", () => {
     expect(sanitizeFlatFolderName("x".repeat(80)).length).toBe(60);
     expect(
       parseTemplateSectionsFromBody(
-        buildTemplateBodyFromSections(["Their needs", "Decisions", "Follow-ups"]),
+        buildTemplateBodyFromSections([
+          "Their needs",
+          "Decisions",
+          "Follow-ups",
+        ]),
       ),
     ).toEqual(["Their needs", "Decisions", "Follow-ups"]);
 
@@ -125,7 +133,12 @@ describe("Plan B2 Part 1 (X-a, X-b, X-c, X-j)", () => {
           {
             id: "2",
             name: "Customer call",
-            sections: ["Their needs", "Decisions", "Action items", "Follow-ups"],
+            sections: [
+              "Their needs",
+              "Decisions",
+              "Action items",
+              "Follow-ups",
+            ],
           },
         ]}
         selectedTemplateId="2"

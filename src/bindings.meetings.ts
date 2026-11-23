@@ -149,7 +149,6 @@ export interface AgentAccessSnapshot {
   recent_reads: AgentReadAuditEntry[];
 }
 
-
 export type BlockedReason = "work";
 
 export interface CalendarChoice {
@@ -421,10 +420,7 @@ export const commands = {
         }),
   setMeetingOfferVisible: (visible: boolean) =>
     callCmd<null>("set_meeting_offer_visible", { visible }),
-  changeNotesMarkdownFolderSetting: (
-    enabled: boolean,
-    folder: string | null,
-  ) =>
+  changeNotesMarkdownFolderSetting: (enabled: boolean, folder: string | null) =>
     callCmd<MeetingRetentionState>("change_notes_markdown_folder_setting", {
       enabled,
       folder,
@@ -460,10 +456,12 @@ export const commands = {
   listMeetingFolders: () =>
     callCmd<MeetingFolderView[]>("list_meeting_folders"),
   createMeetingFolder: (name: string) =>
-    callCmd<{ id: number; name: string; created_at: number; last_template_id: number | null }>(
-      "create_meeting_folder",
-      { name },
-    ),
+    callCmd<{
+      id: number;
+      name: string;
+      created_at: number;
+      last_template_id: number | null;
+    }>("create_meeting_folder", { name }),
   renameMeetingFolder: (id: number, name: string) =>
     callCmd<null>("rename_meeting_folder", { id, name }),
   deleteMeetingFolder: (id: number) =>

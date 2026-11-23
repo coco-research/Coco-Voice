@@ -1,40 +1,42 @@
 /* Coco Research Brand Theme (Light + Dark) & Bundled Local Fonts */
 
 @font-face {
-  font-family: 'Archivo';
+  font-family: "Archivo";
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('/fonts/archivo-600-0.woff2') format('woff2');
+  src: url("/fonts/archivo-600-0.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: 'Archivo';
+  font-family: "Archivo";
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url('/fonts/archivo-700-1.woff2') format('woff2');
+  src: url("/fonts/archivo-700-1.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: 'Martian Mono';
+  font-family: "Martian Mono";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/fonts/martian-400-0.woff2') format('woff2');
+  src: url("/fonts/martian-400-0.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: 'Martian Mono';
+  font-family: "Martian Mono";
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('/fonts/martian-500-1.woff2') format('woff2');
+  src: url("/fonts/martian-500-1.woff2") format("woff2");
 }
 
 :root {
-  --font-display: 'Archivo', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono-brand: 'Martian Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display:
+    "Archivo", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono-brand:
+    "Martian Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Light theme tokens */
   --light-color-text: #0b1020;

@@ -43,10 +43,7 @@ async function makeI18n() {
   return inst;
 }
 
-function withSettings<T>(
-  partial: Record<string, unknown>,
-  fn: () => T,
-): T {
+function withSettings<T>(partial: Record<string, unknown>, fn: () => T): T {
   const g = globalThis as { window?: unknown };
   const prevWin = Object.getOwnPropertyDescriptor(globalThis, "window");
   g.window = { __TAURI_OS_PLUGIN_INTERNALS__: { os_type: "macos" } };
@@ -397,7 +394,9 @@ describe("Plan D Settings Overview, Hands-free, Retention, Files & Language", ()
       withoutSecondKeyHtml.indexOf('data-testid="hands-free-pill-preview"'),
     );
     expect(preview51).toContain(">Listening<");
-    expect(preview51).not.toContain("Hands-free · tap fn to stop · Esc cancels");
+    expect(preview51).not.toContain(
+      "Hands-free · tap fn to stop · Esc cancels",
+    );
   });
 
   test("AC-D9, AC-D11, D-D9: Files sync warning exact wording, Language hides parenthetical when model_name is null, and hides This meeting when idle", async () => {
@@ -423,8 +422,12 @@ describe("Plan D Settings Overview, Hands-free, Retention, Files & Language", ()
       </I18nextProvider>,
     ).replaceAll("&#x27;", "'");
     expect(langIdleHtml).toContain("Settings › Meetings › Language");
-    expect(langIdleHtml).not.toContain('data-testid="meeting-language-plan-model"');
-    expect(langIdleHtml).not.toContain('data-testid="meeting-language-this-meeting-row"');
+    expect(langIdleHtml).not.toContain(
+      'data-testid="meeting-language-plan-model"',
+    );
+    expect(langIdleHtml).not.toContain(
+      'data-testid="meeting-language-this-meeting-row"',
+    );
 
     // Language sub-page while recording (meetingRecording = true)
     const langRecordingHtml = renderToStaticMarkup(
@@ -447,7 +450,9 @@ describe("Plan D Settings Overview, Hands-free, Retention, Files & Language", ()
         />
       </I18nextProvider>,
     ).replaceAll("&#x27;", "'");
-    expect(langRecordingHtml).toContain('data-testid="meeting-language-this-meeting-row"');
+    expect(langRecordingHtml).toContain(
+      'data-testid="meeting-language-this-meeting-row"',
+    );
     expect(langRecordingHtml).toContain('aria-label="This meeting"');
 
     // Files sub-page: exact D3 wording + Dropbox warning + local folder has no warning
@@ -484,8 +489,12 @@ describe("Plan D Settings Overview, Hands-free, Retention, Files & Language", ()
       join(ROOT, "src/components/settings/MeetingsRetention.tsx"),
       "utf8",
     );
-    expect(retentionSrc).toContain('invoke<string>("request_delete_all_meetings")');
-    expect(retentionSrc).toContain('invoke<DeleteAllMeetingsOutcome>("delete_all_meetings"');
+    expect(retentionSrc).toContain(
+      'invoke<string>("request_delete_all_meetings")',
+    );
+    expect(retentionSrc).toContain(
+      'invoke<DeleteAllMeetingsOutcome>("delete_all_meetings"',
+    );
     expect(retentionSrc).toContain("confirmationToken");
 
     const html = renderToStaticMarkup(

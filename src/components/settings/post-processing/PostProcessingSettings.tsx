@@ -857,12 +857,16 @@ export function formatWhereCleanupRuns(
     );
   }
   if (providerId === LOCAL_LLM_PROVIDER_ID) {
-    const rawModel = settings?.post_process_models?.[LOCAL_LLM_PROVIDER_ID] || "";
+    const rawModel =
+      settings?.post_process_models?.[LOCAL_LLM_PROVIDER_ID] || "";
     const shortName = rawModel.toLowerCase().includes("qwen3-4b")
       ? "Qwen3-4B"
       : rawModel
-          ? rawModel.split("/").pop()?.replace(/\.gguf$/i, "") || "Qwen3-4B"
-          : "Qwen3-4B";
+        ? rawModel
+            .split("/")
+            .pop()
+            ?.replace(/\.gguf$/i, "") || "Qwen3-4B"
+        : "Qwen3-4B";
     return t("v022.words.onThisMacModelName", {
       model: shortName,
       defaultValue: `On this Mac (${shortName})`,

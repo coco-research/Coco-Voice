@@ -57,7 +57,9 @@ const EYEBROW =
 export const MEETING_WORDS_STORAGE_KEY = "coco_voice.meeting_custom_words";
 export const NOTEPAD_SAVE_DEBOUNCE_MS = 500;
 
-export function formatDictationShortcutLabel(raw: string | null | undefined): string | null {
+export function formatDictationShortcutLabel(
+  raw: string | null | undefined,
+): string | null {
   const trimmed = raw?.trim();
   if (!trimmed) return null;
   return trimmed
@@ -90,9 +92,7 @@ export function normalizeMeetingWordList(
 }
 
 type ClassifiedStartRefusal =
-  | { kind: "permission" }
-  | { kind: "device"; code: string }
-  | { kind: "other" };
+  { kind: "permission" } | { kind: "device"; code: string } | { kind: "other" };
 
 function formatDeviceErrorCode(raw: string): string {
   const trimmed = raw.trim();
@@ -562,7 +562,10 @@ export const RecordMeetingSection: React.FC<RecordMeetingSectionProps> = ({
               className="rounded-[14px] border border-mid-gray/25 bg-surface p-4"
             >
               <p className="text-[13px] font-medium text-text">
-                {t("meetings.consent.cannotStart", "Could not start the meeting.")}
+                {t(
+                  "meetings.consent.cannotStart",
+                  "Could not start the meeting.",
+                )}
               </p>
             </section>
           ) : null}

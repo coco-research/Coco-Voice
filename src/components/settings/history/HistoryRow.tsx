@@ -241,7 +241,8 @@ export const HistoryRow: React.FC<HistoryRowProps> = (p) => {
   const isCleaned = Boolean(p.entry.post_processed_text?.trim());
   const parts = [timeLabel];
   if (isCleaned) parts.push(t("sidebar.cleanedUp"));
-  if (p.entry.detected_language?.trim()) parts.push(p.entry.detected_language.trim().toUpperCase());
+  if (p.entry.detected_language?.trim())
+    parts.push(p.entry.detected_language.trim().toUpperCase());
   if (p.entry.saved) parts.push(t("sidebar.kept"));
   const metaTail = parts.join(MID_SEP);
 

@@ -159,9 +159,9 @@ describe("Plan A Updater Security Hardening", () => {
     };
 
     // 1) No pending update at all (null)
-    expect(await useUpdateStore.getState().installAndRestart(fakeRelaunch)).toBe(
-      false,
-    );
+    expect(
+      await useUpdateStore.getState().installAndRestart(fakeRelaunch),
+    ).toBe(false);
     expect(await restartAppForUpdate(fakeRelaunch)).toBe(false);
     expect(relaunchCalls).toBe(0);
 
@@ -400,16 +400,16 @@ describe("Plan A Updater Security Hardening", () => {
       },
     };
     useUpdateStore.setState({ pendingUpdate: swappedFresh });
-    expect(await useUpdateStore.getState().installAndRestart(fakeRelaunch)).toBe(
-      false,
-    );
+    expect(
+      await useUpdateStore.getState().installAndRestart(fakeRelaunch),
+    ).toBe(false);
     expect(relaunchCount).toBe(2);
 
     // Restoring the exact downloadedHandle allows installAndRestart() to run install() and relaunch.
     useUpdateStore.setState({ pendingUpdate: downloadedHandle });
-    expect(await useUpdateStore.getState().installAndRestart(fakeRelaunch)).toBe(
-      true,
-    );
+    expect(
+      await useUpdateStore.getState().installAndRestart(fakeRelaunch),
+    ).toBe(true);
     expect(bgEvents).toEqual(["download", "install"]);
     expect(relaunchCount).toBe(3);
   });
@@ -472,9 +472,9 @@ describe("Plan A Updater Security Hardening", () => {
     });
     expect(readyOutcome).toEqual({ status: "ready", version: "0.20.2" });
     expect(bgDownloads).toBe(1);
-    expect(await useUpdateStore.getState().installAndRestart(fakeRelaunch)).toBe(
-      true,
-    );
+    expect(
+      await useUpdateStore.getState().installAndRestart(fakeRelaunch),
+    ).toBe(true);
     expect(bgDownloads).toBe(1);
     expect(bgInstalls).toBe(1);
     expect(relaunchCalls).toBe(2);
@@ -496,9 +496,9 @@ describe("Plan A Updater Security Hardening", () => {
       isPortable: async () => false,
     });
     expect(useUpdateStore.getState().readyVersion).toBe("0.20.3");
-    expect(await useUpdateStore.getState().installAndRestart(fakeRelaunch)).toBe(
-      false,
-    );
+    expect(
+      await useUpdateStore.getState().installAndRestart(fakeRelaunch),
+    ).toBe(false);
     expect(relaunchCalls).toBe(2);
     expect(useUpdateStore.getState().readyVersion).toBe("0.20.3");
   });

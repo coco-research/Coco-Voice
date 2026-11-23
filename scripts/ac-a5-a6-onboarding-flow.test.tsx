@@ -437,8 +437,7 @@ describe("AC-A5 & AC-A6 real Onboarding component flows", () => {
       // Click Try again once -> calls downloadModel again, exactly once.
       const tryAgainButtons = collectElements(
         mounted.getTree(),
-        (el) =>
-          el.type === "button" && textContent(el).trim() === "Try again",
+        (el) => el.type === "button" && textContent(el).trim() === "Try again",
       );
       expect(tryAgainButtons).toHaveLength(1);
 

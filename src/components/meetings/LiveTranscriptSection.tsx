@@ -207,9 +207,7 @@ export const LiveTranscriptSection: React.FC<LiveTranscriptSectionProps> = ({
     scrollTranscriptToSegment(listRef.current, jumpTarget.startMs);
     setHighlightedStartMs(jumpTarget.startMs);
     const timer = window.setTimeout(() => {
-      setHighlightedStartMs((cur) =>
-        cur === jumpTarget.startMs ? null : cur,
-      );
+      setHighlightedStartMs((cur) => (cur === jumpTarget.startMs ? null : cur));
     }, TRANSCRIPT_HIGHLIGHT_MS);
     return () => window.clearTimeout(timer);
   }, [jumpTarget]);
@@ -333,151 +331,153 @@ export const LiveTranscriptSection: React.FC<LiveTranscriptSectionProps> = ({
           </div>
         ) : null}
 
-      {!hideHeaderControls && isPaused && pausedHintLabel ? (
-        <p
-          role="status"
-          className="rounded-[9px] border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[12.5px] text-text"
+        {!hideHeaderControls && isPaused && pausedHintLabel ? (
+          <p
+            role="status"
+            className="rounded-[9px] border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[12.5px] text-text"
+          >
+            {pausedHintLabel}
+          </p>
+        ) : null}
+
+        {status.shortcut_failed ? (
+          <p
+            role="alert"
+            data-testid="shortcut-failure-banner"
+            className="rounded-[9px] border border-amber-500/35 bg-amber-500/10 px-3 py-1.5 text-[12.5px] text-text"
+          >
+            {t("meetings.view.shortcutFailed")}
+          </p>
+        ) : null}
+
+        {status.warnings.map((w) => (
+          <p
+            key={w}
+            role="status"
+            className="rounded-[9px] border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[12.5px] text-text"
+          >
+            {t(warningTranslationKey(w))}
+          </p>
+        ))}
+
+        {childrenBelowHeader}
+
+        {onSearchChange && searchPlaceholder ? (
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
+            className="w-full rounded-[9px] border border-mid-gray/35 bg-background px-3 py-1.5 text-[13px] text-text"
+          />
+        ) : null}
+
+        <div
+          ref={listRef}
+          role="log"
+          aria-live="polite"
+          onScroll={handleScroll}
+          className="max-h-72 overflow-y-auto rounded-[10px] border border-mid-gray/20 bg-mid-gray/[0.03]"
         >
-          {pausedHintLabel}
-        </p>
-      ) : null}
-
-      {status.shortcut_failed ? (
-        <p
-          role="alert"
-          data-testid="shortcut-failure-banner"
-          className="rounded-[9px] border border-amber-500/35 bg-amber-500/10 px-3 py-1.5 text-[12.5px] text-text"
-        >
-          {t("meetings.view.shortcutFailed")}
-        </p>
-      ) : null}
-
-      {status.warnings.map((w) => (
-        <p
-          key={w}
-          role="status"
-          className="rounded-[9px] border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[12.5px] text-text"
-        >
-          {t(warningTranslationKey(w))}
-        </p>
-      ))}
-
-      {childrenBelowHeader}
-
-      {onSearchChange && searchPlaceholder ? (
-        <input
-          type="search"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={searchPlaceholder}
-          aria-label={searchPlaceholder}
-          className="w-full rounded-[9px] border border-mid-gray/35 bg-background px-3 py-1.5 text-[13px] text-text"
-        />
-      ) : null}
-
-      <div
-        ref={listRef}
-        role="log"
-        aria-live="polite"
-        onScroll={handleScroll}
-        className="max-h-72 overflow-y-auto rounded-[10px] border border-mid-gray/20 bg-mid-gray/[0.03]"
-      >
-        <ol className="divide-y divide-mid-gray/15">
-          {visibleSegments.map((seg) => {
-            const key = segmentKey(seg);
-            const speaker = resolveTranscriptSpeakerLabel(
-              seg,
-              channelLabels,
-              showSpeakerLabels,
-              speakerNames,
-            );
-            const highlighted = highlightedStartMs === seg.start_ms;
-            const searchMatch =
-              qLower.length > 0 && seg.text.toLowerCase().includes(qLower);
-            const selected = selectedKeys.includes(key);
-            return (
-              <li
-                key={key}
-                data-segment-key={key}
-                data-start-ms={seg.start_ms}
-                data-highlighted={highlighted ? "true" : undefined}
-                data-search-match={searchMatch ? "true" : undefined}
-                data-selected={selected ? "true" : undefined}
-                onClick={
-                  onSelectSegment
-                    ? (e) => onSelectSegment(seg, e.shiftKey)
-                    : undefined
-                }
-                className={`flex items-start gap-3 px-3 py-2 text-[13px] transition-colors ${
-                  onSelectSegment ? "cursor-pointer hover:bg-mid-gray/10" : ""
-                } ${
-                  selected
-                    ? "bg-logo-primary/12 ring-1 ring-inset ring-logo-primary/35"
-                    : highlighted
-                      ? "bg-logo-primary/15 ring-1 ring-logo-primary/40"
-                      : searchMatch
-                        ? "bg-amber-400/10"
-                        : ""
-                }`}
-              >
-                <span className="w-11 shrink-0 font-mono text-[12px] tabular-nums text-mid-gray">
-                  {formatSegmentOffset(seg.start_ms)}
-                </span>
-                <span className="w-16 shrink-0 text-[12px] font-semibold text-text/80">
-                  {speaker}
-                </span>
-                <span className="min-w-0 flex-1 text-text">
-                  {searchMatch ? renderHighlightedText(seg.text, searchQuery) : seg.text}
-                  {selected ? (
-                    <span className="ml-1.5 text-[11.5px] font-semibold text-logo-primary">
-                      {t("meetings.storage.selectedTag", "(selected)")}
-                    </span>
+          <ol className="divide-y divide-mid-gray/15">
+            {visibleSegments.map((seg) => {
+              const key = segmentKey(seg);
+              const speaker = resolveTranscriptSpeakerLabel(
+                seg,
+                channelLabels,
+                showSpeakerLabels,
+                speakerNames,
+              );
+              const highlighted = highlightedStartMs === seg.start_ms;
+              const searchMatch =
+                qLower.length > 0 && seg.text.toLowerCase().includes(qLower);
+              const selected = selectedKeys.includes(key);
+              return (
+                <li
+                  key={key}
+                  data-segment-key={key}
+                  data-start-ms={seg.start_ms}
+                  data-highlighted={highlighted ? "true" : undefined}
+                  data-search-match={searchMatch ? "true" : undefined}
+                  data-selected={selected ? "true" : undefined}
+                  onClick={
+                    onSelectSegment
+                      ? (e) => onSelectSegment(seg, e.shiftKey)
+                      : undefined
+                  }
+                  className={`flex items-start gap-3 px-3 py-2 text-[13px] transition-colors ${
+                    onSelectSegment ? "cursor-pointer hover:bg-mid-gray/10" : ""
+                  } ${
+                    selected
+                      ? "bg-logo-primary/12 ring-1 ring-inset ring-logo-primary/35"
+                      : highlighted
+                        ? "bg-logo-primary/15 ring-1 ring-logo-primary/40"
+                        : searchMatch
+                          ? "bg-amber-400/10"
+                          : ""
+                  }`}
+                >
+                  <span className="w-11 shrink-0 font-mono text-[12px] tabular-nums text-mid-gray">
+                    {formatSegmentOffset(seg.start_ms)}
+                  </span>
+                  <span className="w-16 shrink-0 text-[12px] font-semibold text-text/80">
+                    {speaker}
+                  </span>
+                  <span className="min-w-0 flex-1 text-text">
+                    {searchMatch
+                      ? renderHighlightedText(seg.text, searchQuery)
+                      : seg.text}
+                    {selected ? (
+                      <span className="ml-1.5 text-[11.5px] font-semibold text-logo-primary">
+                        {t("meetings.storage.selectedTag", "(selected)")}
+                      </span>
+                    ) : null}
+                  </span>
+                  {onDeleteSpan && deleteSpanLabel ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteSpan(seg);
+                      }}
+                      className="shrink-0 rounded-[6px] border border-mid-gray/35 px-2 py-0.5 text-[11px] font-medium text-mid-gray cursor-pointer hover:text-red-600"
+                    >
+                      {deleteSpanLabel}
+                    </button>
                   ) : null}
-                </span>
-                {onDeleteSpan && deleteSpanLabel ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteSpan(seg);
-                    }}
-                    className="shrink-0 rounded-[6px] border border-mid-gray/35 px-2 py-0.5 text-[11px] font-medium text-mid-gray cursor-pointer hover:text-red-600"
-                  >
-                    {deleteSpanLabel}
-                  </button>
-                ) : null}
-              </li>
-            );
-          })}
-        </ol>
-      </div>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
 
-      {childrenAfterTranscript}
+        {childrenAfterTranscript}
 
-      {isLiveRecording ? (
-        <footer className="space-y-0.5 pt-1 text-[12px] text-mid-gray">
-          <p>{t("meetings.view.hints.headphones")}</p>
-          <p>
-            {t(
-              "meetings.view.hints.noHiddenMode",
-              "No hidden or background mode. The pill stays while recording.",
-            )}
-          </p>
-          <p>
-            {dictationShortcut
-              ? pushToTalk
-                ? t("meetings.view.hints.dictationWithKey", {
-                    defaultValue: "Dictation still works (hold {{key}}).",
-                    key: dictationShortcut,
-                  })
-                : t("meetings.view.hints.dictationWithKeyPress", {
-                    defaultValue: "Dictation still works (press {{key}}).",
-                    key: dictationShortcut,
-                  })
-              : t("meetings.view.hints.dictation")}
-          </p>
-        </footer>
-      ) : null}
+        {isLiveRecording ? (
+          <footer className="space-y-0.5 pt-1 text-[12px] text-mid-gray">
+            <p>{t("meetings.view.hints.headphones")}</p>
+            <p>
+              {t(
+                "meetings.view.hints.noHiddenMode",
+                "No hidden or background mode. The pill stays while recording.",
+              )}
+            </p>
+            <p>
+              {dictationShortcut
+                ? pushToTalk
+                  ? t("meetings.view.hints.dictationWithKey", {
+                      defaultValue: "Dictation still works (hold {{key}}).",
+                      key: dictationShortcut,
+                    })
+                  : t("meetings.view.hints.dictationWithKeyPress", {
+                      defaultValue: "Dictation still works (press {{key}}).",
+                      key: dictationShortcut,
+                    })
+                : t("meetings.view.hints.dictation")}
+            </p>
+          </footer>
+        ) : null}
       </section>
     </div>
   );
