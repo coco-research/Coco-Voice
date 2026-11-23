@@ -1,32 +1,35 @@
 <p align="center">
-  <img
-    src="docs/assets/coco-voice-hero.png"
-    width="100%"
-    alt="Coco Voice. Hold a key, speak, and your words land in the app you already have open. The speech model runs on your own computer."
-  />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/branding/banner-dark.png" />
+    <source media="(prefers-color-scheme: light)" srcset="assets/branding/banner-light.png" />
+    <img
+      src="assets/branding/banner-dark.png"
+      width="100%"
+      alt="Coco Voice v0.20.2 by Coco Research — private on-device dictation and meeting notes that type straight into the app you have open."
+    />
+  </picture>
 </p>
 
 <h1 align="center">Coco Voice</h1>
 
 <p align="center">
-  Desktop dictation for people who want speech typed into the app they already
-  have open.
+  Private on-device dictation and meeting notes for macOS, Windows x64, and Linux x64.
 </p>
 
 <p align="center">
   <a href="LICENSE"
     ><img
       alt="Licence: MIT"
-      src="https://img.shields.io/badge/licence-MIT-5F5F58?style=flat-square"
+      src="https://img.shields.io/badge/licence-MIT-5b8dff?style=flat-square&labelColor=03050b"
   /></a>
   <a href="https://github.com/coco-research/Coco-Voice/releases/latest"
     ><img
       alt="Latest release"
-      src="https://img.shields.io/github/v/release/coco-research/Coco-Voice?color=5F5F58&style=flat-square"
+      src="https://img.shields.io/github/v/release/coco-research/Coco-Voice?color=5b8dff&labelColor=03050b&style=flat-square"
   /></a>
   <img
-    alt="Ships for macOS Apple Silicon"
-    src="https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-5F5F58?style=flat-square"
+    alt="Platforms: macOS, Windows x64, Linux x64"
+    src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20x64%20%7C%20Linux%20x64-5F5F58?style=flat-square&labelColor=03050b"
   />
 </p>
 
@@ -38,25 +41,13 @@ Talking is faster than typing, but most dictation tools record you, send the aud
 
 ### For users
 
-Release 0.11.0 ships installers for macOS, Windows, and Linux. macOS: `Coco.Voice_0.11.0_aarch64.dmg` (Apple Silicon) and `Coco.Voice_0.11.0_x64.dmg` (Intel). Windows: x64 and arm64 installers (`-setup.exe` and `.msi`). Linux: an AppImage, a `.deb`, and an `.rpm` for x86_64/amd64 and aarch64/arm64. Builds are ad-hoc signed and not notarized, so Gatekeeper warns the first time you open the Mac app. Updater artifacts carry `.sig` files and `latest.json`. There is also a `SHA256SUMS` file. On a Mac, [INSTALL.md](INSTALL.md) covers the one-time quarantine step.
+Release `0.20.2` targets macOS (`Coco.Voice_0.20.2_aarch64.dmg` for Apple Silicon and `Coco.Voice_0.20.2_x64.dmg` for Intel), Windows `x64` (`Coco.Voice_0.20.2_x64-setup.exe` per-user NSIS installer with bundled ONNX Runtime, plus `_x64_en-US.msi`), and Linux (`_amd64.AppImage`, `_amd64.deb`, and `.x86_64.rpm`). Every release publishes `SHA256SUMS`, `latest.json`, and minisign `.sig` updater signatures. Step-by-step macOS, Windows x64, and Linux x64 install and checksum verification instructions are in [INSTALL.md](INSTALL.md).
 
-On an Apple Silicon Mac, one command downloads the latest release, copies Coco Voice into Applications, clears the quarantine flag, and launches it:
+- **macOS (Apple Silicon & Intel):** Download the `.dmg` for your Mac from the [latest release](https://github.com/coco-research/Coco-Voice/releases/latest), drag **Coco Voice** into **Applications**, and on first launch right-click **Coco Voice** in Applications → **Open** → **Open** (a one-time step while builds use self-signed code signing rather than paid Apple notarization).
+- **Windows x64:** Download `Coco.Voice_0.20.2_x64-setup.exe`, optionally verify its SHA-256 with `Get-FileHash` against `SHA256SUMS`, and if Windows SmartScreen prompts on first launch click **More info** → **Run anyway**.
+- **Linux x64:** Download `Coco.Voice_0.20.2_amd64.AppImage` (`chmod +x` and run) or install `Coco.Voice_0.20.2_amd64.deb` / `.x86_64.rpm`.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/coco-research/Coco-Voice/main/install.sh | bash
-```
-
-Or by hand on a Mac:
-
-1. Open the `.dmg` and drag **Coco Voice** into **Applications**.
-2. Clear quarantine, then launch:
-
-```bash
-xattr -dr com.apple.quarantine "/Applications/Coco Voice.app"
-open "/Applications/Coco Voice.app"
-```
-
-On first launch macOS asks for the microphone and for Accessibility. Accessibility is what lets the global shortcut and the paste keystroke work. After that, the app asks you to download a speech model. Nothing is transcribed until that download finishes. The default shortcut is hold Option+Space (push-to-talk). After an update, Accessibility may need to be granted again.
+On first launch macOS asks for Microphone and Accessibility permissions (Accessibility enables the global push-to-talk shortcut and paste keystroke; signing with the fixed Coco Research certificate preserves Accessibility across updates). Choose and download a local speech model in onboarding — default push-to-talk is `Option+Space` on macOS and `Ctrl+Space` on Windows and Linux.
 
 ### Build from source
 
@@ -102,13 +93,7 @@ The shortcut opens the microphone through cpal. Silero voice activity detection 
 
 ## Status and roadmap
 
-This is a beta. The latest release is 0.11.0. See [CHANGELOG.md](CHANGELOG.md) for what changed. Today, on an Apple Silicon Mac, you can hold the shortcut, speak, and paste a local transcript, with history, custom words, and corrections. The app includes an updater that reads the latest GitHub release. The Mac build is ad-hoc signed and not notarized. Apple Intelligence is not in the 0.9.5 download.
-
-Next:
-
-1. A Coco-hosted model mirror, with sha256 checks on each download. [Pull request #2](https://github.com/coco-research/Coco-Voice/pull/2) is open.
-2. Per-app profiles, plus cleanup that stays on the device with a local model. [Pull request #3](https://github.com/coco-research/Coco-Voice/pull/3) is open (still a draft).
-3. Meeting mode: long-form capture and summaries on the device. Planned. There is no pull request yet.
+Coco Voice `0.20.2` ships local dictation, custom vocabulary and whole-word corrections, local SQLite transcript history, minisign-verified in-app updates, and local meeting capture/notes infrastructure. See [CHANGELOG.md](CHANGELOG.md) for version-by-version changes and [INSTALL.md](INSTALL.md) for platform setup notes.
 
 ## Models and licences
 
@@ -134,7 +119,7 @@ Coco Voice is in a feature freeze. A pull request for a new feature the communit
 
 Coco Voice is a fork of [Handy](https://github.com/cjpais/Handy) by CJ Pais, which is also MIT. Handy is the speech pipeline this app still runs: recording, local models, shortcuts, and paste. Thank you to CJ Pais and the Handy contributors.
 
-On top of that fork, Coco Voice changed the name, the parrot mark, and the blue theme. It added the macOS install helper and an updater signed for this repository. On macOS, after updating, Accessibility may need to be granted again. It also added Apple Intelligence as an on-device cleanup provider when the app is built with full Xcode, and a speak-a-correction shortcut that replaces the last dictation, including corrections learned from edits you make in history.
+On top of that fork, Coco Voice adopted the Coco Research luminous orb mark and deep-space blue theme, added macOS and Windows x64 installer packaging plus minisign-verified GitHub Release updates, added Apple Intelligence as an on-device cleanup provider when built with full Xcode, and added a speak-a-correction shortcut that learns from history edits.
 
 Key libraries: [transcribe-cpp](https://github.com/handy-computer/transcribe.cpp), transcribe-rs, Silero VAD, and [Tauri](https://tauri.app/).
 
@@ -142,12 +127,11 @@ Key libraries: [transcribe-cpp](https://github.com/handy-computer/transcribe.cpp
 
 ### Platforms
 
-| Where you run it | What the code does                                                                                                                            |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| macOS            | Apple Silicon and Intel disk images. transcribe.cpp uses Metal. First launch asks for the microphone and Accessibility.                       |
-| Windows x64      | An x64 `-setup.exe` and `.msi`. transcribe.cpp uses Vulkan.                                                                                   |
-| Windows on ARM   | An arm64 `-setup.exe` and `.msi`. The speech engine is CPU-only.                                                                              |
-| Linux            | An AppImage, a `.deb`, and an `.rpm` for x86_64/amd64 and aarch64/arm64. transcribe.cpp uses Vulkan. The recording overlay is off by default. |
+| Where you run it | What the code does                                                                                                                      |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS            | Apple Silicon (`aarch64`) and Intel (`x64`) disk images. `transcribe.cpp` uses Metal. First launch asks for Microphone & Accessibility. |
+| Windows x64      | Per-user x64 `-setup.exe` (bundled ONNX Runtime) and `.msi`. `transcribe.cpp` uses Vulkan with CPU fallback.                            |
+| Linux x64        | `amd64` `.AppImage`, `.deb`, and `x86_64` `.rpm`. `transcribe.cpp` uses Vulkan with CPU fallback. Recording overlay is off by default.  |
 
 On Linux, `HANDY_NO_GTK_LAYER_SHELL=1` skips the GTK layer-shell overlay. Wayland paste depends on a typing tool such as `wtype`, `ydotool`, `dotool`, or `xdotool`. Install notes and the long build troubleshooting (Windows path length, AppImage, Intel Mac ONNX Runtime) are in [BUILD.md](BUILD.md).
 

@@ -11,6 +11,7 @@ package-lock.json
 
 node_modules
 dist
+dist-*/
 dist-ssr
 *.local
 *.local.*
@@ -48,3 +49,6 @@ result
 .bootstrap-dev.sh
 build.log
 /src-tauri/resources/models/
+
+# Model mirror upload report (scripts/mirror-upload.ts)
+/mirror-upload-report.json

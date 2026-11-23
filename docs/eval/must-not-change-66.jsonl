@@ -1,0 +1,66 @@
+{"id":"k01","kind":"keep","input":"I'll be late. Sorry, traffic is bad.","keep":["late","sorry","traffic"],"drop":[]}
+{"id":"k02","kind":"keep","input":"We shipped it. Actually, the tests were green.","keep":["it","actually","the"],"drop":[]}
+{"id":"k03","kind":"keep","input":"The demo went well. Actually, it went great.","keep":["well","actually","it"],"drop":[]}
+{"id":"k04","kind":"keep","input":"Thanks for the notes. I mean, they really helped.","keep":["notes","i mean","they"],"drop":[]}
+{"id":"k05","kind":"keep","input":"Send it to Priya. Correction: the deck is final.","keep":["Priya","correction","the"],"drop":[]}
+{"id":"k06","kind":"keep","input":"Is it ready? Actually, never mind.","keep":["ready","actually","never mind"],"drop":[]}
+{"id":"k07","kind":"keep","input":"Book the room. No wait, I'll do it myself.","keep":["room","no wait","I'll"],"drop":[]}
+{"id":"k08","kind":"keep","input":"Call me later. Sorry, I'm in a meeting.","keep":["later","sorry","I'm"],"drop":[]}
+{"id":"k09","kind":"keep","input":"We shipped it. No wait, not yet.","keep":["it","no wait","not"],"drop":[]}
+{"id":"k10","kind":"keep","input":"I mean it.","keep":["i mean","it"],"drop":[]}
+{"id":"k11","kind":"keep","input":"We should go. I mean it.","keep":["go","i mean","it"],"drop":[]}
+{"id":"k12","kind":"keep","input":"Scratch that off the list.","keep":["scratch that","off"],"drop":[]}
+{"id":"k13","kind":"keep","input":"Don't forget. Scratch that off the list.","keep":["forget","scratch that","off"],"drop":[]}
+{"id":"k14","kind":"keep","input":"Good news. No wait times today.","keep":["news","no wait","times"],"drop":[]}
+{"id":"k15","kind":"keep","input":"That was fun. Never mind the rain.","keep":["fun","never mind","the"],"drop":[]}
+{"id":"k16","kind":"keep","input":"Got it. Or rather, we got most of it.","keep":["it","or rather","we"],"drop":[]}
+{"id":"k17","kind":"keep","input":"It was in the box. I mean, obviously.","keep":["box","i mean","obviously"],"drop":[]}
+{"id":"k18","kind":"keep","input":"He works at the bank. I mean, seriously.","keep":["bank","i mean","seriously"],"drop":[]}
+{"id":"k19","kind":"keep","input":"I went to the store. I mean, honestly, what else?","keep":["store","i mean","honestly"],"drop":[]}
+{"id":"k20","kind":"keep","input":"Let's go to the park. I mean, why not?","keep":["park","i mean","why"],"drop":[]}
+{"id":"k21","kind":"keep","input":"We are on track. I mean, mostly.","keep":["track","i mean","mostly"],"drop":[]}
+{"id":"k22","kind":"keep","input":"Send the file to me. Sorry, my mistake.","keep":["me","sorry","my"],"drop":[]}
+{"id":"k23","kind":"keep","input":"It is on the desk. Never mind, found it.","keep":["desk","never mind","found"],"drop":[]}
+{"id":"k24","kind":"keep","input":"Put it in the drawer. No wait, really?","keep":["drawer","no wait","really"],"drop":[]}
+{"id":"k25","kind":"keep","input":"I was at home. I mean, where else?","keep":["home","i mean","where"],"drop":[]}
+{"id":"k26","kind":"keep","input":"That's for the kids. I mean, of course.","keep":["kids","i mean","of"],"drop":[]}
+{"id":"k27","kind":"keep","input":"Thanks again. I mean, really.","keep":["again","i mean","really"],"drop":[]}
+{"id":"k28","kind":"keep","input":"The file is on the server. No wait, hold on.","keep":["server","no wait","hold"],"drop":[]}
+{"id":"k29","kind":"keep","input":"I'll send it to you. No wait, tomorrow.","keep":["you","no wait","tomorrow"],"drop":[]}
+{"id":"k30","kind":"keep","input":"Give it to Sam. No wait, okay.","keep":["Sam","no wait","okay"],"drop":[]}
+{"id":"k31","kind":"keep","input":"Sounds good to me. No wait, one question.","keep":["me","no wait","one"],"drop":[]}
+{"id":"k32","kind":"keep","input":"Put the keys in the bowl. No wait, sorry.","keep":["bowl","no wait","sorry"],"drop":[]}
+{"id":"k33","kind":"keep","input":"The bus leaves at six. Never mind, it's late.","keep":["six","never mind","it's"],"drop":[]}
+{"id":"k34","kind":"keep","input":"Dinner is at seven. I mean, roughly.","keep":["seven","i mean","roughly"],"drop":[]}
+{"id":"k35","kind":"keep","input":"Ask him about it. No wait, never mind.","keep":["it","no wait","never mind"],"drop":[]}
+{"id":"k36","kind":"keep","input":"It's in the car. Actually, it's in the house.","keep":["car","actually","it's"],"drop":[]}
+{"id":"k37","kind":"keep","input":"Talk to you soon. Scratch that, bye.","keep":["soon","scratch that","bye"],"drop":[]}
+{"id":"k38","kind":"keep","input":"Send it to the client. No wait, hmm.","keep":["client","no wait","hmm"],"drop":[]}
+{"id":"k39","kind":"keep","input":"I'm at the gym. No wait, okay, fine.","keep":["gym","no wait","okay"],"drop":[]}
+{"id":"k40","kind":"keep","input":"It's for you. Scratch that.","keep":["you","scratch that"],"drop":[]}
+{"id":"k41","kind":"keep","input":"Thanks for coming. No wait, please stay.","keep":["coming","no wait","please"],"drop":[]}
+{"id":"k42","kind":"keep","input":"We are on it. Correction: done.","keep":["it","correction","done"],"drop":[]}
+{"id":"k43","kind":"keep","input":"Meet me in the lobby. Sorry, I mean it.","keep":["lobby","sorry","i mean","it"],"drop":[]}
+{"id":"k44","kind":"keep","input":"It's on GitHub. No wait, OK.","keep":["GitHub","no wait","OK"],"drop":[]}
+{"id":"k45","kind":"keep","input":"Send it to Priya. Scratch that. Okay.","keep":["Priya","scratch that","Okay"],"drop":[]}
+{"id":"k46","kind":"keep","input":"I live in Boston. Never mind, Thursday works.","keep":["Boston","never mind","Thursday"],"drop":[]}
+{"id":"k47","kind":"keep","input":"See you on Monday. I mean, probably.","keep":["Monday","i mean","probably"],"drop":[]}
+{"id":"k48","kind":"keep","input":"We have two options. Actually, three.","keep":["options","actually","three"],"drop":[]}
+{"id":"k49","kind":"keep","input":"Meet at the station. No wait, I'll drive.","keep":["station","no wait","I'll"],"drop":[]}
+{"id":"k50","kind":"keep","input":"That costs ten dollars. I mean, wow.","keep":["dollars","i mean","wow"],"drop":[]}
+{"id":"k51","kind":"keep","input":"It's in May. No wait, maybe.","keep":["May","no wait","maybe"],"drop":[]}
+{"id":"k52","kind":"keep","input":"Ask Sarah. Sorry, my bad.","keep":["Sarah","sorry","my"],"drop":[]}
+{"id":"k53","kind":"keep","input":"The office is in London. I mean, technically.","keep":["London","i mean","technically"],"drop":[]}
+{"id":"k54","kind":"keep","input":"Book a table for two. Scratch that, sounds good.","keep":["two","scratch that","sounds"],"drop":[]}
+{"id":"k55","kind":"keep","input":"I'll be there at five. No wait, seriously?","keep":["five","no wait","seriously"],"drop":[]}
+{"id":"k56","kind":"keep","input":"We met last Friday. I mean, it was fun.","keep":["Friday","i mean","it"],"drop":[]}
+{"id":"k57","kind":"keep","input":"It was 2019. Or rather, ages ago.","keep":["2019","or rather","ages"],"drop":[]}
+{"id":"k58","kind":"keep","input":"The code is in Rust. No wait, Yes.","keep":["Rust","no wait","Yes"],"drop":[]}
+{"id":"k59","kind":"keep","input":"Ping me on Slack. Never mind, Zoom is fine.","keep":["Slack","never mind","Zoom"],"drop":[]}
+{"id":"k60","kind":"keep","input":"We sold 40 units. I mean, wow, 40.","keep":["units","i mean","wow"],"drop":[]}
+{"id":"k61","kind":"keep","input":"Thanks, Sam. I mean, Thanks.","keep":["Sam","i mean","Thanks"],"drop":[]}
+{"id":"k62","kind":"keep","input":"Text Ana the address. I mean, the new one.","keep":["address","i mean","the"],"drop":[]}
+{"id":"k63","kind":"keep","input":"I need to call Sam. I mean, call him later.","keep":["Sam","i mean","call"],"drop":[]}
+{"id":"k64","kind":"keep","input":"Nice work, Ana. I mean, Bravo.","keep":["Ana","i mean","Bravo"],"drop":[]}
+{"id":"k65","kind":"keep","input":"It's due Friday. No wait, Friday is fine.","keep":["Friday","no wait","Friday is"],"drop":[]}
+{"id":"k66","kind":"keep","input":"Meet Leo at five. I mean, Leo.","keep":["five","i mean","Leo"],"drop":[]}
