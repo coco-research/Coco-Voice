@@ -15,12 +15,54 @@ const localeModules = import.meta.glob<{ default: Record<string, unknown> }>(
   { eager: true },
 );
 
+const speakerSplitLocaleModules =
+  import.meta.env.VITE_SPEAKER_SPLIT === "1"
+    ? import.meta.glob<{ default: Record<string, unknown> }>(
+        "./speaker-split/*.json",
+        { eager: true },
+      )
+    : {};
+
+function deepMergeTranslation(
+  target: Record<string, unknown>,
+  source: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...target };
+  for (const [k, v] of Object.entries(source)) {
+    const existing = out[k];
+    if (
+      v &&
+      typeof v === "object" &&
+      !Array.isArray(v) &&
+      existing &&
+      typeof existing === "object" &&
+      !Array.isArray(existing)
+    ) {
+      out[k] = deepMergeTranslation(
+        existing as Record<string, unknown>,
+        v as Record<string, unknown>,
+      );
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
 // Build resources from discovered locale files
 const resources: Record<string, { translation: Record<string, unknown> }> = {};
 for (const [path, module] of Object.entries(localeModules)) {
   const langCode = path.match(/\.\/locales\/(.+)\/translation\.json/)?.[1];
   if (langCode) {
-    resources[langCode] = { translation: module.default };
+    let merged = module.default;
+    if (import.meta.env.VITE_SPEAKER_SPLIT === "1") {
+      const speakerMod =
+        speakerSplitLocaleModules[`./speaker-split/${langCode}.json`];
+      if (speakerMod?.default) {
+        merged = deepMergeTranslation(merged, speakerMod.default);
+      }
+    }
+    resources[langCode] = { translation: merged };
   }
 }
 
