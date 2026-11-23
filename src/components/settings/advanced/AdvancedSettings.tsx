@@ -12,10 +12,8 @@ import { PasteMethodSetting } from "../PasteMethod";
 import { TypingToolSetting } from "../TypingTool";
 import { ClipboardHandlingSetting } from "../ClipboardHandling";
 import { AutoSubmit } from "../AutoSubmit";
-import { PostProcessingToggle } from "../PostProcessingToggle";
+import { PasteDelay } from "../debug/PasteDelay";
 import { AppendTrailingSpace } from "../AppendTrailingSpace";
-import { HistoryLimit } from "../HistoryLimit";
-import { RecordingRetentionPeriodSelector } from "../RecordingRetentionPeriod";
 import { ExperimentalToggle } from "../ExperimentalToggle";
 import { useMeetingsUi } from "../../meetings/gate";
 import { useSettings } from "../../../hooks/useSettings";
@@ -48,6 +46,14 @@ export const AdvancedSettings: React.FC = () => {
         <PasteMethodSetting descriptionMode="tooltip" grouped={true} />
         <TypingToolSetting descriptionMode="tooltip" grouped={true} />
         <ClipboardHandlingSetting descriptionMode="tooltip" grouped={true} />
+        <PasteDelay descriptionMode="tooltip" grouped={true} />
+        <PasteDelay
+          descriptionMode="tooltip"
+          grouped={true}
+          settingKey="paste_delay_after_ms"
+          labelKey="settings.debug.pasteDelayAfter.title"
+          descriptionKey="settings.debug.pasteDelayAfter.description"
+        />
         <AutoSubmit descriptionMode="tooltip" grouped={true} />
       </SettingsGroup>
 
@@ -58,17 +64,8 @@ export const AdvancedSettings: React.FC = () => {
         <AppendTrailingSpace descriptionMode="tooltip" grouped={true} />
       </SettingsGroup>
 
-      <SettingsGroup title={t("settings.advanced.groups.history")}>
-        <HistoryLimit descriptionMode="tooltip" grouped={true} />
-        <RecordingRetentionPeriodSelector
-          descriptionMode="tooltip"
-          grouped={true}
-        />
-      </SettingsGroup>
-
       {experimentalEnabled && (
         <SettingsGroup title={t("settings.advanced.groups.experimental")}>
-          <PostProcessingToggle descriptionMode="tooltip" grouped={true} />
           <KeyboardImplementationSelector
             descriptionMode="tooltip"
             grouped={true}
