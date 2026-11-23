@@ -868,9 +868,10 @@ dependencies = [
 
 [[package]]
 name = "coco-voice"
-version = "0.11.0"
+version = "0.20.0"
 dependencies = [
  "anyhow",
+ "block2",
  "chrono",
  "cidre",
  "clap",
@@ -886,10 +887,15 @@ dependencies = [
  "handy-keys",
  "hf-hub",
  "hound",
+ "libc",
  "llama-cpp-2",
  "log",
  "natural",
+ "ndarray",
+ "objc2",
+ "objc2-foundation",
  "once_cell",
+ "ort",
  "plist",
  "regex",
  "reqwest 0.12.28",
