@@ -1187,7 +1187,8 @@
       "selectedTag": "(вибрано)",
       "selectedCount": "Вибрано: {{count}}",
       "importIntoFolderLabel": "Імпортувати до папки",
-      "deletePartFailed": "Не вдалося видалити цю частину."
+      "deletePartFailed": "Не вдалося видалити цю частину.",
+      "restoreFailed": "Не вдалося відновити зустріч."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

@@ -1187,7 +1187,8 @@
       "selectedTag": "(נבחר)",
       "selectedCount": "{{count}} נבחרו",
       "importIntoFolderLabel": "ייבוא לתיקייה",
-      "deletePartFailed": "לא ניתן למחוק חלק זה."
+      "deletePartFailed": "לא ניתן למחוק חלק זה.",
+      "restoreFailed": "לא ניתן לשחזר את הפגישה."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

@@ -15,6 +15,12 @@ import {
   MeetingNotesSection,
 } from "../src/components/meetings/MeetingNotesPanel";
 import { runOptimisticCommand } from "../src/components/meetings/meetings-ui";
+import {
+  changeTranscriptKeepDaysAction,
+  deleteTrashedMeetingNowAction,
+  restoreTrashedMeetingAction,
+  type TrashedMeetingItem,
+} from "../src/components/meetings/MeetingHistoryExtras";
 
 const root = join(import.meta.dir, "..");
 
@@ -179,5 +185,132 @@ describe("optimistic part delete truth", () => {
     expect(
       /^\s*await\s+meetingCommands\.deleteTranscriptSpanSecure\(/m.test(src),
     ).toBe(false);
+  });
+});
+
+describe("trash restore, delete-now, and keep-time truth", () => {
+  const sampleTrash: TrashedMeetingItem[] = [
+    { id: 10, title: "Design sync", deletedAt: 1_700_000_000 },
+    { id: 11, title: "Sprint review", deletedAt: 1_700_000_100 },
+  ];
+
+  test("restore error puts the item back and sets restoreFailed", async () => {
+    let items = [...sampleTrash];
+    const setTrashed: React.Dispatch<
+      React.SetStateAction<TrashedMeetingItem[]>
+    > = (updater) => {
+      items = typeof updater === "function" ? updater(items) : updater;
+    };
+    let errorKey: string | null = null;
+    const ok = await restoreTrashedMeetingAction(
+      10,
+      items,
+      setTrashed,
+      (k) => {
+        errorKey = k;
+      },
+      async () => ({ status: "error", error: "restore failed" }),
+    );
+    expect(ok).toBe(false);
+    expect(items).toEqual(sampleTrash);
+    expect(errorKey).toBe("meetings.storage.restoreFailed");
+  });
+
+  test("delete-now handles error rollback, audio-left warning true, and false", async () => {
+    let items = [...sampleTrash];
+    const setTrashed: React.Dispatch<
+      React.SetStateAction<TrashedMeetingItem[]>
+    > = (updater) => {
+      items = typeof updater === "function" ? updater(items) : updater;
+    };
+    let errorKey: string | null = null;
+    let audioWarn = false;
+    const errOk = await deleteTrashedMeetingNowAction(
+      10,
+      items,
+      setTrashed,
+      (k) => {
+        errorKey = k;
+      },
+      (w) => {
+        audioWarn = w;
+      },
+      async () => ({ status: "error", error: "delete failed" }),
+    );
+    expect(errOk).toBe(false);
+    expect(items).toEqual(sampleTrash);
+    expect(errorKey).toBe("meetings.list.deleteFailed");
+    expect(audioWarn).toBe(false);
+
+    items = [...sampleTrash];
+    errorKey = null;
+    audioWarn = false;
+    const warnOk = await deleteTrashedMeetingNowAction(
+      10,
+      items,
+      setTrashed,
+      (k) => {
+        errorKey = k;
+      },
+      (w) => {
+        audioWarn = w;
+      },
+      async () => ({ status: "ok", data: true }),
+    );
+    expect(warnOk).toBe(true);
+    expect(items.map((x) => x.id)).toEqual([11]);
+    expect(errorKey).toBeNull();
+    expect(audioWarn).toBe(true);
+
+    items = [...sampleTrash];
+    errorKey = null;
+    audioWarn = true;
+    const cleanOk = await deleteTrashedMeetingNowAction(
+      10,
+      items,
+      setTrashed,
+      (k) => {
+        errorKey = k;
+      },
+      (w) => {
+        audioWarn = w;
+      },
+      async () => ({ status: "ok", data: false }),
+    );
+    expect(cleanOk).toBe(true);
+    expect(items.map((x) => x.id)).toEqual([11]);
+    expect(errorKey).toBeNull();
+    expect(audioWarn).toBe(false);
+  });
+
+  test("keep-time error restores previous value and sets actionFailed", async () => {
+    let currentDays: number | null = 30;
+    let errorKey: string | null = null;
+    const ok = await changeTranscriptKeepDaysAction(
+      7,
+      currentDays,
+      (d) => {
+        currentDays = d;
+      },
+      (k) => {
+        errorKey = k;
+      },
+      async () => ({ status: "error", error: "save failed" }),
+    );
+    expect(ok).toBe(false);
+    expect(currentDays).toBe(30);
+    expect(errorKey).toBe("meetings.retention.actionFailed");
+  });
+
+  test("MeetingHistoryExtras has zero fire-and-forget void calls for trash and keep-time commands", () => {
+    const src = readFileSync(
+      join(root, "src/components/meetings/MeetingHistoryExtras.tsx"),
+      "utf-8",
+    );
+    expect(src).not.toContain("void meetingCommands.restoreTrashedMeetingV2");
+    expect(src).not.toContain("void meetingCommands.deleteMeetingForever");
+    expect(src).not.toContain(
+      "void meetingCommands.changeTranscriptDeleteDaysSetting",
+    );
   });
 });

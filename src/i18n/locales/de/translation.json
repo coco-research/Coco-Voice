@@ -1187,7 +1187,8 @@
       "selectedTag": "(ausgewählt)",
       "selectedCount": "{{count}} ausgewählt",
       "importIntoFolderLabel": "In Ordner importieren",
-      "deletePartFailed": "Dieser Teil konnte nicht gelöscht werden."
+      "deletePartFailed": "Dieser Teil konnte nicht gelöscht werden.",
+      "restoreFailed": "Das Meeting konnte nicht wiederhergestellt werden."
     },
     "ask": {
       "singleHeading": "Diese Besprechung fragen",

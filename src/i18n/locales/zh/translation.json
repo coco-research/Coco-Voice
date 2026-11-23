@@ -1187,7 +1187,8 @@
       "selectedTag": "（已选中）",
       "selectedCount": "已选 {{count}} 项",
       "importIntoFolderLabel": "导入到文件夹",
-      "deletePartFailed": "无法删除这一部分。"
+      "deletePartFailed": "无法删除这一部分。",
+      "restoreFailed": "无法恢复该会议。"
     },
     "ask": {
       "singleHeading": "Ask this meeting",

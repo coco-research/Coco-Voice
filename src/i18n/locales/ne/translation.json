@@ -1187,7 +1187,8 @@
       "selectedTag": "(छानिएको)",
       "selectedCount": "{{count}} छानिए",
       "importIntoFolderLabel": "फोल्डरमा आयात गर्नुहोस्",
-      "deletePartFailed": "यो भाग मेटाउन सकिएन।"
+      "deletePartFailed": "यो भाग मेटाउन सकिएन।",
+      "restoreFailed": "बैठक पुनर्स्थापना गर्न सकिएन।"
     },
     "ask": {
       "singleHeading": "Ask this meeting",

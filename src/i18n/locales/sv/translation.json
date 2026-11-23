@@ -1187,7 +1187,8 @@
       "selectedTag": "(vald)",
       "selectedCount": "{{count}} valda",
       "importIntoFolderLabel": "Importera till mapp",
-      "deletePartFailed": "Kunde inte ta bort den här delen."
+      "deletePartFailed": "Kunde inte ta bort den här delen.",
+      "restoreFailed": "Kunde inte återställa mötet."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

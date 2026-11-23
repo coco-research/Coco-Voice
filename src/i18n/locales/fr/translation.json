@@ -1187,7 +1187,8 @@
       "selectedTag": "(sélectionné)",
       "selectedCount": "{{count}} sélectionnés",
       "importIntoFolderLabel": "Importer dans le dossier",
-      "deletePartFailed": "Impossible de supprimer cette partie."
+      "deletePartFailed": "Impossible de supprimer cette partie.",
+      "restoreFailed": "Impossible de restaurer la réunion."
     },
     "ask": {
       "singleHeading": "Interroger cette réunion",

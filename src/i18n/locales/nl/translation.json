@@ -1187,7 +1187,8 @@
       "selectedTag": "(geselecteerd)",
       "selectedCount": "{{count}} geselecteerd",
       "importIntoFolderLabel": "Importeren in map",
-      "deletePartFailed": "Kon dit deel niet verwijderen."
+      "deletePartFailed": "Kon dit deel niet verwijderen.",
+      "restoreFailed": "Kon de vergadering niet herstellen."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

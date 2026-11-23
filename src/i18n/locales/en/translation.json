@@ -1187,7 +1187,8 @@
       "selectedTag": "(selected)",
       "selectedCount": "{{count}} selected",
       "importIntoFolderLabel": "Import into folder",
-      "deletePartFailed": "Could not delete this part."
+      "deletePartFailed": "Could not delete this part.",
+      "restoreFailed": "Could not restore the meeting."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

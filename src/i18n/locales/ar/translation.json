@@ -1187,7 +1187,8 @@
       "selectedTag": "(محدد)",
       "selectedCount": "تم تحديد {{count}}",
       "importIntoFolderLabel": "استيراد إلى مجلد",
-      "deletePartFailed": "تعذر حذف هذا الجزء."
+      "deletePartFailed": "تعذر حذف هذا الجزء.",
+      "restoreFailed": "تعذر استعادة الاجتماع."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

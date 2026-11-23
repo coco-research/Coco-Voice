@@ -1187,7 +1187,8 @@
       "selectedTag": "(избрано)",
       "selectedCount": "{{count}} избрани",
       "importIntoFolderLabel": "Импортирай в папка",
-      "deletePartFailed": "Неуспешно изтриване на тази част."
+      "deletePartFailed": "Неуспешно изтриване на тази част.",
+      "restoreFailed": "Неуспешно възстановяване на срещата."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

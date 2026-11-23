@@ -1187,7 +1187,8 @@
       "selectedTag": "(выбрано)",
       "selectedCount": "Выбрано: {{count}}",
       "importIntoFolderLabel": "Импортировать в папку",
-      "deletePartFailed": "Не удалось удалить эту часть."
+      "deletePartFailed": "Не удалось удалить эту часть.",
+      "restoreFailed": "Не удалось восстановить встречу."
     },
     "ask": {
       "singleHeading": "Ask this meeting",

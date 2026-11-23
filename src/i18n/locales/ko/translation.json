@@ -1187,7 +1187,8 @@
       "selectedTag": "(선택됨)",
       "selectedCount": "{{count}}개 선택됨",
       "importIntoFolderLabel": "폴더로 가져오기",
-      "deletePartFailed": "이 부분을 삭제하지 못했습니다."
+      "deletePartFailed": "이 부분을 삭제하지 못했습니다.",
+      "restoreFailed": "회의를 복원하지 못했습니다."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
