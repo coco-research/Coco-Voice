@@ -11,6 +11,33 @@ use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 
 const APP_IDENTIFIER: &str = "com.cocoresearch.cocovoice";
+
+fn active_bundle_identifier() -> String {
+    if let Ok(id) = std::env::var("COCO_VOICE_APP_IDENTIFIER") {
+        let t = id.trim();
+        if !t.is_empty() {
+            return t.to_string();
+        }
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(contents) = exe.parent().and_then(|p| p.parent()) {
+            let plist = contents.join("Info.plist");
+            if let Ok(raw) = std::fs::read_to_string(&plist) {
+                if let Some(idx) = raw.find("<key>CFBundleIdentifier</key>") {
+                    let after = &raw[idx + "<key>CFBundleIdentifier</key>".len()..];
+                    if let (Some(s), Some(e)) = (after.find("<string>"), after.find("</string>")) {
+                        let val = after[s + 8..e].trim();
+                        if !val.is_empty() {
+                            return val.to_string();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    APP_IDENTIFIER.to_string()
+}
+
 const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
 pub(crate) const MAX_QUESTION_CHARS: usize = 200;
 
@@ -203,7 +230,7 @@ pub fn resolve_data_dir(override_dir: Option<&Path>) -> Option<PathBuf> {
     std::env::var_os("HOME").map(|h| {
         PathBuf::from(h)
             .join("Library/Application Support")
-            .join(APP_IDENTIFIER)
+            .join(active_bundle_identifier())
     })
 }
 
@@ -223,11 +250,12 @@ pub fn run_stdio(override_dir: Option<&Path>) -> i32 {
     }
 }
 
-/// Production stdio server: never reads answers from any file on disk. Without a
-/// live GUI voice-capture bridge attached, `ask_user` fails closed.
+/// Production stdio server: never reads answers from any file on disk.
+/// Sends each question to the running Coco Voice app over its local Unix domain
+/// socket (`agent-ask.sock`) and fails closed when Coco Voice isn't running.
 pub fn serve_stdio_production<R: BufRead, W: Write>(r: R, w: &mut W, dir: &Path) -> io::Result<()> {
-    serve_stdio_core(r, w, dir, |_agent, _q| {
-        Err("refused: voice_capture_not_wired")
+    serve_stdio_core(r, w, dir, |agent, q| {
+        crate::agent_ask_bridge::send_question_over_socket(dir, agent, q)
     })
 }
 
@@ -241,11 +269,12 @@ where
     serve_stdio_core(r, w, dir, voice_fn)
 }
 
-fn serve_stdio_core<R, W, F>(r: R, w: &mut W, dir: &Path, mut voice_fn: F) -> io::Result<()>
+fn serve_stdio_core<R, W, F, E>(r: R, w: &mut W, dir: &Path, mut voice_fn: F) -> io::Result<()>
 where
     R: BufRead,
     W: Write,
-    F: FnMut(&str, &str) -> Result<String, &'static str>,
+    E: AsRef<str>,
+    F: FnMut(&str, &str) -> Result<String, E>,
 {
     let mut client = String::from("Local Agent");
     let mut queue = AgentAskQueue::new("fn");
@@ -263,7 +292,7 @@ where
     Ok(())
 }
 
-pub fn handle_json_line<F>(
+pub fn handle_json_line<F, E>(
     line: &str,
     data_dir: &Path,
     client: &mut String,
@@ -271,7 +300,8 @@ pub fn handle_json_line<F>(
     voice_fn: &mut F,
 ) -> Option<String>
 where
-    F: FnMut(&str, &str) -> Result<String, &'static str>,
+    E: AsRef<str>,
+    F: FnMut(&str, &str) -> Result<String, E>,
 {
     let Ok(req) = serde_json::from_str::<Value>(line) else {
         return Some(rpc_err(Value::Null, -32700, "parse_error").to_string());
@@ -334,7 +364,7 @@ fn ask_user_tool_spec() -> Value {
     })
 }
 
-fn call_ask_user_tool<F>(
+fn call_ask_user_tool<F, E>(
     data_dir: &Path,
     client: &str,
     queue: &mut AgentAskQueue,
@@ -343,7 +373,8 @@ fn call_ask_user_tool<F>(
     voice_fn: &mut F,
 ) -> Value
 where
-    F: FnMut(&str, &str) -> Result<String, &'static str>,
+    E: AsRef<str>,
+    F: FnMut(&str, &str) -> Result<String, E>,
 {
     let policy = AgentsCanAskPolicy::load(data_dir);
     if !policy.enabled {
@@ -374,7 +405,7 @@ where
         Ok(ans) => ans,
         Err(code) => {
             let _ = queue.pending.pop_front();
-            return tool_err(code);
+            return tool_err(code.as_ref());
         }
     };
     match queue.answer_current(&spoken) {
@@ -459,7 +490,7 @@ mod tests {
         .to_string();
         let reply_off: Value = serde_json::from_str(
             &handle_json_line(&req_off, p, &mut client, &mut queue, &mut |_, _| {
-                Ok("main".into())
+                Ok::<String, &'static str>("main".into())
             })
             .unwrap(),
         )
@@ -533,9 +564,15 @@ mod tests {
         let prod_reply: Value =
             serde_json::from_str(String::from_utf8(prod_out).unwrap().trim()).unwrap();
         assert_eq!(prod_reply["result"]["isError"], json!(true));
+        #[cfg(unix)]
         assert_eq!(
             prod_reply["result"]["content"][0]["text"],
-            json!("refused: voice_capture_not_wired")
+            json!(crate::agent_ask_bridge::ERR_NOT_RUNNING)
+        );
+        #[cfg(not(unix))]
+        assert_eq!(
+            prod_reply["result"]["content"][0]["text"],
+            json!(crate::agent_ask_bridge::ERR_WINDOWS_UNSUPPORTED)
         );
     }
 }

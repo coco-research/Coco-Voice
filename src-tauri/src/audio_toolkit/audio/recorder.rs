@@ -69,6 +69,37 @@ impl VadConfig {
 /// Callback invoked with each 16 kHz mono frame that passes the active capture
 /// policy while recording. Used to feed a live streaming transcription as audio arrives.
 pub type AudioFrameCallback = Arc<dyn Fn(&[f32]) + Send + Sync + 'static>;
+pub type SilentMicCallback = Arc<dyn Fn() + Send + Sync + 'static>;
+pub const SILENT_START_WINDOW_SAMPLES: usize = 24_000;
+pub const SILENT_RMS_FLOOR: f32 = 1e-4;
+
+#[derive(Default, Debug)]
+pub struct SilentMicDetector {
+    samples_seen: usize,
+    heard_signal: bool,
+    warned: bool,
+}
+
+impl SilentMicDetector {
+    pub fn reset(&mut self) {
+        *self = Self::default();
+    }
+
+    pub fn feed(&mut self, pcm_16k: &[f32]) -> bool {
+        if self.heard_signal || self.warned || pcm_16k.is_empty() {
+            return false;
+        }
+        let rms = (pcm_16k.iter().map(|s| s * s).sum::<f32>() / pcm_16k.len() as f32).sqrt();
+        if rms >= SILENT_RMS_FLOOR {
+            self.heard_signal = true;
+            return false;
+        }
+        self.samples_seen += pcm_16k.len();
+        let trigger = self.samples_seen >= SILENT_START_WINDOW_SAMPLES;
+        self.warned |= trigger;
+        trigger
+    }
+}
 
 pub struct AudioRecorder {
     device: Option<Device>,
@@ -77,6 +108,7 @@ pub struct AudioRecorder {
     vad: Option<VadConfig>,
     level_cb: Option<Arc<dyn Fn(Vec<f32>) + Send + Sync + 'static>>,
     audio_cb: Option<AudioFrameCallback>,
+    silent_cb: Option<SilentMicCallback>,
     /// Preferred stream config cached per device name. The two HAL property
     /// queries in `get_preferred_config` cost ~40-85ms per open (worse on
     /// USB/Bluetooth), which lands on the keypress->capture path in on-demand
@@ -95,6 +127,7 @@ impl AudioRecorder {
             vad: None,
             level_cb: None,
             audio_cb: None,
+            silent_cb: None,
             config_cache: Arc::new(Mutex::new(None)),
         })
     }
@@ -136,6 +169,14 @@ impl AudioRecorder {
         self
     }
 
+    pub fn with_silent_mic_callback<F>(mut self, cb: F) -> Self
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
+        self.silent_cb = Some(Arc::new(cb));
+        self
+    }
+
     pub fn open(&mut self, device: Option<Device>) -> Result<(), Box<dyn std::error::Error>> {
         if self.worker_handle.is_some() {
             return Ok(()); // already open
@@ -159,6 +200,7 @@ impl AudioRecorder {
         let level_cb = self.level_cb.clone();
         // Move the optional real-time audio frame callback into the worker thread
         let audio_cb = self.audio_cb.clone();
+        let silent_cb = self.silent_cb.clone();
         let config_cache = Arc::clone(&self.config_cache);
 
         let worker = std::thread::spawn(move || {
@@ -275,6 +317,7 @@ impl AudioRecorder {
                         cmd_rx,
                         level_cb,
                         audio_cb,
+                        silent_cb,
                         stop_flag,
                         stream_running_at,
                     );
@@ -521,9 +564,11 @@ fn run_consumer(
     cmd_rx: mpsc::Receiver<Cmd>,
     level_cb: Option<Arc<dyn Fn(Vec<f32>) + Send + Sync + 'static>>,
     audio_cb: Option<AudioFrameCallback>,
+    silent_cb: Option<SilentMicCallback>,
     stop_flag: Arc<AtomicBool>,
     stream_running_at: Instant,
 ) {
+    let mut silent_detector = SilentMicDetector::default();
     let mut frame_resampler = FrameResampler::new(
         in_sample_rate as usize,
         constants::WHISPER_SAMPLE_RATE as usize,
@@ -616,6 +661,7 @@ fn run_consumer(
                     vad_policy = policy;
                     processed_samples.clear();
                     recording = true;
+                    silent_detector.reset();
                     visualizer.reset();
                     frame_resampler.reset();
                     // Reconfigure the single VAD engine for this session's policy
@@ -723,6 +769,11 @@ fn run_consumer(
 
         // ---------- existing pipeline ------------------------------------ //
         frame_resampler.push(&raw, &mut |frame: &[f32]| {
+            if recording && silent_detector.feed(frame) {
+                if let Some(cb) = &silent_cb {
+                    cb();
+                }
+            }
             handle_frame(
                 frame,
                 recording,
