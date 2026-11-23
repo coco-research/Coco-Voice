@@ -152,7 +152,9 @@ export const AskMeetingsSection: React.FC<AskMeetingsSectionProps> = ({
         <p className="mt-0.5 text-[13px] text-mid-gray">{subtitle}</p>
       </div>
 
-      {!singleMeetingMode && scope === "folder" && availableFolders.length > 0 ? (
+      {!singleMeetingMode &&
+      scope === "folder" &&
+      availableFolders.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-[10px] border border-mid-gray/20 bg-mid-gray/[0.03] px-3 py-2 text-[12.5px]">
           <span className="text-mid-gray">
             {t("meetings.ask.chooseFolder", "Folder:")}
@@ -388,9 +390,15 @@ export function buildAskMeetingsV2Params(
 }
 
 export interface AskByVoiceControllerDeps {
-  startAskByVoice: () => Promise<{ status: "ok"; data: null } | { status: "error"; error: string }>;
-  finishAskByVoice: () => Promise<{ status: "ok"; data: string } | { status: "error"; error: string }>;
-  cancelAskByVoice: () => Promise<{ status: "ok"; data: null } | { status: "error"; error: string }>;
+  startAskByVoice: () => Promise<
+    { status: "ok"; data: null } | { status: "error"; error: string }
+  >;
+  finishAskByVoice: () => Promise<
+    { status: "ok"; data: string } | { status: "error"; error: string }
+  >;
+  cancelAskByVoice: () => Promise<
+    { status: "ok"; data: null } | { status: "error"; error: string }
+  >;
   onListeningChange: (listening: boolean) => void;
   onVoiceErrorKeyChange: (key: string | null) => void;
   onSpokenQuestion: (spoken: string) => void | Promise<void>;
@@ -491,9 +499,7 @@ export const AskMeetingsView: React.FC<{
     void invoke<Array<{ id: number; title: string }>>("list_meetings")
       .then((rows) => {
         if (!cancelled && Array.isArray(rows)) {
-          setAvailableMeetings(
-            rows.map((r) => ({ id: r.id, title: r.title })),
-          );
+          setAvailableMeetings(rows.map((r) => ({ id: r.id, title: r.title })));
         }
       })
       .catch(() => {});
@@ -635,7 +641,10 @@ export const AskMeetingsView: React.FC<{
 };
 
 export function formatTodoSourceLine(
-  item: Pick<MeetingTodoItem, "meeting_id" | "meeting_title" | "meeting_date" | "said_by_me">,
+  item: Pick<
+    MeetingTodoItem,
+    "meeting_id" | "meeting_title" | "meeting_date" | "said_by_me"
+  >,
   prevMeetingId: number | null,
   t: (
     key: string,
@@ -661,28 +670,59 @@ export function formatTodoSourceLine(
     : `${item.meeting_title}, ${item.meeting_date}`;
 }
 
+export type MeetingTodosLoadResult = {
+  items: MeetingTodoItem[];
+  loadFailed: boolean;
+};
+
+export async function loadMeetingTodos(
+  listTodos: () => Promise<
+    | { status: "ok"; data: MeetingTodoItem[] }
+    | { status: "error"; error: string }
+  > = () => commands.listMeetingTodos(),
+): Promise<MeetingTodosLoadResult> {
+  try {
+    const res = await listTodos();
+    if (res.status === "ok") {
+      return { items: res.data, loadFailed: false };
+    }
+    return { items: [], loadFailed: true };
+  } catch {
+    return { items: [], loadFailed: true };
+  }
+}
+
 export const MeetingTodosPanel: React.FC<{
   items?: MeetingTodoItem[];
+  loadFailed?: boolean;
   onComplete?: (id: string) => void;
   onOpenMoment?: (item: MeetingTodoItem) => void;
-}> = ({ items: propItems, onComplete, onOpenMoment }) => {
+}> = ({
+  items: propItems,
+  loadFailed: propLoadFailed,
+  onComplete,
+  onOpenMoment,
+}) => {
   const { t } = useTranslation();
   const [localItems, setLocalItems] = useState<MeetingTodoItem[]>([]);
+  const [localLoadFailed, setLocalLoadFailed] = useState(false);
 
   useEffect(() => {
-    if (propItems) return;
+    if (propItems || propLoadFailed !== undefined) return;
     let cancelled = false;
-    void commands.listMeetingTodos().then((res) => {
-      if (!cancelled && res.status === "ok") {
-        setLocalItems(res.data);
+    void loadMeetingTodos().then((result) => {
+      if (!cancelled) {
+        setLocalItems(result.items);
+        setLocalLoadFailed(result.loadFailed);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [propItems]);
+  }, [propItems, propLoadFailed]);
 
   const items = propItems ?? localItems;
+  const loadFailed = propLoadFailed ?? localLoadFailed;
   const markDone = (id: string) => {
     if (onComplete) {
       onComplete(id);
@@ -707,7 +747,15 @@ export const MeetingTodosPanel: React.FC<{
         </p>
       </div>
 
-      {items.length > 0 ? (
+      {loadFailed ? (
+        <p
+          role="alert"
+          data-testid="meetings-todos-error"
+          className="text-[12px] text-red-600"
+        >
+          {t("meetings.todos.loadFailed", "Could not load to-dos.")}
+        </p>
+      ) : items.length > 0 ? (
         <ul className="divide-y divide-mid-gray/20 rounded-[14px] border border-mid-gray/25 bg-background px-4">
           {items.map((item, idx) => {
             const prevMeetingId = idx > 0 ? items[idx - 1].meeting_id : null;

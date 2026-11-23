@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "最近 14 天没有待办事项。",
+      "loadFailed": "无法加载待办事项。",
       "youSaidIn": "你在《{{title}}》（{{date}}）中提到过",
       "youSaidInNoDate": "你在《{{title}}》中提到过"
     },

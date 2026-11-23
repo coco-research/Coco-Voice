@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "Nessuna attività negli ultimi 14 giorni.",
+      "loadFailed": "Impossibile caricare le attività.",
       "youSaidIn": "L'hai detto in {{title}}, {{date}}",
       "youSaidInNoDate": "L'hai detto in {{title}}"
     },

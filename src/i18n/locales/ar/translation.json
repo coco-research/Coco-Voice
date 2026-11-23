@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "لا توجد مهام من آخر 14 يوماً.",
+      "loadFailed": "تعذر تحميل المهام.",
       "youSaidIn": "قلت ذلك في {{title}}، {{date}}",
       "youSaidInNoDate": "قلت ذلك في {{title}}"
     },

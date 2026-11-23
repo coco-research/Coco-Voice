@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "Brak zadań z ostatnich 14 dni.",
+      "loadFailed": "Nie udało się wczytać zadań.",
       "youSaidIn": "Powiedziałeś to w {{title}}, {{date}}",
       "youSaidInNoDate": "Powiedziałeś to w {{title}}"
     },

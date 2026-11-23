@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "Keine Aufgaben aus den letzten 14 Tagen.",
+      "loadFailed": "Die Aufgaben konnten nicht geladen werden.",
       "youSaidIn": "Du hast das in {{title}}, {{date}} gesagt",
       "youSaidInNoDate": "Du hast das in {{title}} gesagt"
     },

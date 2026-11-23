@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "Không có việc cần làm nào trong 14 ngày qua.",
+      "loadFailed": "Không thể tải danh sách việc cần làm.",
       "youSaidIn": "Bạn đã nói điều này trong {{title}}, {{date}}",
       "youSaidInNoDate": "Bạn đã nói điều này trong {{title}}"
     },

@@ -40,40 +40,63 @@ pub fn any_ask_clean_pending() -> bool {
     !guard.is_empty()
 }
 
-/// Sync (and optionally securely compact) the Ask index if `meetings/ask_index.db`
-/// exists. On any error, logs without meeting content and queues a background retry.
+fn run_ask_store_clean(data_dir: &Path, compact: bool) -> Result<()> {
+    let idx = MeetingAskIndex::open(data_dir)?;
+    idx.sync()?;
+    if compact {
+        idx.compact_secure()?;
+    }
+    Ok(())
+}
+
+fn run_todo_store_clean(data_dir: &Path, compact: bool) -> Result<()> {
+    let store = crate::meeting_todos::MeetingTodoStore::open(data_dir)?;
+    store.sync()?;
+    if compact {
+        store.compact_secure()?;
+    }
+    Ok(())
+}
+
+/// Sync (and optionally securely compact) the Ask index and to-do store for any
+/// database file that already exists under `meetings/`. Missing stores are skipped
+/// without creating files. On any error, logs without meeting content and queues
+/// a background retry.
 pub fn sync_or_defer(data_dir: &Path, compact: bool, context: &str) {
-    let index_path = data_dir.join("meetings").join("ask_index.db");
-    if !index_path.exists() {
+    let meetings_dir = data_dir.join("meetings");
+    let ask_exists = meetings_dir.join("ask_index.db").exists();
+    let todos_exists = meetings_dir.join("todos.db").exists();
+    if !ask_exists && !todos_exists {
         return;
     }
     let key = pending_ask_key(data_dir);
-    let outcome = (|| -> Result<()> {
-        let idx = MeetingAskIndex::open(data_dir)?;
-        idx.sync()?;
-        if compact {
-            idx.compact_secure()?;
-        }
-        Ok(())
-    })();
-    match outcome {
-        Ok(()) => {
-            let mut guard = pending_ask_clean_set()
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            guard.remove(&key);
-        }
-        Err(err) => {
+    let mut deferred = false;
+    if ask_exists {
+        if let Err(err) = run_ask_store_clean(data_dir, compact) {
             log::warn!("ask index clean deferred after {context}: {err}");
-            let mut guard = pending_ask_clean_set()
-                .lock()
-                .unwrap_or_else(|e| e.into_inner());
-            guard.insert(key);
+            deferred = true;
         }
+    }
+    if todos_exists {
+        if let Err(err) = run_todo_store_clean(data_dir, compact) {
+            log::warn!("meetings todos clean deferred after {context}: {err}");
+            deferred = true;
+        }
+    }
+    if deferred {
+        let mut guard = pending_ask_clean_set()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        guard.insert(key);
+    } else if compact {
+        let mut guard = pending_ask_clean_set()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        guard.remove(&key);
     }
 }
 
-/// Retry a deferred Ask index sync and secure compact for `data_dir`.
+/// Retry a deferred Ask index and to-do store sync and secure compact for `data_dir`.
 /// Returns `Ok(false)` if nothing was pending, `Ok(true)` if the retry succeeded,
 /// or re-queues the pending flag and returns `Err` on failure.
 pub fn run_pending_ask_clean(data_dir: &Path) -> Result<bool> {
@@ -87,19 +110,27 @@ pub fn run_pending_ask_clean(data_dir: &Path) -> Result<bool> {
     if !was_pending {
         return Ok(false);
     }
-    let index_path = data_dir.join("meetings").join("ask_index.db");
-    if !index_path.exists() {
-        return Ok(true);
+    let meetings_dir = data_dir.join("meetings");
+    let ask_exists = meetings_dir.join("ask_index.db").exists();
+    let todos_exists = meetings_dir.join("todos.db").exists();
+    let mut first_err: Option<anyhow::Error> = None;
+    if ask_exists {
+        if let Err(err) = run_ask_store_clean(data_dir, true) {
+            first_err = Some(err);
+        }
     }
-    let outcome = (|| -> Result<()> {
-        let idx = MeetingAskIndex::open(data_dir)?;
-        idx.sync()?;
-        idx.compact_secure()?;
-        Ok(())
-    })();
-    match outcome {
-        Ok(()) => Ok(true),
-        Err(err) => {
+    if todos_exists {
+        if let Err(err) = run_todo_store_clean(data_dir, true) {
+            if first_err.is_none() {
+                first_err = Some(err);
+            } else {
+                log::warn!("meetings todos background clean deferred: {err}");
+            }
+        }
+    }
+    match first_err {
+        None => Ok(true),
+        Some(err) => {
             let mut guard = pending_ask_clean_set()
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());

@@ -21,6 +21,10 @@ import {
   restoreTrashedMeetingAction,
   type TrashedMeetingItem,
 } from "../src/components/meetings/MeetingHistoryExtras";
+import {
+  loadMeetingTodos,
+  MeetingTodosPanel,
+} from "../src/components/meetings/AskMeetingsView";
 
 const root = join(import.meta.dir, "..");
 
@@ -312,5 +316,51 @@ describe("trash restore, delete-now, and keep-time truth", () => {
     expect(src).not.toContain(
       "void meetingCommands.changeTranscriptDeleteDaysSetting",
     );
+  });
+});
+
+describe("meeting to-dos load error truth", () => {
+  test("loadMeetingTodos covers ok, error result, and thrown exception", async () => {
+    const sample = [
+      {
+        id: "1",
+        text: "Send notes",
+        meeting_id: 2,
+        meeting_title: "Sync",
+        meeting_date: "Nov 18",
+        start_ms: 1000,
+        done: false,
+        said_by_me: true,
+      },
+    ];
+    const okRes = await loadMeetingTodos(async () => ({
+      status: "ok",
+      data: sample,
+    }));
+    expect(okRes).toEqual({ items: sample, loadFailed: false });
+
+    const errRes = await loadMeetingTodos(async () => ({
+      status: "error",
+      error: "db locked",
+    }));
+    expect(errRes).toEqual({ items: [], loadFailed: true });
+
+    const throwRes = await loadMeetingTodos(async () => {
+      throw new Error("ipc failure");
+    });
+    expect(throwRes).toEqual({ items: [], loadFailed: true });
+  });
+
+  test("MeetingTodosPanel in loadFailed state renders alert and hides empty message and list", async () => {
+    const i18n = await createTestI18n();
+    const html = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <MeetingTodosPanel items={[]} loadFailed={true} />
+      </I18nextProvider>,
+    );
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("Could not load to-dos.");
+    expect(html).not.toContain("No to-dos from the last 14 days.");
+    expect(html).not.toContain("<ul");
   });
 });

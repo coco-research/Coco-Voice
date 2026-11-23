@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "אין משימות מ-14 הימים האחרונים.",
+      "loadFailed": "לא ניתן לטעון את המשימות.",
       "youSaidIn": "אמרת את זה ב-{{title}}, {{date}}",
       "youSaidInNoDate": "אמרת את זה ב-{{title}}"
     },

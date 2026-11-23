@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "Geen taken uit de laatste 14 dagen.",
+      "loadFailed": "Kon taken niet laden.",
       "youSaidIn": "Je zei dit in {{title}}, {{date}}",
       "youSaidInNoDate": "Je zei dit in {{title}}"
     },

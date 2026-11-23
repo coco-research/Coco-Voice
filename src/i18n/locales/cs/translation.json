@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "Žádné úkoly za posledních 14 dní.",
+      "loadFailed": "Úkoly se nepodařilo načíst.",
       "youSaidIn": "Řekli jste to ve schůzce {{title}}, {{date}}",
       "youSaidInNoDate": "Řekli jste to ve schůzce {{title}}"
     },

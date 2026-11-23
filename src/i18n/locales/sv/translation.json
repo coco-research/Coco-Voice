@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "Inga uppgifter från de senaste 14 dagarna.",
+      "loadFailed": "Kunde inte läsa in uppgifterna.",
       "youSaidIn": "Du sa det i {{title}}, {{date}}",
       "youSaidInNoDate": "Du sa det i {{title}}"
     },

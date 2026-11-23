@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "直近 14 日間の To-Do はありません。",
+      "loadFailed": "To-Do を読み込めませんでした。",
       "youSaidIn": "{{title}}（{{date}}）での発言",
       "youSaidInNoDate": "{{title}} での発言"
     },

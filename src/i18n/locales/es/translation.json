@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "No hay tareas de los últimos 14 días.",
+      "loadFailed": "No se pudieron cargar las tareas.",
       "youSaidIn": "Lo dijiste en {{title}}, {{date}}",
       "youSaidInNoDate": "Lo dijiste en {{title}}"
     },

@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "Son 14 günden yapılacak iş yok.",
+      "loadFailed": "Yapılacak işler yüklenemedi.",
       "youSaidIn": "Bunu {{title}}, {{date}} içinde söylediniz",
       "youSaidInNoDate": "Bunu {{title}} içinde söylediniz"
     },

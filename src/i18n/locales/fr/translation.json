@@ -1292,6 +1292,7 @@
     },
     "todos": {
       "empty": "Aucune tâche sur les 14 derniers jours.",
+      "loadFailed": "Impossible de charger les tâches.",
       "youSaidIn": "Vous l'avez dit dans {{title}}, {{date}}",
       "youSaidInNoDate": "Vous l'avez dit dans {{title}}"
     },

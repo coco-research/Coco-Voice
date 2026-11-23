@@ -689,9 +689,8 @@ pub mod meetings_ext {
     #[specta::specta]
     pub fn list_meeting_todos(app: AppHandle) -> Result<Vec<MeetingTodoDto>, String> {
         let todo_store = MeetingTodoStore::open_app(&app).map_err(|e| e.to_string())?;
-        let _ = todo_store.sync();
         let items = todo_store
-            .list_last_14_days(Utc::now().timestamp())
+            .sync_then_list_last_14_days(Utc::now().timestamp())
             .map_err(|e| e.to_string())?;
         Ok(items
             .into_iter()
