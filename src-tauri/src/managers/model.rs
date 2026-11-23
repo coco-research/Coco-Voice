@@ -155,9 +155,12 @@ pub struct ModelInfo {
     pub speed_score: f32,           // 0.0 to 1.0, higher is faster
     pub supports_translation: bool, // Whether the model supports translating to English
     pub is_recommended: bool,       // Whether this is the recommended model for new users
+    /// Set only when the model was measured best in the bundled benchmark
+    /// records; this alone decides the "Recommended" tag in the UI.
+    pub measured_best: Option<crate::catalog::measured::MeasuredReason>,
     pub supported_languages: Vec<String>, // Languages this model can transcribe
     pub supports_language_selection: bool, // Whether the user can explicitly pick a language
-    pub is_custom: bool,            // Whether this is a user-provided custom model
+    pub is_custom: bool,                  // Whether this is a user-provided custom model
     pub supports_streaming: bool, // Whether this model supports live streaming preview (transcribe-cpp)
     pub supports_language_detection: bool, // Whether the model can auto-detect language (gates the "Auto" option)
 }
@@ -288,6 +291,7 @@ impl ModelDescriptor {
             speed_score: self.speed_score,
             supports_translation: self.caps.supports_translation.unwrap_or(false),
             is_recommended: self.recommended,
+            measured_best: None,
             supports_language_selection: languages.len() > 1,
             supported_languages: languages,
             // Catalog models are always HF-sourced downloads, never user-dropped
@@ -989,6 +993,32 @@ impl std::ops::Deref for AppSlot {
     }
 }
 
+#[cfg(test)]
+impl AppSlot {
+    fn emit<S: Serialize + Clone>(&self, event: &str, payload: S) -> tauri::Result<()> {
+        match &self.0 {
+            Some(handle) => handle.emit(event, payload),
+            None => Ok(()),
+        }
+    }
+}
+
+#[cfg(test)]
+impl ModelManager {
+    pub(crate) fn for_test_in_dir(models_dir: PathBuf, models: HashMap<String, ModelInfo>) -> Self {
+        Self {
+            app_handle: AppSlot(None),
+            models_dir,
+            available_models: Mutex::new(models),
+            cancel_flags: Arc::new(Mutex::new(HashMap::new())),
+            next_download_generation: AtomicU64::new(1),
+            extracting_models: Arc::new(Mutex::new(HashSet::new())),
+            is_rescanning: Arc::new(AtomicBool::new(false)),
+            recovery_attempted: Mutex::new(HashSet::new()),
+        }
+    }
+}
+
 pub struct ModelManager {
     app_handle: AppSlot,
     models_dir: PathBuf,
@@ -1060,6 +1090,7 @@ impl ModelManager {
                 speed_score: 0.85,
                 supports_translation: true,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: whisper_languages.clone(),
                 supports_language_selection: true,
                 is_custom: false,
@@ -1093,6 +1124,7 @@ impl ModelManager {
                 speed_score: 0.60,
                 supports_translation: true,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: whisper_languages.clone(),
                 supports_language_selection: true,
                 is_custom: false,
@@ -1125,6 +1157,7 @@ impl ModelManager {
                 speed_score: 0.40,
                 supports_translation: false, // Turbo doesn't support translation
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: whisper_languages.clone(),
                 supports_language_selection: true,
                 is_custom: false,
@@ -1157,6 +1190,7 @@ impl ModelManager {
                 speed_score: 0.30,
                 supports_translation: true,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: whisper_languages.clone(),
                 supports_language_selection: true,
                 is_custom: false,
@@ -1190,6 +1224,7 @@ impl ModelManager {
                 speed_score: 0.35,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: whisper_languages,
                 supports_language_selection: true,
                 is_custom: false,
@@ -1223,6 +1258,7 @@ impl ModelManager {
                 speed_score: 0.85,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: vec!["en".to_string()],
                 supports_language_selection: false,
                 is_custom: false,
@@ -1265,6 +1301,7 @@ impl ModelManager {
                 speed_score: 0.85,
                 supports_translation: false,
                 is_recommended: true,
+                measured_best: None,
                 supported_languages: parakeet_v3_languages,
                 supports_language_selection: false,
                 is_custom: false,
@@ -1297,6 +1334,7 @@ impl ModelManager {
                 speed_score: 0.90,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: vec!["en".to_string()],
                 supports_language_selection: false,
                 is_custom: false,
@@ -1330,6 +1368,7 @@ impl ModelManager {
                 speed_score: 0.95,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: vec!["en".to_string()],
                 supports_language_selection: false,
                 is_custom: false,
@@ -1363,6 +1402,7 @@ impl ModelManager {
                 speed_score: 0.90,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: vec!["en".to_string()],
                 supports_language_selection: false,
                 is_custom: false,
@@ -1396,6 +1436,7 @@ impl ModelManager {
                 speed_score: 0.80,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: vec!["en".to_string()],
                 supports_language_selection: false,
                 is_custom: false,
@@ -1431,6 +1472,7 @@ impl ModelManager {
                 speed_score: 0.75,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: gigaam_languages,
                 supports_language_selection: false,
                 is_custom: false,
@@ -1470,6 +1512,7 @@ impl ModelManager {
                 speed_score: 0.85,
                 supports_translation: true,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: canary_flash_languages,
                 supports_language_selection: true,
                 is_custom: false,
@@ -1513,6 +1556,7 @@ impl ModelManager {
                 speed_score: 0.70,
                 supports_translation: true,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: canary_1b_languages,
                 supports_language_selection: true,
                 is_custom: false,
@@ -1553,6 +1597,7 @@ impl ModelManager {
                 speed_score: 0.60,
                 supports_translation: false,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: cohere_languages,
                 supports_language_selection: true,
                 is_custom: false,
@@ -1581,6 +1626,8 @@ impl ModelManager {
         // only insert ids not already present) instead of showing as a bare cache
         // find. Additive — see `seed_catalog_models`.
         Self::seed_catalog_models(&mut available_models);
+        #[cfg(feature = "speaker-split")]
+        Self::seed_speaker_models(&mut available_models);
 
         // Auto-discover custom transcribe-cpp models (.bin / .gguf) in the models directory
         if let Err(e) = Self::discover_custom_transcribe_models(&models_dir, &mut available_models)
@@ -1638,13 +1685,20 @@ impl ModelManager {
             let models = self.available_models.lock().unwrap();
             Self::speech_models(&models)
         };
+        // Only a model measured best in the bundled benchmark records is tagged.
+        crate::catalog::measured::tag_measured_best(
+            &mut list,
+            &crate::catalog::measured::BUNDLED_RUNS,
+        );
         // Stable, reasonable order: catalog editorial rank first (lower = higher
         // priority), then any other recommended model, then by accuracy, speed,
         // and name. `ModelInfo` doesn't carry rank, so resolve it by id from the
         // catalog here.
         list.sort_by(|a, b| {
-            crate::catalog::rank_of(&a.id)
-                .cmp(&crate::catalog::rank_of(&b.id))
+            b.measured_best
+                .is_some()
+                .cmp(&a.measured_best.is_some())
+                .then(crate::catalog::rank_of(&a.id).cmp(&crate::catalog::rank_of(&b.id)))
                 .then((!a.is_recommended).cmp(&(!b.is_recommended)))
                 .then(b.accuracy_score.total_cmp(&a.accuracy_score))
                 .then(b.speed_score.total_cmp(&a.speed_score))
@@ -1692,6 +1746,85 @@ impl ModelManager {
             }
         }
         info!("Seeded {} catalog model(s) into the registry", added);
+    }
+
+    #[cfg(feature = "speaker-split")]
+    pub const PYANNOTE_SEGMENTATION_MODEL_ID: &'static str = "pyannote-segmentation-3-0";
+    #[cfg(feature = "speaker-split")]
+    pub const PYANNOTE_SEGMENTATION_URL: &'static str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2";
+    #[cfg(feature = "speaker-split")]
+    pub const PYANNOTE_SEGMENTATION_ARCHIVE_SHA256: &'static str =
+        "24615ee884c897d9d2ba09bb4d30da6bb1b15e685065962db5b02e76e4996488";
+    #[cfg(feature = "speaker-split")]
+    pub const PYANNOTE_SEGMENTATION_ONNX_SHA256: &'static str =
+        "220ad67ca923bef2fa91f2390c786097bf305bceb5e261d4af67b38e938e1079";
+    #[cfg(feature = "speaker-split")]
+    pub const WESPEAKER_EMBEDDING_MODEL_ID: &'static str = "wespeaker-voxceleb-resnet34";
+    #[cfg(feature = "speaker-split")]
+    pub const WESPEAKER_EMBEDDING_URL: &'static str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/wespeaker_en_voxceleb_resnet34.onnx";
+    #[cfg(feature = "speaker-split")]
+    pub const WESPEAKER_EMBEDDING_SHA256: &'static str =
+        "5ef208a9da1453335308a6b6f4e6dfbd7e183a38b604de0a57664f45d257fe94";
+
+    #[cfg(feature = "speaker-split")]
+    pub(crate) fn seed_speaker_models(available_models: &mut HashMap<String, ModelInfo>) {
+        let base = ModelDescriptor {
+            id: String::new(),
+            source: ModelSource::Local,
+            name: String::new(),
+            description: String::new(),
+            engine_type: EngineType::LlamaCpp,
+            caps: CapabilityProbe::default(),
+            family: None,
+            files: Vec::new(),
+            default_quant: None,
+            speed_score: 0.0,
+            accuracy_score: 0.0,
+            recommended_rank: None,
+            recommended: false,
+        }
+        .to_model_info(&DiskStatus::default());
+        for (id, name, filename, url, sha, size_mb, is_dir) in [
+            (
+                Self::PYANNOTE_SEGMENTATION_MODEL_ID,
+                "pyannote-segmentation-3.0",
+                "sherpa-onnx-pyannote-segmentation-3-0",
+                Self::PYANNOTE_SEGMENTATION_URL,
+                Self::PYANNOTE_SEGMENTATION_ARCHIVE_SHA256,
+                6,
+                true,
+            ),
+            (
+                Self::WESPEAKER_EMBEDDING_MODEL_ID,
+                "WeSpeaker ResNet34",
+                "wespeaker_en_voxceleb_resnet34.onnx",
+                Self::WESPEAKER_EMBEDDING_URL,
+                Self::WESPEAKER_EMBEDDING_SHA256,
+                25,
+                false,
+            ),
+        ] {
+            let mut m = base.clone();
+            m.id = id.into();
+            m.name = name.into();
+            m.filename = filename.into();
+            m.source = ModelSource::Url {
+                url: url.into(),
+                sha256: Some(sha.into()),
+            };
+            m.size_mb = size_mb;
+            m.is_directory = is_dir;
+            available_models.insert(m.id.clone(), m);
+        }
+    }
+
+    #[cfg(feature = "speaker-split")]
+    pub(crate) fn verify_speaker_model_file(
+        path: &Path,
+        expected_sha256: &str,
+        model_id: &str,
+    ) -> Result<()> {
+        Self::verify_sha256(path, Some(expected_sha256), model_id).map(|_| ())
     }
 
     /// Claim the single rescan slot. Returns a guard that releases it on drop,
@@ -2202,6 +2335,7 @@ impl ModelManager {
                     speed_score: 0.0,
                     supports_translation: caps.supports_translation,
                     is_recommended: false,
+                    measured_best: None,
                     supported_languages: caps.supported_languages,
                     supports_language_selection: caps.supports_language_selection,
                     is_custom: true,
@@ -2335,6 +2469,7 @@ impl ModelManager {
                         speed_score: 0.0,
                         supports_translation: caps.supports_translation,
                         is_recommended: false,
+                        measured_best: None,
                         supported_languages: caps.supported_languages,
                         supports_language_selection: caps.supports_language_selection,
                         is_custom: false,
@@ -3019,13 +3154,23 @@ impl ModelManager {
             // Create temporary extraction directory
             fs::create_dir_all(&temp_extract_dir)?;
 
-            // Open the downloaded tar.gz file
-            let tar_gz = File::open(&partial_path)?;
-            let tar = GzDecoder::new(tar_gz);
-            let mut archive = Archive::new(tar);
-
             // Extract to the temporary directory first
-            archive.unpack(&temp_extract_dir).map_err(|e| {
+            let unpack_res: std::io::Result<()> = if url.ends_with(".tar.bz2") {
+                std::process::Command::new("tar")
+                    .args(["-xjf"])
+                    .arg(&partial_path)
+                    .arg("-C")
+                    .arg(&temp_extract_dir)
+                    .status()
+                    .and_then(|s| {
+                        s.success()
+                            .then_some(())
+                            .ok_or_else(|| std::io::Error::other("tar failed"))
+                    })
+            } else {
+                Archive::new(GzDecoder::new(File::open(&partial_path)?)).unpack(&temp_extract_dir)
+            };
+            unpack_res.map_err(|e| {
                 let error_msg = format!("Failed to extract archive: {}", e);
                 // Clean up failed extraction
                 let _ = fs::remove_dir_all(&temp_extract_dir);
@@ -3921,6 +4066,7 @@ mod tests {
                 speed_score: 0.5,
                 supports_translation: true,
                 is_recommended: false,
+                measured_best: None,
                 supported_languages: vec!["en".to_string()],
                 supports_language_selection: true,
                 is_custom: false,
@@ -4030,6 +4176,7 @@ mod tests {
             speed_score: 0.5,
             supports_translation: false,
             is_recommended: false,
+            measured_best: None,
             supported_languages: vec!["en".to_string()],
             supports_language_selection: false,
             is_custom: false,
@@ -4676,5 +4823,111 @@ mod tests {
         assert!(refreshed_is_downloading(true, true));
         assert!(!refreshed_is_downloading(true, false));
         assert!(!refreshed_is_downloading(false, false));
+    }
+
+    #[test]
+    fn ac_a7_partial_file_cleaned_up_after_mid_download_network_drop() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let dir = tempfile::tempdir().expect("tempdir for AC-A7");
+        let models_dir = dir.path().to_path_buf();
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback listener");
+        let addr = listener.local_addr().expect("listener addr");
+
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept client");
+            let mut req_buf = [0u8; 1024];
+            let _ = stream.read(&mut req_buf);
+            let headers = "HTTP/1.1 200 OK\r\nContent-Length: 65536\r\nConnection: close\r\n\r\n";
+            stream.write_all(headers.as_bytes()).expect("write headers");
+            let partial_chunk = vec![0xABu8; 4096];
+            stream
+                .write_all(&partial_chunk)
+                .expect("write partial body");
+            stream.flush().expect("flush partial body");
+            drop(stream);
+        });
+
+        let model_id = "ac-a7-test";
+        let filename = "ac-a7-test.bin";
+        let scheme = "http";
+        let url = format!("{scheme}://{addr}/{filename}");
+        let mut models = HashMap::new();
+        models.insert(
+            model_id.to_string(),
+            ModelInfo {
+                id: model_id.to_string(),
+                name: "AC-A7 Test Model".to_string(),
+                description: "Loopback drop test model".to_string(),
+                filename: filename.to_string(),
+                source: ModelSource::Url { url, sha256: None },
+                size_mb: 1,
+                is_downloaded: false,
+                is_downloading: false,
+                partial_size: 0,
+                is_directory: false,
+                engine_type: EngineType::TranscribeCpp,
+                accuracy_score: 0.5,
+                speed_score: 0.5,
+                supports_translation: false,
+                is_recommended: false,
+                measured_best: None,
+                supported_languages: vec!["en".to_string()],
+                supports_language_selection: false,
+                is_custom: false,
+                supports_streaming: false,
+                supports_language_detection: false,
+            },
+        );
+
+        let manager = ModelManager::for_test_in_dir(models_dir.clone(), models);
+        let download_res = tauri::async_runtime::block_on(manager.download_model(model_id));
+        server.join().expect("server thread joined cleanly");
+
+        let err = download_res.expect_err("mid-stream disconnect must fail download");
+        assert_eq!(
+            download_failure_cause(&err),
+            DownloadFailureCause::Network,
+            "mid-stream disconnect must classify as Network, got error: {err:#}"
+        );
+
+        let partial_path = models_dir.join(format!("{filename}.partial"));
+        let model_path = models_dir.join(filename);
+        assert!(
+            partial_path.exists(),
+            ".partial file must exist after mid-stream disconnect"
+        );
+        let partial_bytes = fs::metadata(&partial_path).expect("partial metadata").len();
+        assert!(
+            partial_bytes > 0,
+            ".partial file must contain non-zero downloaded bytes"
+        );
+        assert!(
+            !model_path.exists(),
+            "complete model file must not exist after failed download"
+        );
+
+        manager
+            .delete_model(model_id)
+            .expect("delete_model must clean up partial file and return Ok(())");
+        assert!(
+            !partial_path.exists(),
+            ".partial file must be removed after delete_model"
+        );
+        assert!(
+            !model_path.exists(),
+            "model file must not exist after delete_model"
+        );
+        let remaining_files = fs::read_dir(&models_dir).expect("read models_dir").count();
+        assert_eq!(
+            remaining_files, 0,
+            "models_dir must have zero files remaining after delete_model"
+        );
+
+        println!(
+            "AC_A7_RUST_PROOF: partial_bytes={partial_bytes} cause=Network deleted_ok=true remaining_files={remaining_files}"
+        );
     }
 }

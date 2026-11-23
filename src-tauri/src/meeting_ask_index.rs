@@ -30,6 +30,8 @@ pub enum AskScope {
 pub struct AskCitation {
     pub meeting_id: i64,
     pub meeting_title: String,
+    #[serde(default)]
+    pub started_at: i64,
     pub segment_id: i64,
     pub start_ms: i64,
     pub end_ms: i64,
@@ -43,6 +45,27 @@ impl AskCitation {
         let Some(c) = open_ro(&data_dir.join("meetings/meetings.db")) else {
             return false;
         };
+        if has_table(&c, "meeting_trash") {
+            let trashed: bool = c
+                .query_row(
+                    "SELECT COUNT(*) > 0 FROM meeting_trash WHERE meeting_id = ?1",
+                    params![self.meeting_id],
+                    |r| r.get(0),
+                )
+                .unwrap_or(false);
+            if trashed {
+                return false;
+            }
+        }
+        if self.segment_id < 0 {
+            let note_id = -self.segment_id;
+            let sql = "SELECT text FROM meeting_notes WHERE id = ?1 AND meeting_id = ?2";
+            return c
+                .query_row(sql, params![note_id, self.meeting_id], |r| {
+                    Ok(!r.get::<_, String>(0)?.trim().is_empty())
+                })
+                .unwrap_or(false);
+        }
         let sql = "SELECT start_ms, text FROM meeting_segments WHERE id = ?1 AND meeting_id = ?2";
         c.query_row(sql, params![self.segment_id, self.meeting_id], |r| {
             Ok(r.get::<_, i64>(0)? == self.start_ms && !r.get::<_, String>(1)?.is_empty())
@@ -66,7 +89,8 @@ impl MeetingAskIndex {
             index_path: mdir.join("ask_index.db"),
         };
         idx.conn()?.execute_batch(
-            "PRAGMA journal_mode = WAL;
+            "PRAGMA secure_delete = ON;
+             PRAGMA journal_mode = WAL;
              CREATE TABLE IF NOT EXISTS ask_folders (meeting_id INTEGER PRIMARY KEY, folder TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS indexed_meetings (meeting_id INTEGER PRIMARY KEY, title TEXT NOT NULL, folder TEXT, started_at INTEGER NOT NULL, fingerprint TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS ask_docs (doc_id INTEGER PRIMARY KEY, meeting_id INTEGER NOT NULL, segment_id INTEGER NOT NULL, start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL, channel TEXT NOT NULL, text TEXT NOT NULL, token_len INTEGER NOT NULL);
@@ -78,6 +102,18 @@ impl MeetingAskIndex {
             let _ = fs::set_permissions(&idx.index_path, fs::Permissions::from_mode(0o600));
         }
         Ok(idx)
+    }
+
+    /// Securely zero freed pages and truncate WAL on `ask_index.db`.
+    pub fn compact_secure(&self) -> Result<()> {
+        let c = self.conn()?;
+        let _ = c.execute_batch(
+            "PRAGMA secure_delete = ON;
+             PRAGMA wal_checkpoint(TRUNCATE);
+             VACUUM;
+             PRAGMA wal_checkpoint(TRUNCATE);",
+        );
+        Ok(())
     }
 
     pub fn set_folder(&self, id: i64, folder: Option<&str>) -> Result<()> {
@@ -102,9 +138,22 @@ impl MeetingAskIndex {
         let overrides = kv_map(&ic, "SELECT meeting_id, folder FROM ask_folders");
         let existing = kv_map(&ic, "SELECT meeting_id, fingerprint FROM indexed_meetings");
         let cols = table_cols(&mc, "meetings");
-        let trash = ["", " WHERE m.trashed_at IS NULL"]
-            [usize::from(cols.iter().any(|c| c == "trashed_at"))];
-        let src = if cols.iter().any(|c| c == "folder_id") && has_table(&mc, "folders") {
+        let mut where_clauses: Vec<&str> = Vec::new();
+        if has_table(&mc, "meeting_trash") {
+            where_clauses
+                .push("NOT EXISTS (SELECT 1 FROM meeting_trash t WHERE t.meeting_id = m.id)");
+        }
+        if cols.iter().any(|c| c == "trashed_at") {
+            where_clauses.push("m.trashed_at IS NULL");
+        }
+        let trash = if where_clauses.is_empty() {
+            String::new()
+        } else {
+            format!(" WHERE {}", where_clauses.join(" AND "))
+        };
+        let src = if cols.iter().any(|c| c == "folder_id") && has_table(&mc, "meeting_folders") {
+            "f.name FROM meetings m LEFT JOIN meeting_folders f ON f.id = m.folder_id"
+        } else if cols.iter().any(|c| c == "folder_id") && has_table(&mc, "folders") {
             "f.name FROM meetings m LEFT JOIN folders f ON f.id = m.folder_id"
         } else {
             "NULL FROM meetings m"
@@ -131,24 +180,39 @@ impl MeetingAskIndex {
                     Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
                 })?
                 .collect::<rusqlite::Result<_>>()?;
-            let (mut note_by_seg, mut n_cnt) = (HashMap::<i64, String>::new(), 0usize);
+            let mut note_by_seg = HashMap::<i64, String>::new();
+            let mut standalone_notes: Vec<(i64, String)> = Vec::new();
+            let mut n_cnt = 0usize;
             if has_notes {
-                let q_n = "SELECT text, citations FROM meeting_notes WHERE meeting_id = ?1";
+                let q_n = "SELECT id, text, citations FROM meeting_notes WHERE meeting_id = ?1 ORDER BY position ASC, id ASC";
                 let mut nst = mc.prepare(q_n)?;
                 let nrows = nst.query_map([id], |r| {
-                    Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+                    Ok((
+                        r.get::<_, i64>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                    ))
                 })?;
-                for (txt, raw_c) in nrows.flatten() {
+                for (nid, txt, raw_c) in nrows.flatten() {
                     n_cnt += 1;
-                    for cid in serde_json::from_str::<Vec<i64>>(&raw_c).unwrap_or_default() {
+                    let cids = serde_json::from_str::<Vec<i64>>(&raw_c).unwrap_or_default();
+                    if cids.is_empty() && !txt.trim().is_empty() {
+                        standalone_notes.push((nid, txt.clone()));
+                    }
+                    for cid in cids {
                         let buf = note_by_seg.entry(cid).or_default();
                         buf.push(' ');
                         buf.push_str(&txt);
                     }
                 }
             }
-            let bytes: usize = segs.iter().map(|s| s.4.len()).sum();
-            let last = segs.last().map(|s| s.0).unwrap_or(0);
+            let bytes: usize = segs.iter().map(|s| s.4.len()).sum::<usize>()
+                + standalone_notes.iter().map(|(_, t)| t.len()).sum::<usize>();
+            let last = segs
+                .last()
+                .map(|s| s.0)
+                .or_else(|| standalone_notes.last().map(|(nid, _)| -*nid))
+                .unwrap_or(0);
             let fp = format!("{title}|{folder:?}|{}|{last}|{bytes}|{n_cnt}", segs.len());
             if existing.get(&id).map(String::as_str) == Some(fp.as_str()) {
                 continue;
@@ -156,24 +220,47 @@ impl MeetingAskIndex {
             purge(&tx, id)?;
             let ins_m = "INSERT INTO indexed_meetings VALUES (?1, ?2, ?3, ?4, ?5)";
             tx.execute(ins_m, params![id, title, folder, started_at, fp])?;
-            for (sid, s_ms, e_ms, ch, txt) in segs {
-                let extra = note_by_seg.get(&sid).map(String::as_str).unwrap_or("");
-                let toks = tokenize(&format!("{title} {txt} {extra}"));
-                let ins_d = "INSERT INTO ask_docs (meeting_id, segment_id, start_ms, end_ms, channel, text, token_len) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
-                tx.execute(
-                    ins_d,
-                    params![id, sid, s_ms, e_ms, ch, txt, toks.len() as i64],
-                )?;
-                let doc_id = tx.last_insert_rowid();
-                let mut tf_map = HashMap::<String, i64>::new();
-                for t in toks {
-                    *tf_map.entry(t).or_insert(0) += 1;
-                }
-                for (term, tf) in tf_map {
+            if !segs.is_empty() {
+                for (sid, s_ms, e_ms, ch, txt) in segs {
+                    let extra = note_by_seg.get(&sid).map(String::as_str).unwrap_or("");
+                    let toks = tokenize(&format!("{title} {txt} {extra}"));
+                    let ins_d = "INSERT INTO ask_docs (meeting_id, segment_id, start_ms, end_ms, channel, text, token_len) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
                     tx.execute(
-                        "INSERT INTO ask_terms VALUES (?1, ?2, ?3)",
-                        params![term, doc_id, tf],
+                        ins_d,
+                        params![id, sid, s_ms, e_ms, ch, txt, toks.len() as i64],
                     )?;
+                    let doc_id = tx.last_insert_rowid();
+                    let mut tf_map = HashMap::<String, i64>::new();
+                    for t in toks {
+                        *tf_map.entry(t).or_insert(0) += 1;
+                    }
+                    for (term, tf) in tf_map {
+                        tx.execute(
+                            "INSERT INTO ask_terms VALUES (?1, ?2, ?3)",
+                            params![term, doc_id, tf],
+                        )?;
+                    }
+                }
+            } else {
+                // Imported notes-only meetings (0 transcript segments) remain searchable via Ask.
+                for (nid, txt) in standalone_notes {
+                    let toks = tokenize(&format!("{title} {txt}"));
+                    let ins_d = "INSERT INTO ask_docs (meeting_id, segment_id, start_ms, end_ms, channel, text, token_len) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)";
+                    tx.execute(
+                        ins_d,
+                        params![id, -nid, 0i64, 0i64, "notes", txt, toks.len() as i64],
+                    )?;
+                    let doc_id = tx.last_insert_rowid();
+                    let mut tf_map = HashMap::<String, i64>::new();
+                    for t in toks {
+                        *tf_map.entry(t).or_insert(0) += 1;
+                    }
+                    for (term, tf) in tf_map {
+                        tx.execute(
+                            "INSERT INTO ask_terms VALUES (?1, ?2, ?3)",
+                            params![term, doc_id, tf],
+                        )?;
+                    }
                 }
             }
             updated += 1;
@@ -231,6 +318,7 @@ impl MeetingAskIndex {
     fn conn(&self) -> Result<Connection> {
         let c = Connection::open(&self.index_path)?;
         c.busy_timeout(Duration::from_secs(1))?;
+        let _ = c.execute_batch("PRAGMA secure_delete = ON;");
         Ok(c)
     }
 }
@@ -281,7 +369,7 @@ fn purge(tx: &rusqlite::Transaction<'_>, id: i64) -> Result<()> {
 
 fn load_scoped_docs(ic: &Connection, scope: &AskScope) -> Result<Vec<(i64, AskCitation, i64)>> {
     let mut st = ic.prepare(
-        "SELECT d.doc_id, d.meeting_id, m.title, m.folder, d.segment_id, d.start_ms, d.end_ms, d.channel, d.text, d.token_len
+        "SELECT d.doc_id, d.meeting_id, m.title, m.folder, m.started_at, d.segment_id, d.start_ms, d.end_ms, d.channel, d.text, d.token_len
          FROM ask_docs d JOIN indexed_meetings m ON m.meeting_id = d.meeting_id ORDER BY d.meeting_id, d.segment_id",
     )?;
     let mut rows = st.query([])?;
@@ -297,18 +385,19 @@ fn load_scoped_docs(ic: &Connection, scope: &AskScope) -> Result<Vec<(i64, AskCi
             AskScope::PickedSet(ids) => ids.contains(&mid),
         };
         if keep {
-            let s_ms: i64 = r.get(5)?;
+            let s_ms: i64 = r.get(6)?;
             let cite = AskCitation {
                 meeting_id: mid,
                 meeting_title: r.get(2)?,
-                segment_id: r.get(4)?,
+                started_at: r.get(4)?,
+                segment_id: r.get(5)?,
                 start_ms: s_ms,
-                end_ms: r.get(6)?,
+                end_ms: r.get(7)?,
                 timestamp: format_mm_ss(s_ms),
-                channel: r.get(7)?,
-                quote: r.get(8)?,
+                channel: r.get(8)?,
+                quote: r.get(9)?,
             };
-            out.push((r.get(0)?, cite, r.get(9)?));
+            out.push((r.get(0)?, cite, r.get(10)?));
         }
     }
     Ok(out)
@@ -372,5 +461,75 @@ pub(crate) mod tests {
         db.execute("DELETE FROM meetings WHERE id = 2", []).unwrap();
         idx.sync().unwrap();
         assert!(q(AskScope::AllMeetings, "dark sidebar").is_empty());
+    }
+
+    #[test]
+    fn sync_joins_meeting_folders_skips_trashed_and_indexes_imported_notes_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = crate::managers::meetings::MeetingsStore::open(dir.path()).unwrap();
+        let fid = store.create_folder("Customers").unwrap();
+        let kept = store.start_meeting("Client kickoff", "turbo").unwrap();
+        store
+            .insert_segment(
+                kept,
+                10_000,
+                15_000,
+                crate::managers::meetings::MeetingChannel::Me,
+                "Migration milestone locked for November",
+            )
+            .unwrap();
+        store.finalise(kept, false).unwrap();
+        store.move_meetings_to_folder(&[kept], Some(fid)).unwrap();
+
+        let trashed = store.start_meeting("Secret trash", "turbo").unwrap();
+        store
+            .insert_segment(
+                trashed,
+                5_000,
+                9_000,
+                crate::managers::meetings::MeetingChannel::Others,
+                "Confidential trashed flamingo phrase",
+            )
+            .unwrap();
+        store.finalise(trashed, false).unwrap();
+        crate::meeting_history_ops::trash_meeting_at(&store, trashed, 1_800_000_000).unwrap();
+
+        let imported = store.start_meeting("Imported deck", "imported").unwrap();
+        store.set_status(imported, "imported").unwrap();
+        store
+            .save_notes(
+                imported,
+                &[crate::managers::meetings::StoredNote {
+                    kind: "summary".to_string(),
+                    text: "Quarterly telemetry baseline documented offline".to_string(),
+                    owner: None,
+                    citations: vec![],
+                }],
+            )
+            .unwrap();
+
+        let idx = MeetingAskIndex::open(dir.path()).unwrap();
+        idx.sync().unwrap();
+
+        // Folder join via `meeting_folders` works without manual `set_folder`.
+        let folder_hits = idx
+            .retrieve(&AskScope::Folder("Customers".into()), "November milestone")
+            .unwrap();
+        assert_eq!(folder_hits.len(), 1);
+        assert_eq!(folder_hits[0].meeting_id, kept);
+
+        // Trashed meeting is excluded.
+        assert!(idx
+            .retrieve(&AskScope::AllMeetings, "flamingo phrase")
+            .unwrap()
+            .is_empty());
+
+        // Imported notes-only meeting (0 segments) is indexed and resolves cleanly.
+        let imp_hits = idx
+            .retrieve(&AskScope::AllMeetings, "telemetry baseline")
+            .unwrap();
+        assert_eq!(imp_hits.len(), 1);
+        assert_eq!(imp_hits[0].meeting_id, imported);
+        assert!(imp_hits[0].resolves_in(dir.path()));
     }
 }

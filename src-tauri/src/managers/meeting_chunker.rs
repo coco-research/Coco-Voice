@@ -6,7 +6,7 @@
 
 use crate::audio_toolkit::vad::{SileroVad, VoiceActivityDetector};
 use crate::catalog::find_model;
-use crate::managers::meetings::{set_meeting_active, MeetingsStore};
+use crate::managers::meetings::{set_meeting_active, MeetingChannel, MeetingsStore};
 use crate::managers::model::EngineType;
 use crate::managers::transcription::TranscriptionManager;
 use anyhow::{anyhow, Result};
@@ -17,8 +17,7 @@ const FRAME_SAMPLES: usize = 480;
 const HANGOVER_FRAMES: usize = 15;
 const MAX_CHUNK_SAMPLES: usize = 16_000 * 30;
 const SAMPLE_RATE: u64 = 16_000;
-/// Speech if a frame's peak is at least this. Tests use it in place of Silero.
-#[cfg(test)]
+/// Speech if a frame's peak is at least this. Tests and Silero-less append runs use it.
 const ENERGY_THRESHOLD: f32 = 0.2;
 
 pub const CHANNEL_ME: &str = "me";
@@ -72,10 +71,8 @@ impl FrameSpeech for SileroSpeech {
 }
 
 /// Peak-energy stand-in for Silero. Meeting tests have no VAD weights.
-#[cfg(test)]
 struct EnergySpeech;
 
-#[cfg(test)]
 impl FrameSpeech for EnergySpeech {
     fn is_speech_frame(&mut self, frame: &[f32]) -> bool {
         frame.iter().any(|sample| sample.abs() >= ENERGY_THRESHOLD)
@@ -98,6 +95,7 @@ pub struct ChannelChunker {
     chunk_start: u64,
     in_speech: bool,
     hangover: usize,
+    base_offset_ms: i64,
 }
 
 impl ChannelChunker {
@@ -111,13 +109,32 @@ impl ChannelChunker {
             chunk_start: 0,
             in_speech: false,
             hangover: 0,
+            base_offset_ms: 0,
         }
+    }
+
+    pub fn with_offset_ms(mut self, offset_ms: i64) -> Self {
+        self.base_offset_ms = offset_ms.max(0);
+        self
+    }
+
+    pub fn skip_paused(&mut self, sample_count: usize) {
+        self.pending.clear();
+        self.in_speech = false;
+        self.hangover = 0;
+        self.chunk.clear();
+        self.seen += sample_count as u64;
     }
 
     /// Own Silero session for this channel. Capture feeds it 16 kHz mono.
     #[allow(dead_code)]
     pub fn silero(channel: &'static str, model_path: &Path) -> Result<Self> {
         Ok(Self::new(channel, Box::new(SileroSpeech::new(model_path)?)))
+    }
+
+    /// Peak-energy cuts for meeting tests without VAD weights.
+    pub(crate) fn energy(channel: &'static str) -> Self {
+        Self::new(channel, Box::new(EnergySpeech))
     }
 
     pub fn push(&mut self, samples: &[f32]) -> Vec<FinishedChunk> {
@@ -196,8 +213,8 @@ impl ChannelChunker {
         let end = self.chunk_start + samples.len() as u64;
         Some(FinishedChunk {
             channel: self.channel,
-            start_ms: ms(self.chunk_start),
-            end_ms: ms(end),
+            start_ms: self.base_offset_ms + ms(self.chunk_start),
+            end_ms: self.base_offset_ms + ms(end),
             samples,
         })
     }
@@ -225,13 +242,9 @@ pub fn commit_chunk<R: tauri::Runtime>(
             return Err(err);
         }
     };
-    store.insert_segment(
-        meeting_id,
-        chunk.start_ms,
-        chunk.end_ms,
-        chunk.channel,
-        &text,
-    )?;
+    let channel = MeetingChannel::from_label(chunk.channel)
+        .ok_or_else(|| anyhow!("unknown meeting channel"))?;
+    store.insert_segment(meeting_id, chunk.start_ms, chunk.end_ms, channel, &text)?;
     if !tm.is_engine_available() {
         return Err(anyhow!("engine still out after a meeting chunk"));
     }

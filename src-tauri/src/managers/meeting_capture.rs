@@ -170,13 +170,23 @@ impl MicTrack {
     }
 }
 
+enum FrameOutcome {
+    Written,
+    Paused,
+    WriteFailed,
+}
+
 /// One recorder frame: keep it, or on the first write error pause the track
 /// (which records the gap) and set the error text. A paused track returns
 /// without touching the writer, so the failure is logged once, not per frame.
-fn record_frame(track: &Mutex<MicTrack>, error: &Mutex<Option<String>>, frame: &[f32]) {
+fn record_frame(
+    track: &Mutex<MicTrack>,
+    error: &Mutex<Option<String>>,
+    frame: &[f32],
+) -> FrameOutcome {
     let mut track = track.lock().unwrap_or_else(|e| e.into_inner());
     if track.paused {
-        return;
+        return FrameOutcome::Paused;
     }
     if let Err(e) = track.push(frame) {
         let reason = format!("{e:#}");
@@ -184,7 +194,91 @@ fn record_frame(track: &Mutex<MicTrack>, error: &Mutex<Option<String>>, frame: &
         drop(track);
         *error.lock().unwrap_or_else(|e| e.into_inner()) = Some(reason.clone());
         warn!("meeting mic paused after a write error: {reason}");
+        return FrameOutcome::WriteFailed;
     }
+    FrameOutcome::Written
+}
+
+/// One enumerated input, without the cpal handle, so the choice can be tested.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ListedMic {
+    pub name: String,
+    pub is_default: bool,
+}
+
+/// Which input Me will open. `index` is into the list that was passed in;
+/// `None` means the recorder's own default device.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct MicChoice {
+    pub name: Option<String>,
+    pub fell_back: bool,
+    pub index: Option<usize>,
+}
+
+/// `selected` missing from the list, or the list itself failing, is a fallback
+/// to the default. No selected mic is not a fallback: the default was the choice.
+pub(crate) fn choose_mic(selected: Option<&str>, listed: Result<&[ListedMic], ()>) -> MicChoice {
+    let Ok(devices) = listed else {
+        return MicChoice {
+            name: None,
+            fell_back: selected.is_some(),
+            index: None,
+        };
+    };
+    let default_name = devices
+        .iter()
+        .find(|device| device.is_default)
+        .map(|device| device.name.clone());
+    if let Some(wanted) = selected {
+        if let Some((index, device)) = devices
+            .iter()
+            .enumerate()
+            .find(|(_, device)| device.name == wanted)
+        {
+            return MicChoice {
+                name: Some(device.name.clone()),
+                fell_back: false,
+                index: Some(index),
+            };
+        }
+        return MicChoice {
+            name: default_name,
+            fell_back: true,
+            index: None,
+        };
+    }
+    MicChoice {
+        name: default_name,
+        fell_back: false,
+        index: None,
+    }
+}
+
+fn resolve_input(selected: Option<&str>) -> (Option<cpal::Device>, MicChoice) {
+    let devices = match list_input_devices() {
+        Ok(devices) => devices,
+        Err(e) => {
+            if selected.is_some() {
+                warn!("meeting mic: device list failed, using the default: {e}");
+            }
+            return (None, choose_mic(selected, Err(())));
+        }
+    };
+    let listed: Vec<ListedMic> = devices
+        .iter()
+        .map(|device| ListedMic {
+            name: device.name.clone(),
+            is_default: device.is_default,
+        })
+        .collect();
+    let choice = choose_mic(selected, Ok(&listed));
+    if choice.fell_back {
+        warn!("meeting mic fell back to the default input");
+    }
+    let device = choice
+        .index
+        .and_then(|index| devices.into_iter().nth(index).map(|device| device.device));
+    (device, choice)
 }
 
 /* ──────────────────────────────────────────────────────────────── */
@@ -205,6 +299,12 @@ pub struct MeetingMic {
     /// audio callback, which sets it on the first write error.
     error: Arc<Mutex<Option<String>>>,
     held: AtomicBool,
+    /// The input actually opened. Set when the stream starts.
+    mic_name: Mutex<Option<String>>,
+    fell_back: AtomicBool,
+    write_failed: Arc<AtomicBool>,
+    user_paused: Arc<AtomicBool>,
+    on_samples: Arc<Mutex<Option<Arc<dyn Fn(&[f32]) + Send + Sync>>>>,
 }
 
 #[allow(dead_code)]
@@ -226,15 +326,7 @@ impl MeetingMic {
             get_settings(app).selected_microphone.clone(),
             Instant::now(),
         )?;
-        // Holding the microphone and opening the stream is one step: dictation
-        // must not begin while the Me track is between them.
-        {
-            let _gate = lock_mic_gate();
-            mic.hold_microphone();
-            if let Err(e) = mic.start_stream() {
-                mic.fail(&e);
-            }
-        }
+        mic.arm();
         info!(
             "meeting {meeting_id}: me track at {} (VAD off)",
             mic.path().display()
@@ -242,7 +334,11 @@ impl MeetingMic {
         Ok(mic)
     }
 
-    fn from_wav(path: PathBuf, device_name: Option<String>, started: Instant) -> Result<Self> {
+    pub(crate) fn from_wav(
+        path: PathBuf,
+        device_name: Option<String>,
+        started: Instant,
+    ) -> Result<Self> {
         let wav = AppendWav::create(&path)?;
         Ok(Self {
             path,
@@ -251,13 +347,62 @@ impl MeetingMic {
             recorder: Mutex::new(None),
             error: Arc::new(Mutex::new(None)),
             held: AtomicBool::new(false),
+            mic_name: Mutex::new(None),
+            fell_back: AtomicBool::new(false),
+            write_failed: Arc::new(AtomicBool::new(false)),
+            user_paused: Arc::new(AtomicBool::new(false)),
+            on_samples: Arc::new(Mutex::new(None)),
         })
+    }
+
+    /// Samples that were written to mic.wav. The meeting session feeds its chunker.
+    pub(crate) fn set_on_samples(&self, hook: Arc<dyn Fn(&[f32]) + Send + Sync>) {
+        *self
+            .on_samples
+            .lock()
+            .unwrap_or_else(|err| err.into_inner()) = Some(hook);
+    }
+
+    /// Hold the microphone and start the stream under the mic gate. A device
+    /// that refuses pauses the track; it does not fail the rest of the meeting.
+    pub(crate) fn arm(&self) {
+        let _gate = lock_mic_gate();
+        self.hold_microphone();
+        if let Err(e) = self.start_stream() {
+            self.fail(&e);
+        }
+    }
+
+    pub fn mic_name(&self) -> Option<String> {
+        self.mic_name
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .clone()
+    }
+
+    pub fn fell_back(&self) -> bool {
+        self.fell_back.load(Ordering::Relaxed)
+    }
+
+    pub fn write_failed(&self) -> bool {
+        self.write_failed.load(Ordering::Relaxed)
     }
 
     /// Push one frame by hand, with no device. The callback below reaches this
     /// through `record_frame`; frames arrive untouched because the recorder
     /// runs `VadPolicy::Disabled`, and tests feed generated PCM here.
+    pub fn set_user_paused(&self, paused: bool) {
+        self.user_paused.store(paused, Ordering::Release);
+    }
+
+    pub fn is_user_paused(&self) -> bool {
+        self.user_paused.load(Ordering::Acquire)
+    }
+
     pub fn push(&self, samples: &[f32]) -> Result<()> {
+        if self.user_paused.load(Ordering::Acquire) {
+            return Ok(());
+        }
         self.track
             .lock()
             .unwrap_or_else(|p| p.into_inner())
@@ -347,11 +492,13 @@ impl MeetingMic {
         }
         let mut track = self.track.lock().unwrap_or_else(|p| p.into_inner());
         if let Err(e) = track.resume() {
+            self.write_failed.store(true, Ordering::Relaxed);
             warn!("meeting mic resume failed: {e:#}");
             *self.error.lock().unwrap_or_else(|p| p.into_inner()) =
                 Some(format!("mic.wav is short of the last gap: {e:#}"));
         }
         if let Err(e) = track.wav.flush() {
+            self.write_failed.store(true, Ordering::Relaxed);
             warn!("meeting mic flush failed: {e:#}");
             *self.error.lock().unwrap_or_else(|p| p.into_inner()) =
                 Some(format!("mic.wav final flush failed: {e:#}"));
@@ -360,22 +507,44 @@ impl MeetingMic {
 
     /* ---------- device ------------------------------------------------------ */
 
-    /// Open the second recorder with VAD off and start it. A fresh recorder
-    /// every time: its config cache is keyed by device name, so a Bluetooth
-    /// rate change must not reuse the old one.
+    /// Open the second recorder with VAD off and start it. Callers hold
+    /// `lock_mic_gate()`. A fresh recorder every time: its config cache is
+    /// keyed by device name, so a Bluetooth rate change must not reuse the old one.
     fn start_stream(&self) -> Result<()> {
-        let device = self.resolve_device();
+        let (device, choice) = resolve_input(self.device_name.as_deref());
+        *self.mic_name.lock().unwrap_or_else(|err| err.into_inner()) = choice.name;
+        self.fell_back.store(choice.fell_back, Ordering::Relaxed);
         let track = Arc::clone(&self.track);
         let error = Arc::clone(&self.error);
+        let failed = Arc::clone(&self.write_failed);
+        let user_paused = Arc::clone(&self.user_paused);
+        let on_samples = Arc::clone(&self.on_samples);
         let mut recorder = AudioRecorder::new()
             .map_err(|e| anyhow!("Failed to create the meeting recorder: {e}"))?
             .with_audio_callback(move |frame: &[f32]| {
+                if user_paused.load(Ordering::Acquire) {
+                    return;
+                }
                 // Runs on the recorder's consumer thread, not the cpal callback.
                 // Never panic: a poisoned lock is recovered. The first write
                 // error pauses the track and records why, so `is_paused()` and
                 // `error()` agree with the file. A paused track is skipped, so
                 // that log line appears once, not once per frame.
-                record_frame(&track, &error, frame);
+                match record_frame(&track, &error, frame) {
+                    FrameOutcome::Written => {
+                        if let Some(hook) = on_samples
+                            .lock()
+                            .unwrap_or_else(|err| err.into_inner())
+                            .clone()
+                        {
+                            hook(frame);
+                        }
+                    }
+                    FrameOutcome::WriteFailed => {
+                        failed.store(true, Ordering::Relaxed);
+                    }
+                    FrameOutcome::Paused => {}
+                }
             });
         recorder
             .open(device)
@@ -387,27 +556,6 @@ impl MeetingMic {
             .map_err(|e| anyhow!("Failed to start the meeting microphone: {e}"))?;
         *self.recorder.lock().unwrap_or_else(|p| p.into_inner()) = Some(recorder);
         Ok(())
-    }
-
-    /// The user's selected input, or `None` so the recorder opens the system
-    /// default. Mirrors what dictation resolves, without its cached handle.
-    fn resolve_device(&self) -> Option<cpal::Device> {
-        let name = self.device_name.as_ref()?;
-        let found = list_input_devices()
-            .inspect_err(|e| warn!("meeting mic: device list failed, using the default: {e}"))
-            .ok()?
-            .into_iter()
-            .find(|d| d.name == *name);
-        match found {
-            Some(d) => Some(d.device),
-            None => {
-                warn!(
-                    "meeting mic: selected microphone '{name}' not found; \
-                     the Me track is using the system default"
-                );
-                None
-            }
-        }
     }
 
     /// Pause the Me track and record the hole. Nothing else stops: the Others
@@ -678,5 +826,35 @@ mod tests {
             reason.contains("wav write failed"),
             "error text is {reason:?}"
         );
+    }
+
+    #[test]
+    fn mic_fallback_is_reported() {
+        let listed = [
+            ListedMic {
+                name: "Built-in".into(),
+                is_default: true,
+            },
+            ListedMic {
+                name: "Headset".into(),
+                is_default: false,
+            },
+        ];
+        let missing = choose_mic(Some("Gone"), Ok(&listed));
+        assert!(missing.fell_back);
+        assert_eq!(missing.name.as_deref(), Some("Built-in"));
+        assert!(missing.index.is_none());
+
+        let failed = choose_mic(Some("Headset"), Err(()));
+        assert!(failed.fell_back, "enumeration failure must be reported");
+        assert!(failed.name.is_none());
+
+        let found = choose_mic(Some("Headset"), Ok(&listed));
+        assert!(!found.fell_back);
+        assert_eq!(found.index, Some(1));
+
+        let unset = choose_mic(None, Ok(&listed));
+        assert!(!unset.fell_back);
+        assert_eq!(unset.name.as_deref(), Some("Built-in"));
     }
 }
