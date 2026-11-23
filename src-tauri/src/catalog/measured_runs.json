@@ -1,0 +1,18 @@
+{
+  "runs": [
+    {
+      "model_id": "handy-computer/parakeet-ultra-gguf/parakeet-ultra-Q8_0.gguf",
+      "clip_set": "wer-dev-40",
+      "words_wrong_per_100": 9.2,
+      "speed_x_realtime": 24.8,
+      "peak_memory_mb": 1007.0
+    },
+    {
+      "model_id": "handy-computer/parakeet-tdt-0.6b-v3-gguf/parakeet-tdt-0.6b-v3-Q8_0.gguf",
+      "clip_set": "wer-dev-40",
+      "words_wrong_per_100": 10.5,
+      "speed_x_realtime": 20.4,
+      "peak_memory_mb": 1248.0
+    }
+  ]
+}

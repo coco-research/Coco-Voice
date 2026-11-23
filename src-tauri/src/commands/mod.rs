@@ -159,33 +159,41 @@ pub fn initialize_enigo(app: AppHandle) -> Result<(), String> {
     }
 }
 
-/// Marker state to track if shortcuts have been initialized.
-pub struct ShortcutsInitialized;
-
-/// Initialize keyboard shortcuts.
-/// On macOS, this should be called after accessibility permissions are granted.
-/// A pass where every binding registers is idempotent. If any binding fails,
-/// the set stays uninitialized so a later call tries again. Bindings that
-/// already registered are skipped on that retry.
-#[specta::specta]
-#[tauri::command]
-pub fn initialize_shortcuts(app: AppHandle) -> Result<(), String> {
-    if app.try_state::<ShortcutsInitialized>().is_some() {
+pub(crate) fn run_initialize_shortcuts<R, F>(app: &AppHandle<R>, init_fn: F) -> Result<(), String>
+where
+    R: tauri::Runtime,
+    F: FnOnce(&AppHandle<R>) -> crate::shortcut::ShortcutInit,
+{
+    log::debug!("initialize_shortcuts called");
+    if crate::shortcut::current_registration(app).should_skip_init() {
         log::debug!("Shortcuts already initialized");
         return Ok(());
     }
 
-    let outcome = crate::shortcut::init_shortcuts(&app);
+    let outcome = init_fn(app);
+    let next = crate::shortcut::Registration::from_failures(&outcome.failures);
+    crate::shortcut::set_registration(app, next);
     if outcome.initialized {
-        app.manage(ShortcutsInitialized);
         log::info!("Shortcuts initialized successfully");
+        crate::shortcut::emit_shortcuts_registered(app);
     } else {
         log::warn!(
             "Shortcut registration left {} binding(s) unset",
             outcome.failures.len()
         );
-        crate::shortcut::emit_shortcut_registration_failures(&app, &outcome.failures);
+        crate::shortcut::emit_shortcut_registration_failures(app, &outcome.failures);
     }
 
     Ok(())
+}
+
+/// Initialize keyboard shortcuts.
+/// On macOS, this should be called after accessibility permissions are granted.
+/// A pass where every binding registers is idempotent. If any binding fails,
+/// the set stays in `Registration::Failed` so a later call tries again. Bindings
+/// that already registered are skipped on that retry.
+#[specta::specta]
+#[tauri::command]
+pub fn initialize_shortcuts(app: AppHandle) -> Result<(), String> {
+    run_initialize_shortcuts(&app, crate::shortcut::init_shortcuts)
 }

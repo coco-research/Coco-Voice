@@ -4,7 +4,7 @@ use crate::managers::{
     transcription::TranscriptionManager,
 };
 use std::sync::Arc;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 #[tauri::command]
 #[specta::specta]
@@ -40,7 +40,9 @@ pub async fn get_audio_file_path(
     history_manager: State<'_, Arc<HistoryManager>>,
     file_name: String,
 ) -> Result<String, String> {
-    let path = history_manager.get_audio_file_path(&file_name);
+    let path = history_manager
+        .safe_recording_path(&file_name)
+        .map_err(|e| e.to_string())?;
     path.to_str()
         .ok_or_else(|| "Invalid file path".to_string())
         .map(|s| s.to_string())
@@ -73,7 +75,13 @@ pub async fn retry_history_entry_transcription(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("History entry {} not found", id))?;
 
-    let audio_path = history_manager.get_audio_file_path(&entry.file_name);
+    if entry.file_name.trim().is_empty() {
+        return Err("No audio saved for this dictation".to_string());
+    }
+
+    let audio_path = history_manager
+        .safe_recording_path(&entry.file_name)
+        .map_err(|e| e.to_string())?;
     let samples = crate::audio_toolkit::read_wav_samples(&audio_path)
         .map_err(|e| format!("Failed to load audio: {}", e))?;
 
@@ -101,6 +109,7 @@ pub async fn retry_history_entry_transcription(
         &transcription,
         entry.post_process_requested,
         false,
+        None,
         None,
     )
     .await;
@@ -171,13 +180,31 @@ pub async fn update_history_limit(
     history_manager: State<'_, Arc<HistoryManager>>,
     limit: usize,
 ) -> Result<(), String> {
-    crate::settings::update_settings(&app, |s| s.history_limit = limit);
-
     history_manager
-        .cleanup_old_entries()
+        .apply_policy_change_and_cleanup(false, false, || {
+            crate::settings::update_settings(&app, |s| s.history_limit = limit);
+            Ok(())
+        })
         .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+pub fn parse_retention_period(
+    period: &str,
+) -> Result<crate::settings::RecordingRetentionPeriod, String> {
+    use crate::settings::RecordingRetentionPeriod;
+
+    match period {
+        "never" | "forever" => Ok(RecordingRetentionPeriod::Never),
+        "preserve_limit" => Ok(RecordingRetentionPeriod::PreserveLimit),
+        "hours_24" | "hours24" => Ok(RecordingRetentionPeriod::Hours24),
+        "days_3" | "days3" => Ok(RecordingRetentionPeriod::Days3),
+        "weeks_2" | "weeks2" => Ok(RecordingRetentionPeriod::Weeks2),
+        "days_30" | "days30" => Ok(RecordingRetentionPeriod::Days30),
+        "months_3" | "months3" => Ok(RecordingRetentionPeriod::Months3),
+        _ => Err(format!("Invalid retention period: {}", period)),
+    }
 }
 
 #[tauri::command]
@@ -187,26 +214,105 @@ pub async fn update_recording_retention_period(
     history_manager: State<'_, Arc<HistoryManager>>,
     period: String,
 ) -> Result<(), String> {
-    use crate::settings::RecordingRetentionPeriod;
-
-    let retention_period = match period.as_str() {
-        "never" => RecordingRetentionPeriod::Never,
-        "preserve_limit" => RecordingRetentionPeriod::PreserveLimit,
-        "days3" => RecordingRetentionPeriod::Days3,
-        "weeks2" => RecordingRetentionPeriod::Weeks2,
-        "months3" => RecordingRetentionPeriod::Months3,
-        _ => return Err(format!("Invalid retention period: {}", period)),
-    };
-
-    crate::settings::update_settings(&app, |s| {
-        s.recording_retention_period = retention_period;
-    });
+    let retention_period = parse_retention_period(&period)?;
 
     history_manager
-        .cleanup_old_entries()
+        .apply_policy_change_and_cleanup(false, false, || {
+            crate::settings::update_settings(&app, |s| {
+                s.recording_retention_period = retention_period;
+            });
+            Ok(())
+        })
         .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_keep_dictations(
+    app: AppHandle,
+    history_manager: State<'_, Arc<HistoryManager>>,
+    choice: crate::settings::KeepDictationsChoice,
+) -> Result<(), String> {
+    let is_never = matches!(choice, crate::settings::KeepDictationsChoice::Never);
+    history_manager
+        .apply_policy_change_and_cleanup(is_never, false, || {
+            crate::settings::update_settings(&app, |s| {
+                crate::settings::apply_keep_dictations_choice(s, &choice);
+            });
+            Ok(())
+        })
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_keep_dictation_audio(app: AppHandle, enabled: bool) -> Result<(), String> {
+    if let Some(hm) = app.try_state::<Arc<HistoryManager>>() {
+        if !enabled {
+            hm.apply_audio_off_and_drain(|| {
+                crate::settings::update_settings(&app, |s| {
+                    s.keep_dictation_audio = false;
+                });
+                Ok(())
+            })
+            .map_err(|e| e.to_string())?;
+        } else {
+            hm.run_policy_transition(false, false, || {
+                crate::settings::update_settings(&app, |s| {
+                    s.keep_dictation_audio = true;
+                });
+                Ok(())
+            })
+            .map_err(|e| e.to_string())?;
+        }
+    } else {
+        crate::settings::update_settings(&app, |s| {
+            s.keep_dictation_audio = enabled;
+        });
+    }
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn change_never_store_history_setting(
+    app: AppHandle,
+    history_manager: State<'_, Arc<HistoryManager>>,
+    enabled: bool,
+) -> Result<(), String> {
+    if enabled {
+        history_manager
+            .apply_policy_change_and_cleanup(true, false, || {
+                crate::settings::update_settings(&app, |s| {
+                    s.never_store_history = true;
+                });
+                Ok(())
+            })
+            .map_err(|e| e.to_string())?;
+    } else {
+        history_manager
+            .run_policy_transition(false, false, || {
+                crate::settings::update_settings(&app, |s| {
+                    s.never_store_history = false;
+                });
+                Ok(())
+            })
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn change_keep_dictation_audio_setting(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    update_keep_dictation_audio(app, enabled).await
 }
 
 /// The engine call for a history re-transcribe. During a meeting it takes the same meeting
@@ -313,5 +419,68 @@ mod tests {
             windows > 0,
             "test never observed a meeting chunk owning the engine"
         );
+    }
+}
+
+#[cfg(test)]
+mod retention_parse_tests {
+    use super::parse_retention_period;
+    use crate::settings::RecordingRetentionPeriod;
+
+    #[test]
+    fn parse_retention_period_accepts_mock_and_legacy_variants() {
+        assert_eq!(
+            parse_retention_period("never"),
+            Ok(RecordingRetentionPeriod::Never)
+        );
+        assert_eq!(
+            parse_retention_period("forever"),
+            Ok(RecordingRetentionPeriod::Never)
+        );
+        assert_eq!(
+            parse_retention_period("hours24"),
+            Ok(RecordingRetentionPeriod::Hours24)
+        );
+        assert_eq!(
+            parse_retention_period("hours_24"),
+            Ok(RecordingRetentionPeriod::Hours24)
+        );
+        assert_eq!(
+            parse_retention_period("days30"),
+            Ok(RecordingRetentionPeriod::Days30)
+        );
+        assert_eq!(
+            parse_retention_period("days_30"),
+            Ok(RecordingRetentionPeriod::Days30)
+        );
+        assert_eq!(
+            parse_retention_period("days3"),
+            Ok(RecordingRetentionPeriod::Days3)
+        );
+        assert_eq!(
+            parse_retention_period("days_3"),
+            Ok(RecordingRetentionPeriod::Days3)
+        );
+        assert_eq!(
+            parse_retention_period("weeks2"),
+            Ok(RecordingRetentionPeriod::Weeks2)
+        );
+        assert_eq!(
+            parse_retention_period("weeks_2"),
+            Ok(RecordingRetentionPeriod::Weeks2)
+        );
+        assert_eq!(
+            parse_retention_period("months3"),
+            Ok(RecordingRetentionPeriod::Months3)
+        );
+        assert_eq!(
+            parse_retention_period("months_3"),
+            Ok(RecordingRetentionPeriod::Months3)
+        );
+        assert_eq!(
+            parse_retention_period("preserve_limit"),
+            Ok(RecordingRetentionPeriod::PreserveLimit)
+        );
+        assert!(parse_retention_period("bogus_window").is_err());
     }
 }
