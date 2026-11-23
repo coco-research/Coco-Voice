@@ -286,7 +286,8 @@
       "rescan": {
         "label": "重新扫描",
         "tooltip": "重新扫描在 Coco Voice 之外添加到模型文件夹或 Hugging Face 缓存中的模型"
-      }
+      },
+      "rescanning": "正在重新扫描…"
     },
     "general": {
       "title": "通用",
@@ -1281,7 +1282,8 @@
       "sameAsDefault": "与默认相同",
       "thisMeetingHelp": "仅适用于当前录音，停止后将清除。",
       "thisMeetingSelectLabel": "本次会议",
-      "changeAria": "更改会议语言"
+      "changeAria": "更改会议语言",
+      "heading": "会议语言"
     },
     "title": {
       "editHint": "点击重命名",
@@ -1495,7 +1497,21 @@
       "trayPasteLastTitle": "菜单栏 · 粘贴上一段录音",
       "wherePillShowsGeneralDesc": "选择当前活动屏幕的顶部或底部。",
       "yourShortcut": "您的快捷键",
-      "appearance": "外观"
+      "appearance": "外观",
+      "keptOnMac": "保存在此 Mac 上",
+      "off": "关",
+      "listeningPreview": "正在聆听",
+      "calendars": "日历",
+      "openButton": "打开",
+      "microphone": "麦克风",
+      "language": "语言",
+      "howWordsTyped": "文字输入方式",
+      "keepClipboard": "在剪贴板保留文字",
+      "clipboardOnFailOnly": "仅在粘贴失败时",
+      "calendarsSelected": "已选 {{count}} 项",
+      "appHeading": "应用",
+      "sounds": "声音",
+      "contactsGithubAtLaunch": "启动时联系 github.com"
     },
     "words": {
       "addABlockButton": "Add a block",

@@ -286,7 +286,8 @@
       "rescan": {
         "label": "Neu scannen",
         "tooltip": "Erneut nach Modellen scannen, die außerhalb von Coco Voice zum Modellordner oder Hugging-Face-Cache hinzugefügt wurden"
-      }
+      },
+      "rescanning": "Wird neu gescannt…"
     },
     "general": {
       "title": "Allgemein",
@@ -1281,7 +1282,8 @@
       "sameAsDefault": "Wie Standard",
       "thisMeetingHelp": "Gilt nur für die aktuelle Aufnahme und wird beim Stoppen zurückgesetzt.",
       "thisMeetingSelectLabel": "Diese Besprechung",
-      "changeAria": "Meetingsprache ändern"
+      "changeAria": "Meetingsprache ändern",
+      "heading": "Besprechungssprache"
     },
     "title": {
       "editHint": "Zum Umbenennen klicken",
@@ -1495,7 +1497,21 @@
       "trayPasteLastTitle": "Menüleiste · Letzte Aufnahme einfügen",
       "wherePillShowsGeneralDesc": "Oben oder unten auf deinem aktiven Bildschirm wählen.",
       "yourShortcut": "deinen Kurzbefehl",
-      "appearance": "Erscheinungsbild"
+      "appearance": "Erscheinungsbild",
+      "keptOnMac": "Auf diesem Mac gespeichert",
+      "off": "Aus",
+      "listeningPreview": "Hört zu",
+      "calendars": "Kalender",
+      "openButton": "Öffnen",
+      "microphone": "Mikrofon",
+      "language": "Sprache",
+      "howWordsTyped": "Wie Wörter eingegeben werden",
+      "keepClipboard": "Wörter in der Zwischenablage behalten",
+      "clipboardOnFailOnly": "Nur wenn das Einfügen fehlschlägt",
+      "calendarsSelected": "{{count}} ausgewählt",
+      "appHeading": "App",
+      "sounds": "Töne",
+      "contactsGithubAtLaunch": "Kontaktiert github.com beim Start"
     },
     "words": {
       "addABlockButton": "Add a block",

@@ -286,7 +286,8 @@
       "rescan": {
         "label": "Quét lại",
         "tooltip": "Quét lại các mô hình được thêm vào thư mục mô hình hoặc bộ nhớ đệm Hugging Face bên ngoài Coco Voice"
-      }
+      },
+      "rescanning": "Đang quét lại…"
     },
     "general": {
       "title": "Chung",
@@ -1281,7 +1282,8 @@
       "sameAsDefault": "Giống mặc định",
       "thisMeetingHelp": "Chỉ áp dụng cho bản ghi hiện tại và tự xóa khi dừng.",
       "thisMeetingSelectLabel": "Cuộc họp này",
-      "changeAria": "Đổi ngôn ngữ cuộc họp"
+      "changeAria": "Đổi ngôn ngữ cuộc họp",
+      "heading": "Ngôn ngữ cuộc họp"
     },
     "title": {
       "editHint": "Nhấp để đổi tên",
@@ -1495,7 +1497,21 @@
       "trayPasteLastTitle": "Thanh menu · Dán lần ghi gần nhất",
       "wherePillShowsGeneralDesc": "Chọn phía trên hoặc phía dưới màn hình đang hoạt động.",
       "yourShortcut": "phím tắt của bạn",
-      "appearance": "Giao diện"
+      "appearance": "Giao diện",
+      "keptOnMac": "Lưu trên máy Mac này",
+      "off": "Tắt",
+      "listeningPreview": "Đang nghe",
+      "calendars": "Lịch",
+      "openButton": "Mở",
+      "microphone": "Micrô",
+      "language": "Ngôn ngữ",
+      "howWordsTyped": "Cách nhập từ",
+      "keepClipboard": "Giữ từ trong bảng nhớ tạm",
+      "clipboardOnFailOnly": "Chỉ khi dán thất bại",
+      "calendarsSelected": "Đã chọn {{count}}",
+      "appHeading": "Ứng dụng",
+      "sounds": "Âm thanh",
+      "contactsGithubAtLaunch": "Liên hệ github.com khi khởi chạy"
     },
     "words": {
       "addABlockButton": "Add a block",

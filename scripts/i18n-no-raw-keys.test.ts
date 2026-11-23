@@ -11,4 +11,11 @@ describe("Static i18n keys", () => {
     });
     expect(missing).toEqual([]);
   });
+
+  test("every static t() / i18nKey call (with or without a default) exists in en", () => {
+    const missing = findMissingStaticI18nKeys(rootDir, {
+      onlyWithoutDefault: false,
+    });
+    expect(missing).toEqual([]);
+  });
 });

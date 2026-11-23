@@ -331,7 +331,8 @@
         "label": "फेरि स्क्यान गर्नुहोस्",
         "tooltip": "Coco Voice बाहिरबाट मोडेल फोल्डर वा Hugging Face क्यासमा थपिएका मोडेलहरू फेरि स्क्यान गर्नुहोस्"
       },
-      "noModelsMatch": "यो फिल्टरसँग कुनै मोडेल मिल्दैन।"
+      "noModelsMatch": "यो फिल्टरसँग कुनै मोडेल मिल्दैन।",
+      "rescanning": "फेरि स्क्यान गरिँदै…"
     },
     "sound": {
       "title": "साउन्ड",
@@ -1281,7 +1282,8 @@
       "sameAsDefault": "पूर्वनिर्धारित जस्तै",
       "thisMeetingHelp": "हालको रेकर्डिङमा मात्र लागू हुन्छ र रोकिएपछि खाली हुन्छ।",
       "thisMeetingSelectLabel": "यो बैठक",
-      "changeAria": "बैठकको भाषा बदल्नुहोस्"
+      "changeAria": "बैठकको भाषा बदल्नुहोस्",
+      "heading": "बैठक भाषा"
     },
     "title": {
       "editHint": "नाम बदल्न क्लिक गर्नुहोस्",
@@ -1495,7 +1497,21 @@
       "trayPasteLastTitle": "मेनु बार · पछिल्लो टेक टाँस्नुहोस्",
       "wherePillShowsGeneralDesc": "तपाईंको सक्रिय स्क्रिनको माथि वा तल छान्नुहोस्।",
       "yourShortcut": "तपाईंको सर्टकट",
-      "appearance": "रूपरङ्ग"
+      "appearance": "रूपरङ्ग",
+      "keptOnMac": "यसै Mac मा राखिएको",
+      "off": "बन्द",
+      "listeningPreview": "सुन्दै",
+      "calendars": "क्यालेन्डरहरू",
+      "openButton": "खोल्नुहोस्",
+      "microphone": "माइक्रोफोन",
+      "language": "भाषा",
+      "howWordsTyped": "शब्द कसरी टाइप हुन्छन्",
+      "keepClipboard": "क्लिपबोर्डमा शब्द राख्नुहोस्",
+      "clipboardOnFailOnly": "टाँस्न असफल हुँदा मात्र",
+      "calendarsSelected": "{{count}} छानिए",
+      "appHeading": "एप",
+      "sounds": "ध्वनि",
+      "contactsGithubAtLaunch": "खोल्दा github.com मा सम्पर्क गर्छ"
     },
     "words": {
       "addABlockButton": "Add a block",

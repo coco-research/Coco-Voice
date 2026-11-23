@@ -724,7 +724,8 @@
       "rescan": {
         "label": "إعادة الفحص",
         "tooltip": "إعادة الفحص بحثًا عن النماذج المضافة إلى مجلد النماذج أو ذاكرة Hugging Face التخزينية المؤقتة خارج Coco Voice"
-      }
+      },
+      "rescanning": "جارٍ إعادة الفحص…"
     },
     "online": {
       "eyebrow": "الإعدادات",
@@ -1281,7 +1282,8 @@
       "sameAsDefault": "نفس اللغة الافتراضية",
       "thisMeetingHelp": "ينطبق على التسجيل الحالي فقط ويُمسح عند إيقافه.",
       "thisMeetingSelectLabel": "هذا الاجتماع",
-      "changeAria": "تغيير لغة الاجتماع"
+      "changeAria": "تغيير لغة الاجتماع",
+      "heading": "لغة الاجتماع"
     },
     "title": {
       "editHint": "انقر لإعادة التسمية",
@@ -1495,7 +1497,21 @@
       "trayPasteLastTitle": "شريط القوائم · لصق آخر تسجيل",
       "wherePillShowsGeneralDesc": "اختر أعلى الشاشة النشطة أو أسفلها.",
       "yourShortcut": "اختصارك",
-      "appearance": "المظهر"
+      "appearance": "المظهر",
+      "keptOnMac": "محفوظ على جهاز Mac هذا",
+      "off": "متوقف",
+      "listeningPreview": "جارٍ الاستماع",
+      "calendars": "التقويمات",
+      "openButton": "فتح",
+      "microphone": "الميكروفون",
+      "language": "اللغة",
+      "howWordsTyped": "طريقة كتابة الكلمات",
+      "keepClipboard": "الاحتفاظ بالكلمات في الحافظة",
+      "clipboardOnFailOnly": "فقط إذا فشل اللصق",
+      "calendarsSelected": "تم تحديد {{count}}",
+      "appHeading": "التطبيق",
+      "sounds": "الأصوات",
+      "contactsGithubAtLaunch": "يتصل بـ github.com عند التشغيل"
     },
     "words": {
       "addABlockButton": "Add a block",

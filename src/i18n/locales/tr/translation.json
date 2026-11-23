@@ -286,7 +286,8 @@
       "rescan": {
         "label": "Yeniden tara",
         "tooltip": "Coco Voice dışında modeller klasörüne veya Hugging Face önbelleğine eklenen modelleri yeniden tara"
-      }
+      },
+      "rescanning": "Yeniden taranıyor…"
     },
     "general": {
       "title": "Genel",
@@ -1281,7 +1282,8 @@
       "sameAsDefault": "Varsayılanla aynı",
       "thisMeetingHelp": "Yalnızca geçerli kayıt için geçerlidir ve kayıt durunca temizlenir.",
       "thisMeetingSelectLabel": "Bu toplantı",
-      "changeAria": "Toplantı dilini değiştir"
+      "changeAria": "Toplantı dilini değiştir",
+      "heading": "Toplantı dili"
     },
     "title": {
       "editHint": "Yeniden adlandırmak için tıklayın",
@@ -1495,7 +1497,21 @@
       "trayPasteLastTitle": "Menü çubuğu · Son kaydı yapıştır",
       "wherePillShowsGeneralDesc": "Etkin ekranınızın üstünü veya altını seçin.",
       "yourShortcut": "kısayolunuz",
-      "appearance": "Görünüm"
+      "appearance": "Görünüm",
+      "keptOnMac": "Bu Mac’te saklanır",
+      "off": "Kapalı",
+      "listeningPreview": "Dinleniyor",
+      "calendars": "Takvimler",
+      "openButton": "Aç",
+      "microphone": "Mikrofon",
+      "language": "Dil",
+      "howWordsTyped": "Kelimeler nasıl yazılır",
+      "keepClipboard": "Kelimeleri panoda tut",
+      "clipboardOnFailOnly": "Yalnızca yapıştırma başarısız olursa",
+      "calendarsSelected": "{{count}} seçildi",
+      "appHeading": "Uygulama",
+      "sounds": "Sesler",
+      "contactsGithubAtLaunch": "Açılışta github.com ile iletişim kurar"
     },
     "words": {
       "addABlockButton": "Add a block",
