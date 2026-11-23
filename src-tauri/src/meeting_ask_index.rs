@@ -11,8 +11,103 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use unicode_segmentation::UnicodeSegmentation;
+
+// ponytail: ceiling = the pending ask-index clean flag lives in memory per index
+// path while startup runs one sync-and-compact on launch; upgrade path = persist a
+// marker file beside ask_index.db if mid-session crash recovery without waiting for
+// startup is needed.
+fn pending_ask_clean_set() -> &'static Mutex<HashSet<PathBuf>> {
+    static PENDING: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
+    PENDING.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+fn pending_ask_key(data_dir: &Path) -> PathBuf {
+    let meetings_dir = data_dir.join("meetings");
+    let base = fs::canonicalize(&meetings_dir)
+        .or_else(|_| fs::canonicalize(data_dir).map(|p| p.join("meetings")))
+        .unwrap_or(meetings_dir);
+    base.join("ask_index.db")
+}
+
+/// True when any Ask index has a deferred clean waiting to retry.
+pub fn any_ask_clean_pending() -> bool {
+    let guard = pending_ask_clean_set()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    !guard.is_empty()
+}
+
+/// Sync (and optionally securely compact) the Ask index if `meetings/ask_index.db`
+/// exists. On any error, logs without meeting content and queues a background retry.
+pub fn sync_or_defer(data_dir: &Path, compact: bool, context: &str) {
+    let index_path = data_dir.join("meetings").join("ask_index.db");
+    if !index_path.exists() {
+        return;
+    }
+    let key = pending_ask_key(data_dir);
+    let outcome = (|| -> Result<()> {
+        let idx = MeetingAskIndex::open(data_dir)?;
+        idx.sync()?;
+        if compact {
+            idx.compact_secure()?;
+        }
+        Ok(())
+    })();
+    match outcome {
+        Ok(()) => {
+            let mut guard = pending_ask_clean_set()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            guard.remove(&key);
+        }
+        Err(err) => {
+            log::warn!("ask index clean deferred after {context}: {err}");
+            let mut guard = pending_ask_clean_set()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            guard.insert(key);
+        }
+    }
+}
+
+/// Retry a deferred Ask index sync and secure compact for `data_dir`.
+/// Returns `Ok(false)` if nothing was pending, `Ok(true)` if the retry succeeded,
+/// or re-queues the pending flag and returns `Err` on failure.
+pub fn run_pending_ask_clean(data_dir: &Path) -> Result<bool> {
+    let key = pending_ask_key(data_dir);
+    let was_pending = {
+        let mut guard = pending_ask_clean_set()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        guard.remove(&key)
+    };
+    if !was_pending {
+        return Ok(false);
+    }
+    let index_path = data_dir.join("meetings").join("ask_index.db");
+    if !index_path.exists() {
+        return Ok(true);
+    }
+    let outcome = (|| -> Result<()> {
+        let idx = MeetingAskIndex::open(data_dir)?;
+        idx.sync()?;
+        idx.compact_secure()?;
+        Ok(())
+    })();
+    match outcome {
+        Ok(()) => Ok(true),
+        Err(err) => {
+            let mut guard = pending_ask_clean_set()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            guard.insert(key);
+            Err(err)
+        }
+    }
+}
 
 pub const TOP_K: usize = 5;
 const STOP: &str = " a about an and are at be by did do does for from had has have how i in is it \
@@ -107,12 +202,10 @@ impl MeetingAskIndex {
     /// Securely zero freed pages and truncate WAL on `ask_index.db`.
     pub fn compact_secure(&self) -> Result<()> {
         let c = self.conn()?;
-        let _ = c.execute_batch(
-            "PRAGMA secure_delete = ON;
-             PRAGMA wal_checkpoint(TRUNCATE);
-             VACUUM;
-             PRAGMA wal_checkpoint(TRUNCATE);",
-        );
+        c.execute_batch("PRAGMA secure_delete = ON;")?;
+        crate::managers::meetings::wal_checkpoint_truncate(&c)?;
+        c.execute_batch("VACUUM;")?;
+        crate::managers::meetings::wal_checkpoint_truncate(&c)?;
         Ok(())
     }
 
@@ -318,7 +411,7 @@ impl MeetingAskIndex {
     fn conn(&self) -> Result<Connection> {
         let c = Connection::open(&self.index_path)?;
         c.busy_timeout(Duration::from_secs(1))?;
-        let _ = c.execute_batch("PRAGMA secure_delete = ON;");
+        c.execute_batch("PRAGMA secure_delete = ON;")?;
         Ok(c)
     }
 }
@@ -531,5 +624,105 @@ pub(crate) mod tests {
         assert_eq!(imp_hits.len(), 1);
         assert_eq!(imp_hits[0].meeting_id, imported);
         assert!(imp_hits[0].resolves_in(dir.path()));
+    }
+
+    #[test]
+    fn ask_index_compact_errs_while_a_reader_blocks_the_checkpoint() {
+        let dir = tempfile::tempdir().unwrap();
+        seed_three_meetings(dir.path());
+        let idx = MeetingAskIndex::open(dir.path()).unwrap();
+        idx.sync().unwrap();
+
+        let reader = Connection::open(dir.path().join("meetings/ask_index.db")).unwrap();
+        reader.execute_batch("BEGIN DEFERRED;").unwrap();
+        let _: i64 = reader
+            .query_row("SELECT COUNT(*) FROM ask_docs", [], |r| r.get(0))
+            .unwrap();
+
+        let mc = Connection::open(dir.path().join("meetings/meetings.db")).unwrap();
+        mc.execute("DELETE FROM meeting_segments WHERE meeting_id = 2", [])
+            .unwrap();
+        mc.execute("DELETE FROM meetings WHERE id = 2", []).unwrap();
+        drop(mc);
+        idx.sync().unwrap();
+
+        assert!(
+            idx.compact_secure().is_err(),
+            "compact_secure must report Err while a reader holds the WAL"
+        );
+
+        reader.execute_batch("COMMIT;").unwrap();
+        drop(reader);
+
+        idx.compact_secure().unwrap();
+        let wal = dir.path().join("meetings/ask_index.db-wal");
+        let wal_len = fs::metadata(&wal).map(|m| m.len()).unwrap_or(0);
+        assert_eq!(wal_len, 0, "ask_index.db-wal must truncate to 0 bytes");
+    }
+
+    pub(crate) fn test_pending_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    #[test]
+    fn deferred_ask_clean_purges_a_deleted_meeting_on_retry() {
+        let _serial = test_pending_lock()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        seed_three_meetings(dir.path());
+        let idx = MeetingAskIndex::open(dir.path()).unwrap();
+        idx.sync().unwrap();
+
+        let mc = Connection::open(dir.path().join("meetings/meetings.db")).unwrap();
+        mc.execute("DELETE FROM meeting_segments WHERE meeting_id = 2", [])
+            .unwrap();
+        mc.execute("DELETE FROM meetings WHERE id = 2", []).unwrap();
+        drop(mc);
+
+        let locker = Connection::open(dir.path().join("meetings/ask_index.db")).unwrap();
+        locker.execute_batch("BEGIN IMMEDIATE;").unwrap();
+
+        sync_or_defer(dir.path(), true, "delete_meeting");
+        assert!(any_ask_clean_pending(), "pending flag must be set on lock");
+        let rows_before: i64 = locker
+            .query_row(
+                "SELECT COUNT(*) FROM ask_docs WHERE meeting_id = 2",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            rows_before > 0,
+            "deleted meeting rows remain until deferred retry runs"
+        );
+
+        locker.execute_batch("COMMIT;").unwrap();
+        drop(locker);
+
+        assert!(run_pending_ask_clean(dir.path()).unwrap());
+        let check = Connection::open(dir.path().join("meetings/ask_index.db")).unwrap();
+        let rows_after: i64 = check
+            .query_row(
+                "SELECT COUNT(*) FROM ask_docs WHERE meeting_id = 2",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(rows_after, 0, "retry must purge deleted meeting rows");
+        assert!(!run_pending_ask_clean(dir.path()).unwrap());
+        assert!(!any_ask_clean_pending());
+    }
+
+    #[test]
+    fn sync_or_defer_skips_a_missing_index() {
+        let _serial = test_pending_lock()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        sync_or_defer(dir.path(), true, "delete_meeting");
+        assert!(!dir.path().join("meetings/ask_index.db").exists());
+        assert!(!any_ask_clean_pending());
     }
 }

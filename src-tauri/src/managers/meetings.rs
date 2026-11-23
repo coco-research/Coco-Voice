@@ -50,7 +50,7 @@ pub fn any_secure_clean_pending() -> bool {
     !guard.is_empty()
 }
 
-fn wal_checkpoint_truncate(conn: &Connection) -> Result<()> {
+pub(crate) fn wal_checkpoint_truncate(conn: &Connection) -> Result<()> {
     let mut stmt = conn.prepare("PRAGMA wal_checkpoint(TRUNCATE);")?;
     let mut rows = stmt.query([])?;
     let mut saw_row = false;
