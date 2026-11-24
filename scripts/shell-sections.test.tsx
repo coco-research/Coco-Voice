@@ -42,6 +42,7 @@ test("enabled navigation separates meetings, dictation and shared settings in th
     "meetings-history",
     "meetings-ask",
     "meetings-folders",
+    "meetings-agent",
     "voice-history",
     "voice-profiles",
     "voice-words",
@@ -88,7 +89,7 @@ test("every route remains a native button and only the selected page is current"
     "about",
   ]) {
     const buttons = render(page).match(/<button\b[^>]*>/g) ?? [];
-    expect(buttons).toHaveLength(11);
+    expect(buttons).toHaveLength(12);
     expect(buttons.every((b) => b.includes('type="button"'))).toBe(true);
     const selected = buttons.filter((b) => b.includes('aria-current="page"'));
     expect(selected).toHaveLength(1);

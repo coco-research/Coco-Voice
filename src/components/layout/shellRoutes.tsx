@@ -2,6 +2,7 @@ import React, { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../../hooks/useSettings";
 import { HomeView } from "../home/HomeView";
+import { AgentAccessView } from "../meetings/AgentAccessView";
 import {
   AskMeetingsView,
   MeetingTodosPanel,
@@ -45,6 +46,7 @@ export const SHELL_ROUTES = [
     "sidebar.foldersAndTemplates",
     true,
   ),
+  r("meetings-agent", "meetings", "meetings", "sidebar.agentAccess", true),
   r("voice-history", "voice", "voice", "sidebar.dictationHistory", true),
   r("voice-profiles", "voice", "voice", "sidebar.perAppProfiles", true),
   r("voice-words", "voice", "voice", "sidebar.wordsAndCleanup", true),
@@ -155,6 +157,12 @@ export function renderShellSection(
     return (
       <div data-route-domain="meetings" className="w-full">
         <FoldersAndTemplatesView />
+      </div>
+    );
+  if (s === "meetings-agent")
+    return (
+      <div data-route-domain="meetings" className="w-full">
+        <AgentAccessView />
       </div>
     );
   if (s === "voice-profiles")

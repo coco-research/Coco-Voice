@@ -20,6 +20,8 @@ mock.module("../src/i18n", () => ({
 
 const { renderShellSection, SHELL_ROUTES, Sidebar } =
   await import("../src/components/layout/shellRoutes");
+const { MCP_STDIO_COMMAND, resolveAndCopyMcpCommand } =
+  await import("../src/components/meetings/AgentAccessView");
 
 const i18n = i18next.createInstance();
 void i18n
@@ -37,7 +39,7 @@ describe("Sidebar & shell navigation (V-L1)", () => {
       ...html.matchAll(/data-nav-id="[^"]+"[^>]*><span[^>]*>([^<]+)<\/span>/g),
     ].map((m) => m[1]);
     expect(labels.join("|")).toBe(
-      "Home|Record a meeting|Meeting history|Ask your meetings|Folders and templates|Dictation history|Per-app profiles|Words and clean-up|Models|Settings|About",
+      "Home|Record a meeting|Meeting history|Ask your meetings|Folders and templates|Agent access|Dictation history|Per-app profiles|Words and clean-up|Models|Settings|About",
     );
     const pos = [
       'id="home"',
@@ -91,5 +93,77 @@ describe("Sidebar & shell navigation (V-L1)", () => {
       if (prev) Object.defineProperty(globalThis, "window", prev);
       else delete g.window;
     }
+  });
+
+  test("restores Meetings > Agent access right after Folders and templates with toggle off and exact MCP command", async () => {
+    const ids = SHELL_ROUTES.map((r) => r.id as string);
+    const foldersIdx = ids.indexOf("meetings-folders");
+    const agentIdx = ids.indexOf("meetings-agent");
+    expect(foldersIdx).toBeGreaterThan(-1);
+    expect(agentIdx).toBe(foldersIdx + 1);
+
+    const sidebarHtml = wrap(
+      <Sidebar
+        activeSection={"meetings-agent" as ShellSectionId}
+        onSectionChange={() => {}}
+      />,
+    );
+    expect(sidebarHtml).toContain(
+      'data-nav-id="meetings-agent" aria-current="page"',
+    );
+    expect(sidebarHtml).toContain(en.sidebar.agentAccess);
+
+    const pageHtml = wrap(
+      renderShellSection("meetings-agent" as ShellSectionId, null),
+    );
+    expect(pageHtml).toContain('data-testid="page-5-agent-access"');
+    expect(pageHtml).not.toContain(en.sidebar.sectionPlaceholder);
+    expect(pageHtml).toContain(en.meetings.agent.offByDefault);
+    expect(pageHtml).toContain(MCP_STDIO_COMMAND);
+    expect(MCP_STDIO_COMMAND).toBe("coco-voice mcp");
+    // Access toggle starts OFF: master switch unchecked, child switches disabled.
+    const switches = pageHtml.match(/<input[^>]*type="checkbox"[^>]*>/g) ?? [];
+    expect(switches.length).toBeGreaterThanOrEqual(3);
+    expect(switches[0]).not.toContain("checked");
+    expect(pageHtml).toContain(
+      'data-testid="agent-scope-card" aria-disabled="true"',
+    );
+
+    const copied: string[] = [];
+    const fallbackCopy = await resolveAndCopyMcpCommand(
+      {
+        mcpCommandLine: async () => ({
+          status: "error",
+          error: "unavailable",
+        }),
+      },
+      (text) => {
+        copied.push(text);
+      },
+    );
+    expect(fallbackCopy).toEqual({
+      command: "coco-voice mcp",
+      usedFallback: true,
+    });
+    expect(copied[0]).toBe("coco-voice mcp");
+
+    const bundledCmd =
+      "'/Applications/Coco Voice.app/Contents/MacOS/coco-voice' mcp";
+    const bundledCopy = await resolveAndCopyMcpCommand(
+      {
+        mcpCommandLine: async () => ({
+          status: "ok",
+          data: bundledCmd,
+        }),
+      },
+      (text) => {
+        copied.push(text);
+      },
+    );
+    expect(bundledCopy).toEqual({
+      command: bundledCmd,
+      usedFallback: false,
+    });
+    expect(copied[1]).toBe(bundledCmd);
   });
 });
