@@ -9,6 +9,7 @@ import {
   type ModelInfo,
 } from "@/bindings";
 import { toast } from "sonner";
+import { useSettingsStore } from "./settingsStore";
 
 interface DownloadProgress {
   model_id: string;
@@ -40,8 +41,11 @@ interface ModelsStore {
   isRescanning: boolean;
   // A take is being captured; the model picker stays locked until it ends.
   isRecording: boolean;
+  // First-run download screen renders its own inline error card instead of a raw toast.
+  suppressFailureToast: boolean;
 
   // Actions
+  setSuppressFailureToast: (suppress: boolean) => void;
   initialize: () => Promise<void>;
   loadModels: () => Promise<void>;
   loadCurrentModel: () => Promise<void>;
@@ -78,8 +82,11 @@ export const useModelStore = create<ModelsStore>()(
     initialized: false,
     isRescanning: false,
     isRecording: false,
+    suppressFailureToast: false,
 
     // Internal setters
+    setSuppressFailureToast: (suppressFailureToast) =>
+      set({ suppressFailureToast }),
     setModels: (models) => set({ models }),
     setCurrentModel: (currentModel) => set({ currentModel }),
     setError: (error) => set({ error }),
@@ -355,7 +362,12 @@ export const useModelStore = create<ModelsStore>()(
             state.error = error;
           }),
         );
-        toast.error(error);
+        const onboardingActive =
+          get().suppressFailureToast ||
+          useSettingsStore.getState().settings?.onboarding_completed === false;
+        if (!onboardingActive) {
+          toast.error(error);
+        }
       });
 
       listen<string>("model-verification-started", (event) => {

@@ -1,65 +1,172 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ChevronDown } from "lucide-react";
-import type { ModelInfo } from "@/bindings";
-import type { ModelCardStatus } from "./ModelCard";
-import ModelCard, { isLegacySource } from "./ModelCard";
-import CocoVoiceTextLogo from "../icons/CocoVoiceTextLogo";
+import { commands, type ModelInfo } from "@/bindings";
+import { TryItStepCard } from "./AccessibilityStaleNotice";
+import {
+  bytesToWholeMb,
+  computeRollingEtaSeconds,
+  ETA_WINDOW_MS,
+  FirstRunModelDownloadView,
+  pickDefaultFirstRunModel,
+  type DownloadByteSample,
+  type FirstRunDownloadPhase,
+} from "./FirstRunModelDownloadView";
 import { useModelStore } from "../../stores/modelStore";
+import { useSettingsStore } from "../../stores/settingsStore";
 
 interface OnboardingProps {
   onModelSelected: () => void;
+  onDownloadComplete?: () => void;
+  onSkip?: () => void;
 }
 
-const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
+export function resolveOnboardingShortcut(
+  binding: string | null | undefined,
+  fallback: string,
+): string {
+  const trimmed = binding?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : fallback;
+}
+
+export async function cleanupPartialOnDownloadFailure(
+  modelId: string,
+  deleteModelFn: (id: string) => Promise<unknown> = (id) =>
+    commands.deleteModel(id),
+): Promise<void> {
+  try {
+    await deleteModelFn(modelId);
+  } catch {
+    // Ignore "No model files found" when no partial existed yet.
+  }
+}
+
+const Onboarding: React.FC<OnboardingProps> = ({
+  onModelSelected,
+  onDownloadComplete,
+  onSkip,
+}) => {
   const { t } = useTranslation();
   const {
     models,
     downloadModel,
+    cancelDownload,
     selectModel,
     downloadingModels,
     verifyingModels,
     extractingModels,
     downloadProgress,
-    downloadStats,
+    downloadFailures,
+    setSuppressFailureToast,
   } = useModelStore();
+  const transcribeBinding = useSettingsStore(
+    (state) => state.settings?.bindings?.transcribe?.current_binding,
+  );
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
+  const [showTryIt, setShowTryIt] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [cleanedFailureKey, setCleanedFailureKey] = useState<string | null>(
+    null,
+  );
   const hasStartedSelection = useRef(false);
+  const autoStartedRef = useRef(false);
+  const lastDownloadedMbRef = useRef<number>(0);
+  const downloadStartedAtRef = useRef<number>(Date.now());
+  const samplesRef = useRef<DownloadByteSample[]>([]);
+  const cleanedFailureRef = useRef<string | null>(null);
 
-  const isBusy = selectedModelId !== null;
+  useEffect(() => {
+    setSuppressFailureToast(true);
+    return () => setSuppressFailureToast(false);
+  }, [setSuppressFailureToast]);
 
-  // Curate the download list: legacy (.bin/ONNX) downloads are deprecated and
-  // never shown here (they still appear in the compatible section if already on
-  // disk). The catalog arrives rank-sorted, so the first two recommended models
-  // are the featured picks — currently Parakeet Unified (English) and Nemotron
-  // Streaming (multilingual). Everything else hides behind "Show all".
-  const { downloadable, topPicks, otherRecommended, rest } = useMemo(() => {
-    const downloadable = models.filter(
-      (m: ModelInfo) => !m.is_downloaded && !isLegacySource(m),
+  const defaultModel: ModelInfo | null = useMemo(
+    () => pickDefaultFirstRunModel(models),
+    [models],
+  );
+  const activeModelId = selectedModelId ?? defaultModel?.id ?? null;
+  const activeModel = useMemo(
+    () =>
+      (activeModelId
+        ? models.find((m) => m.id === activeModelId)
+        : undefined) ?? defaultModel,
+    [activeModelId, defaultModel, models],
+  );
+
+  const failureCause = activeModel
+    ? (downloadFailures[activeModel.id] ?? null)
+    : null;
+  const progress = activeModel ? downloadProgress[activeModel.id] : undefined;
+
+  useEffect(() => {
+    if (!progress || progress.downloaded <= 0) return;
+    const now = Date.now();
+    lastDownloadedMbRef.current = bytesToWholeMb(progress.downloaded);
+    const nextSamples = [
+      ...samplesRef.current.filter((s) => now - s.atMs <= ETA_WINDOW_MS),
+      { atMs: now, bytes: progress.downloaded },
+    ];
+    samplesRef.current = nextSamples;
+    setSecondsLeft(
+      computeRollingEtaSeconds(
+        nextSamples,
+        progress.total,
+        now,
+        downloadStartedAtRef.current,
+      ),
     );
-    const recommended = downloadable.filter((m: ModelInfo) => m.is_recommended);
-    // `models` arrives in editorial rank order (the backend sorts by rank_of,
-    // then accuracy), so keep that order here: ranked-but-not-recommended models
-    // surface first, then the unranked tail by accuracy.
-    const rest = downloadable.filter((m: ModelInfo) => !m.is_recommended);
-    return {
-      downloadable,
-      topPicks: recommended.slice(0, 2),
-      otherRecommended: recommended.slice(2),
-      rest,
-    };
-  }, [models]);
+  }, [progress]);
 
-  const hasRecommended = topPicks.length > 0 || otherRecommended.length > 0;
-  // When nothing recommended remains to download (e.g. all already on disk),
-  // there is no curated subset to collapse, so just show the full list.
-  const showRest = showAll || !hasRecommended;
+  // AC-A7 / Plan A v1.1: remove any .partial file left by resumable downloader on
+  // first-run failure BEFORE showing the failure state so "Nothing was saved." is true.
+  const activeFailureKey =
+    activeModel && failureCause ? `${activeModel.id}:${failureCause}` : null;
+
+  useEffect(() => {
+    if (!activeModel || !failureCause || !activeFailureKey) {
+      cleanedFailureRef.current = null;
+      setCleanedFailureKey(null);
+      return;
+    }
+    if (cleanedFailureRef.current === activeFailureKey) return;
+    cleanedFailureRef.current = activeFailureKey;
+    let active = true;
+    void cleanupPartialOnDownloadFailure(activeModel.id).finally(() => {
+      if (active) setCleanedFailureKey(activeFailureKey);
+    });
+    return () => {
+      active = false;
+    };
+  }, [activeFailureKey, activeModel, failureCause]);
+
+  // Automatically start the single default speech model download on First Run,
+  // or advance straight to "Try it" if the model is already on disk.
+  useEffect(() => {
+    if (!activeModel || showTryIt || autoStartedRef.current) return;
+    if (failureCause || cancelled) return;
+
+    if (activeModel.is_downloaded) {
+      autoStartedRef.current = true;
+      setSelectedModelId(activeModel.id);
+      return;
+    }
+
+    autoStartedRef.current = true;
+    downloadStartedAtRef.current = Date.now();
+    samplesRef.current = [];
+    setSecondsLeft(null);
+    setSelectedModelId(activeModel.id);
+    void downloadModel(activeModel.id).then((ok) => {
+      if (!ok) {
+        setSelectedModelId(null);
+      }
+    });
+  }, [activeModel, cancelled, downloadModel, failureCause, showTryIt]);
 
   // Watch for the selected model to finish downloading + verifying + extracting
   useEffect(() => {
-    if (!selectedModelId) {
+    if (!selectedModelId || cancelled) {
       hasStartedSelection.current = false;
       return;
     }
@@ -78,10 +185,13 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
     ) {
       hasStartedSelection.current = true;
 
-      // Model is ready — select it and transition
-      selectModel(selectedModelId).then((success) => {
+      void selectModel(selectedModelId).then((success) => {
         if (success) {
-          onModelSelected();
+          if (onDownloadComplete) {
+            onDownloadComplete();
+          } else {
+            setShowTryIt(true);
+          }
         } else {
           toast.error(t("onboarding.errors.selectModel"));
           hasStartedSelection.current = false;
@@ -90,161 +200,101 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
       });
     }
   }, [
+    cancelled,
     selectedModelId,
     models,
     downloadingModels,
     verifyingModels,
     extractingModels,
     selectModel,
-    onModelSelected,
+    onDownloadComplete,
     t,
   ]);
 
-  const handleDownloadModel = async (modelId: string) => {
-    setSelectedModelId(modelId);
+  const handleCancel = async () => {
+    if (!activeModel) return;
+    setCancelled(true);
+    hasStartedSelection.current = false;
+    setSelectedModelId(null);
+    setSecondsLeft(null);
+    await cancelDownload(activeModel.id);
+  };
 
-    // Error toast is handled centrally by the model-download-failed event listener
-    // in modelStore — no toast here to avoid duplicates.
-    const success = await downloadModel(modelId);
-    if (!success) {
+  const handleTryAgain = async () => {
+    if (!activeModel) return;
+    setCancelled(false);
+    hasStartedSelection.current = false;
+    lastDownloadedMbRef.current = 0;
+    downloadStartedAtRef.current = Date.now();
+    samplesRef.current = [];
+    setSecondsLeft(null);
+    setSelectedModelId(activeModel.id);
+    const ok = await downloadModel(activeModel.id);
+    if (!ok) {
       setSelectedModelId(null);
     }
   };
 
-  const handleSelectExistingModel = (modelId: string) => {
-    setSelectedModelId(modelId);
-  };
+  const shortcut = resolveOnboardingShortcut(
+    transcribeBinding,
+    t("sidebar.shortcutNotSet", "Shortcut not set"),
+  );
 
-  const getModelStatus = (modelId: string): ModelCardStatus => {
-    if (modelId in extractingModels) return "extracting";
-    if (modelId in verifyingModels) return "verifying";
-    if (modelId in downloadingModels) return "downloading";
-    return "downloadable";
-  };
+  if (showTryIt) {
+    return (
+      <div className="min-h-screen w-full bg-background">
+        <TryItStepCard shortcut={shortcut} onDone={onModelSelected} />
+      </div>
+    );
+  }
 
-  const getExistingModelStatus = (modelId: string): ModelCardStatus => {
-    if (selectedModelId === modelId) return "switching";
-    return "available";
-  };
+  const failureReady =
+    Boolean(failureCause) && cleanedFailureKey === activeFailureKey;
 
-  const getModelDownloadProgress = (modelId: string): number | undefined => {
-    return downloadProgress[modelId]?.percentage;
-  };
+  let phase: FirstRunDownloadPhase = "downloading";
+  if (failureReady) {
+    phase = "failed";
+  } else if (cancelled) {
+    phase = "cancelled";
+  } else if (activeModel && activeModel.id in extractingModels) {
+    phase = "extracting";
+  } else if (activeModel && activeModel.id in verifyingModels) {
+    phase = "verifying";
+  } else if (activeModel && activeModel.id in downloadingModels) {
+    phase = "downloading";
+  } else if (!activeModel) {
+    phase = "idle";
+  }
 
-  const getModelDownloadSpeed = (modelId: string): number | undefined => {
-    return downloadStats[modelId]?.speed;
-  };
+  const totalMb =
+    progress && progress.total > 0
+      ? bytesToWholeMb(progress.total)
+      : Math.round(activeModel?.size_mb ?? 0);
+  const downloadedMb =
+    progress && progress.downloaded > 0
+      ? bytesToWholeMb(progress.downloaded)
+      : lastDownloadedMbRef.current;
+  const percentage = progress?.percentage ?? 0;
 
   return (
-    <div className="h-screen w-screen flex flex-col p-6 gap-4 inset-0">
-      <div className="flex flex-col items-center gap-2 shrink-0">
-        <CocoVoiceTextLogo width={200} />
-        <p className="text-text/70 max-w-md font-medium mx-auto">
-          {t("onboarding.subtitle")}
-        </p>
-      </div>
-
-      <div className="max-w-[600px] w-full mx-auto text-center flex-1 flex flex-col min-h-0">
-        <div className="space-y-6 pb-6">
-          {models.some((m: ModelInfo) => m.is_downloaded) && (
-            <div className="space-y-3">
-              <div className="text-left">
-                <h2 className="text-sm font-medium text-text/60">
-                  {t("onboarding.existingModelsTitle")}
-                </h2>
-              </div>
-              {models
-                .filter((m: ModelInfo) => m.is_downloaded)
-                .map((model: ModelInfo) => (
-                  <ModelCard
-                    key={model.id}
-                    model={model}
-                    status={getExistingModelStatus(model.id)}
-                    disabled={isBusy}
-                    onSelect={handleSelectExistingModel}
-                    showRecommended={false}
-                  />
-                ))}
-            </div>
-          )}
-
-          {downloadable.length > 0 && (
-            <div className="space-y-3">
-              <div className="text-left">
-                <h2 className="text-sm font-medium text-text/60">
-                  {t("onboarding.downloadModelsTitle")}
-                </h2>
-              </div>
-
-              {topPicks.map((model: ModelInfo) => (
-                <ModelCard
-                  key={model.id}
-                  model={model}
-                  variant="featured"
-                  status={getModelStatus(model.id)}
-                  disabled={isBusy}
-                  onSelect={handleDownloadModel}
-                  onDownload={handleDownloadModel}
-                  onSkip={onModelSelected}
-                  downloadProgress={getModelDownloadProgress(model.id)}
-                  downloadSpeed={getModelDownloadSpeed(model.id)}
-                  showRecommended={false}
-                />
-              ))}
-
-              {otherRecommended.map((model: ModelInfo) => (
-                <ModelCard
-                  key={model.id}
-                  model={model}
-                  status={getModelStatus(model.id)}
-                  disabled={isBusy}
-                  onSelect={handleDownloadModel}
-                  onDownload={handleDownloadModel}
-                  onSkip={onModelSelected}
-                  downloadProgress={getModelDownloadProgress(model.id)}
-                  downloadSpeed={getModelDownloadSpeed(model.id)}
-                  showRecommended={false}
-                />
-              ))}
-
-              {hasRecommended && rest.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAll((v) => !v)}
-                  className="flex items-center justify-center gap-1.5 mx-auto py-1 text-sm font-medium text-text/60 hover:text-text transition-colors"
-                >
-                  {showAll
-                    ? t("onboarding.showFewerModels")
-                    : t("onboarding.showAllModels", {
-                        total: downloadable.length,
-                      })}
-                  <ChevronDown
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      showAll ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-              )}
-
-              {showRest &&
-                rest.map((model: ModelInfo) => (
-                  <ModelCard
-                    key={model.id}
-                    model={model}
-                    status={getModelStatus(model.id)}
-                    disabled={isBusy}
-                    onSelect={handleDownloadModel}
-                    onDownload={handleDownloadModel}
-                    onSkip={onModelSelected}
-                    downloadProgress={getModelDownloadProgress(model.id)}
-                    downloadSpeed={getModelDownloadSpeed(model.id)}
-                    showRecommended={false}
-                  />
-                ))}
-            </div>
-          )}
-        </div>
-      </div>
+    <div className="min-h-screen w-full bg-background">
+      <FirstRunModelDownloadView
+        model={activeModel}
+        downloadedMb={downloadedMb}
+        totalMb={totalMb}
+        percentage={percentage}
+        secondsLeft={secondsLeft}
+        phase={phase}
+        failureCause={failureReady ? failureCause : null}
+        failedAtMb={lastDownloadedMbRef.current}
+        onCancel={() => {
+          void handleCancel();
+        }}
+        onTryAgain={() => {
+          void handleTryAgain();
+        }}
+        onSkipForNow={onSkip ?? onModelSelected}
+      />
     </div>
   );
 };

@@ -43,10 +43,11 @@ CURATION = {
     "whisper-medium":                  {"rank": 5, "rec": True, "desc": "Broadest language, but may run a bit slow"},
     # ranked (sorted high) but NOT tagged recommended
     "Voxtral-Mini-4B-Realtime-2602":   {"rank": 6, "desc": "Live multilingual, excellent on powerful machines"},
-    "parakeet-tdt-0.6b-v3":            {"rank": 7, "desc": "Fast and accurate. Supports 25 European languages"},
-    "parakeet-tdt-0.6b-v2":            {"rank": 8, "desc": "English only. The best model for English speakers"},
-    "Qwen3-ASR-0.6B":                  {"rank": 9, "desc": "Excellent multilingual model"},
-    "Fun-ASR-MLT-Nano-2512":           {"rank": 10, "desc": "A tiny multilingual model"},
+    "parakeet-ultra":                  {"rank": 7, "desc": "More accurate Parakeet V3. Supports 25 European languages"},
+    "parakeet-tdt-0.6b-v3":            {"rank": 8, "desc": "Fast and accurate. Supports 25 European languages"},
+    "parakeet-tdt-0.6b-v2":            {"rank": 9, "desc": "English only. The best model for English speakers"},
+    "Qwen3-ASR-0.6B":                  {"rank": 10, "desc": "Excellent multilingual model"},
+    "Fun-ASR-MLT-Nano-2512":           {"rank": 11, "desc": "A tiny multilingual model"},
     # description-only (unranked, not recommended) — carried over from the legacy .bin entry
     "Breeze-ASR-25":                   {"desc": "Optimized for Taiwanese Mandarin. Code-switching support."},
 }

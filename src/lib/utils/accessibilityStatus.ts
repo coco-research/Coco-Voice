@@ -22,3 +22,14 @@ export function accessibilityStatus(
   if (probe === "failed") return "stale";
   return "needed";
 }
+
+export type DownloadFailureCause =
+  "network" | "disk_space" | "checksum" | "other";
+export function downloadFailureTranslationKey(
+  cause: DownloadFailureCause,
+): string {
+  if (cause === "network") return "modelSelector.downloadFailed.network";
+  if (cause === "disk_space") return "modelSelector.downloadFailed.diskSpace";
+  if (cause === "checksum") return "modelSelector.downloadFailed.checksum";
+  return "modelSelector.downloadFailed.other";
+}

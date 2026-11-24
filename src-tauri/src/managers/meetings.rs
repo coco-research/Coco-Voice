@@ -12,6 +12,8 @@ use chrono::Utc;
 use log::info;
 use rusqlite::{params, Connection};
 use rusqlite_migration::{Migrations, M};
+use serde::Serialize;
+use specta::Type;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -38,7 +40,7 @@ pub(crate) fn test_lock() -> std::sync::MutexGuard<'static, ()> {
 
 use crate::audio_toolkit::audio::AppendWav;
 
-/// Two migrations. `rusqlite_migration` stores them as `user_version` 2.
+/// Seven migrations. `rusqlite_migration` stores them as `user_version` 7.
 /// A newer meetings.db is refused (`DatabaseTooFarAhead`); dictation is a
 /// different file and is unaffected. The first public meetings binary has to
 /// carry every migration already on disk; a later meetings migration takes the
@@ -82,7 +84,147 @@ static MIGRATIONS: &[M] = &[
         );
         CREATE INDEX meeting_notepad_meeting ON meeting_notepad(meeting_id, at_ms);",
     ),
+    M::up(
+        "CREATE TABLE meeting_folders (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            created_at INTEGER NOT NULL
+        );
+        CREATE TABLE meeting_templates (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            body TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+        ALTER TABLE meetings ADD COLUMN folder_id INTEGER;
+        ALTER TABLE meetings ADD COLUMN markdown_file TEXT;
+        CREATE TABLE meeting_trash (
+            meeting_id INTEGER PRIMARY KEY,
+            deleted_at INTEGER NOT NULL
+        );",
+    ),
+    M::up(
+        "CREATE TABLE meeting_imports (
+            source_hash TEXT PRIMARY KEY,
+            meeting_id INTEGER NOT NULL,
+            folder TEXT NOT NULL,
+            source_relpath TEXT NOT NULL,
+            raw_text TEXT NOT NULL,
+            imported_at INTEGER NOT NULL
+        );
+        CREATE INDEX meeting_imports_folder ON meeting_imports(folder, meeting_id);",
+    ),
+    M::up(
+        "ALTER TABLE meeting_segments ADD COLUMN speaker_label TEXT NOT NULL DEFAULT '';
+        CREATE TABLE IF NOT EXISTS meeting_speaker_names (
+            meeting_id INTEGER NOT NULL,
+            speaker_label TEXT NOT NULL,
+            custom_name TEXT NOT NULL,
+            PRIMARY KEY (meeting_id, speaker_label)
+        );",
+    ),
+    M::up(
+        "CREATE TABLE meeting_left_out (
+            id INTEGER PRIMARY KEY,
+            meeting_id INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            start_ms INTEGER NOT NULL,
+            end_ms INTEGER NOT NULL,
+            topic TEXT NOT NULL DEFAULT '',
+            reason TEXT NOT NULL DEFAULT '',
+            segment_ids TEXT NOT NULL DEFAULT '[]'
+        );
+        CREATE INDEX meeting_left_out_meeting ON meeting_left_out(meeting_id, start_ms);
+        ALTER TABLE meetings ADD COLUMN template_id INTEGER;
+        ALTER TABLE meetings ADD COLUMN attendees TEXT;
+        ALTER TABLE meeting_folders ADD COLUMN last_template_id INTEGER;",
+    ),
+    M::up("ALTER TABLE meetings ADD COLUMN system_audio_silent INTEGER NOT NULL DEFAULT 0;"),
 ];
+
+pub const MAX_FOLDER_OR_TEMPLATE_NAME_CHARS: usize = 60;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Type)]
+pub struct MeetingFolder {
+    pub id: i64,
+    pub name: String,
+    pub created_at: i64,
+    pub last_template_id: Option<i64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Type)]
+pub struct MeetingTemplate {
+    pub id: i64,
+    pub name: String,
+    pub body: String,
+    pub created_at: i64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FolderFilter {
+    All,
+    Unfiled,
+    Folder(i64),
+}
+
+fn sanitize_flat_folder_name(name: &str) -> Result<String> {
+    let cleaned = name
+        .replace(['/', '\\'], " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if cleaned.is_empty() {
+        return Err(anyhow!("folder name cannot be empty"));
+    }
+    if cleaned.chars().count() > MAX_FOLDER_OR_TEMPLATE_NAME_CHARS {
+        return Err(anyhow!(
+            "folder name cannot exceed {MAX_FOLDER_OR_TEMPLATE_NAME_CHARS} characters"
+        ));
+    }
+    Ok(cleaned)
+}
+
+fn sanitize_template_name(name: &str) -> Result<String> {
+    let cleaned = name
+        .replace(['/', '\\'], " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if cleaned.is_empty() {
+        return Err(anyhow!("template name cannot be empty"));
+    }
+    if cleaned.chars().count() > MAX_FOLDER_OR_TEMPLATE_NAME_CHARS {
+        return Err(anyhow!(
+            "template name cannot exceed {MAX_FOLDER_OR_TEMPLATE_NAME_CHARS} characters"
+        ));
+    }
+    Ok(cleaned)
+}
+
+/// `me` or `others`. The column stays text; only these two values are written.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum MeetingChannel {
+    Me,
+    Others,
+}
+
+impl MeetingChannel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Me => "me",
+            Self::Others => "others",
+        }
+    }
+
+    pub fn from_label(label: &str) -> Option<Self> {
+        match label {
+            "me" => Some(Self::Me),
+            "others" => Some(Self::Others),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MeetingSegment {
@@ -158,6 +300,7 @@ pub enum DeleteOutcome {
     DeletedAudioLeft { dir: PathBuf, error: String },
 }
 
+#[derive(Clone)]
 pub struct MeetingsStore {
     db_path: PathBuf,
 }
@@ -203,13 +346,13 @@ impl MeetingsStore {
     }
 
     /// One finished chunk, one transaction. Times are milliseconds from the
-    /// meeting start. `channel` is `me` or `others`.
+    /// meeting start. `channel` is only `me` or `others`.
     pub fn insert_segment(
         &self,
         meeting_id: i64,
         start_ms: i64,
         end_ms: i64,
-        channel: &str,
+        channel: MeetingChannel,
         text: &str,
     ) -> Result<i64> {
         let mut conn = self.connection()?;
@@ -217,7 +360,7 @@ impl MeetingsStore {
         tx.execute(
             "INSERT INTO meeting_segments (meeting_id, start_ms, end_ms, channel, text)
              VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![meeting_id, start_ms, end_ms, channel, text],
+            params![meeting_id, start_ms, end_ms, channel.as_str(), text],
         )?;
         let id = tx.last_insert_rowid();
         tx.commit()?;
@@ -230,7 +373,7 @@ impl MeetingsStore {
             "SELECT id, meeting_id, start_ms, end_ms, channel, text
              FROM meeting_segments
              WHERE meeting_id = ?1
-             ORDER BY id",
+             ORDER BY start_ms, id",
         )?;
         let rows = stmt.query_map(params![meeting_id], |row| {
             Ok(MeetingSegment {
@@ -262,7 +405,9 @@ impl MeetingsStore {
         let conn = self.connection()?;
         let mut stmt = conn.prepare(
             "SELECT id, started_at, ended_at, title, status, model_id, saved
-             FROM meetings ORDER BY started_at DESC, id DESC",
+             FROM meetings
+             WHERE id NOT IN (SELECT meeting_id FROM meeting_trash)
+             ORDER BY started_at DESC, id DESC",
         )?;
         let rows = stmt.query_map([], meeting_from_row)?;
         let mut out = Vec::new();
@@ -282,13 +427,14 @@ impl MeetingsStore {
         let mut stmt = conn.prepare(
             "SELECT m.id, m.started_at, m.ended_at, m.title, m.status, m.model_id, m.saved
              FROM meetings m
-             WHERE m.title LIKE ?1 ESCAPE '\\'
+             WHERE m.id NOT IN (SELECT meeting_id FROM meeting_trash)
+               AND (m.title LIKE ?1 ESCAPE '\\'
                 OR EXISTS (SELECT 1 FROM meeting_segments s
                            WHERE s.meeting_id = m.id AND s.text LIKE ?1 ESCAPE '\\')
                 OR EXISTS (SELECT 1 FROM meeting_notes n
                            WHERE n.meeting_id = m.id
                              AND (n.text LIKE ?1 ESCAPE '\\'
-                                  OR n.owner LIKE ?1 ESCAPE '\\'))
+                                  OR n.owner LIKE ?1 ESCAPE '\\')))
              ORDER BY m.started_at DESC, m.id DESC",
         )?;
         let rows = stmt.query_map(params![like_pattern(trimmed)], meeting_from_row)?;
@@ -372,6 +518,58 @@ impl MeetingsStore {
         Ok(conn.last_insert_rowid())
     }
 
+    /// Replace all notepad points of `meeting_id` with multiple `(at_ms, text)` rows in one transaction.
+    pub fn replace_notepad_points(&self, meeting_id: i64, points: &[(i64, String)]) -> Result<()> {
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        tx.execute(
+            "DELETE FROM meeting_notepad WHERE meeting_id = ?1",
+            params![meeting_id],
+        )?;
+        for (at_ms, text) in points {
+            let trimmed = text.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            tx.execute(
+                "INSERT INTO meeting_notepad (meeting_id, at_ms, text) VALUES (?1, ?2, ?3)",
+                params![meeting_id, at_ms, trimmed],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Rename `id` to a non-empty trimmed `title`. Returns the stored title.
+    pub fn rename_meeting(&self, id: i64, title: &str) -> Result<String> {
+        let trimmed = title.trim();
+        if trimmed.is_empty() {
+            return Err(anyhow!("meeting title cannot be empty"));
+        }
+        let conn = self.connection()?;
+        let updated = conn.execute(
+            "UPDATE meetings SET title = ?1 WHERE id = ?2",
+            params![trimmed, id],
+        )?;
+        if updated == 0 {
+            return Err(anyhow!("meeting {id} not found"));
+        }
+        Ok(trimmed.to_string())
+    }
+
+    /// Update the persisted lifecycle status of `id` (e.g. `notes_ready`, `notes_failed`).
+    pub fn set_status(&self, id: i64, status: &str) -> Result<()> {
+        let conn = self.connection()?;
+        let updated = conn.execute(
+            "UPDATE meetings SET status = ?1 WHERE id = ?2",
+            params![status, id],
+        )?;
+        if updated == 0 {
+            return Err(anyhow!("meeting {id} not found"));
+        }
+        Ok(())
+    }
+
     /// Notepad points of `meeting_id` as `(at_ms, text)`, ordered by `at_ms`
     /// ascending and then by row id ascending.
     pub fn notepad(&self, meeting_id: i64) -> Result<Vec<(i64, String)>> {
@@ -430,11 +628,28 @@ impl MeetingsStore {
             "DELETE FROM meeting_notepad WHERE meeting_id = ?1",
             params![id],
         )?;
+        tx.execute(
+            "DELETE FROM meeting_trash WHERE meeting_id = ?1",
+            params![id],
+        )?;
+        tx.execute(
+            "DELETE FROM meeting_imports WHERE meeting_id = ?1",
+            params![id],
+        )?;
+        tx.execute(
+            "DELETE FROM meeting_speaker_names WHERE meeting_id = ?1",
+            params![id],
+        )?;
+        tx.execute(
+            "DELETE FROM meeting_left_out WHERE meeting_id = ?1",
+            params![id],
+        )?;
         if tx.execute("DELETE FROM meetings WHERE id = ?1", params![id])? == 0 {
             tx.rollback()?;
             return Err(anyhow!("meeting {id} not found"));
         }
         tx.commit()?;
+        let _ = self.checkpoint_and_vacuum_secure();
 
         match fs::remove_dir_all(&dir) {
             Ok(()) => Ok(DeleteOutcome::Deleted),
@@ -450,6 +665,24 @@ impl MeetingsStore {
         }
     }
 
+    /// Permanently delete `id` (rows + audio) and securely zero freed DB pages.
+    pub fn delete_meeting_forever(&self, id: i64) -> Result<DeleteOutcome> {
+        self.delete_meeting(id)
+    }
+
+    /// Force WAL truncation and vacuum with `secure_delete = ON` so deleted text
+    /// cannot linger in `meetings.db`, `-wal`, or free pages.
+    pub fn checkpoint_and_vacuum_secure(&self) -> Result<()> {
+        let conn = self.connection()?;
+        let _ = conn.execute_batch(
+            "PRAGMA secure_delete = ON;
+             PRAGMA wal_checkpoint(TRUNCATE);
+             VACUUM;
+             PRAGMA wal_checkpoint(TRUNCATE);",
+        );
+        Ok(())
+    }
+
     /// Append PCM. On a write error the writer is stopped, this meeting is
     /// finalised with what was already written, and the error is returned.
     pub fn append_pcm(&self, meeting_id: i64, wav: &mut AppendWav, samples: &[i16]) -> Result<()> {
@@ -462,9 +695,378 @@ impl MeetingsStore {
         Ok(())
     }
 
+    /// Remove only `{meetings dir}/<id>` audio files while keeping database rows.
+    pub fn delete_meeting_audio(&self, id: i64) -> Result<()> {
+        let meetings_dir = self
+            .db_path
+            .parent()
+            .ok_or_else(|| anyhow!("no meetings dir for {}", self.db_path.display()))?;
+        let name = id.to_string();
+        let dir = meetings_dir.join(&name);
+        if dir.file_name().and_then(|n| n.to_str()) != Some(name.as_str()) {
+            return Err(anyhow!("refusing to delete {}", dir.display()));
+        }
+        match fs::remove_dir_all(&dir) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(anyhow!("remove {}: {e}", dir.display())),
+        }
+    }
+
+    pub fn create_folder(&self, name: &str) -> Result<i64> {
+        let cleaned = sanitize_flat_folder_name(name)?;
+        let conn = self.connection()?;
+        let dup: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM meeting_folders WHERE LOWER(name) = LOWER(?1)",
+            params![&cleaned],
+            |r| r.get(0),
+        )?;
+        if dup > 0 {
+            return Err(anyhow!("a folder named '{cleaned}' already exists"));
+        }
+        conn.execute(
+            "INSERT INTO meeting_folders (name, created_at) VALUES (?1, ?2)",
+            params![cleaned, Utc::now().timestamp()],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn rename_folder(&self, id: i64, name: &str) -> Result<()> {
+        let cleaned = sanitize_flat_folder_name(name)?;
+        let conn = self.connection()?;
+        let dup: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM meeting_folders WHERE LOWER(name) = LOWER(?1) AND id != ?2",
+            params![&cleaned, id],
+            |r| r.get(0),
+        )?;
+        if dup > 0 {
+            return Err(anyhow!("a folder named '{cleaned}' already exists"));
+        }
+        if conn.execute(
+            "UPDATE meeting_folders SET name = ?1 WHERE id = ?2",
+            params![cleaned, id],
+        )? == 0
+        {
+            return Err(anyhow!("folder {id} not found"));
+        }
+        Ok(())
+    }
+
+    pub fn list_folders(&self) -> Result<Vec<MeetingFolder>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, name, created_at, last_template_id FROM meeting_folders ORDER BY name ASC, id ASC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok(MeetingFolder {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                created_at: r.get(2)?,
+                last_template_id: r.get(3)?,
+            })
+        })?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| anyhow!(e))
+    }
+
+    pub fn set_folder_last_template(&self, folder_id: i64, template_id: Option<i64>) -> Result<()> {
+        let conn = self.connection()?;
+        if conn.execute(
+            "UPDATE meeting_folders SET last_template_id = ?1 WHERE id = ?2",
+            params![template_id, folder_id],
+        )? == 0
+        {
+            return Err(anyhow!("folder {folder_id} not found"));
+        }
+        Ok(())
+    }
+
+    pub fn set_meeting_template(&self, meeting_id: i64, template_id: Option<i64>) -> Result<()> {
+        let conn = self.connection()?;
+        if conn.execute(
+            "UPDATE meetings SET template_id = ?1 WHERE id = ?2",
+            params![template_id, meeting_id],
+        )? == 0
+        {
+            return Err(anyhow!("meeting {meeting_id} not found"));
+        }
+        Ok(())
+    }
+
+    pub fn meeting_template_body(&self, meeting_id: i64) -> Result<Option<String>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT t.body FROM meetings m
+             JOIN meeting_templates t ON t.id = m.template_id
+             WHERE m.id = ?1",
+        )?;
+        let mut rows = stmt.query(params![meeting_id])?;
+        if let Some(row) = rows.next()? {
+            return Ok(Some(row.get(0)?));
+        }
+        Ok(None)
+    }
+
+    pub fn delete_folder(&self, id: i64) -> Result<()> {
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        tx.execute(
+            "UPDATE meetings SET folder_id = NULL WHERE folder_id = ?1",
+            params![id],
+        )?;
+        if tx.execute("DELETE FROM meeting_folders WHERE id = ?1", params![id])? == 0 {
+            tx.rollback()?;
+            return Err(anyhow!("folder {id} not found"));
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn move_meetings_to_folder(&self, ids: &[i64], folder_id: Option<i64>) -> Result<()> {
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        if let Some(fid) = folder_id {
+            let exists: i64 = tx.query_row(
+                "SELECT COUNT(*) FROM meeting_folders WHERE id = ?1",
+                params![fid],
+                |r| r.get(0),
+            )?;
+            if exists == 0 {
+                return Err(anyhow!("folder {fid} not found"));
+            }
+        }
+        for &mid in ids {
+            tx.execute(
+                "UPDATE meetings SET folder_id = ?1 WHERE id = ?2",
+                params![folder_id, mid],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn meeting_folder_id(&self, id: i64) -> Result<Option<i64>> {
+        let conn = self.connection()?;
+        Ok(conn.query_row(
+            "SELECT folder_id FROM meetings WHERE id = ?1",
+            params![id],
+            |r| r.get(0),
+        )?)
+    }
+
+    pub fn list_meetings_in_folder(&self, filter: FolderFilter) -> Result<Vec<Meeting>> {
+        let all = self.list_meetings()?;
+        self.filter_by_folder(all, filter)
+    }
+
+    pub fn search_meetings_in_folder(
+        &self,
+        query: &str,
+        filter: FolderFilter,
+    ) -> Result<Vec<Meeting>> {
+        let matched = self.search_meetings(query)?;
+        self.filter_by_folder(matched, filter)
+    }
+
+    fn filter_by_folder(&self, rows: Vec<Meeting>, filter: FolderFilter) -> Result<Vec<Meeting>> {
+        if filter == FolderFilter::All {
+            return Ok(rows);
+        }
+        let mut out = Vec::new();
+        for m in rows {
+            let fid = self.meeting_folder_id(m.id)?;
+            let keep = match filter {
+                FolderFilter::All => true,
+                FolderFilter::Unfiled => fid.is_none(),
+                FolderFilter::Folder(target) => fid == Some(target),
+            };
+            if keep {
+                out.push(m);
+            }
+        }
+        Ok(out)
+    }
+
+    pub fn meeting_markdown_file(&self, id: i64) -> Result<Option<String>> {
+        let conn = self.connection()?;
+        Ok(conn.query_row(
+            "SELECT markdown_file FROM meetings WHERE id = ?1",
+            params![id],
+            |r| r.get(0),
+        )?)
+    }
+
+    pub fn set_meeting_markdown_file(&self, id: i64, file_name: Option<&str>) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute(
+            "UPDATE meetings SET markdown_file = ?1 WHERE id = ?2",
+            params![file_name, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn meeting_attendees(&self, id: i64) -> Result<Vec<String>> {
+        let conn = self.connection()?;
+        let raw: Option<String> = conn.query_row(
+            "SELECT attendees FROM meetings WHERE id = ?1",
+            params![id],
+            |r| r.get(0),
+        )?;
+        let Some(json) = raw else {
+            return Ok(Vec::new());
+        };
+        let parsed: Vec<String> = serde_json::from_str(&json).unwrap_or_default();
+        Ok(parsed
+            .into_iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect())
+    }
+
+    pub fn mark_system_audio_silent(&self, meeting_id: i64) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute(
+            "UPDATE meetings SET system_audio_silent = 1 WHERE id = ?1",
+            params![meeting_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn system_audio_silent(&self, meeting_id: i64) -> Result<bool> {
+        let conn = self.connection()?;
+        let flag: i64 = conn.query_row(
+            "SELECT system_audio_silent FROM meetings WHERE id = ?1",
+            params![meeting_id],
+            |r| r.get(0),
+        )?;
+        Ok(flag != 0)
+    }
+
+    pub fn set_meeting_attendees(&self, id: i64, attendees: &[String]) -> Result<()> {
+        let conn = self.connection()?;
+        let clean: Vec<String> = attendees
+            .iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        let json: Option<String> = if clean.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_string(&clean)?)
+        };
+        conn.execute(
+            "UPDATE meetings SET attendees = ?1 WHERE id = ?2",
+            params![json, id],
+        )?;
+        Ok(())
+    }
+
+    pub fn create_template(&self, name: &str, body: &str) -> Result<i64> {
+        let cleaned = sanitize_template_name(name)?;
+        let conn = self.connection()?;
+        let dup: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM meeting_templates WHERE LOWER(name) = LOWER(?1)",
+            params![&cleaned],
+            |r| r.get(0),
+        )?;
+        if dup > 0 {
+            return Err(anyhow!("a template named '{cleaned}' already exists"));
+        }
+        conn.execute(
+            "INSERT INTO meeting_templates (name, body, created_at) VALUES (?1, ?2, ?3)",
+            params![cleaned, body, Utc::now().timestamp()],
+        )?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn update_template(&self, id: i64, name: &str, body: &str) -> Result<()> {
+        let cleaned = sanitize_template_name(name)?;
+        let conn = self.connection()?;
+        let dup: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM meeting_templates WHERE LOWER(name) = LOWER(?1) AND id != ?2",
+            params![&cleaned, id],
+            |r| r.get(0),
+        )?;
+        if dup > 0 {
+            return Err(anyhow!("a template named '{cleaned}' already exists"));
+        }
+        if conn.execute(
+            "UPDATE meeting_templates SET name = ?1, body = ?2 WHERE id = ?3",
+            params![cleaned, body, id],
+        )? == 0
+        {
+            return Err(anyhow!("template {id} not found"));
+        }
+        Ok(())
+    }
+
+    /// Seed the three stock note templates once when the table is empty and not yet seeded.
+    /// Returns `true` if stock templates were inserted on this call.
+    pub fn seed_stock_templates_once(&self, already_seeded: bool) -> Result<bool> {
+        if already_seeded {
+            return Ok(false);
+        }
+        let existing = self.list_templates()?;
+        if !existing.is_empty() {
+            return Ok(false);
+        }
+        let stock = [
+            (
+                "One-to-one",
+                "# Updates\n# Decisions\n# Action items\n# Open questions\n",
+            ),
+            (
+                "Customer call",
+                "# Their needs\n# Decisions\n# Action items\n# Follow-ups\n",
+            ),
+            (
+                "Interview",
+                "# Background\n# Strengths\n# Concerns\n# Next steps\n",
+            ),
+        ];
+        for (name, body) in stock {
+            let _ = self.create_template(name, body)?;
+        }
+        Ok(true)
+    }
+
+    pub fn list_templates(&self) -> Result<Vec<MeetingTemplate>> {
+        let conn = self.connection()?;
+        let mut stmt = conn.prepare(
+            "SELECT id, name, body, created_at FROM meeting_templates ORDER BY name ASC, id ASC",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok(MeetingTemplate {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                body: r.get(2)?,
+                created_at: r.get(3)?,
+            })
+        })?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|e| anyhow!(e))
+    }
+
+    pub fn delete_template(&self, id: i64) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute(
+            "UPDATE meetings SET template_id = NULL WHERE template_id = ?1",
+            params![id],
+        )?;
+        conn.execute(
+            "UPDATE meeting_folders SET last_template_id = NULL WHERE last_template_id = ?1",
+            params![id],
+        )?;
+        if conn.execute("DELETE FROM meeting_templates WHERE id = ?1", params![id])? == 0 {
+            return Err(anyhow!("template {id} not found"));
+        }
+        Ok(())
+    }
+
     fn init(&self) -> Result<()> {
         let mut conn = Connection::open(&self.db_path)?;
         conn.busy_timeout(Duration::from_secs(1))?;
+        let _ = conn.execute_batch("PRAGMA secure_delete = ON;");
         let migrations = Migrations::new(MIGRATIONS.to_vec());
         #[cfg(debug_assertions)]
         migrations.validate().expect("invalid meetings migrations");
@@ -480,9 +1082,10 @@ impl MeetingsStore {
         Ok(())
     }
 
-    fn connection(&self) -> Result<Connection> {
+    pub(crate) fn connection(&self) -> Result<Connection> {
         let conn = Connection::open(&self.db_path)?;
         conn.busy_timeout(Duration::from_secs(1))?;
+        let _ = conn.execute_batch("PRAGMA secure_delete = ON;");
         Ok(conn)
     }
 
@@ -503,14 +1106,31 @@ impl MeetingsStore {
     }
 
     fn finalise_recording(&self, meeting_id: i64) -> Result<()> {
+        self.finalise(meeting_id, false)
+    }
+
+    /// Set `ended_at` and `transcript_ready`. Sleep appends the Mac-slept line
+    /// to the title. A row that is already final is left as it is.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn finalise(&self, meeting_id: i64, slept: bool) -> Result<()> {
         let conn = self.connection()?;
         let now = Utc::now().timestamp();
-        conn.execute(
-            "UPDATE meetings
-             SET ended_at = ?1, status = 'transcript_ready'
-             WHERE id = ?2 AND status = 'recording' AND ended_at IS NULL",
-            params![now, meeting_id],
-        )?;
+        if slept {
+            conn.execute(
+                "UPDATE meetings
+                 SET ended_at = ?1, status = 'transcript_ready',
+                     title = title || ' — Mac slept'
+                 WHERE id = ?2 AND status = 'recording' AND ended_at IS NULL",
+                params![now, meeting_id],
+            )?;
+        } else {
+            conn.execute(
+                "UPDATE meetings
+                 SET ended_at = ?1, status = 'transcript_ready'
+                 WHERE id = ?2 AND status = 'recording' AND ended_at IS NULL",
+                params![now, meeting_id],
+            )?;
+        }
         Ok(())
     }
 }
@@ -618,20 +1238,175 @@ mod tests {
     }
 
     #[test]
+    fn upgrades_synthetic_0110_history_and_meetings_databases() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let history_path = dir.path().join("history.db");
+        let sqls = history_migration_sql(include_str!("history.rs"));
+        assert_eq!(sqls.len(), 6);
+        {
+            let mut conn = Connection::open(&history_path).unwrap();
+            let v0110 = Migrations::new(sqls[..4].iter().copied().map(M::up).collect());
+            v0110.to_latest(&mut conn).unwrap();
+            let v_before: i32 = conn
+                .pragma_query_value(None, "user_version", |r| r.get(0))
+                .unwrap();
+            assert_eq!(v_before, 4);
+            conn.execute(
+                "INSERT INTO transcription_history (file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params!["take-0110-a.wav", 1_760_000_001_i64, true, "Take A", "hello world", Some("Hello world."), None::<String>, true],
+            ).unwrap();
+            conn.execute(
+                "INSERT INTO transcription_history (file_name, timestamp, saved, title, transcription_text)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params!["take-0110-b.wav", 1_760_000_002_i64, false, "Take B", "second take"],
+            ).unwrap();
+        }
+        {
+            let mut conn = Connection::open(&history_path).unwrap();
+            let v_latest = Migrations::new(sqls.into_iter().map(M::up).collect());
+            v_latest.to_latest(&mut conn).unwrap();
+            let v_after: i32 = conn
+                .pragma_query_value(None, "user_version", |r| r.get(0))
+                .unwrap();
+            assert_eq!(v_after, 6);
+            let rows: Vec<(String, Option<String>, Option<String>)> = conn
+                .prepare("SELECT transcription_text, app_name, detected_language FROM transcription_history ORDER BY id ASC")
+                .unwrap()
+                .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                .unwrap()
+                .collect::<rusqlite::Result<Vec<_>>>()
+                .unwrap();
+            assert_eq!(
+                rows,
+                vec![
+                    ("hello world".to_string(), None, None),
+                    ("second take".to_string(), None, None),
+                ]
+            );
+            conn.execute(
+                "INSERT INTO transcription_history (file_name, timestamp, saved, title, transcription_text, app_name, detected_language)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params!["take-v6.wav", 1_760_000_003_i64, false, "Mail", "upgraded row", "Mail", "en"],
+            ).unwrap();
+        }
+
+        let meetings_dir = dir.path().join("meetings");
+        fs::create_dir_all(&meetings_dir).unwrap();
+        let meetings_path = meetings_dir.join("meetings.db");
+        {
+            let mut conn = Connection::open(&meetings_path).unwrap();
+            let v0110_m = Migrations::new(vec![
+                M::up(
+                    "CREATE TABLE meetings (
+                        id INTEGER PRIMARY KEY,
+                        started_at INTEGER NOT NULL,
+                        ended_at INTEGER,
+                        title TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        model_id TEXT NOT NULL,
+                        saved INTEGER NOT NULL DEFAULT 0
+                    );
+                    CREATE TABLE meeting_segments (
+                        id INTEGER PRIMARY KEY,
+                        meeting_id INTEGER NOT NULL,
+                        start_ms INTEGER NOT NULL,
+                        end_ms INTEGER NOT NULL,
+                        channel TEXT NOT NULL,
+                        text TEXT NOT NULL
+                    );",
+                ),
+                M::up(
+                    "CREATE TABLE meeting_notes (
+                        id INTEGER PRIMARY KEY,
+                        meeting_id INTEGER NOT NULL,
+                        kind TEXT NOT NULL,
+                        text TEXT NOT NULL,
+                        owner TEXT,
+                        citations TEXT NOT NULL,
+                        position INTEGER NOT NULL
+                    );
+                    CREATE INDEX meeting_notes_meeting ON meeting_notes(meeting_id, position);
+                    CREATE TABLE meeting_notepad (
+                        id INTEGER PRIMARY KEY,
+                        meeting_id INTEGER NOT NULL,
+                        at_ms INTEGER NOT NULL,
+                        text TEXT NOT NULL
+                    );
+                    CREATE INDEX meeting_notepad_meeting ON meeting_notepad(meeting_id, at_ms);",
+                ),
+            ]);
+            v0110_m.to_latest(&mut conn).unwrap();
+            let mv_before: i32 = conn
+                .pragma_query_value(None, "user_version", |r| r.get(0))
+                .unwrap();
+            assert_eq!(mv_before, 2);
+            conn.execute(
+                "INSERT INTO meetings (id, started_at, ended_at, title, status, model_id, saved)
+                 VALUES (1, 1760001000, 1760002800, '0.11.0 Sync', 'notes_ready', 'parakeet', 1)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO meeting_segments (meeting_id, start_ms, end_ms, channel, text)
+                 VALUES (1, 1000, 4000, 'me', 'Shipped 0.11.0 cleanly.')",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO meeting_notes (meeting_id, kind, text, owner, citations, position)
+                 VALUES (1, 'decisions', 'Keep prior rows intact.', 'Me', '[1]', 0)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO meeting_notepad (meeting_id, at_ms, text)
+                 VALUES (1, 1500, 'check upgrade')",
+                [],
+            )
+            .unwrap();
+        }
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let conn = Connection::open(store.db_path()).unwrap();
+        let mv_after: i32 = conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(mv_after, 7);
+        assert_eq!(store.meeting(1).unwrap().title, "0.11.0 Sync");
+        assert_eq!(store.segments(1).unwrap().len(), 1);
+        assert_eq!(store.notes(1).unwrap().len(), 1);
+        assert_eq!(store.notepad(1).unwrap().len(), 1);
+        let fid = store.create_folder("Product").unwrap();
+        assert!(fid > 0);
+        assert_eq!(store.list_folders().unwrap()[0].name, "Product");
+        conn.execute(
+            "INSERT INTO meeting_trash (meeting_id, deleted_at) VALUES (99, 1760003000)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO meeting_imports (source_hash, meeting_id, folder, source_relpath, raw_text, imported_at)
+             VALUES ('sha256-test', 1, 'Imported', 'sync.md', '# Sync', 1760003001)",
+            [],
+        ).unwrap();
+    }
+
+    #[test]
     fn history_db_version_unchanged() {
         let dir = tempfile::tempdir().unwrap();
         let history_path = dir.path().join("history.db");
         {
             let mut conn = Connection::open(&history_path).unwrap();
             let sqls = history_migration_sql(include_str!("history.rs"));
-            assert_eq!(sqls.len(), 4, "history.rs migration list changed");
+            assert_eq!(sqls.len(), 6, "history.rs migration list changed");
             assert!(sqls[0].contains("transcription_history"));
             let migrations = Migrations::new(sqls.into_iter().map(M::up).collect());
             migrations.to_latest(&mut conn).unwrap();
             let version: i32 = conn
                 .pragma_query_value(None, "user_version", |row| row.get(0))
                 .unwrap();
-            assert_eq!(version, 4);
+            assert_eq!(version, 6);
         }
         let before = fs::read(&history_path).unwrap();
 
@@ -646,7 +1421,7 @@ mod tests {
         let version: i32 = history
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 4);
+        assert_eq!(version, 6);
         let meetings_in_history: i64 = history
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'meetings'",
@@ -660,7 +1435,7 @@ mod tests {
         let meetings_version: i32 = meetings
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(meetings_version, 2);
+        assert_eq!(meetings_version, 7);
         let mode: String = meetings
             .pragma_query_value(None, "journal_mode", |row| row.get(0))
             .unwrap();
@@ -828,7 +1603,7 @@ mod tests {
         let version: i32 = conn
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 2);
+        assert_eq!(version, 7);
         let row = store.meeting(1).unwrap();
         assert_eq!(row.title, "Old");
     }
@@ -989,7 +1764,7 @@ mod tests {
         let path = meetings_dir.join("meetings.db");
         {
             let conn = Connection::open(&path).unwrap();
-            conn.pragma_update(None, "user_version", 3).unwrap();
+            conn.pragma_update(None, "user_version", 8).unwrap();
         }
 
         let result = MeetingsStore::open(dir.path());
@@ -1089,5 +1864,110 @@ mod tests {
             ids(&store.search_meetings("zebra").unwrap()),
             vec![second, first]
         );
+    }
+
+    #[test]
+    fn segments_ordered_by_start_ms_then_id() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = store.start_meeting("Standup", "model").unwrap();
+        store
+            .insert_segment(id, 2000, 3000, MeetingChannel::Others, "later")
+            .unwrap();
+        store
+            .insert_segment(id, 500, 1500, MeetingChannel::Me, "first-at-500")
+            .unwrap();
+        store
+            .insert_segment(id, 500, 1200, MeetingChannel::Others, "second-at-500")
+            .unwrap();
+
+        let rows = store.segments(id).unwrap();
+        let summary: Vec<(i64, &str, &str)> = rows
+            .iter()
+            .map(|r| (r.start_ms, r.channel.as_str(), r.text.as_str()))
+            .collect();
+        assert_eq!(
+            summary,
+            vec![
+                (500, "me", "first-at-500"),
+                (500, "others", "second-at-500"),
+                (2000, "others", "later"),
+            ]
+        );
+    }
+
+    #[test]
+    fn rename_meeting_status_and_replace_notepad_points_persist() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = store.start_meeting("Meeting", "model").unwrap();
+
+        assert!(store.rename_meeting(id, "   ").is_err());
+        let renamed = store.rename_meeting(id, "  Release planning  ").unwrap();
+        assert_eq!(renamed, "Release planning");
+        assert_eq!(store.meeting(id).unwrap().title, "Release planning");
+
+        store.set_status(id, "notes_failed").unwrap();
+        assert_eq!(store.meeting(id).unwrap().status, "notes_failed");
+
+        store
+            .replace_notepad_points(
+                id,
+                &[
+                    (1_000, "First point".to_string()),
+                    (2_500, "   ".to_string()),
+                    (4_000, "Second point".to_string()),
+                ],
+            )
+            .unwrap();
+        assert_eq!(
+            store.notepad(id).unwrap(),
+            vec![
+                (1_000, "First point".to_string()),
+                (4_000, "Second point".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn ac_b19o_previous_version_db_upgrades_and_defaults_system_audio_silent_false() {
+        let dir = tempfile::tempdir().unwrap();
+        let meetings_dir = dir.path().join("meetings");
+        fs::create_dir_all(&meetings_dir).unwrap();
+        let path = meetings_dir.join("meetings.db");
+        {
+            let mut conn = Connection::open(&path).unwrap();
+            let prev_migrations = Migrations::new(MIGRATIONS[..6].to_vec());
+            prev_migrations.to_latest(&mut conn).unwrap();
+            let v_before: i32 = conn
+                .pragma_query_value(None, "user_version", |row| row.get(0))
+                .unwrap();
+            assert_eq!(v_before, 6);
+            conn.execute(
+                "INSERT INTO meetings (id, started_at, ended_at, title, status, model_id, saved)
+                 VALUES (1, 1760001000, 1760002800, 'Pre-X3k Sync', 'transcript_ready', 'parakeet', 0)",
+                [],
+            )
+            .unwrap();
+        }
+
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let conn = Connection::open(store.db_path()).unwrap();
+        let v_after: i32 = conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(v_after, 7);
+        assert!(
+            !store.system_audio_silent(1).unwrap(),
+            "upgraded meeting must default system_audio_silent to false"
+        );
+        let raw_flag: i64 = conn
+            .query_row(
+                "SELECT system_audio_silent FROM meetings WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(raw_flag, 0);
     }
 }

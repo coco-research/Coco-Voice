@@ -235,6 +235,64 @@
       "sha256": "e20a7582c5cf8159454c909b7f57b184b287cb3d7c3ec85744727a2cec51b08f"
     },
     {
+      "id": "handy-computer/parakeet-ultra-gguf",
+      "slug": "parakeet-ultra",
+      "name": "Parakeet Ultra",
+      "architecture": "parakeet",
+      "family": "parakeet",
+      "parameters": "0.6B",
+      "description": "More accurate Parakeet V3. Supports 25 European languages",
+      "base_model": "moondream/parakeet-ultra",
+      "license": "cc-by-4.0",
+      "revision": "a1539be1b849ea7463b88343e5277b373d0c4ea9",
+      "language_count": 25,
+      "languages": ["en", "de", "fr", "es", "it", "pt", "ru", "uk", "hr", "sl", "lv", "lt", "et", "fi", "sv", "da", "nl", "pl", "cs", "sk", "hu", "ro", "bg", "el", "mt"],
+      "capabilities": {
+        "streaming": false,
+        "translate": false,
+        "lang_detect": true,
+        "timestamps": "token"
+      },
+      "speed_score": 94,
+      "accuracy_score": 89,
+      "files": [
+        {
+          "filename": "parakeet-ultra-Q4_K_M.gguf",
+          "quant": "Q4_K_M",
+          "size_bytes": 486280096
+        },
+        {
+          "filename": "parakeet-ultra-Q5_K_M.gguf",
+          "quant": "Q5_K_M",
+          "size_bytes": 549800864
+        },
+        {
+          "filename": "parakeet-ultra-Q6_K.gguf",
+          "quant": "Q6_K",
+          "size_bytes": 611196832
+        },
+        {
+          "filename": "parakeet-ultra-Q8_0.gguf",
+          "quant": "Q8_0",
+          "size_bytes": 740363168
+        },
+        {
+          "filename": "parakeet-ultra-F16.gguf",
+          "quant": "F16",
+          "size_bytes": 1256724448
+        },
+        {
+          "filename": "parakeet-ultra-F32.gguf",
+          "quant": "F32",
+          "size_bytes": 2509290240
+        }
+      ],
+      "default_quant": "Q8_0",
+      "recommended": false,
+      "recommended_rank": 7,
+      "sha256": "007a59761e9258779f189df396b50d12b83bb5b79e66df4b955c230d2f2a0a59"
+    },
+    {
       "id": "handy-computer/parakeet-tdt-0.6b-v3-gguf",
       "slug": "parakeet-tdt-0.6b-v3",
       "name": "Parakeet TDT 0.6B v3",
@@ -289,7 +347,7 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": 7,
+      "recommended_rank": 8,
       "sha256": "5859f77944efcd8eafa23a6350731960b2b55b2203df51f319665c807d802cc7"
     },
     {
@@ -347,7 +405,7 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": 8,
+      "recommended_rank": 9,
       "sha256": "f0d0e99cebb6d3b83f1f7069b82b5d3c2e39a54545b0da039cb4bafd9c4e5caa"
     },
     {
@@ -405,7 +463,7 @@
       ],
       "default_quant": "Q8_0",
       "recommended": false,
-      "recommended_rank": 9,
+      "recommended_rank": 10,
       "sha256": "f081b2d5e23bd669d92cc331d722a8a0681943b8e6f34b48996fd5c319b5acd8"
     },
     {

@@ -65,6 +65,7 @@ struct TakeScore {
 struct ReportRow {
     id: String,
     kind: EvalKind,
+    has_drop_terms: bool,
     output: String,
     score: TakeScore,
 }
@@ -150,6 +151,9 @@ fn score_take(item: &EvalItem, generated: Result<&str, &str>) -> TakeScore {
     if !present.is_empty() {
         reasons.push(format!("drop still present: {}", present.join("; ")));
     }
+    if item.kind == EvalKind::Retract && item.drop_terms.is_empty() {
+        reasons.push("no drop terms".to_string());
+    }
     TakeScore {
         meaning_ok: missing.is_empty(),
         retraction_ok: present.is_empty(),
@@ -165,13 +169,35 @@ fn retraction_bar(retract_count: usize) -> usize {
 }
 
 fn summarize(rows: &[ReportRow]) -> Summary {
-    let retracts = || rows.iter().filter(|row| row.kind == EvalKind::Retract);
+    let retracts = || {
+        rows.iter()
+            .filter(|row| row.kind == EvalKind::Retract && row.has_drop_terms)
+    };
     Summary {
         takes: rows.len(),
         meaning_passed: rows.iter().filter(|row| row.score.meaning_ok).count(),
         retracts: retracts().count(),
         retraction_passed: retracts().filter(|row| row.score.retraction_ok).count(),
     }
+}
+
+/// Apply the dictation cleanup pipeline to a raw model reply so the eval scores
+/// the exact text the app pastes (`actions::apply_post_process_cleanup_core_with_policy`).
+/// Model refusals (`Err`) stay errors so they still fail the take.
+fn eval_pasted_output(
+    input: &str,
+    generated: Result<&str, &str>,
+    keep_every_word: bool,
+) -> Result<String, String> {
+    let raw = generated.map_err(str::to_string)?;
+    let cleaned = raw.replace(['\u{200B}', '\u{200C}', '\u{200D}', '\u{FEFF}'], "");
+    let (pasted, _) = crate::actions::apply_post_process_cleanup_core_with_policy(
+        input,
+        true,
+        keep_every_word,
+        |_| Some(cleaned),
+    );
+    Ok(pasted)
 }
 
 /// Score the text the app would paste. Invisible characters are stripped first,
@@ -183,13 +209,15 @@ fn judge(item: &EvalItem, generated: Result<&str, &str>) -> ReportRow {
     ReportRow {
         id: item.id.clone(),
         kind: item.kind,
+        has_drop_terms: !item.drop_terms.is_empty(),
         score: score_take(item, generated.map(|_| output.as_str())),
         output,
     }
 }
 
 /// Parse a JSONL eval set. A row is rejected in this order: bad JSON or kind,
-/// duplicate id, empty keep list (keep takes), empty drop list (retract takes).
+/// duplicate id, empty keep list (keep takes). Retract rows with an empty or
+/// omitted drop list are allowed and scored on meaning only.
 fn parse_eval_set(text: &str) -> Result<Vec<EvalItem>, String> {
     let mut items = Vec::new();
     let mut seen = std::collections::HashSet::new();
@@ -203,15 +231,9 @@ fn parse_eval_set(text: &str) -> Result<Vec<EvalItem>, String> {
         if !seen.insert(item.id.clone()) {
             return Err(format!("line {line_no}: duplicate id {:?}", item.id));
         }
-        let (needed, name) = match item.kind {
-            EvalKind::Keep => (&item.keep, "keep"),
-            EvalKind::Retract => (&item.drop_terms, "drop"),
-        };
-        if needed.is_empty() {
+        if item.kind == EvalKind::Keep && item.keep.is_empty() {
             let id = &item.id;
-            return Err(format!(
-                "line {line_no}: {name} list is empty for id {id:?}"
-            ));
+            return Err(format!("line {line_no}: keep list is empty for id {id:?}"));
         }
         items.push(item);
     }
@@ -351,7 +373,8 @@ fn run_eval_macos(set_path: &Path, args: &crate::cli::CliArgs) -> Result<bool, S
     let mut rows = Vec::with_capacity(items.len());
     for (index, item) in items.iter().enumerate() {
         eprintln!("cleanup-eval: {}/{} {}", index + 1, items.len(), item.id);
-        let (system_prompt, user_content) = cleanup_messages(&template, &item.input);
+        let pre_text = crate::audio_toolkit::text::rewrite_spoken_self_corrections(&item.input);
+        let (system_prompt, user_content) = cleanup_messages(&template, &pre_text);
         // No token stream and no cancel. A refusal scores as a failed take.
         let generated = rt
             .block_on(crate::local_llm::generate_text(
@@ -363,7 +386,12 @@ fn run_eval_macos(set_path: &Path, args: &crate::cli::CliArgs) -> Result<bool, S
                 None,
             ))
             .map_err(|err| err.to_string());
-        rows.push(judge(item, generated.as_deref().map_err(String::as_str)));
+        let pasted = eval_pasted_output(
+            &item.input,
+            generated.as_deref().map_err(String::as_str),
+            prompt_label == "local default",
+        );
+        rows.push(judge(item, pasted.as_deref().map_err(String::as_str)));
     }
     // `process::exit` runs ggml's static destructors, and ggml-metal asserts if a
     // model is still resident. Nothing between the first take and here returns early.
@@ -419,6 +447,7 @@ mod tests {
         ReportRow {
             id: String::new(),
             kind,
+            has_drop_terms: kind == EvalKind::Retract,
             output: String::new(),
             score: TakeScore {
                 meaning_ok,
@@ -716,16 +745,131 @@ mod tests {
     }
 
     #[test]
-    fn rejects_retract_row_with_no_drop_list() {
-        let err =
-            parse_eval_set(&row_json("r01", "retract", "hello", &["hello"], &[])).unwrap_err();
-        assert!(err.contains("drop list is empty"), "{err}");
-        assert!(err.contains("\"r01\""), "{err}");
+    fn retract_row_with_no_drop_terms_scores_meaning_only() {
+        let two_rows = format!(
+            "{}\n{}\n",
+            row_json("r01", "retract", "hello world", &["hello"], &[]),
+            "{\"id\":\"r02\",\"kind\":\"retract\",\"input\":\"goodbye world\",\"keep\":[\"goodbye\"]}"
+        );
+        let items = parse_eval_set(&two_rows).expect("retract rows with empty/omitted drop parse");
+        assert_eq!(items.len(), 2);
+        assert!(items[0].drop_terms.is_empty());
+        assert!(items[1].drop_terms.is_empty());
 
-        let omitted =
-            "{\"id\":\"r02\",\"kind\":\"retract\",\"input\":\"hello\",\"keep\":[\"hello\"]}\n";
-        let err_omitted = parse_eval_set(omitted).unwrap_err();
-        assert!(err_omitted.contains("drop list is empty"), "{err_omitted}");
-        assert!(err_omitted.contains("\"r02\""), "{err_omitted}");
+        let r01_row = judge(&items[0], Ok("hello world"));
+        let r02_row = judge(&items[1], Ok("goodbye world"));
+        assert!(r01_row.score.meaning_ok);
+        assert!(r02_row.score.meaning_ok);
+        assert_eq!(r01_row.score.reason, "no drop terms");
+        assert_eq!(r02_row.score.reason, "no drop terms");
+
+        // Summary leaves both empty-drop retract rows out of the retraction bar.
+        let only_no_drop = summarize(&[r01_row, r02_row]);
+        assert_eq!(only_no_drop.takes, 2);
+        assert_eq!(only_no_drop.meaning_passed, 2);
+        assert_eq!(only_no_drop.retracts, 0);
+        assert_eq!(only_no_drop.retraction_passed, 0);
+        assert!(only_no_drop.passed());
+
+        // With a normal retract item that has drop terms, only the drop-bearing one counts.
+        let normal = item(
+            EvalKind::Retract,
+            "Send to Priya, no, Devon.",
+            &["Devon"],
+            &["Priya"],
+        );
+        let rows = vec![
+            judge(&items[0], Ok("hello world")),
+            judge(&items[1], Ok("goodbye world")),
+            judge(&normal, Ok("Send to Devon.")),
+        ];
+        let summary = summarize(&rows);
+        assert_eq!(summary.takes, 3);
+        assert_eq!(summary.meaning_passed, 3);
+        assert_eq!(summary.retracts, 1);
+        assert_eq!(summary.retraction_passed, 1);
+        let report = render_report("local default", "stub", &rows, &summary);
+        assert!(report.contains("| no drop terms |"), "{report}");
+        assert!(report.contains("of 1)"), "{report}");
+    }
+
+    #[test]
+    fn eval_pasted_output_applies_cleanup_core_guard_and_preserves_refusals() {
+        let keep_take = item(
+            EvalKind::Keep,
+            "I'll send it to you. No wait, tomorrow.",
+            &["you", "no wait", "tomorrow"],
+            &[],
+        );
+        let pasted =
+            eval_pasted_output(&keep_take.input, Ok("I'll send it to you tomorrow."), false)
+                .expect("guard falls back to rules text");
+        assert_eq!(pasted, "I'll send it to you. No wait, tomorrow.");
+        let row = judge(&keep_take, Ok(&pasted));
+        assert!(row.score.meaning_ok, "reason={}", row.score.reason);
+
+        let retract = item(
+            EvalKind::Retract,
+            "Send it to Priya, scratch that, Devon.",
+            &["Devon"],
+            &["Priya"],
+        );
+        let pre = crate::audio_toolkit::text::rewrite_spoken_self_corrections(&retract.input);
+        assert_eq!(pre, "Send it to Devon.");
+        let retract_pasted = eval_pasted_output(&retract.input, Ok(&pre), false).unwrap();
+        let retract_row = judge(&retract, Ok(&retract_pasted));
+        assert!(retract_row.score.meaning_ok && retract_row.score.retraction_ok);
+
+        let refused = eval_pasted_output(&keep_take.input, Err("model unavailable"), false);
+        assert!(refused.is_err());
+        let refused_row = judge(&keep_take, refused.as_deref().map_err(String::as_str));
+        assert!(!refused_row.score.meaning_ok && !refused_row.score.retraction_ok);
+    }
+
+    #[test]
+    fn f1b_t8b_eval_order_local_default_keeps_every_word_on_r21() {
+        let (prompt_label, _) = eval_prompt_choice(None).expect("local default resolves");
+        assert_eq!(prompt_label, "local default");
+        let keep_every_word = prompt_label == "local default";
+        assert!(keep_every_word);
+
+        let (other_label, _) = eval_prompt_choice(Some("default_improve_transcriptions"))
+            .expect("named prompt resolves");
+        assert_ne!(other_label, "local default");
+
+        let r21 = "Save the file as final v2, sorry, final v3.";
+        let pasted = eval_pasted_output(r21, Ok("final v3"), keep_every_word)
+            .expect("eval_pasted_output succeeds");
+        assert_eq!(pasted, "Save the file as final v3.");
+    }
+
+    #[test]
+    fn must_not_change_66_jsonl_parses_all_66_keep_rows_and_passes_identity() {
+        let raw = include_str!("../../docs/eval/must-not-change-66.jsonl");
+        let items = parse_eval_set(raw).expect("must-not-change-66.jsonl should parse");
+        assert_eq!(items.len(), 66);
+        for eval_item in &items {
+            assert_eq!(eval_item.kind, EvalKind::Keep, "id={}", eval_item.id);
+            assert!(eval_item.drop_terms.is_empty(), "id={}", eval_item.id);
+            let row = judge(eval_item, Ok(&eval_item.input));
+            assert!(
+                row.score.meaning_ok && row.score.retraction_ok,
+                "id={} input={:?} reason={}",
+                eval_item.id,
+                eval_item.input,
+                row.score.reason
+            );
+        }
+    }
+
+    #[test]
+    fn backtrack_fresh_r1f_30_jsonl_parses_all_30_rows() {
+        let raw = include_str!("../../docs/eval/backtrack-fresh-r1f-30.jsonl");
+        let items = parse_eval_set(raw).expect("backtrack-fresh-r1f-30.jsonl should parse");
+        assert_eq!(items.len(), 30);
+        let keep_count = items.iter().filter(|i| i.kind == EvalKind::Keep).count();
+        let retract_count = items.iter().filter(|i| i.kind == EvalKind::Retract).count();
+        assert_eq!(keep_count, 15);
+        assert_eq!(retract_count, 15);
     }
 }

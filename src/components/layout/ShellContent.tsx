@@ -3,14 +3,13 @@ import { useTranslation } from "react-i18next";
 import { useSettings } from "../../hooks/useSettings";
 import type { MeetingsUi } from "../meetings/gate";
 import { HomeView } from "../home/HomeView";
-import { GeneralSettings } from "../settings/general/GeneralSettings";
-import { AdvancedSettings } from "../settings/advanced/AdvancedSettings";
+import {
+  SettingsV022Page,
+  type SettingsTarget,
+} from "../settings/SettingsV022Page";
 import { HistorySettings } from "../settings/history/HistorySettings";
 import { ModelsSettings } from "../settings/models/ModelsSettings";
-import { CustomWords } from "../settings/CustomWords";
-import { Corrections } from "../settings/Corrections";
-import { PostProcessingSettings } from "../settings/post-processing/PostProcessingSettings";
-import { SettingsGroup } from "../ui/SettingsGroup";
+import { WordsAndCleanupV022 } from "../settings/post-processing/PostProcessingSettings";
 import {
   isMeetingSection,
   SHELL_ROUTES,
@@ -24,13 +23,15 @@ export function ShellContent({
   onNavigate,
   about,
   debug,
+  settingsTarget = null,
 }: {
   section: ShellSectionId;
   meetingsUi: MeetingsUi | null;
   showMeetings: boolean;
-  onNavigate: (section: ShellSectionId) => void;
+  onNavigate: (section: ShellSectionId, target?: SettingsTarget) => void;
   about: ReactNode;
   debug: ReactNode;
+  settingsTarget?: SettingsTarget;
 }) {
   const { t } = useTranslation();
   const { settings } = useSettings();
@@ -49,22 +50,25 @@ export function ShellContent({
     const label =
       SHELL_ROUTES.find((route) => route.id === section)?.labelKey ??
       "meetings.sidebar";
+    const hasMeetingsRecordView =
+      section === "meetings-record" && showMeetings && meetingsUi !== null;
     return (
       <section
         data-route-domain="meetings"
         className="max-w-3xl w-full mx-auto space-y-3"
       >
         <h1 className="text-2xl font-semibold">{t(label)}</h1>
-        <p role="status" className="text-sm text-mid-gray">
-          {t(
-            showMeetings
-              ? "sidebar.meetingReady"
-              : "sidebar.meetingsUnavailable",
-          )}
-        </p>
-        {section === "meetings-record" && showMeetings && meetingsUi ? (
+        {hasMeetingsRecordView ? (
           <meetingsUi.MeetingsView />
-        ) : null}
+        ) : (
+          <p role="status" className="text-sm text-mid-gray">
+            {t(
+              showMeetings
+                ? "sidebar.meetingReady"
+                : "sidebar.meetingsUnavailable",
+            )}
+          </p>
+        )}
       </section>
     );
   }
@@ -80,39 +84,14 @@ export function ShellContent({
         <p role="status">{t("sidebar.profilesReady")}</p>
       </section>
     );
-  if (section === "voice-words")
-    return (
-      <section
-        data-route-domain="voice"
-        className="max-w-3xl w-full mx-auto space-y-6"
-      >
-        <SettingsGroup title={t("sidebar.wordsAndCleanup")}>
-          <CustomWords grouped />
-          <Corrections grouped />
-        </SettingsGroup>
-        {settings?.post_process_enabled ? (
-          <PostProcessingSettings />
-        ) : (
-          <button
-            type="button"
-            onClick={() => onNavigate("settings")}
-            className="text-logo-primary underline focus-visible:ring-2"
-          >
-            {t("sidebar.cleanupSettings")}
-          </button>
-        )}
-      </section>
-    );
+  if (section === "voice-words") return <WordsAndCleanupV022 />;
   if (section === "models") return <ModelsSettings />;
   if (section === "about") return about;
   if (section === "debug" && settings?.debug_mode) return debug;
   return (
-    <section
-      data-route-domain="shared"
-      className="max-w-3xl w-full mx-auto space-y-6"
-    >
-      <GeneralSettings />
-      <AdvancedSettings />
-    </section>
+    <SettingsV022Page
+      target={settingsTarget}
+      onNavigate={(next) => onNavigate(next)}
+    />
   );
 }

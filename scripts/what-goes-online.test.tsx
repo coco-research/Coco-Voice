@@ -97,7 +97,7 @@ const hostsIn = (s: string) =>
     return m[1];
   });
 
-describe("WhatGoesOnlineSection", () => {
+describe("WhatGoesOnlineSection (C6 / V5)", () => {
   test("rendered hosts equal privacy-allowlist minus the two non-runtime when strings, with no extra hosts", () => {
     expect([...ONLINE_EXCLUDED_WHEN].sort()).toEqual([...EXCLUDED_WHEN].sort());
     const allowlist = loadAllowlist();

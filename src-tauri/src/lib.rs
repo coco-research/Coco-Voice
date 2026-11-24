@@ -1,21 +1,38 @@
 mod actions;
 pub mod agent_ask;
+mod agent_ask_bridge;
+pub mod app_profiles;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
 mod audio_feedback;
 pub mod audio_toolkit;
+#[cfg(feature = "meetings")]
+mod calendar_commands;
+#[cfg(all(feature = "meetings", target_os = "macos"))]
+mod calendar_eventkit;
+#[cfg(feature = "meetings")]
+mod calendar_upcoming;
 mod catalog;
 mod cleanup_eval;
 mod cleanup_resolver;
 pub mod cli;
 mod clipboard;
 mod commands;
+pub mod dictation_features;
+pub mod first_run_and_updates;
+mod fix_offer;
+pub mod focused_text;
 mod helpers;
 mod input;
+pub mod last_take;
 mod llm_client;
 #[cfg(target_os = "macos")]
 mod local_llm;
 mod managers;
+pub mod mcp;
+pub mod mcp_store;
+#[cfg(feature = "meetings")]
+pub mod meeting_append;
 #[cfg(feature = "meetings")]
 pub mod meeting_ask;
 #[cfg(feature = "meetings")]
@@ -23,17 +40,48 @@ pub mod meeting_ask_index;
 #[cfg(feature = "meetings")]
 mod meeting_controller;
 #[cfg(feature = "meetings")]
+pub mod meeting_extras_commands;
+#[cfg(feature = "meetings")]
+mod meeting_feed;
+#[cfg(feature = "meetings")]
+pub mod meeting_history_ops;
+#[cfg(feature = "meetings")]
+pub mod meeting_import;
+#[cfg(feature = "meetings")]
+pub mod meeting_language;
+#[cfg(feature = "meetings")]
 mod meeting_notes;
 #[cfg(feature = "meetings")]
 mod meeting_notes_merge;
 #[cfg(feature = "meetings")]
 mod meeting_notes_pieces;
 #[cfg(feature = "meetings")]
+pub mod meeting_notes_runner;
+#[cfg(feature = "meetings")]
+pub mod meeting_notes_v42;
+#[cfg(feature = "meetings")]
+mod meeting_offer_panel;
+#[cfg(feature = "meetings")]
+pub mod meeting_pipeline;
+#[cfg(feature = "meetings")]
+pub mod meeting_retention;
+#[cfg(feature = "meetings")]
+mod meeting_session;
+#[cfg(feature = "speaker-split")]
+pub mod meeting_speakers;
+#[cfg(feature = "speaker-split")]
+pub mod meeting_speakers_engine;
+#[cfg(feature = "meetings")]
 pub mod meeting_todos;
+#[cfg(feature = "meetings")]
+mod meetings;
+#[cfg(feature = "meetings")]
+pub mod meetings_list;
 #[cfg(all(feature = "meetings", target_os = "macos"))]
 pub mod meetings_tap;
 mod overlay;
 pub mod portable;
+mod repo_words;
 mod settings;
 mod shortcut;
 mod signal_handle;
@@ -41,6 +89,9 @@ mod transcription_coordinator;
 mod tray;
 mod tray_i18n;
 mod utils;
+pub mod v020_commands;
+#[cfg(test)]
+mod y7_privacy_guards;
 
 pub use cli::CliArgs;
 #[cfg(debug_assertions)]
@@ -57,7 +108,7 @@ use signal_hook::consts::{SIGUSR1, SIGUSR2};
 #[cfg(unix)]
 use signal_hook::iterator::Signals;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::image::Image;
 pub use transcription_coordinator::TranscriptionCoordinator;
 
@@ -221,9 +272,79 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     app_handle.manage(model_manager.clone());
     app_handle.manage(transcription_manager.clone());
     app_handle.manage(history_manager.clone());
+    app_handle.manage(last_take::LastTake::new());
+    app_handle.manage(Mutex::new(repo_words::RepoSymbolsCache::new()));
+    app_handle.manage(Mutex::new(fix_offer::FixOfferQueue::new()));
+    app_handle.manage(Arc::new(fix_offer::WatcherCancellation::new()));
+    Arc::clone(&history_manager).start_sweeper();
     app_handle.manage(tray::CurrentTrayIconState::new());
+    #[cfg(unix)]
+    {
+        let s = settings::get_settings(app_handle);
+        let enabled = agent_ask_bridge::effective_agents_can_ask(
+            s.agents_can_ask_enabled,
+            s.agent_ask_enabled,
+        );
+        let key = s
+            .bindings
+            .get("transcribe")
+            .map(|b| b.current_binding.clone())
+            .unwrap_or_else(|| "fn".to_string());
+        let state = Arc::new(Mutex::new(agent_ask_bridge::AgentAskBridgeState::new(
+            enabled, key,
+        )));
+        if let Ok(data_dir) = portable::app_data_dir(app_handle) {
+            let ah_ev = app_handle.clone();
+            if let Ok(server) = agent_ask_bridge::AgentAskServer::start(
+                &data_dir,
+                Arc::clone(&state),
+                Arc::new(move |ev| {
+                    if let Some(ov) = ah_ev.get_webview_window("recording_overlay") {
+                        let _ = ov.emit("agent-ask-question", ev);
+                    }
+                }),
+            ) {
+                app_handle.manage(state);
+                app_handle.manage(server);
+            }
+        }
+    }
     #[cfg(feature = "meetings")]
-    app_handle.manage(Arc::new(meeting_controller::MeetingController::default()));
+    {
+        app_handle.manage(Arc::new(meeting_controller::MeetingController::new(
+            Box::new(meeting_session::MeetingSession::new(app_handle.clone())),
+        )));
+        app_handle.manage(Arc::new(meeting_pipeline::MeetingPipelineState::new()));
+        // Open runs unfinished-row recovery. A later meeting start opens the
+        // same file again; the update is a no-op once no row is still recording.
+        match managers::meetings::MeetingsStore::open_app(app_handle) {
+            Ok(store) => {
+                let _ = meeting_history_ops::purge_expired_trash(
+                    &store,
+                    chrono::Utc::now().timestamp(),
+                );
+                let mut s = settings::get_settings(app_handle);
+                if let Ok(true) = store.seed_stock_templates_once(s.meeting_templates_seeded) {
+                    s.meeting_templates_seeded = true;
+                    settings::write_settings(app_handle, s);
+                }
+            }
+            Err(err) => {
+                log::warn!("meetings store recovery failed: {err}");
+            }
+        }
+        meeting_pipeline::sweep_interrupted_on_startup(app_handle);
+        let purge_app = app_handle.clone();
+        std::thread::spawn(move || loop {
+            std::thread::sleep(std::time::Duration::from_secs(24 * 60 * 60));
+            if let Ok(store) = managers::meetings::MeetingsStore::open_app(&purge_app) {
+                let _ = meeting_history_ops::purge_expired_trash(
+                    &store,
+                    chrono::Utc::now().timestamp(),
+                );
+            }
+        });
+    }
 
     // Note: Shortcuts are NOT initialized here.
     // The frontend is responsible for calling the `initialize_shortcuts` command
@@ -265,7 +386,7 @@ fn initialize_core_logic(app_handle: &AppHandle) {
         .show_menu_on_left_click(true)
         .icon_as_template(true)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "settings" => {
+            "open_app" | "settings" => {
                 show_main_window(app);
             }
             "check_updates" => {
@@ -274,6 +395,9 @@ fn initialize_core_logic(app_handle: &AppHandle) {
                     show_main_window(app);
                     let _ = app.emit("check-for-updates", ());
                 }
+            }
+            "paste_last_transcript" => {
+                tray::paste_last_transcript(app);
             }
             "copy_last_transcript" => {
                 tray::copy_last_transcript(app);
@@ -297,6 +421,19 @@ fn initialize_core_logic(app_handle: &AppHandle) {
             }
             "quit" => {
                 app.exit(0);
+            }
+            #[cfg(feature = "meetings")]
+            "start_meeting" | "start_notes" => {
+                // Same path as the meeting shortcut: consent only, never a recording.
+                show_main_window(app);
+                let _ = crate::meeting_controller::open_meeting_consent(app.clone());
+            }
+            #[cfg(feature = "meetings")]
+            "stop_meeting" => {
+                let app_clone = app.clone();
+                std::thread::spawn(move || {
+                    let _ = crate::meeting_controller::stop_meeting(app_clone);
+                });
             }
             id if id.starts_with("model_select:") => {
                 let model_id = id.strip_prefix("model_select:").unwrap().to_string();
@@ -352,6 +489,8 @@ fn initialize_core_logic(app_handle: &AppHandle) {
 
     // Create the recording overlay window (hidden by default)
     utils::create_recording_overlay(app_handle);
+    #[cfg(feature = "meetings")]
+    meeting_offer_panel::create_meeting_offer_panel(app_handle);
 }
 
 #[tauri::command]
@@ -568,14 +707,176 @@ fn run_headless_transcription(app: &AppHandle, args: &CliArgs) -> i32 {
 /// Meetings command names registered below. Empty unless the `meetings` feature is on.
 #[cfg_attr(not(test), allow(dead_code))]
 fn meetings_command_names() -> &'static [&'static str] {
-    #[cfg(feature = "meetings")]
+    #[cfg(feature = "speaker-split")]
     {
         &[
             "change_meetings_enabled_setting",
+            "change_meeting_language_setting",
+            "set_meeting_language_override_cmd",
+            "meeting_language_plan",
             "open_meeting_consent",
             "confirm_meeting_start",
+            "confirm_meeting_start_mic_only",
             "cancel_meeting_consent",
             "stop_meeting",
+            "pause_meeting_cmd",
+            "resume_meeting_cmd",
+            "request_append_meeting_consent",
+            "confirm_append_meeting_audio",
+            "current_meeting_offer",
+            "dismiss_meeting_offer",
+            "meeting_status",
+            "meeting_segments",
+            "list_meetings",
+            "search_meetings",
+            "export_meeting_markdown",
+            "delete_meeting",
+            "rename_meeting",
+            "meeting_retention_state",
+            "change_delete_audio_after_notes_setting",
+            "request_delete_all_meetings",
+            "delete_all_meetings",
+            "change_notes_markdown_folder_setting",
+            "meeting_notes_snapshot",
+            "save_meeting_notepad",
+            "retry_meeting_notes",
+            "catch_up_meeting",
+            "pause_meeting",
+            "resume_meeting",
+            "append_meeting_audio",
+            "list_trashed_meetings",
+            "restore_trashed_meeting",
+            "delete_transcript_span",
+            "change_transcript_delete_days_setting",
+            "import_meeting_notes",
+            "ask_meetings",
+            "list_meeting_todos",
+            "complete_meeting_todo",
+            "agent_access_state",
+            "set_agent_access_enabled",
+            "set_agent_access_scope",
+            "mcp_command_line",
+            "get_meeting_custom_words",
+            "set_meeting_custom_words",
+            "list_calendar_choices",
+            "change_selected_calendars_setting",
+            "mark_calendar_as_work_setting",
+            "list_upcoming_meetings",
+            "keep_upcoming_for_notes",
+            "close_upcoming_meetings",
+            "trash_meeting",
+            "delete_meeting_forever",
+            "list_trashed_meetings_v2",
+            "restore_trashed_meeting_v2",
+            "purge_expired_trash_now",
+            "delete_transcript_segments",
+            "delete_transcript_span_secure",
+            "search_meeting_transcript",
+            "list_meeting_folders",
+            "create_meeting_folder",
+            "rename_meeting_folder",
+            "delete_meeting_folder",
+            "set_meeting_folder",
+            "list_meeting_templates",
+            "create_meeting_template",
+            "update_meeting_template",
+            "delete_meeting_template",
+            "set_folder_last_template",
+            "ask_meetings_v2",
+            "start_ask_by_voice",
+            "cancel_ask_by_voice",
+            "finish_ask_by_voice",
+            "ask_meetings_by_voice",
+            "count_importable_notes",
+            "import_meeting_notes_batch",
+            "list_meeting_speakers",
+            "rename_meeting_speaker_slot",
+            "set_meeting_offer_visible",
+        ]
+    }
+    #[cfg(all(feature = "meetings", not(feature = "speaker-split")))]
+    {
+        &[
+            "change_meetings_enabled_setting",
+            "change_meeting_language_setting",
+            "set_meeting_language_override_cmd",
+            "meeting_language_plan",
+            "open_meeting_consent",
+            "confirm_meeting_start",
+            "confirm_meeting_start_mic_only",
+            "cancel_meeting_consent",
+            "stop_meeting",
+            "pause_meeting_cmd",
+            "resume_meeting_cmd",
+            "request_append_meeting_consent",
+            "confirm_append_meeting_audio",
+            "current_meeting_offer",
+            "dismiss_meeting_offer",
+            "meeting_status",
+            "meeting_segments",
+            "list_meetings",
+            "search_meetings",
+            "export_meeting_markdown",
+            "delete_meeting",
+            "rename_meeting",
+            "meeting_retention_state",
+            "change_delete_audio_after_notes_setting",
+            "request_delete_all_meetings",
+            "delete_all_meetings",
+            "change_notes_markdown_folder_setting",
+            "meeting_notes_snapshot",
+            "save_meeting_notepad",
+            "retry_meeting_notes",
+            "catch_up_meeting",
+            "pause_meeting",
+            "resume_meeting",
+            "append_meeting_audio",
+            "list_trashed_meetings",
+            "restore_trashed_meeting",
+            "delete_transcript_span",
+            "change_transcript_delete_days_setting",
+            "import_meeting_notes",
+            "ask_meetings",
+            "list_meeting_todos",
+            "complete_meeting_todo",
+            "agent_access_state",
+            "set_agent_access_enabled",
+            "set_agent_access_scope",
+            "mcp_command_line",
+            "get_meeting_custom_words",
+            "set_meeting_custom_words",
+            "list_calendar_choices",
+            "change_selected_calendars_setting",
+            "mark_calendar_as_work_setting",
+            "list_upcoming_meetings",
+            "keep_upcoming_for_notes",
+            "close_upcoming_meetings",
+            "trash_meeting",
+            "delete_meeting_forever",
+            "list_trashed_meetings_v2",
+            "restore_trashed_meeting_v2",
+            "purge_expired_trash_now",
+            "delete_transcript_segments",
+            "delete_transcript_span_secure",
+            "search_meeting_transcript",
+            "list_meeting_folders",
+            "create_meeting_folder",
+            "rename_meeting_folder",
+            "delete_meeting_folder",
+            "set_meeting_folder",
+            "list_meeting_templates",
+            "create_meeting_template",
+            "update_meeting_template",
+            "delete_meeting_template",
+            "set_folder_last_template",
+            "ask_meetings_v2",
+            "start_ask_by_voice",
+            "cancel_ask_by_voice",
+            "finish_ask_by_voice",
+            "ask_meetings_by_voice",
+            "count_importable_notes",
+            "import_meeting_notes_batch",
+            "set_meeting_offer_visible",
         ]
     }
     #[cfg(not(feature = "meetings"))]
@@ -584,16 +885,199 @@ fn meetings_command_names() -> &'static [&'static str] {
     }
 }
 
-#[cfg(feature = "meetings")]
-macro_rules! collect_app_commands {
+#[cfg(debug_assertions)]
+macro_rules! collect_with_debug_commands {
     ($($($seg:ident)::+),* $(,)?) => {
         collect_commands![
             $($($seg)::+,)*
+            actions::debug_set_fail_next_paste
+        ]
+    };
+}
+
+#[cfg(not(debug_assertions))]
+macro_rules! collect_with_debug_commands {
+    ($($($seg:ident)::+),* $(,)?) => {
+        collect_commands![$($($seg)::+),*]
+    };
+}
+
+#[cfg(feature = "speaker-split")]
+macro_rules! collect_app_commands {
+    ($($($seg:ident)::+),* $(,)?) => {
+        collect_with_debug_commands![
+            $($($seg)::+,)*
             shortcut::change_meetings_enabled_setting,
+            shortcut::change_meeting_language_setting,
+            shortcut::set_meeting_language_override_cmd,
+            shortcut::meeting_language_plan,
             meeting_controller::open_meeting_consent,
             meeting_controller::confirm_meeting_start,
+            meeting_controller::confirm_meeting_start_mic_only,
             meeting_controller::cancel_meeting_consent,
-            meeting_controller::stop_meeting
+            meeting_controller::stop_meeting,
+            meeting_controller::pause_meeting_cmd,
+            meeting_controller::resume_meeting_cmd,
+            meeting_controller::request_append_meeting_consent,
+            meeting_controller::confirm_append_meeting_audio,
+            meetings::current_meeting_offer,
+            meetings::dismiss_meeting_offer,
+            meeting_controller::meeting_status,
+            meeting_controller::meeting_segments,
+            meetings_list::list_meetings,
+            meetings_list::search_meetings,
+            meetings_list::export_meeting_markdown,
+            meetings_list::delete_meeting,
+            meeting_pipeline::rename_meeting,
+            meeting_retention::meeting_retention_state,
+            meeting_retention::change_delete_audio_after_notes_setting,
+            meeting_retention::request_delete_all_meetings,
+            meeting_retention::delete_all_meetings,
+            meeting_retention::change_notes_markdown_folder_setting,
+            v020_commands::meetings_ext::meeting_notes_snapshot,
+            v020_commands::meetings_ext::save_meeting_notepad,
+            v020_commands::meetings_ext::retry_meeting_notes,
+            v020_commands::meetings_ext::catch_up_meeting,
+            v020_commands::meetings_ext::pause_meeting,
+            v020_commands::meetings_ext::resume_meeting,
+            v020_commands::meetings_ext::append_meeting_audio,
+            v020_commands::meetings_ext::list_trashed_meetings,
+            v020_commands::meetings_ext::restore_trashed_meeting,
+            v020_commands::meetings_ext::delete_transcript_span,
+            v020_commands::meetings_ext::change_transcript_delete_days_setting,
+            v020_commands::meetings_ext::import_meeting_notes,
+            v020_commands::meetings_ext::ask_meetings,
+            v020_commands::meetings_ext::list_meeting_todos,
+            v020_commands::meetings_ext::complete_meeting_todo,
+            v020_commands::meetings_ext::agent_access_state,
+            v020_commands::meetings_ext::set_agent_access_enabled,
+            v020_commands::meetings_ext::set_agent_access_scope,
+            v020_commands::meetings_ext::mcp_command_line,
+            v020_commands::meetings_ext::get_meeting_custom_words,
+            v020_commands::meetings_ext::set_meeting_custom_words,
+            calendar_commands::list_calendar_choices,
+            calendar_commands::change_selected_calendars_setting,
+            calendar_commands::mark_calendar_as_work_setting,
+            calendar_commands::list_upcoming_meetings,
+            calendar_commands::keep_upcoming_for_notes,
+            calendar_commands::close_upcoming_meetings,
+            meeting_extras_commands::trash_meeting,
+            meeting_extras_commands::delete_meeting_forever,
+            meeting_extras_commands::list_trashed_meetings_v2,
+            meeting_extras_commands::restore_trashed_meeting_v2,
+            meeting_extras_commands::purge_expired_trash_now,
+            meeting_extras_commands::delete_transcript_segments,
+            meeting_extras_commands::delete_transcript_span_secure,
+            meeting_extras_commands::search_meeting_transcript,
+            meeting_extras_commands::list_meeting_folders,
+            meeting_extras_commands::create_meeting_folder,
+            meeting_extras_commands::rename_meeting_folder,
+            meeting_extras_commands::delete_meeting_folder,
+            meeting_extras_commands::set_meeting_folder,
+            meeting_extras_commands::list_meeting_templates,
+            meeting_extras_commands::create_meeting_template,
+            meeting_extras_commands::update_meeting_template,
+            meeting_extras_commands::delete_meeting_template,
+            meeting_extras_commands::set_folder_last_template,
+            meeting_extras_commands::ask_meetings_v2,
+            meeting_extras_commands::start_ask_by_voice,
+            meeting_extras_commands::cancel_ask_by_voice,
+            meeting_extras_commands::finish_ask_by_voice,
+            meeting_extras_commands::ask_meetings_by_voice,
+            meeting_extras_commands::count_importable_notes,
+            meeting_extras_commands::import_meeting_notes_batch,
+            meeting_speakers::list_meeting_speakers,
+            meeting_speakers::rename_meeting_speaker_slot,
+            meeting_offer_panel::set_meeting_offer_visible
+        ]
+    };
+}
+
+#[cfg(all(feature = "meetings", not(feature = "speaker-split")))]
+macro_rules! collect_app_commands {
+    ($($($seg:ident)::+),* $(,)?) => {
+        collect_with_debug_commands![
+            $($($seg)::+,)*
+            shortcut::change_meetings_enabled_setting,
+            shortcut::change_meeting_language_setting,
+            shortcut::set_meeting_language_override_cmd,
+            shortcut::meeting_language_plan,
+            meeting_controller::open_meeting_consent,
+            meeting_controller::confirm_meeting_start,
+            meeting_controller::confirm_meeting_start_mic_only,
+            meeting_controller::cancel_meeting_consent,
+            meeting_controller::stop_meeting,
+            meeting_controller::pause_meeting_cmd,
+            meeting_controller::resume_meeting_cmd,
+            meeting_controller::request_append_meeting_consent,
+            meeting_controller::confirm_append_meeting_audio,
+            meetings::current_meeting_offer,
+            meetings::dismiss_meeting_offer,
+            meeting_controller::meeting_status,
+            meeting_controller::meeting_segments,
+            meetings_list::list_meetings,
+            meetings_list::search_meetings,
+            meetings_list::export_meeting_markdown,
+            meetings_list::delete_meeting,
+            meeting_pipeline::rename_meeting,
+            meeting_retention::meeting_retention_state,
+            meeting_retention::change_delete_audio_after_notes_setting,
+            meeting_retention::request_delete_all_meetings,
+            meeting_retention::delete_all_meetings,
+            meeting_retention::change_notes_markdown_folder_setting,
+            v020_commands::meetings_ext::meeting_notes_snapshot,
+            v020_commands::meetings_ext::save_meeting_notepad,
+            v020_commands::meetings_ext::retry_meeting_notes,
+            v020_commands::meetings_ext::catch_up_meeting,
+            v020_commands::meetings_ext::pause_meeting,
+            v020_commands::meetings_ext::resume_meeting,
+            v020_commands::meetings_ext::append_meeting_audio,
+            v020_commands::meetings_ext::list_trashed_meetings,
+            v020_commands::meetings_ext::restore_trashed_meeting,
+            v020_commands::meetings_ext::delete_transcript_span,
+            v020_commands::meetings_ext::change_transcript_delete_days_setting,
+            v020_commands::meetings_ext::import_meeting_notes,
+            v020_commands::meetings_ext::ask_meetings,
+            v020_commands::meetings_ext::list_meeting_todos,
+            v020_commands::meetings_ext::complete_meeting_todo,
+            v020_commands::meetings_ext::agent_access_state,
+            v020_commands::meetings_ext::set_agent_access_enabled,
+            v020_commands::meetings_ext::set_agent_access_scope,
+            v020_commands::meetings_ext::mcp_command_line,
+            v020_commands::meetings_ext::get_meeting_custom_words,
+            v020_commands::meetings_ext::set_meeting_custom_words,
+            calendar_commands::list_calendar_choices,
+            calendar_commands::change_selected_calendars_setting,
+            calendar_commands::mark_calendar_as_work_setting,
+            calendar_commands::list_upcoming_meetings,
+            calendar_commands::keep_upcoming_for_notes,
+            calendar_commands::close_upcoming_meetings,
+            meeting_extras_commands::trash_meeting,
+            meeting_extras_commands::delete_meeting_forever,
+            meeting_extras_commands::list_trashed_meetings_v2,
+            meeting_extras_commands::restore_trashed_meeting_v2,
+            meeting_extras_commands::purge_expired_trash_now,
+            meeting_extras_commands::delete_transcript_segments,
+            meeting_extras_commands::delete_transcript_span_secure,
+            meeting_extras_commands::search_meeting_transcript,
+            meeting_extras_commands::list_meeting_folders,
+            meeting_extras_commands::create_meeting_folder,
+            meeting_extras_commands::rename_meeting_folder,
+            meeting_extras_commands::delete_meeting_folder,
+            meeting_extras_commands::set_meeting_folder,
+            meeting_extras_commands::list_meeting_templates,
+            meeting_extras_commands::create_meeting_template,
+            meeting_extras_commands::update_meeting_template,
+            meeting_extras_commands::delete_meeting_template,
+            meeting_extras_commands::set_folder_last_template,
+            meeting_extras_commands::ask_meetings_v2,
+            meeting_extras_commands::start_ask_by_voice,
+            meeting_extras_commands::cancel_ask_by_voice,
+            meeting_extras_commands::finish_ask_by_voice,
+            meeting_extras_commands::ask_meetings_by_voice,
+            meeting_extras_commands::count_importable_notes,
+            meeting_extras_commands::import_meeting_notes_batch,
+            meeting_offer_panel::set_meeting_offer_visible
         ]
     };
 }
@@ -601,7 +1085,7 @@ macro_rules! collect_app_commands {
 #[cfg(not(feature = "meetings"))]
 macro_rules! collect_app_commands {
     ($($($seg:ident)::+),* $(,)?) => {
-        collect_commands![$($($seg)::+),*]
+        collect_with_debug_commands![$($($seg)::+),*]
     };
 }
 
@@ -609,6 +1093,9 @@ macro_rules! collect_app_commands {
 pub fn run(cli_args: CliArgs) {
     if cli_args.mcp_ask_user {
         std::process::exit(agent_ask::run_stdio(None));
+    }
+    if matches!(cli_args.command, Some(crate::cli::CliCommand::Mcp)) {
+        std::process::exit(mcp::run_cli());
     }
 
     // --cleanup-eval scores the on-device cleanup model and exits before any
@@ -630,6 +1117,7 @@ pub fn run(cli_args: CliArgs) {
             shortcut::change_binding,
             shortcut::reset_binding,
             shortcut::change_ptt_setting,
+            shortcut::change_double_tap_hands_free_setting,
             shortcut::change_audio_feedback_setting,
             shortcut::change_audio_feedback_volume_setting,
             shortcut::change_sound_theme_setting,
@@ -715,6 +1203,7 @@ pub fn run(cli_args: CliArgs) {
             commands::audio::get_microphone_mode,
             commands::audio::get_windows_microphone_permission_status,
             commands::audio::open_microphone_privacy_settings,
+            commands::audio::open_system_audio_privacy_settings,
             commands::audio::get_available_microphones,
             commands::audio::set_selected_microphone,
             commands::audio::get_selected_microphone,
@@ -726,6 +1215,8 @@ pub fn run(cli_args: CliArgs) {
             commands::audio::set_clamshell_microphone,
             commands::audio::get_clamshell_microphone,
             commands::audio::is_recording,
+            commands::audio::set_microphone_priority,
+            commands::audio::get_microphone_priority,
             commands::transcription::set_model_unload_timeout,
             commands::transcription::get_model_load_status,
             commands::transcription::unload_model_manually,
@@ -737,7 +1228,29 @@ pub fn run(cli_args: CliArgs) {
             commands::history::update_history_limit,
             commands::history::update_history_entry_text,
             commands::history::update_recording_retention_period,
+            commands::history::update_keep_dictations,
+            commands::history::update_keep_dictation_audio,
+            commands::history::change_never_store_history_setting,
+            commands::history::change_keep_dictation_audio_setting,
             helpers::clamshell::is_laptop,
+            app_profiles::get_active_app_info,
+            app_profiles::app_display_names,
+            app_profiles::update_app_profiles,
+            app_profiles::update_blocked_apps,
+            v020_commands::update_saved_blocks,
+            v020_commands::set_read_focused_text_enabled,
+            v020_commands::set_read_focused_window_context_enabled,
+            v020_commands::remember_spelling_fix,
+            v020_commands::change_offer_remember_fix_setting,
+            v020_commands::change_repo_words_setting,
+            v020_commands::change_filler_word_removal_setting,
+            v020_commands::change_agents_can_ask_setting,
+            v020_commands::update_blocked_sites,
+            v020_commands::dismiss_fix_offer,
+            v020_commands::check_accessibility_stale,
+            v020_commands::home_health_status,
+            v020_commands::evaluate_try_it_take,
+            v020_commands::evaluate_update_notice_and_advance,
         ])
         .events(collect_events![
             managers::history::HistoryUpdatePayload,
@@ -746,7 +1259,6 @@ pub fn run(cli_args: CliArgs) {
             cleanup_resolver::CleanupStatus,
             actions::CleanupProgress,
         ])
-        // Emitted with a plain `emit`, registered so bindings.ts carries its type.
         .typ::<managers::model::ModelDownloadFailed>();
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
@@ -768,8 +1280,10 @@ pub fn run(cli_args: CliArgs) {
 
     // The headless path must run as its own instance (see the single-instance
     // note below), not forward to an already-running app.
-    let headless_mode =
-        cli_args.transcribe_file.is_some() || cli_args.list_devices || cli_args.list_models;
+    let headless_mode = cli_args.transcribe_file.is_some()
+        || cli_args.list_devices
+        || cli_args.list_models
+        || cli_args.print_app_data_dir;
 
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
@@ -894,6 +1408,14 @@ pub fn run(cli_args: CliArgs) {
             // thread and exit. Deliberately skips the window, tray, overlay, audio
             // recorder (so it never opens the mic, even with always_on_microphone),
             // signal handlers, and autostart that initialize_core_logic sets up.
+            if cli_args.print_app_data_dir {
+                let resolved =
+                    portable::app_data_dir(app.handle()).expect("resolve Tauri app_data_dir");
+                println!("identifier={}", app.config().identifier);
+                println!("app_data_dir={}", resolved.display());
+                std::process::exit(0);
+            }
+
             if headless_mode {
                 let app_handle = app.handle().clone();
                 let model_manager = Arc::new(
@@ -929,12 +1451,15 @@ pub fn run(cli_args: CliArgs) {
                 return Ok(());
             }
 
+            #[cfg(feature = "meetings")]
+            meetings::install(app.handle());
+
             // Create main window programmatically so we can set data_directory
             // for portable mode (redirects WebView2 cache to portable Data dir)
             let mut win_builder =
                 tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("/".into()))
                     .title("Coco Voice")
-                    .inner_size(680.0, 570.0)
+                    .inner_size(960.0, 640.0)
                     .min_inner_size(680.0, 570.0)
                     .resizable(true)
                     .maximizable(false)
@@ -971,6 +1496,10 @@ pub fn run(cli_args: CliArgs) {
             WEBVIEW_LOG_STREAMING.store(settings.debug_mode, Ordering::Relaxed);
             let app_handle = app.handle().clone();
             app.manage(TranscriptionCoordinator::new(app_handle.clone()));
+            #[cfg(feature = "meetings")]
+            app.manage(calendar_commands::CalendarState::for_bundle_id(
+                &app.config().identifier,
+            ));
 
             initialize_core_logic(&app_handle);
             // Now the managers exist: run any toggle that arrived meanwhile (#212).
@@ -1052,6 +1581,8 @@ pub fn run(cli_args: CliArgs) {
             }
             // Teardown transcribe.cpp before exit
             tauri::RunEvent::Exit => {
+                #[cfg(feature = "meetings")]
+                meetings::stop_offer_poll();
                 if let Some(tm) = app.try_state::<Arc<TranscriptionManager>>() {
                     let _ = tm.unload_model();
                 }
@@ -1079,6 +1610,25 @@ mod meetings_gate_tests {
                 "a meetings build registers the meetings setting command"
             );
             assert!(names.contains(&"change_meetings_enabled_setting"));
+            assert!(names.contains(&"current_meeting_offer"));
+            assert!(names.contains(&"dismiss_meeting_offer"));
+            assert!(names.contains(&"meeting_status"));
+            assert!(names.contains(&"confirm_meeting_start_mic_only"));
+            assert!(names.contains(&"meeting_segments"));
+            assert!(names.contains(&"start_ask_by_voice"));
+            assert!(names.contains(&"cancel_ask_by_voice"));
+            assert!(names.contains(&"finish_ask_by_voice"));
+            assert!(names.contains(&"ask_meetings_by_voice"));
+            #[cfg(not(feature = "speaker-split"))]
+            {
+                assert!(!names.contains(&"list_meeting_speakers"));
+                assert!(!names.contains(&"rename_meeting_speaker_slot"));
+            }
+            #[cfg(feature = "speaker-split")]
+            {
+                assert!(names.contains(&"list_meeting_speakers"));
+                assert!(names.contains(&"rename_meeting_speaker_slot"));
+            }
         }
     }
 }

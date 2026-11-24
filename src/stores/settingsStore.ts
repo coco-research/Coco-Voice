@@ -97,6 +97,10 @@ const settingUpdaters: {
   whats_new_last_seen_version: (value) =>
     commands.changeWhatsNewLastSeenVersionSetting(value as string),
   push_to_talk: (value) => commands.changePttSetting(value as boolean),
+  double_tap_hands_free: (value) =>
+    commands.changeDoubleTapHandsFreeSetting(value as boolean),
+  meeting_language: (value) =>
+    commands.changeMeetingLanguageSetting(value as string),
   selected_microphone: (value) =>
     commands.setSelectedMicrophone(
       (value as string) === "Default" || value === null
@@ -115,6 +119,10 @@ const settingUpdaters: {
     ),
   recording_retention_period: (value) =>
     commands.updateRecordingRetentionPeriod(value as string),
+  never_store_history: (value) =>
+    commands.changeNeverStoreHistorySetting(value as boolean),
+  keep_dictation_audio: (value) =>
+    commands.updateKeepDictationAudio(value as boolean),
   translate_to_english: (value) =>
     commands.changeTranslateToEnglishSetting(value as boolean),
   selected_language: (value) =>
@@ -146,6 +154,14 @@ const settingUpdaters: {
     commands.setPostProcessSelectedPrompt(value as string),
   iterative_correction_enabled: (value) =>
     commands.changeIterativeCorrectionSetting(value as boolean),
+  offer_remember_fix_enabled: (value) =>
+    commands.changeOfferRememberFixSetting(value as boolean),
+  repo_words_enabled: (value) =>
+    commands.changeRepoWordsSetting(value as boolean),
+  filler_word_removal_enabled: (value) =>
+    commands.changeFillerWordRemovalSetting(value as boolean),
+  agents_can_ask_enabled: (value) =>
+    commands.changeAgentsCanAskSetting(value as boolean),
   mute_while_recording: (value) =>
     commands.changeMuteWhileRecordingSetting(value as boolean),
   append_trailing_space: (value) =>

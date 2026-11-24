@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+#[cfg(feature = "meetings")]
+use std::sync::TryLockError;
 use std::sync::{mpsc, Arc, Condvar, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
@@ -208,6 +210,33 @@ impl Drop for LoadingGuard {
     }
 }
 
+/// RAII guard that clears `meeting_load_pending` under the `is_loading` mutex
+/// and wakes condvar waiters on any exit — normal return, early return, or panic.
+/// Prevents `meeting_load_pending` from wedging `true` if the loader thread unwinds.
+#[cfg(feature = "meetings")]
+struct MeetingLoadPendingGuard {
+    meeting_load_pending: Arc<AtomicBool>,
+    is_loading: Arc<Mutex<bool>>,
+    loading_condvar: Arc<Condvar>,
+}
+
+#[cfg(feature = "meetings")]
+impl Drop for MeetingLoadPendingGuard {
+    fn drop(&mut self) {
+        // Recover from a poisoned mutex instead of panicking —
+        // a panic inside Drop calls abort().
+        let _is_loading = match self.is_loading.lock() {
+            Ok(g) => g,
+            Err(e) => {
+                warn!("Recovered poisoned is_loading mutex during MeetingLoadPendingGuard drop — a panic occurred earlier this session");
+                e.into_inner()
+            }
+        };
+        self.meeting_load_pending.store(false, Ordering::Release);
+        self.loading_condvar.notify_all();
+    }
+}
+
 /// Whether the transcription engine can serve a batch transcription right now.
 #[derive(Debug, PartialEq, Eq)]
 enum EngineAvailability {
@@ -234,6 +263,22 @@ impl std::fmt::Display for EngineLeased {
 }
 
 impl std::error::Error for EngineLeased {}
+
+/// Returned when a queued dictation take was cancelled while waiting on the
+/// meeting lock or stream lease.
+#[cfg(feature = "meetings")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TranscriptionCancelled;
+
+#[cfg(feature = "meetings")]
+impl std::fmt::Display for TranscriptionCancelled {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("cancelled while waiting for a meeting chunk")
+    }
+}
+
+#[cfg(feature = "meetings")]
+impl std::error::Error for TranscriptionCancelled {}
 
 fn engine_availability(in_pool: bool, leased_to_stream: bool) -> EngineAvailability {
     if in_pool {
@@ -329,16 +374,39 @@ pub struct TranscriptionManager<R: tauri::Runtime = tauri::Wry> {
     /// Speech model pinned for the meeting. `None` when no meeting is pinned.
     #[cfg(feature = "meetings")]
     meeting_pin: Arc<Mutex<Option<String>>>,
+    /// True while a meeting cold-start/swap load is queued or running.
+    /// Every write happens while holding the `is_loading` mutex so condvar
+    /// waiters observe transitions without lost wakeups.
+    #[cfg(feature = "meetings")]
+    meeting_load_pending: Arc<AtomicBool>,
+    /// Optional per-meeting language override (`None` inherits `settings.meeting_language`).
+    #[cfg(feature = "meetings")]
+    meeting_language_override: Arc<Mutex<Option<String>>>,
     /// Test-only: runs after the lease check and before dispatch, so a test can
     /// simulate a live stream taking the engine lease back in that window.
     #[cfg(all(test, feature = "meetings"))]
     after_lease_check_hook: Arc<Mutex<Option<Box<dyn FnOnce() + Send>>>>,
+    /// Test-only: records model ids requested by `start_meeting_model_load`.
+    #[cfg(all(test, feature = "meetings"))]
+    test_meeting_load_calls: Arc<Mutex<Vec<String>>>,
+    /// Test-only: records model ids requested by `initiate_model_load`.
+    #[cfg(all(test, feature = "meetings"))]
+    test_dictation_load_calls: Arc<Mutex<Vec<String>>>,
+    /// Test-only: records formatted info/warn lines emitted by `start_meeting_model_load`.
+    #[cfg(all(test, feature = "meetings"))]
+    test_meeting_load_logs: Arc<Mutex<Vec<String>>>,
+    /// Test-only: optional synchronization hook invoked inside the meeting loader
+    /// thread right before `load_model` runs.
+    #[cfg(all(test, feature = "meetings"))]
+    test_meeting_load_enter_hook: Arc<Mutex<Option<Box<dyn FnOnce() + Send>>>>,
     /// When set, idle unload and `maybe_unload_immediately` use this instead of
     /// the settings store. Tests have no store.
     #[cfg(all(test, feature = "meetings"))]
     test_unload_timeout: Arc<Mutex<Option<ModelUnloadTimeout>>>,
     #[cfg(all(test, feature = "meetings"))]
     fake_seq: Arc<AtomicU64>,
+    #[cfg(all(test, feature = "meetings"))]
+    fake_raw_text: Arc<Mutex<Option<String>>>,
     /// Test-only: the next fake transcription fails after a stream takes the
     /// lease, simulating a real engine failure under a live stream.
     #[cfg(all(test, feature = "meetings"))]
@@ -370,12 +438,26 @@ impl<R: tauri::Runtime> Clone for TranscriptionManager<R> {
             meeting_lock: Arc::clone(&self.meeting_lock),
             #[cfg(feature = "meetings")]
             meeting_pin: Arc::clone(&self.meeting_pin),
+            #[cfg(feature = "meetings")]
+            meeting_load_pending: Arc::clone(&self.meeting_load_pending),
+            #[cfg(feature = "meetings")]
+            meeting_language_override: Arc::clone(&self.meeting_language_override),
             #[cfg(all(test, feature = "meetings"))]
             after_lease_check_hook: Arc::clone(&self.after_lease_check_hook),
+            #[cfg(all(test, feature = "meetings"))]
+            test_meeting_load_calls: Arc::clone(&self.test_meeting_load_calls),
+            #[cfg(all(test, feature = "meetings"))]
+            test_dictation_load_calls: Arc::clone(&self.test_dictation_load_calls),
+            #[cfg(all(test, feature = "meetings"))]
+            test_meeting_load_logs: Arc::clone(&self.test_meeting_load_logs),
+            #[cfg(all(test, feature = "meetings"))]
+            test_meeting_load_enter_hook: Arc::clone(&self.test_meeting_load_enter_hook),
             #[cfg(all(test, feature = "meetings"))]
             test_unload_timeout: Arc::clone(&self.test_unload_timeout),
             #[cfg(all(test, feature = "meetings"))]
             fake_seq: Arc::clone(&self.fake_seq),
+            #[cfg(all(test, feature = "meetings"))]
+            fake_raw_text: Arc::clone(&self.fake_raw_text),
             #[cfg(all(test, feature = "meetings"))]
             fake_fails_under_lease: Arc::clone(&self.fake_fails_under_lease),
         }
@@ -404,12 +486,26 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             meeting_lock: Arc::new(Mutex::new(())),
             #[cfg(feature = "meetings")]
             meeting_pin: Arc::new(Mutex::new(None)),
+            #[cfg(feature = "meetings")]
+            meeting_load_pending: Arc::new(AtomicBool::new(false)),
+            #[cfg(feature = "meetings")]
+            meeting_language_override: Arc::new(Mutex::new(None)),
             #[cfg(all(test, feature = "meetings"))]
             after_lease_check_hook: Arc::new(Mutex::new(None)),
+            #[cfg(all(test, feature = "meetings"))]
+            test_meeting_load_calls: Arc::new(Mutex::new(Vec::new())),
+            #[cfg(all(test, feature = "meetings"))]
+            test_dictation_load_calls: Arc::new(Mutex::new(Vec::new())),
+            #[cfg(all(test, feature = "meetings"))]
+            test_meeting_load_logs: Arc::new(Mutex::new(Vec::new())),
+            #[cfg(all(test, feature = "meetings"))]
+            test_meeting_load_enter_hook: Arc::new(Mutex::new(None)),
             #[cfg(all(test, feature = "meetings"))]
             test_unload_timeout: Arc::new(Mutex::new(None)),
             #[cfg(all(test, feature = "meetings"))]
             fake_seq: Arc::new(AtomicU64::new(0)),
+            #[cfg(all(test, feature = "meetings"))]
+            fake_raw_text: Arc::new(Mutex::new(None)),
             #[cfg(all(test, feature = "meetings"))]
             fake_fails_under_lease: Arc::new(AtomicBool::new(false)),
         };
@@ -441,9 +537,19 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
     /// Manager for meeting tests. No idle-watcher thread and no model files.
     #[cfg(all(test, feature = "meetings"))]
     pub(crate) fn new_for_test(app_handle: AppHandle<R>) -> Self {
+        Self::new_for_test_with_models(app_handle, Arc::new(ModelManager::for_test()))
+    }
+
+    /// Manager for meeting cold-start tests backed by a caller-supplied `ModelManager`
+    /// (for example `ModelManager::for_test_in_dir` seeded from the shared HF cache).
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn new_for_test_with_models(
+        app_handle: AppHandle<R>,
+        model_manager: Arc<ModelManager>,
+    ) -> Self {
         Self {
             engine: Arc::new(Mutex::new(None)),
-            model_manager: Arc::new(ModelManager::for_test()),
+            model_manager,
             app_handle,
             current_model_id: Arc::new(Mutex::new(None)),
             last_activity: Arc::new(AtomicU64::new(Self::now_ms())),
@@ -459,9 +565,16 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             active_engine_lease: Arc::new(AtomicU64::new(0)),
             meeting_lock: Arc::new(Mutex::new(())),
             meeting_pin: Arc::new(Mutex::new(None)),
+            meeting_load_pending: Arc::new(AtomicBool::new(false)),
+            meeting_language_override: Arc::new(Mutex::new(None)),
             after_lease_check_hook: Arc::new(Mutex::new(None)),
+            test_meeting_load_calls: Arc::new(Mutex::new(Vec::new())),
+            test_dictation_load_calls: Arc::new(Mutex::new(Vec::new())),
+            test_meeting_load_logs: Arc::new(Mutex::new(Vec::new())),
+            test_meeting_load_enter_hook: Arc::new(Mutex::new(None)),
             test_unload_timeout: Arc::new(Mutex::new(None)),
             fake_seq: Arc::new(AtomicU64::new(0)),
+            fake_raw_text: Arc::new(Mutex::new(None)),
             fake_fails_under_lease: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -497,11 +610,17 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
     }
 
     #[cfg(feature = "meetings")]
-    fn meeting_model_pinned(&self) -> bool {
+    pub(crate) fn meeting_model_pinned(&self) -> bool {
+        self.pinned_meeting_model().is_some()
+    }
+
+    /// Returns the currently pinned meeting model id, if a meeting holds a pin (`MC5-N1`).
+    #[cfg(feature = "meetings")]
+    pub(crate) fn pinned_meeting_model(&self) -> Option<String> {
         self.meeting_pin
             .lock()
             .unwrap_or_else(|err| err.into_inner())
-            .is_some()
+            .clone()
     }
 
     /// Pin `model_id` for the meeting. Does not write `settings.selected_model`.
@@ -514,32 +633,102 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         crate::managers::meetings::set_meeting_active(true);
     }
 
+    /// Set or clear an explicit language override for the active meeting.
+    #[cfg(feature = "meetings")]
+    #[allow(dead_code)]
+    pub fn set_meeting_language_override(&self, language: Option<&str>) {
+        *self
+            .meeting_language_override
+            .lock()
+            .unwrap_or_else(|err| err.into_inner()) =
+            language.map(crate::meeting_language::normalize_meeting_language);
+    }
+
+    #[cfg(feature = "meetings")]
+    pub fn resolved_meeting_language(&self) -> String {
+        if let Some(override_lang) = self
+            .meeting_language_override
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .clone()
+        {
+            return override_lang;
+        }
+        let settings = get_settings(&self.app_handle);
+        crate::meeting_language::normalize_meeting_language(&settings.meeting_language)
+    }
+
     #[cfg(feature = "meetings")]
     pub fn clear_meeting_pin(&self) {
-        *self
+        let old_pin = self
             .meeting_pin
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .take();
+        *self
+            .meeting_language_override
             .lock()
             .unwrap_or_else(|err| err.into_inner()) = None;
         crate::managers::meetings::set_meeting_active(false);
+
+        // M-c5 (C1, MC5-N3): after any meeting, arm reload-on-next-use whenever the
+        // loaded engine (or an in-flight meeting load) differs from the persisted
+        // dictation model. Locks above are already dropped so there is no lock inversion.
+        let selected = get_settings(&self.app_handle).selected_model;
+        if !selected.is_empty() {
+            let current = self.get_current_model();
+            let loaded_differs =
+                self.is_model_loaded() && current.as_deref() != Some(selected.as_str());
+            let loading_differs = {
+                let is_loading = *self.is_loading.lock().unwrap_or_else(|e| e.into_inner());
+                is_loading && old_pin.as_deref() != Some(selected.as_str())
+            };
+            if loaded_differs || loading_differs {
+                self.reload_model_on_next_use();
+            }
+        }
     }
 
-    /// Meeting chunks and dictation both enter here. The meeting path does not
-    /// call [`transcribe`](Self::transcribe) without this lock.
-    ///
-    /// If a live stream holds the engine, this waits one `MEETING_LEASE_WAIT`
-    /// and then errors. Meeting chunks retry it in
-    /// [`transcribe_meeting_chunk`](Self::transcribe_meeting_chunk) while a
-    /// stream holds the lease.
+    /// How often a cancel-aware dictation take polls the meeting lock.
     #[cfg(feature = "meetings")]
-    pub fn transcribe_with_meeting_lock(&self, audio: Vec<f32>) -> Result<String> {
-        let _guard = self
-            .meeting_lock
-            .lock()
-            .unwrap_or_else(|err| err.into_inner());
-        if self.availability() == EngineAvailability::LeasedToStream
-            && !self.wait_for_engine(MEETING_LEASE_WAIT)
-        {
-            return Err(EngineLeased.into());
+    const MEETING_LOCK_POLL: Duration = Duration::from_millis(10);
+
+    /// Typed cancellation error returned when a queued dictation take gives up.
+    #[cfg(feature = "meetings")]
+    fn meeting_wait_cancelled() -> anyhow::Error {
+        TranscriptionCancelled.into()
+    }
+
+    /// The shared body of both locked entry points. The caller hands over the
+    /// held meeting lock; this waits for a stream lease, then transcribes.
+    #[cfg(feature = "meetings")]
+    fn transcribe_holding_meeting_lock(
+        &self,
+        _guard: MutexGuard<'_, ()>,
+        audio: Vec<f32>,
+        is_meeting_chunk: bool,
+        cancelled: Option<&dyn Fn() -> bool>,
+    ) -> Result<String> {
+        if self.availability() == EngineAvailability::LeasedToStream {
+            match cancelled {
+                Some(cancelled) => {
+                    // ponytail: ceiling = 100 ms poll on cancel-aware path; upgrade path = condvar/notify wake paired with cancelled flag.
+                    let ready = poll_until(MEETING_LEASE_WAIT, Duration::from_millis(100), || {
+                        self.is_engine_available() || cancelled()
+                    });
+                    if cancelled() {
+                        return Err(Self::meeting_wait_cancelled());
+                    }
+                    if !ready {
+                        return Err(EngineLeased.into());
+                    }
+                }
+                None => {
+                    if !self.wait_for_engine(MEETING_LEASE_WAIT) {
+                        return Err(EngineLeased.into());
+                    }
+                }
+            }
         }
         #[cfg(all(test, feature = "meetings"))]
         {
@@ -554,13 +743,61 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
                 hook();
             }
         }
+        // ponytail: the engine run itself can't be interrupted; a take cancelled
+        // mid-run is discarded by its caller.
         // Dispatch only after the wait: the lease hands the engine back, so the
         // engine that runs this chunk is the one observed now, not before.
         #[cfg(test)]
         if self.engine_is_fake() {
-            return self.transcribe_fake(audio);
+            return self.transcribe_fake(audio, is_meeting_chunk);
         }
-        self.transcribe(audio)
+        self.transcribe_for_caller(audio, is_meeting_chunk)
+    }
+
+    /// Meeting chunks and dictation both enter here. The meeting path does not
+    /// call [`transcribe`](Self::transcribe) without this lock.
+    ///
+    /// If a live stream holds the engine, this waits one `MEETING_LEASE_WAIT`
+    /// and then errors. Meeting chunks retry it in
+    /// [`transcribe_meeting_chunk`](Self::transcribe_meeting_chunk) while a
+    /// stream holds the lease.
+    #[cfg(feature = "meetings")]
+    pub fn transcribe_with_meeting_lock(&self, audio: Vec<f32>) -> Result<String> {
+        let guard = self
+            .meeting_lock
+            .lock()
+            .unwrap_or_else(|err| err.into_inner());
+        self.transcribe_holding_meeting_lock(guard, audio, false, None)
+    }
+
+    /// A dictation take queued behind a meeting chunk. Same body as
+    /// [`transcribe_with_meeting_lock`](Self::transcribe_with_meeting_lock),
+    /// but a take the user cancelled, before it starts or while it waits, gives
+    /// up at once instead of parking a worker for the whole chunk. An
+    /// uncancelled take waits with no deadline, exactly like the blocking
+    /// acquire, so waiting never fails it.
+    #[cfg(feature = "meetings")]
+    pub fn transcribe_with_meeting_lock_unless(
+        &self,
+        audio: Vec<f32>,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<String> {
+        let guard = loop {
+            match self.meeting_lock.try_lock() {
+                Ok(guard) => break guard,
+                Err(TryLockError::Poisoned(err)) => break err.into_inner(),
+                Err(TryLockError::WouldBlock) => {
+                    if cancelled() {
+                        return Err(Self::meeting_wait_cancelled());
+                    }
+                    thread::sleep(Self::MEETING_LOCK_POLL);
+                }
+            }
+        };
+        if cancelled() {
+            return Err(Self::meeting_wait_cancelled());
+        }
+        self.transcribe_holding_meeting_lock(guard, audio, false, Some(cancelled))
     }
 
     /// A meeting chunk. Never calls `transcribe()` without the meeting lock.
@@ -573,9 +810,11 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
     #[cfg(feature = "meetings")]
     pub fn transcribe_meeting_chunk(&self, audio: Vec<f32>) -> Result<String> {
         loop {
-            // ponytail: the chunk audio is copied once per attempt; pass a
-            // slice through if chunk copies ever show up in a profile.
-            match self.transcribe_with_meeting_lock(audio.clone()) {
+            let guard = self
+                .meeting_lock
+                .lock()
+                .unwrap_or_else(|err| err.into_inner());
+            match self.transcribe_holding_meeting_lock(guard, audio.clone(), true, None) {
                 Err(err) if err.is::<EngineLeased>() => {
                     if !crate::managers::meetings::meeting_is_active() {
                         return Err(err.context(
@@ -690,7 +929,15 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
     }
 
     #[cfg(all(test, feature = "meetings"))]
-    fn transcribe_fake(&self, audio: Vec<f32>) -> Result<String> {
+    pub(crate) fn set_fake_raw_text_for_test(&self, text: Option<&str>) {
+        *self
+            .fake_raw_text
+            .lock()
+            .unwrap_or_else(|err| err.into_inner()) = text.map(String::from);
+    }
+
+    #[cfg(all(test, feature = "meetings"))]
+    fn transcribe_fake(&self, audio: Vec<f32>, is_meeting_chunk: bool) -> Result<String> {
         if self.fake_fails_under_lease.swap(false, Ordering::SeqCst) {
             self.active_engine_lease.store(1, Ordering::Release);
             let _ = self.lock_engine().take();
@@ -715,6 +962,24 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         *self.lock_engine() = Some(engine);
         let n = self.fake_seq.fetch_add(1, Ordering::SeqCst);
         let _ = audio;
+        if let Some(raw) = self
+            .fake_raw_text
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .clone()
+        {
+            let settings = get_settings(&self.app_handle);
+            return Ok(if is_meeting_chunk {
+                apply_words_unless_prompted(
+                    raw,
+                    active_words(&settings, true),
+                    settings.word_correction_threshold,
+                    false,
+                )
+            } else {
+                post_process_transcription_text(raw, &settings, false)
+            });
+        }
         Ok(format!("chunk-{n}"))
     }
 
@@ -1203,10 +1468,236 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
             // Clears the flag and wakes waiters on any exit, including a panic.
             let _loading_guard = loading_guard;
             let settings = get_settings(&self_clone.app_handle);
+            #[cfg(all(test, feature = "meetings"))]
+            self_clone
+                .test_dictation_load_calls
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push(settings.selected_model.clone());
             if let Err(e) = self_clone.load_model(&settings.selected_model) {
                 error!("Failed to load model: {}", e);
             }
         });
+    }
+
+    #[cfg(feature = "meetings")]
+    fn should_wait_for_meeting_load(&self, is_meeting_chunk: bool) -> bool {
+        is_meeting_chunk && self.meeting_load_pending.load(Ordering::Acquire)
+    }
+
+    #[cfg(not(feature = "meetings"))]
+    fn should_wait_for_meeting_load(&self, _is_meeting_chunk: bool) -> bool {
+        false
+    }
+
+    #[cfg(feature = "meetings")]
+    fn record_meeting_load_log(&self, line: &str, is_warn: bool) {
+        if is_warn {
+            warn!("{line}");
+        } else {
+            info!("{line}");
+        }
+        #[cfg(test)]
+        self.test_meeting_load_logs
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(line.to_string());
+    }
+
+    #[cfg(feature = "meetings")]
+    fn run_meeting_load(&self, meeting_id: i64, model_id: &str, kind: &str, reload_pending: bool) {
+        if reload_pending {
+            self.reload_model_on_next_use
+                .store(false, Ordering::Release);
+        }
+        #[cfg(test)]
+        {
+            self.test_meeting_load_calls
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .push(model_id.to_string());
+            let hook = self
+                .test_meeting_load_enter_hook
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .take();
+            if let Some(hook) = hook {
+                hook();
+            }
+        }
+        let load_start = std::time::Instant::now();
+        match self.load_model(model_id) {
+            Ok(()) => {
+                let ms = load_start.elapsed().as_millis();
+                self.record_meeting_load_log(
+                    &format!("meeting {meeting_id} model {model_id} loaded in {ms} ms ({kind})"),
+                    false,
+                );
+            }
+            Err(err) => {
+                self.record_meeting_load_log(
+                    &format!("meeting {meeting_id} model {model_id} failed to load: {err}"),
+                    true,
+                );
+            }
+        }
+    }
+
+    /// Pin-aware non-blocking model loader for meeting start (M-c1).
+    ///
+    /// Covers three states under the `is_loading` mutex without ever blocking
+    /// `MeetingSession::begin()`:
+    /// - (i) Already loaded with the pinned model and no pending reload -> logs
+    ///   `0 ms (already)` and returns.
+    /// - (ii) Nothing loading -> sets `meeting_load_pending` and `*is_loading = true`,
+    ///   spawns a loader thread owning panic-safe `LoadingGuard` + `MeetingLoadPendingGuard`.
+    /// - (iii) Another load is already running -> sets `meeting_load_pending`, spawns a
+    ///   loader thread that waits on `loading_condvar`, then re-checks pin & loaded state
+    ///   before loading or exiting cleanly.
+    #[cfg(feature = "meetings")]
+    pub fn start_meeting_model_load(&self, meeting_id: i64, model_id: &str) {
+        let mut is_loading = self.is_loading.lock().unwrap_or_else(|e| e.into_inner());
+
+        // (iii) Another load is already in flight (dictation or model switch).
+        if *is_loading {
+            self.meeting_load_pending.store(true, Ordering::Release);
+            let pending_guard = MeetingLoadPendingGuard {
+                meeting_load_pending: self.meeting_load_pending.clone(),
+                is_loading: self.is_loading.clone(),
+                loading_condvar: self.loading_condvar.clone(),
+            };
+            drop(is_loading);
+
+            let self_clone = self.clone();
+            let model_id = model_id.to_string();
+            thread::spawn(move || {
+                // Reverse declaration drop order: `_pending_guard` drops BEFORE `_loading_guard`,
+                // and inner `is_loading` MutexGuard always drops BEFORE `_pending_guard` —
+                // deadlock-free and unwind-safe on every exit path.
+                let mut _loading_guard: Option<LoadingGuard> = None;
+                let _pending_guard = pending_guard;
+                let plan = {
+                    let mut is_loading = self_clone
+                        .is_loading
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner());
+                    while *is_loading {
+                        is_loading = self_clone
+                            .loading_condvar
+                            .wait(is_loading)
+                            .unwrap_or_else(|e| e.into_inner());
+                    }
+                    let still_pinned = self_clone
+                        .meeting_pin
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .as_deref()
+                        == Some(model_id.as_str());
+                    if !still_pinned {
+                        None
+                    } else {
+                        let reload_pending =
+                            self_clone.reload_model_on_next_use.load(Ordering::Acquire);
+                        if !reload_pending
+                            && self_clone.is_model_loaded()
+                            && self_clone.get_current_model().as_deref() == Some(model_id.as_str())
+                        {
+                            self_clone.record_meeting_load_log(
+                                &format!(
+                                    "meeting {meeting_id} model {model_id} loaded in 0 ms (already)"
+                                ),
+                                false,
+                            );
+                            None
+                        } else {
+                            let kind = if self_clone.is_model_loaded() {
+                                "swap"
+                            } else {
+                                "cold"
+                            };
+                            *is_loading = true;
+                            _loading_guard = Some(LoadingGuard {
+                                is_loading: self_clone.is_loading.clone(),
+                                loading_condvar: self_clone.loading_condvar.clone(),
+                            });
+                            Some((kind, reload_pending))
+                        }
+                    }
+                };
+                if let Some((kind, reload_pending)) = plan {
+                    self_clone.run_meeting_load(meeting_id, &model_id, kind, reload_pending);
+                }
+            });
+            return;
+        }
+
+        // (i) Already loaded with the pinned model and no reload pending.
+        let reload_pending = self.reload_model_on_next_use.load(Ordering::Acquire);
+        if !reload_pending
+            && self.is_model_loaded()
+            && self.get_current_model().as_deref() == Some(model_id)
+        {
+            drop(is_loading);
+            self.record_meeting_load_log(
+                &format!("meeting {meeting_id} model {model_id} loaded in 0 ms (already)"),
+                false,
+            );
+            return;
+        }
+
+        // (ii) Nothing is loading: mark pending + loading before returning so
+        // any meeting chunk that arrives immediately waits on `loading_condvar`.
+        let kind = if self.is_model_loaded() {
+            "swap"
+        } else {
+            "cold"
+        };
+        self.meeting_load_pending.store(true, Ordering::Release);
+        *is_loading = true;
+        let loading_guard = LoadingGuard {
+            is_loading: self.is_loading.clone(),
+            loading_condvar: self.loading_condvar.clone(),
+        };
+        let pending_guard = MeetingLoadPendingGuard {
+            meeting_load_pending: self.meeting_load_pending.clone(),
+            is_loading: self.is_loading.clone(),
+            loading_condvar: self.loading_condvar.clone(),
+        };
+        drop(is_loading);
+
+        let self_clone = self.clone();
+        let model_id = model_id.to_string();
+        thread::spawn(move || {
+            // `_pending_guard` drops BEFORE `_loading_guard` on normal exit or panic.
+            let _loading_guard = loading_guard;
+            let _pending_guard = pending_guard;
+            self_clone.run_meeting_load(meeting_id, &model_id, kind, reload_pending);
+        });
+    }
+
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn is_loading_now(&self) -> bool {
+        *self.is_loading.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn is_meeting_load_pending(&self) -> bool {
+        self.meeting_load_pending.load(Ordering::Acquire)
+    }
+
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn reload_on_next_use_armed(&self) -> bool {
+        self.reload_model_on_next_use.load(Ordering::Acquire)
+    }
+
+    #[cfg(all(test, feature = "meetings"))]
+    pub(crate) fn take_test_dictation_load_calls(&self) -> Vec<String> {
+        std::mem::take(
+            &mut *self
+                .test_dictation_load_calls
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()),
+        )
     }
 
     pub fn get_current_model(&self) -> Option<String> {
@@ -1591,6 +2082,10 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
     }
 
     pub fn transcribe(&self, audio: Vec<f32>) -> Result<String> {
+        self.transcribe_for_caller(audio, false)
+    }
+
+    fn transcribe_for_caller(&self, audio: Vec<f32>, is_meeting_chunk: bool) -> Result<String> {
         #[cfg(debug_assertions)]
         if std::env::var("HANDY_FORCE_TRANSCRIPTION_FAILURE").is_ok() {
             return Err(anyhow::anyhow!(
@@ -1614,9 +2109,10 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
 
         // Check if model is loaded, if not try to load it
         {
-            // If the model is loading, wait for it to complete.
+            // If the model is loading (or a meeting load is pending for a meeting chunk),
+            // wait for it to complete. Dictation's wait is unchanged.
             let mut is_loading = self.is_loading.lock().unwrap();
-            while *is_loading {
+            while *is_loading || self.should_wait_for_meeting_load(is_meeting_chunk) {
                 is_loading = self.loading_condvar.wait(is_loading).unwrap();
             }
 
@@ -1643,16 +2139,25 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         let active_model = self
             .get_current_model()
             .unwrap_or_else(|| settings.selected_model.clone());
-        // Resolve the persisted language *intent* into the language this model
-        // will actually use. The coercion is capability-aware (a must-pick model
-        // never receives "auto") and computed fresh here — it is never written
-        // back to settings, so the intent survives switching models and back.
-        let validated_language =
-            effective_language_for_model(&settings, self.model_manager.as_ref(), &active_model);
-        if validated_language != settings.selected_language {
+        #[cfg(feature = "meetings")]
+        let language_intent = if is_meeting_chunk {
+            self.resolved_meeting_language()
+        } else {
+            settings.selected_language.clone()
+        };
+        #[cfg(not(feature = "meetings"))]
+        let language_intent = settings.selected_language.clone();
+        let translate_to_english = settings.translate_to_english && !is_meeting_chunk;
+
+        let validated_language = effective_language_for_intent(
+            &language_intent,
+            self.model_manager.as_ref(),
+            &active_model,
+        );
+        if validated_language != language_intent {
             debug!(
                 "Language intent '{}' resolved to '{}' for model '{}'",
-                settings.selected_language, validated_language, active_model
+                language_intent, validated_language, active_model
             );
         }
 
@@ -1718,17 +2223,13 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
                         // whisper run extension to a non-whisper arch is rejected
                         // with INVALID_ARG, so skip it there and let the fuzzy
                         // post-correction handle custom words instead.
-                        let family = if settings.custom_words.is_empty() || !model_is_whisper {
-                            None
-                        } else {
-                            Some(RunExtension::Whisper(WhisperRunOptions {
-                                initial_prompt: Some(settings.custom_words.join(", ")),
-                                ..Default::default()
-                            }))
-                        };
+                        let family = whisper_words_extension(
+                            active_words(&settings, is_meeting_chunk),
+                            model_is_whisper,
+                        );
 
                         let run_plan = transcribe_cpp_run_plan(
-                            settings.translate_to_english,
+                            translate_to_english,
                             &validated_language,
                             &model_languages,
                             model_supports_translate,
@@ -1806,7 +2307,7 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
                         };
                         let options = TranscribeOptions {
                             language: lang,
-                            translate: settings.translate_to_english,
+                            translate: translate_to_english,
                             ..Default::default()
                         };
                         canary_engine
@@ -1886,10 +2387,19 @@ impl<R: tauri::Runtime> TranscriptionManager<R> {
         // family). We don't pass a prompt to non-whisper models (it requires the
         // whisper-kind run extension), so they still get fuzzy correction here,
         // same as the ONNX engines.
-        let filtered_result = post_process_transcription_text(result, &settings, model_is_whisper);
+        let filtered_result = if is_meeting_chunk {
+            apply_words_unless_prompted(
+                result,
+                active_words(&settings, true),
+                settings.word_correction_threshold,
+                model_is_whisper,
+            )
+        } else {
+            post_process_transcription_text(result, &settings, model_is_whisper)
+        };
 
         let et = std::time::Instant::now();
-        let translation_note = if settings.translate_to_english {
+        let translation_note = if translate_to_english {
             " (translated)"
         } else {
             ""
@@ -2045,18 +2555,27 @@ fn normalize_cjk_language(language: &str) -> &str {
 
 /// Resolve the persisted language intent into the language a specific model can
 /// use without writing the coerced value back to settings.
+#[allow(dead_code)]
 fn effective_language_for_model(
     settings: &AppSettings,
     model_manager: &ModelManager,
     model_id: &str,
 ) -> String {
+    effective_language_for_intent(&settings.selected_language, model_manager, model_id)
+}
+
+fn effective_language_for_intent(
+    language_intent: &str,
+    model_manager: &ModelManager,
+    model_id: &str,
+) -> String {
     match model_manager.get_model_info(model_id) {
         Some(info) => crate::managers::model::effective_language(
-            &settings.selected_language,
+            language_intent,
             &info.supported_languages,
             info.supports_language_detection,
         ),
-        None => settings.selected_language.clone(),
+        None => language_intent.to_string(),
     }
 }
 
@@ -2096,26 +2615,81 @@ fn transcribe_cpp_run_plan(
     }
 }
 
+fn active_words(settings: &AppSettings, is_meeting_chunk: bool) -> &[String] {
+    #[cfg(feature = "meetings")]
+    if is_meeting_chunk {
+        return &settings.meeting_custom_words;
+    }
+    let _ = is_meeting_chunk;
+    &settings.custom_words
+}
+
+fn whisper_words_extension(words: &[String], model_is_whisper: bool) -> Option<RunExtension> {
+    if words.is_empty() || !model_is_whisper {
+        None
+    } else {
+        Some(RunExtension::Whisper(WhisperRunOptions {
+            initial_prompt: Some(words.join(", ")),
+            ..Default::default()
+        }))
+    }
+}
+
+// ponytail: ceiling = a panic anywhere in post-processing pastes the raw transcript, so fillers
+// stay in and no take-back is made; no word is lost, and the INFO line names the step so the bug
+// can be fixed.
+fn raw_on_panic(step: &'static str, raw: String, f: impl FnOnce(&str) -> String) -> String {
+    match catch_unwind(AssertUnwindSafe(|| f(&raw))) {
+        Ok(out) => out,
+        Err(_) => {
+            info!("post-processing: {step} panicked; pasting the raw transcript");
+            raw
+        }
+    }
+}
+
+pub(crate) fn apply_words_unless_prompted(
+    raw: String,
+    words: &[String],
+    threshold: f64,
+    already_prompted: bool,
+) -> String {
+    if !words.is_empty() && !already_prompted {
+        raw_on_panic("apply_custom_words", raw, |text| {
+            apply_custom_words(text, words, threshold)
+        })
+    } else {
+        raw
+    }
+}
+
 fn post_process_transcription_text(
     raw: String,
     settings: &AppSettings,
     custom_words_already_prompted: bool,
 ) -> String {
-    let corrected = if !settings.custom_words.is_empty() && !custom_words_already_prompted {
-        apply_custom_words(
-            &raw,
+    raw_on_panic("post_process_transcription_text", raw, |text| {
+        let corrected = apply_words_unless_prompted(
+            text.to_string(),
             &settings.custom_words,
             settings.word_correction_threshold,
-        )
-    } else {
-        raw
-    };
+            custom_words_already_prompted,
+        );
 
-    filter_transcription_output(
-        &corrected,
-        &settings.app_language,
-        &settings.custom_filler_words,
-    )
+        let filler_lang = crate::audio_toolkit::text::resolve_filler_language(
+            &settings.selected_language,
+            None,
+            &settings.app_language,
+        );
+
+        crate::audio_toolkit::text::filter_transcription_output_with_policy(
+            &corrected,
+            filler_lang,
+            &settings.custom_filler_words,
+            settings.filler_word_removal_enabled,
+            true,
+        )
+    })
 }
 
 /// Decide a transcribe-cpp run's task + translation target from settings.
@@ -2472,6 +3046,574 @@ mod tests {
         assert!(matches!(plan.task, Task::Transcribe));
         assert_eq!(plan.language.as_deref(), Some("es"));
         assert_eq!(plan.target_language, None);
+    }
+
+    /// Simulated in-flight meeting chunk: takes the meeting lock and reports
+    /// once it holds it. The returned sender releases the lock when a message
+    /// arrives or when the sender is dropped.
+    #[cfg(feature = "meetings")]
+    fn hold_meeting_lock(
+        tm: &TranscriptionManager<tauri::test::MockRuntime>,
+        hold: Option<Duration>,
+    ) -> (mpsc::Sender<()>, thread::JoinHandle<()>, mpsc::Receiver<()>) {
+        let chunk_lock = Arc::clone(&tm.meeting_lock);
+        let (locked_tx, locked_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+        let chunk = thread::spawn(move || {
+            let _guard = chunk_lock.lock().unwrap_or_else(|err| err.into_inner());
+            let _ = locked_tx.send(());
+            match hold {
+                Some(hold) => thread::sleep(hold),
+                None => {
+                    let _ = release_rx.recv_timeout(Duration::from_secs(30));
+                }
+            }
+        });
+        (release_tx, chunk, locked_rx)
+    }
+
+    /// A dictation take queued behind a whole meeting chunk must stop waiting
+    /// once the user cancels, and must not touch the engine afterwards.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn dictation_waits_for_chunk_then_cancel_discards() {
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.install_fake_engine("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+
+        // The chunk holds the meeting lock until told to release it, so the
+        // take can never get a turn in the meantime.
+        let (release_tx, chunk, locked_rx) = hold_meeting_lock(&tm, None);
+        locked_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("the simulated meeting chunk never took the lock");
+
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let take_cancelled = Arc::clone(&cancelled);
+        let take_tm = Arc::clone(&tm);
+        let (done_tx, done_rx) = mpsc::channel();
+        let take = thread::spawn(move || {
+            let result = take_tm
+                .transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| {
+                    take_cancelled.load(Ordering::Acquire)
+                });
+            let _ = done_tx.send(result);
+        });
+
+        thread::sleep(Duration::from_millis(100));
+        cancelled.store(true, Ordering::Release);
+
+        let result = match done_rx.recv_timeout(Duration::from_secs(1)) {
+            Ok(result) => result,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                panic!("the cancelled take was still waiting on the meeting lock after 1 s")
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                panic!("the take thread died before reporting")
+            }
+        };
+        let chunk_still_held = !chunk.is_finished();
+
+        // Release before asserting so a failed assertion cannot hang the chunk.
+        let _ = release_tx.send(());
+        chunk.join().expect("the chunk thread panicked");
+        take.join().expect("the take thread panicked");
+
+        assert!(
+            chunk_still_held,
+            "the chunk released the lock before the take gave up"
+        );
+        let err = result.expect_err("a cancelled take must not return text");
+        assert!(
+            err.downcast_ref::<TranscriptionCancelled>().is_some(),
+            "unexpected error: {err:?}"
+        );
+        assert_eq!(
+            tm.fake_seq.load(Ordering::SeqCst),
+            0,
+            "the cancelled take ran the engine"
+        );
+    }
+
+    /// A take queued behind a meeting chunk that is not cancelled must wait
+    /// with no deadline and return text once the chunk releases the lock.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn dictation_waits_for_chunk_when_not_cancelled() {
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.install_fake_engine("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+
+        let (release_tx, chunk, locked_rx) =
+            hold_meeting_lock(&tm, Some(Duration::from_millis(300)));
+        locked_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("the simulated meeting chunk never took the lock");
+
+        let take_tm = Arc::clone(&tm);
+        let (done_tx, done_rx) = mpsc::channel();
+        let take = thread::spawn(move || {
+            let started = Instant::now();
+            let result =
+                take_tm.transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| false);
+            let _ = done_tx.send((started.elapsed(), result));
+        });
+
+        let (waited, result) = match done_rx.recv_timeout(Duration::from_secs(5)) {
+            Ok(reported) => reported,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                panic!("the uncancelled take never got the meeting lock")
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                panic!("the take thread died before reporting")
+            }
+        };
+
+        let _ = release_tx.send(());
+        chunk.join().expect("the chunk thread panicked");
+        take.join().expect("the take thread panicked");
+
+        let text = result.expect("an uncancelled take must never fail for waiting");
+        assert!(!text.is_empty(), "the take returned no text");
+        assert!(
+            waited >= Duration::from_millis(250),
+            "the take did not wait for the chunk, waited {waited:?}"
+        );
+    }
+
+    /// A take that is cancelled before it gets the meeting lock gives up instead of transcribing.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn dictation_cancelled_before_the_lock_does_not_transcribe() {
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.install_fake_engine("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+
+        // The meeting lock is free: the take gets it at once, then must give
+        // up because the user already cancelled.
+        let result = tm.transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| true);
+        let err = result.expect_err("a take cancelled before the lock still transcribed");
+        assert!(
+            err.downcast_ref::<TranscriptionCancelled>().is_some(),
+            "unexpected error: {err:?}"
+        );
+        assert!(
+            tm.is_engine_available(),
+            "the engine was not left available for the next take"
+        );
+    }
+
+    /// A take cancelled while it waits for a stream to hand the engine back gives up as cancelled.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn dictation_cancelled_during_the_lease_wait_gives_up() {
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        // A simulated stream holds the engine; the meeting lock stays free.
+        tm.lease_engine_for_test("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let take_cancelled = Arc::clone(&cancelled);
+        let canceller = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(20));
+            take_cancelled.store(true, Ordering::SeqCst);
+        });
+
+        let result = tm.transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| {
+            cancelled.load(Ordering::SeqCst)
+        });
+        canceller.join().expect("the cancel thread panicked");
+
+        let err = result.expect_err("a take cancelled during the lease wait still transcribed");
+        assert!(
+            err.downcast_ref::<TranscriptionCancelled>().is_some(),
+            "unexpected error: {err:?}"
+        );
+
+        tm.release_engine_lease_for_test("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+        assert!(
+            tm.is_engine_available(),
+            "the engine was not left available for the next take"
+        );
+    }
+
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn uncancelled_cancel_aware_wait_acquires_engine_once_stream_lease_releases() {
+        let app = tauri::test::mock_builder()
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.lease_engine_for_test("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+
+        let tm_releaser = Arc::clone(&tm);
+        let releaser = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(30));
+            tm_releaser.release_engine_lease_for_test("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+        });
+
+        let result = tm.transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| false);
+        releaser.join().expect("the release thread panicked");
+
+        if let Err(err) = result {
+            assert!(
+                err.downcast_ref::<TranscriptionCancelled>().is_none()
+                    && err.downcast_ref::<EngineLeased>().is_none(),
+                "uncancelled take should pass the stream lease gate, got: {err:?}"
+            );
+        }
+        assert!(tm.is_engine_available());
+    }
+
+    #[test]
+    fn f_a3_raw_on_panic_forced_panic_returns_raw_verbatim() {
+        let raw = "Send it to Sam before 5pm.".to_string();
+        let out = raw_on_panic("post_process_transcription_text", raw.clone(), |_| {
+            panic!("forced")
+        });
+        assert_eq!(out, raw);
+    }
+
+    #[test]
+    fn f_a3_apply_words_unless_prompted_multibyte_no_panic() {
+        let out =
+            apply_words_unless_prompted("\u{201C}Sam said hi".into(), &["Sam".into()], 0.18, false);
+        assert_eq!(out, "\u{201C}Sam said hi");
+    }
+
+    /// VMC-v2.2-N1: `MeetingLoadPendingGuard` must clear `meeting_load_pending`
+    /// under `is_loading` and wake waiters even if the loader thread panics.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn meeting_load_pending_guard_clears_flag_on_panic() {
+        let pending = Arc::new(AtomicBool::new(true));
+        let is_loading = Arc::new(Mutex::new(false));
+        let condvar = Arc::new(Condvar::new());
+        let guard = MeetingLoadPendingGuard {
+            meeting_load_pending: Arc::clone(&pending),
+            is_loading: Arc::clone(&is_loading),
+            loading_condvar: Arc::clone(&condvar),
+        };
+
+        let result = catch_unwind(AssertUnwindSafe(move || {
+            let _pending_guard = guard;
+            panic!("simulated panic in meeting loader thread");
+        }));
+
+        assert!(result.is_err());
+        assert!(
+            !pending.load(Ordering::Acquire),
+            "MeetingLoadPendingGuard must clear meeting_load_pending on unwind"
+        );
+    }
+
+    /// T-mc2 (M-c1, manager part): on `new_for_test` with no engine loaded,
+    /// `start_meeting_model_load(id, pinned)` has `is_loading` true when it returns,
+    /// performs exactly one load call for the pinned id, writes the warn line once,
+    /// and clears both `is_loading` and `meeting_load_pending` afterwards.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn t_mc2_manager_cold_start_loads_once_logs_warn_and_clears_flags() {
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = TranscriptionManager::new_for_test(app.handle().clone());
+        let pinned = "handy-computer/parakeet-ultra-gguf/parakeet-ultra-Q8_0.gguf";
+        tm.pin_meeting_model(pinned);
+
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+        *tm.test_meeting_load_enter_hook.lock().unwrap() = Some(Box::new(move || {
+            let _ = entered_tx.send(());
+            let _ = release_rx.recv_timeout(Duration::from_secs(5));
+        }));
+
+        tm.start_meeting_model_load(42, pinned);
+        assert!(
+            tm.is_loading_now(),
+            "is_loading must be true when start_meeting_model_load returns"
+        );
+        assert!(
+            tm.is_meeting_load_pending(),
+            "meeting_load_pending must be true while cold-start load runs"
+        );
+
+        entered_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("meeting loader thread should enter run_meeting_load");
+        let _ = release_tx.send(());
+
+        let settled = poll_until(Duration::from_secs(5), Duration::from_millis(5), || {
+            !tm.is_loading_now() && !tm.is_meeting_load_pending()
+        });
+        assert!(
+            settled,
+            "is_loading and meeting_load_pending must both clear after load finishes"
+        );
+
+        let calls = tm.test_meeting_load_calls.lock().unwrap().clone();
+        assert_eq!(calls, vec![pinned.to_string()]);
+
+        let logs = tm.test_meeting_load_logs.lock().unwrap().clone();
+        assert_eq!(
+            logs.len(),
+            1,
+            "expected exactly one warn log, got: {logs:?}"
+        );
+        assert!(
+            logs[0].starts_with(&format!("meeting 42 model {pinned} failed to load:")),
+            "unexpected warn log format: {}",
+            logs[0]
+        );
+    }
+
+    /// T-mc3 (M-c1): when a different model is loaded and a meeting pins another one,
+    /// `start_meeting_model_load` takes path (ii) with exactly one load call for the
+    /// pinned id, while dictation's `initiate_model_load` still makes zero kickoffs.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn t_mc3_different_model_loaded_takes_swap_path_and_dictation_is_noop() {
+        let _lock = crate::managers::meetings::test_lock();
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = TranscriptionManager::new_for_test(app.handle().clone());
+        let dictation_model = "handy-computer/voxtral-mini-gguf";
+        let meeting_model = "handy-computer/parakeet-ultra-gguf/parakeet-ultra-Q8_0.gguf";
+        tm.install_fake_engine(dictation_model);
+        tm.pin_meeting_model(meeting_model);
+
+        DICTATION_LOAD_KICKOFFS.store(0, Ordering::SeqCst);
+        tm.initiate_model_load();
+        assert_eq!(
+            DICTATION_LOAD_KICKOFFS.load(Ordering::SeqCst),
+            0,
+            "dictation initiate_model_load must return early while a meeting is pinned"
+        );
+
+        tm.start_meeting_model_load(7, meeting_model);
+        let settled = poll_until(Duration::from_secs(5), Duration::from_millis(5), || {
+            !tm.is_loading_now() && !tm.is_meeting_load_pending()
+        });
+        assert!(settled, "swap-path meeting load must settle cleanly");
+
+        let calls = tm.test_meeting_load_calls.lock().unwrap().clone();
+        assert_eq!(calls, vec![meeting_model.to_string()]);
+        assert_eq!(
+            DICTATION_LOAD_KICKOFFS.load(Ordering::SeqCst),
+            0,
+            "dictation kickoffs must remain zero during a pinned meeting"
+        );
+        tm.clear_meeting_pin();
+    }
+
+    /// T-mc7 (M-c1, F3): meeting load behavior when another load (`LoadingGuard`)
+    /// is already running, plus already-loaded and pin-cleared subcases and
+    /// confirmation that dictation never waits on `meeting_load_pending`.
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn t_mc7_meeting_load_while_another_load_is_in_flight() {
+        let pinned = "handy-computer/parakeet-ultra-gguf/parakeet-ultra-Q8_0.gguf";
+
+        // Case 1: held guard -> start_meeting_model_load returns immediately with
+        // meeting_load_pending set -> meeting chunk waits while guard lives ->
+        // guard drops -> exactly one load call runs for pinned -> chunk returns after it.
+        {
+            let app = tauri::test::mock_builder()
+                .plugin(tauri_plugin_store::Builder::default().build())
+                .build(tauri::test::mock_context(tauri::test::noop_assets()))
+                .expect("mock app");
+            let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+            tm.pin_meeting_model(pinned);
+
+            let held_guard = tm
+                .try_start_loading()
+                .expect("acquire simulated in-flight dictation/switch LoadingGuard");
+
+            let t0 = Instant::now();
+            tm.start_meeting_model_load(101, pinned);
+            assert!(
+                t0.elapsed() < Duration::from_millis(100),
+                "start_meeting_model_load must return immediately, took {:?}",
+                t0.elapsed()
+            );
+            assert!(tm.is_meeting_load_pending());
+
+            let (load_entered_tx, load_entered_rx) = mpsc::channel();
+            let (load_release_tx, load_release_rx) = mpsc::channel::<()>();
+            *tm.test_meeting_load_enter_hook.lock().unwrap() = Some(Box::new(move || {
+                let _ = load_entered_tx.send(());
+                let _ = load_release_rx.recv_timeout(Duration::from_secs(5));
+            }));
+
+            let chunk_tm = Arc::clone(&tm);
+            let (chunk_done_tx, chunk_done_rx) = mpsc::channel();
+            let chunk_thread = thread::spawn(move || {
+                let res = chunk_tm.transcribe_meeting_chunk(vec![0.1_f32; 160]);
+                let _ = chunk_done_tx.send(res);
+            });
+
+            // Chunk must remain blocked while the held LoadingGuard lives.
+            assert!(
+                chunk_done_rx
+                    .recv_timeout(Duration::from_millis(60))
+                    .is_err(),
+                "meeting chunk must wait while the held load guard is alive"
+            );
+
+            // Drop the held guard -> queued meeting load starts and pauses on our hook.
+            drop(held_guard);
+            load_entered_rx
+                .recv_timeout(Duration::from_secs(2))
+                .expect("queued meeting load must start once held guard drops");
+
+            // Chunk must STILL be waiting while the meeting load itself runs.
+            assert!(
+                chunk_done_rx
+                    .recv_timeout(Duration::from_millis(60))
+                    .is_err(),
+                "meeting chunk must wait until the meeting load finishes"
+            );
+
+            // Release the meeting load -> chunk wakes and returns only afterwards.
+            let _ = load_release_tx.send(());
+            let _chunk_res = chunk_done_rx
+                .recv_timeout(Duration::from_secs(5))
+                .expect("meeting chunk must return after meeting load finishes");
+            chunk_thread.join().unwrap();
+
+            assert!(poll_until(
+                Duration::from_secs(5),
+                Duration::from_millis(5),
+                || !tm.is_loading_now() && !tm.is_meeting_load_pending()
+            ));
+            assert_eq!(
+                tm.test_meeting_load_calls.lock().unwrap().clone(),
+                vec![pinned.to_string()]
+            );
+            tm.clear_meeting_pin();
+        }
+
+        // Case 2: held load installs the pinned model before dropping -> zero meeting
+        // load calls, info log says `already`, and meeting chunk succeeds.
+        {
+            let app = tauri::test::mock_builder()
+                .plugin(tauri_plugin_store::Builder::default().build())
+                .build(tauri::test::mock_context(tauri::test::noop_assets()))
+                .expect("mock app");
+            let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+            tm.pin_meeting_model(pinned);
+
+            let held_guard = tm.try_start_loading().expect("acquire held guard");
+            tm.start_meeting_model_load(102, pinned);
+            assert!(tm.is_meeting_load_pending());
+
+            // Simulate the in-flight load finishing with the pinned model already loaded.
+            tm.install_fake_engine(pinned);
+            drop(held_guard);
+
+            assert!(poll_until(
+                Duration::from_secs(5),
+                Duration::from_millis(5),
+                || !tm.is_loading_now() && !tm.is_meeting_load_pending()
+            ));
+            assert!(
+                tm.test_meeting_load_calls.lock().unwrap().is_empty(),
+                "zero meeting load calls when held load already loaded the pinned model"
+            );
+            let logs = tm.test_meeting_load_logs.lock().unwrap().clone();
+            assert_eq!(
+                logs,
+                vec![format!(
+                    "meeting 102 model {pinned} loaded in 0 ms (already)"
+                )]
+            );
+            tm.clear_meeting_pin();
+        }
+
+        // Case 3: meeting pin cleared while waiting -> zero load calls,
+        // `meeting_load_pending` clears, and waiting chunk is woken.
+        {
+            let app = tauri::test::mock_builder()
+                .plugin(tauri_plugin_store::Builder::default().build())
+                .build(tauri::test::mock_context(tauri::test::noop_assets()))
+                .expect("mock app");
+            let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+            tm.pin_meeting_model(pinned);
+
+            let held_guard = tm.try_start_loading().expect("acquire held guard");
+            tm.start_meeting_model_load(103, pinned);
+            assert!(tm.is_meeting_load_pending());
+
+            let chunk_tm = Arc::clone(&tm);
+            let (chunk_done_tx, chunk_done_rx) = mpsc::channel();
+            let chunk_thread = thread::spawn(move || {
+                let res = chunk_tm.transcribe_meeting_chunk(vec![0.1_f32; 160]);
+                let _ = chunk_done_tx.send(res);
+            });
+
+            // Meeting ends before the held guard drops.
+            tm.clear_meeting_pin();
+            drop(held_guard);
+
+            let _chunk_res = chunk_done_rx
+                .recv_timeout(Duration::from_secs(5))
+                .expect("waiting chunk must be woken when pin is cleared");
+            chunk_thread.join().unwrap();
+
+            assert!(poll_until(
+                Duration::from_secs(5),
+                Duration::from_millis(5),
+                || !tm.is_loading_now() && !tm.is_meeting_load_pending()
+            ));
+            assert!(
+                tm.test_meeting_load_calls.lock().unwrap().is_empty(),
+                "zero load calls when meeting pin was cleared before wait ended"
+            );
+        }
+
+        // Case 4: dictation (`is_meeting_chunk == false`) never waits on `meeting_load_pending`.
+        {
+            let app = tauri::test::mock_builder()
+                .plugin(tauri_plugin_store::Builder::default().build())
+                .build(tauri::test::mock_context(tauri::test::noop_assets()))
+                .expect("mock app");
+            let tm = TranscriptionManager::new_for_test(app.handle().clone());
+            tm.install_fake_engine(pinned);
+            {
+                let _g = tm.is_loading.lock().unwrap();
+                tm.meeting_load_pending.store(true, Ordering::Release);
+            }
+            assert!(tm.should_wait_for_meeting_load(true));
+            assert!(!tm.should_wait_for_meeting_load(false));
+
+            let t0 = Instant::now();
+            let res = tm.transcribe(vec![0.1_f32; 160]);
+            assert!(
+                t0.elapsed() < Duration::from_millis(100),
+                "dictation must not wait on meeting_load_pending, took {:?}",
+                t0.elapsed()
+            );
+            assert!(res.is_ok(), "dictation should succeed immediately: {res:?}");
+
+            let _g = tm.is_loading.lock().unwrap();
+            tm.meeting_load_pending.store(false, Ordering::Release);
+            tm.loading_condvar.notify_all();
+        }
     }
 }
 

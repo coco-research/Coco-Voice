@@ -4,21 +4,31 @@ import { getVersion } from "@tauri-apps/api/app";
 import ModelSelector from "../model-selector";
 import UpdateChecker from "../update-checker";
 
+export async function resolveFooterVersion(
+  loader: () => Promise<string> = getVersion,
+): Promise<string> {
+  try {
+    const appVersion = await loader();
+    return appVersion.trim();
+  } catch (error) {
+    console.error("Failed to get app version:", error);
+    return "";
+  }
+}
+
 const Footer: React.FC = () => {
   const [version, setVersion] = useState("");
 
   useEffect(() => {
-    const fetchVersion = async () => {
-      try {
-        const appVersion = await getVersion();
+    let cancelled = false;
+    void resolveFooterVersion().then((appVersion) => {
+      if (!cancelled) {
         setVersion(appVersion);
-      } catch (error) {
-        console.error("Failed to get app version:", error);
-        setVersion("0.1.2");
       }
+    });
+    return () => {
+      cancelled = true;
     };
-
-    fetchVersion();
   }, []);
 
   return (
@@ -31,9 +41,13 @@ const Footer: React.FC = () => {
         {/* Update Status */}
         <div className="flex items-center gap-1">
           <UpdateChecker />
-          <span>•</span>
-          {/* eslint-disable-next-line i18next/no-literal-string */}
-          <span>v{version}</span>
+          {version ? (
+            <>
+              <span>•</span>
+              {/* eslint-disable-next-line i18next/no-literal-string */}
+              <span>v{version}</span>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

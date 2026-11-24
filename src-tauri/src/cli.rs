@@ -1,9 +1,18 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
+#[derive(Subcommand, Debug, Clone, PartialEq, Eq)]
+pub enum CliCommand {
+    /// Run the local opt-in stdio MCP server for meeting tools
+    Mcp,
+}
+
 #[derive(Parser, Debug, Clone, Default)]
-#[command(name = "coco-voice", about = "Coco Voice - Speech to Text")]
+#[command(name = "coco-voice", version = concat!(env!("CARGO_PKG_VERSION"), " (", env!("COCO_GIT_SHA"), ")"), about = "Coco Voice - Speech to Text")]
 pub struct CliArgs {
+    /// Optional subcommand (e.g. `coco-voice mcp`)
+    #[command(subcommand)]
+    pub command: Option<CliCommand>,
     /// Start with the main window hidden
     #[arg(long)]
     pub start_hidden: bool,
@@ -88,4 +97,35 @@ pub struct CliArgs {
     /// Run the local stdio MCP server for the `ask_user` voice question tool.
     #[arg(long)]
     pub mcp_ask_user: bool,
+
+    /// Print the resolved Tauri bundle identifier and app_data_dir, then exit 0 without opening UI.
+    #[arg(long)]
+    pub print_app_data_dir: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_mcp_subcommand_and_preserves_existing_flags() {
+        let mcp = CliArgs::try_parse_from(["coco-voice", "mcp"]).unwrap();
+        assert_eq!(mcp.command, Some(CliCommand::Mcp));
+        assert!(!mcp.mcp_ask_user);
+
+        let toggle = CliArgs::try_parse_from(["coco-voice", "--toggle-transcription"]).unwrap();
+        assert_eq!(toggle.command, None);
+        assert!(toggle.toggle_transcription);
+
+        let hidden = CliArgs::try_parse_from(["coco-voice", "--start-hidden"]).unwrap();
+        assert_eq!(hidden.command, None);
+        assert!(hidden.start_hidden);
+
+        let ask = CliArgs::try_parse_from(["coco-voice", "--mcp-ask-user"]).unwrap();
+        assert_eq!(ask.command, None);
+        assert!(ask.mcp_ask_user);
+
+        let bare = CliArgs::try_parse_from(["coco-voice"]).unwrap();
+        assert_eq!(bare.command, None);
+    }
 }

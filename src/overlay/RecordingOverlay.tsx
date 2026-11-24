@@ -1,5 +1,5 @@
-import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import "./RecordingOverlay.css";
@@ -13,6 +13,14 @@ import type {
   StreamWorkKind,
 } from "@/bindings";
 import { CleanupMark } from "@/components/shared/CleanupMark";
+import {
+  AgentAskPillView,
+  HandsFreePillView,
+  MeetingPillView,
+  RecordingPillShowcase,
+  RecordingPillStateView,
+  type RecordingPillKind,
+} from "./RecordingPillStates";
 import i18n, { syncLanguageFromSettings } from "@/i18n";
 import { CLEANUP_NOTE } from "@/lib/utils/cleanupStatus";
 import { getLanguageDirection } from "@/lib/utils/rtl";
@@ -26,9 +34,6 @@ const WAVE_BARS = 9;
 
 // Reduced motion batches word updates. 250 ms is 4 Hz.
 const REDUCED_MOTION_GAP_MS = 250;
-
-// How long "Still working" replaces the work label after a refused press.
-const BUSY_NOTICE_MS = 1500;
 
 type PolishSnapshot = { text: string; done: boolean };
 
@@ -97,6 +102,30 @@ const RecordingOverlay: React.FC = () => {
   const [onDevicePolish, setOnDevicePolish] = useState(false);
   const [polish, setPolish] = useState<PolishSnapshot | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [meetingStartedAtMs, setMeetingStartedAtMs] = useState<number | null>(
+    null,
+  );
+  const [meetingElapsedSecs, setMeetingElapsedSecs] = useState(0);
+  const [meetingStopping, setMeetingStopping] = useState(false);
+  const [meetingMicOnly, setMeetingMicOnly] = useState(false);
+  const [handsFreeMode, setHandsFreeMode] = useState<{
+    hands_free: boolean;
+    key?: string;
+  } | null>(null);
+  const [agentAskQuestion, setAgentAskQuestion] = useState<{
+    agent_name: string;
+    question: string;
+    queued_count?: number;
+    shortcut_key?: string;
+  } | null>(null);
+  const [agentAnswerSentTo, setAgentAnswerSentTo] = useState<string | null>(
+    null,
+  );
+  const [pillOutcome, setPillOutcome] = useState<{
+    kind: RecordingPillKind;
+    targetApp?: string;
+  } | null>(null);
+  const [showcaseAllStates, setShowcaseAllStates] = useState(false);
   // Bumped on each new streaming session so the Live card remounts fresh (replays
   // the pop-in, and never animates in from the previous panel's open size).
   const [session, setSession] = useState(0);
@@ -106,30 +135,21 @@ const RecordingOverlay: React.FC = () => {
   // True once live text overflows the cap. A top overlay fades its top edge only
   // while overflowing, so the resting first line stays crisp flush under the pill.
   const [overflowing, setOverflowing] = useState(false);
-  // A shortcut press arrived while this take is still being transcribed.
-  const [busy, setBusy] = useState(false);
-  const busyTimerRef = useRef<number | null>(null);
 
   const smoothedLevelsRef = useRef<number[]>(Array(16).fill(0));
-  // The cleanup listener is registered once, so it reads these instead of the
-  // state closed over on mount. Written wherever state and phase are set.
   const stateRef = useRef<OverlayState>("recording");
   const phaseRef = useRef<StreamPhase>("listening");
   const onDeviceRef = useRef(false);
   const reducedMotionRef = useRef(false);
   const polishTimerRef = useRef<number | null>(null);
+  const agentSentTimerRef = useRef<number | null>(null);
   const lastPolishApplyRef = useRef(0);
   const pendingPolishRef = useRef<PolishSnapshot | null>(null);
   const resetPolishRef = useRef(() => {});
   const schedulePolishRef = useRef<(next: PolishSnapshot) => void>(() => {});
-  // A late status or snapshot from the previous take can arrive after this one
-  // has started capturing. Both listeners share this.
   const freshTakeCapturing = () =>
     stateRef.current === "recording" ||
     (stateRef.current === "streaming" && phaseRef.current === "listening");
-  // Live-text scroll-back: the text region "sticks" to the newest line while the
-  // user is at the bottom; if they scroll up to read history, auto-follow pauses
-  // until they scroll back down.
   const capRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
   const direction = getLanguageDirection(i18n.language);
@@ -148,7 +168,6 @@ const RecordingOverlay: React.FC = () => {
     };
 
     schedulePolishRef.current = (next) => {
-      // Every apply drops any queued batch, so an older snapshot never lands after a newer one.
       const apply = (snapshot: PolishSnapshot) => {
         if (polishTimerRef.current !== null) {
           window.clearTimeout(polishTimerRef.current);
@@ -158,16 +177,12 @@ const RecordingOverlay: React.FC = () => {
         lastPolishApplyRef.current = performance.now();
         setPolish(snapshot);
       };
-      // The last snapshot has to land even when a batch is still waiting.
       if (next.done || !reducedMotionRef.current) {
         apply(next);
         return;
       }
-      const elapsed = performance.now() - lastPolishApplyRef.current;
-      if (
-        lastPolishApplyRef.current === 0 ||
-        elapsed >= REDUCED_MOTION_GAP_MS
-      ) {
+      const gap = performance.now() - lastPolishApplyRef.current;
+      if (lastPolishApplyRef.current === 0 || gap >= REDUCED_MOTION_GAP_MS) {
         apply(next);
         return;
       }
@@ -178,7 +193,7 @@ const RecordingOverlay: React.FC = () => {
           const pending = pendingPolishRef.current;
           pendingPolishRef.current = null;
           if (pending) apply(pending);
-        }, REDUCED_MOTION_GAP_MS - elapsed);
+        }, REDUCED_MOTION_GAP_MS - gap);
       }
     };
   }, []);
@@ -196,15 +211,83 @@ const RecordingOverlay: React.FC = () => {
         window.clearTimeout(polishTimerRef.current);
         polishTimerRef.current = null;
       }
+      if (agentSentTimerRef.current !== null) {
+        window.clearTimeout(agentSentTimerRef.current);
+        agentSentTimerRef.current = null;
+      }
     };
   }, []);
 
   useEffect(() => {
     const setupEventListeners = async () => {
+      const unlistenShowcase = await listen("show-pill-showcase", () => {
+        setShowcaseAllStates(true);
+        setIsVisible(true);
+      });
+      const unlistenLegacyStream = await listen("stream-text", () => {
+        setShowcaseAllStates(true);
+        setIsVisible(true);
+      });
+      const unlistenOutcome = await listen<{
+        kind: RecordingPillKind;
+        targetApp?: string;
+      } | null>("pill-outcome", (event) => {
+        setShowcaseAllStates(false);
+        setPillOutcome(event.payload ?? null);
+        if (event.payload) setIsVisible(true);
+      });
+      const unlistenPillMode = await listen<{
+        hands_free: boolean;
+        key?: string;
+      }>("pill-mode", (event) => {
+        setHandsFreeMode(event.payload?.hands_free ? event.payload : null);
+      });
+      const unlistenMeetingPill = await listen<{
+        started_at_ms: number;
+        mic_only?: boolean;
+      }>("meeting-pill", (event) => {
+        const startedAt = event.payload?.started_at_ms;
+        if (typeof startedAt === "number" && startedAt > 0) {
+          setMeetingStartedAtMs(startedAt);
+          setMeetingElapsedSecs(
+            Math.max(0, Math.floor((Date.now() - startedAt) / 1000)),
+          );
+          setMeetingStopping(false);
+        }
+        if (typeof event.payload?.mic_only === "boolean") {
+          setMeetingMicOnly(event.payload.mic_only);
+        } else {
+          void invoke<{ mic_only?: boolean }>("meeting_status")
+            .then((st) => setMeetingMicOnly(Boolean(st?.mic_only)))
+            .catch(() => {});
+        }
+      });
       const unlistenShow = await listen("show-overlay", async (event) => {
+        setPillOutcome(null);
+        const overlayState = event.payload as OverlayState;
+        stateRef.current = overlayState;
+        setState(overlayState);
+        if (overlayState === "recording" || overlayState === "streaming") {
+          setStreamText({ committed: "", tentative: "" });
+          setCleanupStatus(null);
+          resetPolishRef.current();
+        }
+        if (overlayState === "meeting") {
+          setMeetingStopping(false);
+          setMeetingStartedAtMs((prev) => prev ?? Date.now());
+          void invoke<{ mic_only?: boolean }>("meeting_status")
+            .then((st) => setMeetingMicOnly(Boolean(st?.mic_only)))
+            .catch(() => {});
+        }
+        if (overlayState === "streaming") {
+          phaseRef.current = "listening";
+          setPhase("listening");
+          setWorkKind("transcribing");
+          setElapsed(0);
+          setSession((s) => s + 1);
+        }
+        setIsVisible(true);
         await syncLanguageFromSettings();
-        // The Live panel flows downward from a top overlay and upward from a
-        // bottom one; read the placement so the layout can flip to match.
         try {
           const settings = await commands.getAppSettings();
           if (settings.status === "ok") {
@@ -215,45 +298,51 @@ const RecordingOverlay: React.FC = () => {
         } catch {
           // Keep the previous/default placement if settings can't be read.
         }
-        const overlayState = event.payload as OverlayState;
-        stateRef.current = overlayState;
-        setState(overlayState);
-        if (overlayState === "recording" || overlayState === "streaming") {
-          setStreamText({ committed: "", tentative: "" });
-          setCleanupStatus(null);
-          resetPolishRef.current();
-        }
-        if (overlayState === "streaming") {
-          phaseRef.current = "listening";
-          setPhase("listening");
-          setWorkKind("transcribing");
-          setElapsed(0);
-          setSession((s) => s + 1); // remount the card fresh for this session
-        }
-        // The meeting pill uses the same window and its own clock.
-        if (overlayState === "meeting") setElapsed(0);
-        setIsVisible(true);
       });
 
       const unlistenHide = await listen("hide-overlay", () => {
         setIsVisible(false);
+        setAgentAskQuestion(null);
+        setAgentAnswerSentTo(null);
+        setPillOutcome(null);
+        setHandsFreeMode(null);
+        setMeetingStopping(false);
+        setMeetingStartedAtMs(null);
+        setMeetingMicOnly(false);
+        setShowcaseAllStates(false);
       });
 
-      const unlistenBusy = await listen("pipeline-busy", () => {
-        setBusy(true);
-        if (busyTimerRef.current !== null) {
-          window.clearTimeout(busyTimerRef.current);
-        }
-        busyTimerRef.current = window.setTimeout(() => {
-          busyTimerRef.current = null;
-          setBusy(false);
-        }, BUSY_NOTICE_MS);
+      const unlistenAgentAsk = await listen<{
+        agent_name: string;
+        question: string;
+        queued_count?: number;
+        shortcut_key?: string;
+      } | null>("agent-ask-question", (event) => {
+        setShowcaseAllStates(false);
+        setAgentAskQuestion(event.payload ?? null);
+        if (event.payload) setIsVisible(true);
       });
+
+      const unlistenAgentAnswered = await listen<{ agent_name: string }>(
+        "agent-ask-answered",
+        (event) => {
+          const agent = event.payload?.agent_name;
+          if (!agent) return;
+          setAgentAskQuestion(null);
+          setAgentAnswerSentTo(agent);
+          setIsVisible(true);
+          if (agentSentTimerRef.current !== null) {
+            window.clearTimeout(agentSentTimerRef.current);
+          }
+          agentSentTimerRef.current = window.setTimeout(() => {
+            agentSentTimerRef.current = null;
+            setAgentAnswerSentTo(null);
+          }, 2000);
+        },
+      );
 
       const unlistenLevel = await listen<number[]>("mic-level", (event) => {
         const newLevels = event.payload as number[];
-        // Exponential smoothing across the 16 buckets, then take the first N
-        // bars for the shared waveform.
         const smoothed = smoothedLevelsRef.current.map((prev, i) => {
           const target = newLevels[i] || 0;
           return prev * 0.7 + target * 0.3;
@@ -274,11 +363,8 @@ const RecordingOverlay: React.FC = () => {
       });
 
       const unlistenCleanup = await events.cleanupStatus.listen((event) => {
-        // A real status arrives while transcribing, processing, or in the
-        // streaming "working" phase.
         if (freshTakeCapturing()) return;
         setCleanupStatus(event.payload);
-        // A refused run pastes the raw text, so drop the partial rewrite.
         resetPolishRef.current();
       });
 
@@ -289,8 +375,6 @@ const RecordingOverlay: React.FC = () => {
           onDeviceRef.current = true;
           setOnDevicePolish(true);
         }
-        // Compact pill only needs the label. The live card shows the words.
-        // Whitespace is not cleaned text yet.
         if (stateRef.current !== "streaming") return;
         if (payload.done || payload.text.trim().length > 0) {
           schedulePolishRef.current({ text: payload.text, done: payload.done });
@@ -298,13 +382,15 @@ const RecordingOverlay: React.FC = () => {
       });
 
       return () => {
+        unlistenShowcase();
+        unlistenLegacyStream();
+        unlistenOutcome();
+        unlistenPillMode();
+        unlistenMeetingPill();
         unlistenShow();
         unlistenHide();
-        unlistenBusy();
-        if (busyTimerRef.current !== null) {
-          window.clearTimeout(busyTimerRef.current);
-          busyTimerRef.current = null;
-        }
+        unlistenAgentAsk();
+        unlistenAgentAnswered();
         unlistenLevel();
         unlistenStream();
         unlistenPhase();
@@ -313,43 +399,60 @@ const RecordingOverlay: React.FC = () => {
       };
     };
 
-    setupEventListeners();
+    void setupEventListeners();
   }, []);
 
-  // Elapsed timer while the Live overlay or the meeting pill is visible.
+  // Elapsed timer while the Live overlay is visible.
   useEffect(() => {
-    if ((state !== "streaming" && state !== "meeting") || !isVisible) return;
+    if (state !== "streaming" || !isVisible) return;
     const id = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(id);
   }, [state, isVisible]);
 
-  // Stick to the bottom as text streams in — but only while pinned, so a user who
-  // has scrolled up to read history isn't yanked back down by the next chunk.
+  // Drift-free local counter for the Meeting pill (counts from started_at_ms).
+  useEffect(() => {
+    if (state !== "meeting" || !isVisible || meetingStartedAtMs === null) {
+      return;
+    }
+    const update = () => {
+      setMeetingElapsedSecs(
+        Math.max(0, Math.floor((Date.now() - meetingStartedAtMs) / 1000)),
+      );
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [state, isVisible, meetingStartedAtMs]);
+
   useLayoutEffect(() => {
     const el = capRef.current;
     if (!el) return;
-    // Fade the top edge only once text actually overflows the cap.
     setOverflowing(el.scrollHeight > el.clientHeight + 1);
     if (pinnedRef.current) el.scrollTop = el.scrollHeight;
   }, [streamText, polish, onDevicePolish]);
 
-  // Each fresh streaming session starts pinned to the bottom, fade cleared.
   useEffect(() => {
     pinnedRef.current = true;
     setOverflowing(false);
   }, [session]);
 
-  // Re-pin when the user is within ~a line of the bottom; unpin otherwise.
   const handleStreamScroll = () => {
     const el = capRef.current;
     if (!el) return;
     pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight <= 16;
   };
 
+  const handleStopMeeting = () => {
+    if (meetingStopping) return;
+    setMeetingStopping(true);
+    void invoke("stop_meeting").catch(() => {
+      setMeetingStopping(false);
+    });
+  };
+
   const fmtTime = (s: number) =>
     `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-  // ---- Shared building blocks (one visual language for every overlay form) ----
   const waveform = (
     <div className="swave">
       {levels.map((v, i) => (
@@ -366,7 +469,7 @@ const RecordingOverlay: React.FC = () => {
   const cancelBtn = (
     <button
       className="sx"
-      aria-label="cancel"
+      aria-label={t("tray.cancel")}
       onClick={() => commands.cancelOperation()}
     >
       <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -380,10 +483,13 @@ const RecordingOverlay: React.FC = () => {
     </button>
   );
 
-  // dot (left) | waveform (center) | timer + cancel (right) — same structure for
-  // pill & panel, so the Live morph is a pure width change.
   const listeningRow = (showTimer: boolean, showCancel: boolean) => (
-    <div className="sbase">
+    <div
+      className="sbase"
+      role="status"
+      aria-live="polite"
+      aria-label={t("overlay.pillStates.listening", "Listening")}
+    >
       <div className="sbase-l">
         <span className="sdot" />
       </div>
@@ -395,8 +501,6 @@ const RecordingOverlay: React.FC = () => {
     </div>
   );
 
-  // spinner (left) | label (center) | cancel (right) — same 3-zone grid as the
-  // listening row, so the label is centered.
   const spinnerRow = (label: string, showCancel: boolean, announce = false) => (
     <div
       className="sbase"
@@ -412,21 +516,83 @@ const RecordingOverlay: React.FC = () => {
     </div>
   );
 
-  // No cancel button here: by the time the status arrives there is nothing to cancel.
   const cleanupRow = cleanupStatus && (
     <CleanupChip key={cleanupStatus.reason} status={cleanupStatus} />
   );
 
-  // The status arrives while the take is being cleaned, so it replaces the working row.
   const workingRow = (label: string, showCancel: boolean, announce = false) =>
     cleanupRow ?? spinnerRow(label, showCancel, announce);
 
-  // ---- Live overlay: a pill that sculpts open into a panel ----
+  if (showcaseAllStates) {
+    return (
+      <div
+        dir={direction}
+        className="flex min-h-screen w-full items-center justify-center"
+      >
+        <RecordingPillShowcase />
+      </div>
+    );
+  }
+
+  if (pillOutcome) {
+    return (
+      <div dir={direction} className={`ov-stage ${position} ov-fade show`}>
+        <RecordingPillStateView
+          kind={pillOutcome.kind}
+          targetApp={pillOutcome.targetApp}
+        />
+      </div>
+    );
+  }
+
+  if (state === "meeting") {
+    const waitingCount = agentAskQuestion
+      ? 1 + (agentAskQuestion.queued_count ?? 0)
+      : 0;
+    return (
+      <div
+        dir={direction}
+        className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
+      >
+        <MeetingPillView
+          elapsedSecs={meetingElapsedSecs}
+          stopping={meetingStopping}
+          micOnly={meetingMicOnly}
+          waitingAgentQuestions={waitingCount}
+          onStop={handleStopMeeting}
+        />
+      </div>
+    );
+  }
+
+  if (agentAnswerSentTo) {
+    return (
+      <div dir={direction} className={`ov-stage ${position} ov-fade show`}>
+        <AgentAskPillView
+          agentName={agentAnswerSentTo}
+          question=""
+          answerSentTo={agentAnswerSentTo}
+        />
+      </div>
+    );
+  }
+
+  if (agentAskQuestion) {
+    return (
+      <div dir={direction} className={`ov-stage ${position} ov-fade show`}>
+        <AgentAskPillView
+          agentName={agentAskQuestion.agent_name}
+          question={agentAskQuestion.question}
+          shortcutKey={agentAskQuestion.shortcut_key}
+          queuedCount={agentAskQuestion.queued_count ?? 0}
+        />
+      </div>
+    );
+  }
+
   if (state === "streaming") {
     const polishingView = phase === "working" && onDevicePolish;
     const cleanedNow = polish?.text ?? "";
-    // Before the first non-blank cleaned snapshot, keep the raw transcript.
-    // After it, the transcript is only the cleaned text so far.
     const hasCleaned = cleanedNow.trim().length > 0;
     const showCleaned = polishingView && hasCleaned;
     const hasText =
@@ -434,10 +600,6 @@ const RecordingOverlay: React.FC = () => {
       streamText.tentative.length > 0 ||
       hasCleaned;
     const working = phase === "working";
-    // Keep the panel open whenever there's text — even while finalizing — so the
-    // transcript stays put under a working spinner instead of collapsing and
-    // squishing the text mid-stream. Only fall back to the small working pill
-    // when there was no text to preserve.
     const open = hasText;
     const collapsed = working && !hasText;
 
@@ -467,8 +629,6 @@ const RecordingOverlay: React.FC = () => {
                       <span className={polishingView ? "raw" : "tentative"}>
                         {streamText.tentative}
                       </span>
-                      {/* Drop the blinking caret once finalizing — it's no longer
-                          capturing, and a static spinner conveys the work. */}
                       {!working && <span className="scaret" />}
                     </>
                   )}
@@ -478,15 +638,9 @@ const RecordingOverlay: React.FC = () => {
           </div>
           {working
             ? workingRow(
-                busy
-                  ? t("overlay.stillWorking")
-                  : overlayWorkLabel(
-                      workKind === "polishing",
-                      onDevicePolish,
-                      t,
-                    ),
+                overlayWorkLabel(workKind === "polishing", onDevicePolish, t),
                 true,
-                busy || (workKind === "polishing" && onDevicePolish),
+                workKind === "polishing" && onDevicePolish,
               )
             : listeningRow(open, true)}
         </div>
@@ -494,58 +648,29 @@ const RecordingOverlay: React.FC = () => {
     );
   }
 
-  // ---- Meeting pill (mock 3): mark | Recording | elapsed time + Stop. It is the
-  // same 256 x 46 window as the dictation pill, and Stop calls stop_meeting.
-  if (state === "meeting") {
-    const stopMeeting = () => {
-      void invoke("stop_meeting").catch((error) => {
-        console.error("Could not stop the meeting", error);
-      });
-    };
+  const working = state === "transcribing" || state === "processing";
 
+  if (working && !cleanupStatus) {
     return (
       <div
         dir={direction}
         className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
       >
-        <div className="scard compact">
-          <div className="sbase">
-            <div className="sbase-l">
-              <span className="sdot" />
-            </div>
-            <span className="swork-label">{t("meetings.pill.recording")}</span>
-            <div className="sbase-r">
-              <span className="stimer">{fmtTime(elapsed)}</span>
-              <button
-                className="sx"
-                aria-label={t("meetings.pill.stop")}
-                onClick={stopMeeting}
-              >
-                <svg viewBox="0 0 16 16" aria-hidden="true">
-                  <rect
-                    x="4.5"
-                    y="4.5"
-                    width="7"
-                    height="7"
-                    rx="1.2"
-                    fill="currentColor"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
+        <RecordingPillStateView kind="working" />
       </div>
     );
   }
 
-  // ---- Minimal overlay: exactly one row at a time — waveform (recording), or a
-  // spinner + label (transcribing / processing). Never both. The pill animates its
-  // width between them; the cancel button is in both rows so it stays put.
-  const working = state === "transcribing" || state === "processing";
-  const workLabel = busy
-    ? t("overlay.stillWorking")
-    : overlayWorkLabel(state === "processing", onDevicePolish, t);
+  if (!working && handsFreeMode?.hands_free) {
+    return (
+      <div
+        dir={direction}
+        className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
+      >
+        <HandsFreePillView shortcutKey={handsFreeMode.key || "fn"} />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -559,9 +684,9 @@ const RecordingOverlay: React.FC = () => {
       >
         {working
           ? workingRow(
-              workLabel,
+              overlayWorkLabel(state === "processing", onDevicePolish, t),
               true,
-              busy || (state === "processing" && onDevicePolish),
+              state === "processing" && onDevicePolish,
             )
           : listeningRow(false, true)}
       </div>

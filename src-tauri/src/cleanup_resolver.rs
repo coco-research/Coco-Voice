@@ -197,6 +197,13 @@ pub fn resolve_cleanup(
                     }
                     Err(local_reason) => {
                         log::info!("Cleanup: on-device fallback unavailable ({})", local_reason);
+                        if selected_provider_id == crate::settings::APPLE_INTELLIGENCE_PROVIDER_ID
+                            && local_reason == SkipReason::LocalModelNotDownloaded
+                        {
+                            return CleanupDecision::Skip {
+                                reason: local_reason,
+                            };
+                        }
                     }
                 }
             }

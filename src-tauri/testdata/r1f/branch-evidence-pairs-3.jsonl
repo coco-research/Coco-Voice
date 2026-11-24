@@ -1,0 +1,15 @@
+{"id": "b2sy", "kind": "retract", "input": "Meet me at the station, no wait, at the hotel.", "note": "strong anchor 'at'"}
+{"id": "b2sn", "kind": "retract", "input": "Meet me at the station, no wait, the hotel.", "note": "same, anchor the is weak: a take-back left as said"}
+{"id": "b3hy", "kind": "retract", "input": "We start at noon, sorry, around noon.", "note": "head word 'at', one added word"}
+{"id": "b3hr", "kind": "keep", "input": "We start noon, sorry, around noon.", "note": "same, head word removed"}
+{"id": "b3ky", "kind": "retract", "input": "Book it for five, sorry, about five.", "note": "head 'for', added 'about'"}
+{"id": "b3kn", "kind": "keep", "input": "Book it for five, sorry, not five.", "note": "same, added word is a negation"}
+{"id": "b3ay", "kind": "retract", "input": "We need ten chairs, sorry, twelve more chairs.", "note": "head 'need', k=2 n=3, first lines up"}
+{"id": "b3an", "kind": "keep", "input": "We need ten chairs, sorry, plastic garden chairs.", "note": "same, first does not line up"}
+{"id": "b3fx", "kind": "keep", "input": "Ping the design team, sorry, a design team.", "note": "no head; 3-word frame needs the first word said again"}
+{"id": "q01", "kind": "keep", "input": "I asked Sam to wait, sorry, Tell him wait.", "note": "found in review"}
+{"id": "q02", "kind": "keep", "input": "Sam likes jazz, sorry, Don't play jazz.", "note": "found in review"}
+{"id": "q03", "kind": "keep", "input": "Finish the report, sorry, Send that report.", "note": "found in review"}
+{"id": "q04", "kind": "keep", "input": "Check Tuesday, sorry, Call Tuesday.", "note": "found in review"}
+{"id": "q05", "kind": "keep", "input": "Tell me if I get time, sorry, I need time.", "note": "found in review"}
+{"id": "q06", "kind": "keep", "input": "She took time, sorry, she wastes time.", "note": "found in review"}

@@ -9,6 +9,8 @@ use tauri::{AppHandle, Emitter, Manager};
 
 const DEBOUNCE: Duration = Duration::from_millis(30);
 const RELEASE_GRACE: Duration = Duration::from_millis(50);
+const MAX_TAP_HOLD: Duration = Duration::from_millis(220);
+const DOUBLE_TAP_WINDOW: Duration = Duration::from_millis(350);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PttAction {
@@ -20,7 +22,9 @@ enum PttAction {
 struct PendingRelease {
     binding_id: String,
     hotkey_string: String,
+    released_at: Instant,
     deadline: Instant,
+    double_tap_eligible: bool,
 }
 
 /// Commands processed sequentially by the coordinator thread.
@@ -30,6 +34,7 @@ enum Command {
         hotkey_string: String,
         is_pressed: bool,
         push_to_talk: bool,
+        double_tap_hands_free: bool,
     },
     Cancel {
         recording_was_active: bool,
@@ -42,6 +47,22 @@ enum Stage {
     Idle,
     Recording(String), // binding_id
     Processing,
+}
+
+fn effective_push_to_talk(push_to_talk: bool, binding_id: &str, latched_hands_free: bool) -> bool {
+    push_to_talk && binding_id != "hands_free" && !latched_hands_free
+}
+
+fn release_grace_for_tap(double_tap_enabled: bool, held: Duration) -> (Duration, bool) {
+    if double_tap_enabled && held <= MAX_TAP_HOLD {
+        (DOUBLE_TAP_WINDOW, true)
+    } else {
+        (RELEASE_GRACE, false)
+    }
+}
+
+fn should_latch_double_tap(eligible: bool, release_to_press_gap: Duration) -> bool {
+    eligible && release_to_press_gap >= DEBOUNCE && release_to_press_gap <= DOUBLE_TAP_WINDOW
 }
 
 /// What the coordinator does with a press or release once PTT grace handling is done.
@@ -68,7 +89,11 @@ fn classify_input(
     };
     match stage {
         Stage::Idle if is_pressed => InputAction::Start,
-        Stage::Recording(id) if id == binding_id && stop_edge => InputAction::Stop,
+        Stage::Recording(id)
+            if (id == binding_id || (!push_to_talk && binding_id == "hands_free")) && stop_edge =>
+        {
+            InputAction::Stop
+        }
         Stage::Processing if is_pressed => InputAction::Busy,
         _ => InputAction::Ignore,
     }
@@ -117,7 +142,10 @@ pub fn is_transcribe_binding(id: &str) -> bool {
     // "correction" is included so the explicit correction hotkey goes through the
     // same record -> stop -> transcribe lifecycle as a normal dictation; its
     // TranscribeAction then edits the last output instead of transcribing fresh.
-    id == "transcribe" || id == "transcribe_with_post_process" || id == "correction"
+    id == "transcribe"
+        || id == "transcribe_with_post_process"
+        || id == "correction"
+        || id == "hands_free"
 }
 
 impl TranscriptionCoordinator {
@@ -147,6 +175,8 @@ impl TranscriptionCoordinator {
             wait_until_ready(&ready);
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let mut stage = Stage::Idle;
+                let mut hands_free = false;
+                let mut press_started_at: Option<Instant> = None;
                 let mut last_press: Option<Instant> = None;
                 let mut pending_release: Option<PendingRelease> = None;
 
@@ -158,7 +188,9 @@ impl TranscriptionCoordinator {
                             Ok(cmd) => cmd,
                             Err(mpsc::RecvTimeoutError::Timeout) => {
                                 if let Some(pending) = pending_release.take() {
-                                    if matches!(&stage, Stage::Recording(id) if id == &pending.binding_id)
+                                    press_started_at = None;
+                                    if !hands_free
+                                        && matches!(&stage, Stage::Recording(id) if id == &pending.binding_id)
                                     {
                                         stop(
                                             &app,
@@ -185,7 +217,11 @@ impl TranscriptionCoordinator {
                             hotkey_string,
                             is_pressed,
                             push_to_talk,
+                            double_tap_hands_free,
                         } => {
+                            let now = Instant::now();
+                            let effective_ptt =
+                                effective_push_to_talk(push_to_talk, &binding_id, hands_free);
                             let pending_release_binding = pending_release
                                 .as_ref()
                                 .map(|pending| pending.binding_id.as_str());
@@ -197,19 +233,43 @@ impl TranscriptionCoordinator {
                             match classify_ptt_event(
                                 pending_release_binding,
                                 is_pressed,
-                                push_to_talk,
+                                effective_ptt,
                                 &binding_id,
                                 recording_binding,
                             ) {
                                 PttAction::CancelRelease => {
-                                    pending_release = None;
+                                    if let Some(pending) = pending_release.take() {
+                                        let gap =
+                                            now.saturating_duration_since(pending.released_at);
+                                        if should_latch_double_tap(pending.double_tap_eligible, gap)
+                                        {
+                                            hands_free = true;
+                                            press_started_at = None;
+                                            last_press = Some(now);
+                                            let _ = app.emit_to(
+                                                "recording_overlay",
+                                                "pill-mode",
+                                                serde_json::json!({
+                                                    "hands_free": true,
+                                                    "key": pending.hotkey_string,
+                                                }),
+                                            );
+                                        }
+                                    }
                                     continue;
                                 }
                                 PttAction::DeferRelease => {
+                                    let held = press_started_at.map_or(Duration::MAX, |t| {
+                                        now.saturating_duration_since(t)
+                                    });
+                                    let (window, eligible) =
+                                        release_grace_for_tap(double_tap_hands_free, held);
                                     pending_release = Some(PendingRelease {
                                         binding_id,
                                         hotkey_string,
-                                        deadline: Instant::now() + RELEASE_GRACE,
+                                        released_at: now,
+                                        deadline: now + window,
+                                        double_tap_eligible: eligible,
                                     });
                                     continue;
                                 }
@@ -219,7 +279,6 @@ impl TranscriptionCoordinator {
                             // Debounce rapid-fire press events (key repeat / double-tap).
                             // Push-to-talk releases may be deferred above to absorb X11 auto-repeat.
                             if is_pressed {
-                                let now = Instant::now();
                                 if last_press.is_some_and(|t| now.duration_since(t) < DEBOUNCE) {
                                     debug!("Debounced press for '{binding_id}'");
                                     continue;
@@ -227,12 +286,37 @@ impl TranscriptionCoordinator {
                                 last_press = Some(now);
                             }
 
-                            match classify_input(&stage, &binding_id, is_pressed, push_to_talk) {
+                            match classify_input(&stage, &binding_id, is_pressed, effective_ptt) {
                                 InputAction::Start => {
-                                    start(&app, &mut stage, &binding_id, &hotkey_string)
+                                    hands_free = binding_id == "hands_free";
+                                    press_started_at = Some(now);
+                                    start(&app, &mut stage, &binding_id, &hotkey_string);
+                                    if hands_free {
+                                        let _ = app.emit_to(
+                                            "recording_overlay",
+                                            "pill-mode",
+                                            serde_json::json!({
+                                                "hands_free": true,
+                                                "key": hotkey_string,
+                                            }),
+                                        );
+                                    }
                                 }
                                 InputAction::Stop => {
-                                    stop(&app, &mut stage, &binding_id, &hotkey_string)
+                                    let active_id = match &stage {
+                                        Stage::Recording(id) => id.clone(),
+                                        _ => binding_id.clone(),
+                                    };
+                                    if hands_free {
+                                        let _ = app.emit_to(
+                                            "recording_overlay",
+                                            "pill-mode",
+                                            serde_json::json!({ "hands_free": false }),
+                                        );
+                                    }
+                                    hands_free = false;
+                                    press_started_at = None;
+                                    stop(&app, &mut stage, &active_id, &hotkey_string);
                                 }
                                 InputAction::Busy => {
                                     debug!("Press for '{binding_id}' while transcribing");
@@ -248,6 +332,15 @@ impl TranscriptionCoordinator {
                             recording_was_active,
                         } => {
                             pending_release = None;
+                            if hands_free {
+                                let _ = app.emit_to(
+                                    "recording_overlay",
+                                    "pill-mode",
+                                    serde_json::json!({ "hands_free": false }),
+                                );
+                            }
+                            hands_free = false;
+                            press_started_at = None;
                             // Don't reset during processing — wait for the pipeline to finish.
                             if !matches!(stage, Stage::Processing)
                                 && (recording_was_active || matches!(stage, Stage::Recording(_)))
@@ -256,6 +349,15 @@ impl TranscriptionCoordinator {
                             }
                         }
                         Command::ProcessingFinished => {
+                            if hands_free {
+                                let _ = app.emit_to(
+                                    "recording_overlay",
+                                    "pill-mode",
+                                    serde_json::json!({ "hands_free": false }),
+                                );
+                            }
+                            hands_free = false;
+                            press_started_at = None;
                             stage = Stage::Idle;
                         }
                     }
@@ -300,6 +402,17 @@ impl TranscriptionCoordinator {
         is_pressed: bool,
         push_to_talk: bool,
     ) {
+        self.send_input_with_hands_free(binding_id, hotkey_string, is_pressed, push_to_talk, false);
+    }
+
+    pub fn send_input_with_hands_free(
+        &self,
+        binding_id: &str,
+        hotkey_string: &str,
+        is_pressed: bool,
+        push_to_talk: bool,
+        double_tap_hands_free: bool,
+    ) {
         if self.ready.get().is_none() {
             warn!("Input for '{binding_id}' arrived during startup; it will run once the app is ready");
         }
@@ -309,6 +422,7 @@ impl TranscriptionCoordinator {
                 hotkey_string: hotkey_string.to_string(),
                 is_pressed,
                 push_to_talk,
+                double_tap_hands_free,
             })
             .is_err()
         {
@@ -715,5 +829,195 @@ mod tests {
             "a genuine release should stop recording exactly once"
         );
         assert_eq!(result.stage, SimStage::Processing);
+    }
+
+    #[test]
+    fn default_double_tap_disabled_uses_release_grace() {
+        let defaults = crate::settings::get_default_settings();
+        assert!(!defaults.double_tap_hands_free);
+        let (win, eligible) =
+            release_grace_for_tap(defaults.double_tap_hands_free, Duration::from_millis(80));
+        assert!(!eligible);
+        assert_eq!(win, RELEASE_GRACE);
+    }
+
+    #[test]
+    fn long_hold_stops_after_release_grace_even_when_double_tap_enabled() {
+        let (boundary_win, boundary_elig) = release_grace_for_tap(true, Duration::from_millis(220));
+        assert!(boundary_elig);
+        assert_eq!(boundary_win, DOUBLE_TAP_WINDOW);
+
+        for held_ms in [221u64, 400u64] {
+            let (win, eligible) = release_grace_for_tap(true, Duration::from_millis(held_ms));
+            assert!(!eligible);
+            assert_eq!(win, RELEASE_GRACE);
+        }
+    }
+
+    #[test]
+    fn double_tap_latches_hands_free_and_escape_cancels() {
+        #[derive(Clone, Copy)]
+        enum Step {
+            Press(u64),
+            Release(u64),
+            Timeout(u64),
+            Escape,
+        }
+
+        fn run_steps(
+            double_tap_enabled: bool,
+            steps: &[Step],
+        ) -> (SimStage, bool, Option<Duration>) {
+            let mut stage = Stage::Idle;
+            let mut hands_free = false;
+            let mut press_started_at: Option<u64> = None;
+            let mut last_press: Option<u64> = None;
+            let mut pending: Option<(u64, Duration, bool)> = None;
+            let mut last_window = None;
+
+            for &step in steps {
+                match step {
+                    Step::Timeout(now_ms) => {
+                        if let Some((released_ms, window, _)) = pending {
+                            if now_ms.saturating_sub(released_ms) >= window.as_millis() as u64 {
+                                pending = None;
+                                press_started_at = None;
+                                if !hands_free && matches!(stage, Stage::Recording(_)) {
+                                    stage = Stage::Processing;
+                                }
+                            }
+                        }
+                    }
+                    Step::Escape => {
+                        pending = None;
+                        hands_free = false;
+                        press_started_at = None;
+                        if matches!(stage, Stage::Recording(_)) {
+                            stage = Stage::Idle;
+                        }
+                    }
+                    Step::Press(now_ms) | Step::Release(now_ms) => {
+                        let is_pressed = matches!(step, Step::Press(_));
+                        let eff_ptt = effective_push_to_talk(true, BINDING, hands_free);
+                        let pending_id = pending.as_ref().map(|_| BINDING);
+                        let rec_id = match &stage {
+                            Stage::Recording(id) => Some(id.as_str()),
+                            _ => None,
+                        };
+                        match classify_ptt_event(pending_id, is_pressed, eff_ptt, BINDING, rec_id) {
+                            PttAction::CancelRelease => {
+                                if let Some((released_ms, _, eligible)) = pending.take() {
+                                    let gap =
+                                        Duration::from_millis(now_ms.saturating_sub(released_ms));
+                                    if should_latch_double_tap(eligible, gap) {
+                                        hands_free = true;
+                                        press_started_at = None;
+                                        last_press = Some(now_ms);
+                                    }
+                                }
+                                continue;
+                            }
+                            PttAction::DeferRelease => {
+                                let held = press_started_at.map_or(Duration::MAX, |t| {
+                                    Duration::from_millis(now_ms.saturating_sub(t))
+                                });
+                                let (win, elig) = release_grace_for_tap(double_tap_enabled, held);
+                                last_window = Some(win);
+                                pending = Some((now_ms, win, elig));
+                                continue;
+                            }
+                            PttAction::Passthrough => {}
+                        }
+                        if is_pressed {
+                            if last_press.is_some_and(|t| {
+                                now_ms.saturating_sub(t) < DEBOUNCE.as_millis() as u64
+                            }) {
+                                continue;
+                            }
+                            last_press = Some(now_ms);
+                        }
+                        match classify_input(&stage, BINDING, is_pressed, eff_ptt) {
+                            InputAction::Start => {
+                                hands_free = false;
+                                press_started_at = Some(now_ms);
+                                stage = Stage::Recording(BINDING.to_string());
+                            }
+                            InputAction::Stop => {
+                                hands_free = false;
+                                press_started_at = None;
+                                stage = Stage::Processing;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            let sim = match stage {
+                Stage::Idle => SimStage::Idle,
+                Stage::Recording(_) => SimStage::Recording,
+                Stage::Processing => SimStage::Processing,
+            };
+            (sim, hands_free, last_window)
+        }
+
+        // (a) Disabled setting: short tap uses RELEASE_GRACE (50ms) and stops.
+        let (st_off, hf_off, win_off) = run_steps(
+            false,
+            &[Step::Press(0), Step::Release(80), Step::Timeout(130)],
+        );
+        assert_eq!(win_off, Some(RELEASE_GRACE));
+        assert!(!hf_off);
+        assert_eq!(st_off, SimStage::Processing);
+
+        // (b) Enabled setting + hold > MAX_TAP_HOLD (300ms): uses RELEASE_GRACE (50ms) and stops.
+        let (st_long, hf_long, win_long) = run_steps(
+            true,
+            &[Step::Press(0), Step::Release(300), Step::Timeout(350)],
+        );
+        assert_eq!(win_long, Some(RELEASE_GRACE));
+        assert!(!hf_long);
+        assert_eq!(st_long, SimStage::Processing);
+
+        // (c) Enabled setting + two short taps within DOUBLE_TAP_WINDOW latches hands-free,
+        // ignores key-up on the second tap, and cancels cleanly on Escape.
+        let (st_latched, hf_latched, _) = run_steps(
+            true,
+            &[
+                Step::Press(0),
+                Step::Release(90),
+                Step::Press(200),
+                Step::Release(280),
+                Step::Timeout(800),
+            ],
+        );
+        assert!(hf_latched);
+        assert_eq!(st_latched, SimStage::Recording);
+
+        let (st_escaped, hf_escaped, _) = run_steps(
+            true,
+            &[
+                Step::Press(0),
+                Step::Release(90),
+                Step::Press(200),
+                Step::Release(280),
+                Step::Escape,
+            ],
+        );
+        assert!(!hf_escaped);
+        assert_eq!(st_escaped, SimStage::Idle);
+    }
+
+    #[test]
+    fn hands_free_second_key_and_latched_mode_toggle_on_press_and_cancel_on_escape() {
+        assert!(is_transcribe_binding("hands_free"));
+        assert!(!effective_push_to_talk(true, "hands_free", false));
+        assert!(!effective_push_to_talk(true, "transcribe", true));
+        assert!(effective_push_to_talk(true, "transcribe", false));
+        assert!(!should_latch_double_tap(true, Duration::from_millis(5)));
+        let defaults = crate::settings::get_default_settings();
+        assert!(!defaults.double_tap_hands_free);
+        assert_eq!(defaults.bindings["hands_free"].default_binding, "");
+        assert_eq!(defaults.bindings["cancel"].default_binding, "escape");
     }
 }

@@ -1,51 +1,100 @@
-/* Coco Voice Colors */
+/* Coco Research Brand Theme (Light + Dark) & Bundled Local Fonts */
+
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/archivo-600-0.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/archivo-700-1.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Martian Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/martian-400-0.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Martian Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/martian-500-1.woff2") format("woff2");
+}
 
 :root {
-  /* Palette source of truth. Each themed color is defined once as a
-     light/dark pair; the active tokens below and the `data-theme` overrides
-     in App.css reference these, so a hex value lives in exactly one place. */
-  --light-color-text: #0f0f0f;
-  --light-color-background: #fbfbfb;
-  --light-color-logo-primary: #2251ff;
-  --light-color-logo-stroke: #051c2c;
-  --light-color-needs-you: #9a5200;
-  --light-color-needs-you-fill: #f5b301;
-  --light-color-quiet: #5f5f58;
+  --font-display:
+    "Archivo", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono-brand:
+    "Martian Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --dark-color-text: #fbfbfb;
-  --dark-color-background: #051c2c;
-  --dark-color-logo-primary: #5b8cff;
-  --dark-color-logo-stroke: #eaf0ff;
-  --dark-color-needs-you: #ffb44a;
-  --dark-color-needs-you-fill: #ffb44a;
-  --dark-color-quiet: #929089;
+  /* Light theme tokens */
+  --light-color-text: #0b1020;
+  --light-color-background: #f5f7fc;
+  --light-color-surface: #ffffff;
+  --light-color-surface-elevated: #eef3fb;
+  --light-color-border: rgba(15, 25, 50, 0.12);
+  --light-color-logo-primary: #3b6ff5;
+  --light-color-highlight: #1d4ed8;
+  --light-color-logo-stroke: #0b1020;
+  --light-color-needs-you: #d97706;
+  --light-color-needs-you-fill: rgba(255, 182, 110, 0.22);
+  --light-color-quiet: #52607a;
 
-  /* Tokens that do not change between light and dark */
-  --color-background-ui: #2251ff;
-  --color-text-stroke: #f6f6f6;
-  --color-mid-gray: #808080;
+  /* Dark theme tokens (Coco Research deep-space ground + periwinkle/amber accents) */
+  --dark-color-text: #eef2fb;
+  --dark-color-background: #03050b;
+  --dark-color-surface: #090f1d;
+  --dark-color-surface-elevated: #0e1629;
+  --dark-color-border: rgba(169, 196, 255, 0.14);
+  --dark-color-logo-primary: #5b8dff;
+  --dark-color-highlight: #a9c4ff;
+  --dark-color-logo-stroke: #a9c4ff;
+  --dark-color-needs-you: #ffb66e;
+  --dark-color-needs-you-fill: rgba(255, 182, 110, 0.22);
+  --dark-color-quiet: #8d98b2;
 
-  /* Active palette — defaults to light, follows the OS via the media query
-     below, or is forced by `data-theme` (see App.css). */
+  --color-background-ui: #5b8dff;
+  --color-text-stroke: #eef2fb;
+
+  /* Active palette (defaults to light; overridden by media query or data-theme) */
   --color-text: var(--light-color-text);
   --color-background: var(--light-color-background);
+  --color-surface: var(--light-color-surface);
+  --color-surface-elevated: var(--light-color-surface-elevated);
+  --color-border: var(--light-color-border);
   --color-logo-primary: var(--light-color-logo-primary);
+  --color-highlight: var(--light-color-highlight);
   --color-logo-stroke: var(--light-color-logo-stroke);
-  /* Marks for a take where cleanup did not run: amber when the user can fix the
-     cause, quiet when it was this take only (see CleanupMark). */
   --color-needs-you: var(--light-color-needs-you);
   --color-needs-you-fill: var(--light-color-needs-you-fill);
   --color-quiet: var(--light-color-quiet);
+  --color-mid-gray: var(--light-color-quiet);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --color-text: var(--dark-color-text);
     --color-background: var(--dark-color-background);
+    --color-surface: var(--dark-color-surface);
+    --color-surface-elevated: var(--dark-color-surface-elevated);
+    --color-border: var(--dark-color-border);
     --color-logo-primary: var(--dark-color-logo-primary);
+    --color-highlight: var(--dark-color-highlight);
     --color-logo-stroke: var(--dark-color-logo-stroke);
     --color-needs-you: var(--dark-color-needs-you);
     --color-needs-you-fill: var(--dark-color-needs-you-fill);
     --color-quiet: var(--dark-color-quiet);
+    --color-mid-gray: var(--dark-color-quiet);
   }
 }

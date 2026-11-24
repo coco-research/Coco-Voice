@@ -14,14 +14,20 @@ interface ShortcutInputProps {
  * Wrapper component that selects the appropriate shortcut input implementation
  * based on the keyboard_implementation setting.
  *
- * - "coco_voice_keys" (default on macOS and Windows): Uses CocoVoiceKeysShortcutInput with backend key events
- * - "tauri" (default on Linux, or not set): Uses GlobalShortcutInput with JS keyboard events
+ * - "tauri" (default): Uses GlobalShortcutInput with JS keyboard events
+ * - "coco_keys": Uses CocoVoiceKeysShortcutInput with backend key events
  */
 export const ShortcutInput: React.FC<ShortcutInputProps> = (props) => {
   const { getSetting } = useSettings();
-  const keyboardImplementation = getSetting("keyboard_implementation");
+  const keyboardImplementation: string | undefined = getSetting(
+    "keyboard_implementation",
+  );
 
-  if (keyboardImplementation === "coco_voice_keys") {
+  // Default to Tauri implementation if not set. Accept "coco_voice_keys" or legacy "coco_keys"
+  if (
+    keyboardImplementation === "coco_voice_keys" ||
+    keyboardImplementation === "coco_keys"
+  ) {
     return <CocoVoiceKeysShortcutInput {...props} />;
   }
 

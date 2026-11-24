@@ -14,5 +14,5 @@ export interface ShortcutRegistrationFailure {
   id: string;
   binding: string;
   error: string;
-  cause: "taken" | "rejected" | "other";
+  cause: "taken" | "rejected" | "permission" | "other";
 }

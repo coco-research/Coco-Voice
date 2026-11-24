@@ -84,14 +84,6 @@ test("the settings card offers Try again but not Skip", () => {
   expect(html).not.toContain(failed.skip);
 });
 
-test("onboarding offers Skip next to Try again", () => {
-  failWith("disk_space");
-  const html = render(<Onboarding onModelSelected={noop} />);
-  expect(html).toContain(failed.diskSpace);
-  expect(html).toContain(retry);
-  expect(html).toContain(failed.skip);
-});
-
 test("no failure, no failure message", () => {
   const html = render(<Onboarding onModelSelected={noop} />);
   expect(html).not.toContain(retry);

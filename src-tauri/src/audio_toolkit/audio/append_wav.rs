@@ -128,6 +128,7 @@ impl AppendWav {
     /// Patch sizes to whatever bytes are actually in the file, then fsync.
     /// Failure here is a write error; callers must not turn it into success.
     fn patch_and_sync(&mut self) -> std::io::Result<()> {
+        read_magic(&mut self.file)?;
         let len = self.file.seek(SeekFrom::End(0))?;
         if len < HEADER_LEN {
             return Err(std::io::Error::new(
@@ -176,7 +177,9 @@ fn header(data_bytes: u32) -> [u8; 44] {
 }
 
 /// Recompute RIFF and data sizes from the file length when they are stale.
+/// A file that is not RIFF/WAVE is left untouched.
 fn repair_header(file: &mut File) -> Result<()> {
+    read_magic(file)?;
     let len = file.seek(SeekFrom::End(0))?;
     if len < HEADER_LEN {
         anyhow::bail!("wav shorter than a 44-byte header");
@@ -209,6 +212,22 @@ fn data_bytes_for(len: u64) -> std::io::Result<u32> {
         })
 }
 
+/// RIFF/WAVE at the start of the header. Read-only: a mismatch is an error
+/// and the caller must not rewrite size fields.
+fn read_magic(file: &mut File) -> std::io::Result<()> {
+    file.seek(SeekFrom::Start(0))?;
+    let mut buf = [0u8; 12];
+    file.read_exact(&mut buf)?;
+    if &buf[0..4] == b"RIFF" && &buf[8..12] == b"WAVE" {
+        Ok(())
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "wav missing RIFF/WAVE magic",
+        ))
+    }
+}
+
 fn read_u32_at(file: &mut File, offset: u64) -> std::io::Result<u32> {
     file.seek(SeekFrom::Start(offset))?;
     let mut buf = [0u8; 4];
@@ -219,4 +238,27 @@ fn read_u32_at(file: &mut File, offset: u64) -> std::io::Result<u32> {
 fn write_u32_at(file: &mut File, offset: u64, value: u32) -> std::io::Result<()> {
     file.seek(SeekFrom::Start(offset))?;
     file.write_all(&value.to_le_bytes())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn wav_without_riff_magic_is_not_rewritten() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("not-a-wav");
+        let original = vec![0x11u8; 64];
+        fs::write(&path, &original).unwrap();
+        let err = match AppendWav::open(&path) {
+            Err(err) => err,
+            Ok(_) => panic!("open of a file without RIFF magic should fail"),
+        };
+        assert!(
+            err.to_string().contains("RIFF") || err.to_string().contains("magic"),
+            "{err}"
+        );
+        assert_eq!(fs::read(&path).unwrap(), original);
+    }
 }

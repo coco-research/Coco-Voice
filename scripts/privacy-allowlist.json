@@ -73,6 +73,16 @@
     "files": ["src-tauri/src/managers/model.rs"]
   },
   {
+    "host": "creativecommons.org",
+    "why": "Static CC BY 4.0 licence attribution text in About settings and locale strings for the VoxCeleb speaker-embedding checkpoint. The app does not request this URL.",
+    "when": "not contacted by the app",
+    "sends": "nothing",
+    "files": [
+      "src/components/settings/about/AboutSettings.tsx",
+      "src/i18n/locales/en/translation.json"
+    ]
+  },
+  {
     "host": "eus.codesigning.azure.net",
     "why": "Windows signCommand in tauri.conf.json. Azure Trusted Signing runs during a Windows build. The Mac app does not call it.",
     "when": "only when a Windows build signs the installer",

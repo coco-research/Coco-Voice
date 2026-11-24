@@ -1,0 +1,7 @@
+{"id":"r1a","kind":"retract","input":"meeting on tuesday, scratch that, wednesday"}
+{"id":"r1b","kind":"retract","input":"Meeting on Tuesday. Scratch that, Wednesday."}
+{"id":"r1c","kind":"retract","input":"Meeting on Tuesday. Scratch that. Wednesday."}
+{"id":"r1d","kind":"retract","input":"Meeting on Tuesday, scratch that. Wednesday."}
+{"id":"clip4","kind":"keep","input":"I'll send it to you. No wait, tomorrow."}
+{"id":"rep1","kind":"keep","input":"We need twelve chairs, sorry, twelve chairs."}
+{"id":"rep2","kind":"keep","input":"Call Sam, sorry, Sam."}

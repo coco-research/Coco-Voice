@@ -26,6 +26,12 @@ const QUEUE_BLOCKS: usize = 64;
 const BLOCK_FRAMES: usize = 8192;
 const USAGE_KEY: &str = "NSAudioCaptureUsageDescription";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TapFailureCause {
+    Permission,
+    Device,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum TapError {
     UsageStringMissing,
@@ -33,15 +39,28 @@ pub enum TapError {
     /// Empty or all-zero capture. Never a success, and not a permission denial.
     Silent,
     Device(String),
+    CoreAudio {
+        cause: TapFailureCause,
+        call: &'static str,
+        code: String,
+    },
 }
 
 impl TapError {
     pub fn code(&self) -> &'static str {
         match self {
             Self::UsageStringMissing => "system_audio_usage_string_missing",
-            Self::PermissionDenied => "system_audio_permission_denied",
+            Self::PermissionDenied
+            | Self::CoreAudio {
+                cause: TapFailureCause::Permission,
+                ..
+            } => "system_audio_permission_denied",
             Self::Silent => "system_audio_silent",
-            Self::Device(_) => "system_audio_device",
+            Self::Device(_)
+            | Self::CoreAudio {
+                cause: TapFailureCause::Device,
+                ..
+            } => "system_audio_device",
         }
     }
 }
@@ -130,16 +149,59 @@ pub fn capture(
     path.finish(sink)
 }
 
-fn map_os(err: os::Error) -> TapError {
-    if err == hardware_err::PERMISSIONS {
-        TapError::PermissionDenied
-    } else {
-        TapError::Device(format!("{err:?}"))
+/// Build the Core Audio process-object exclude list from `Process::with_pid`'s result.
+/// `CoreAudio.framework/Headers/CATapDescription.h:79-80` requires AudioObjectIDs of process
+/// objects, never raw Unix PIDs. If translation errors or returns `Obj::UNKNOWN` (0), exclude
+/// nothing and log one info line naming the result so starting never fails for lack of an object.
+pub(crate) fn exclude_process_object_ids(translated: os::Result<hardware::Process>) -> Vec<u32> {
+    match translated {
+        Ok(proc_obj) if proc_obj.0 != Obj::UNKNOWN => vec![proc_obj.0 .0],
+        Ok(proc_obj) => {
+            log::info!(
+                "system audio tap: PID-to-process-object translation returned Obj::UNKNOWN ({}); using empty exclude list",
+                proc_obj.0 .0
+            );
+            Vec::new()
+        }
+        Err(err) => {
+            log::info!(
+                "system audio tap: PID-to-process-object translation failed ({}); using empty exclude list",
+                format_os_error(err)
+            );
+            Vec::new()
+        }
     }
 }
 
+pub(crate) fn format_os_error(err: os::Error) -> String {
+    let raw = err.0.get();
+    let bytes = raw.to_be_bytes();
+    if bytes.iter().all(|b| (0x20..=0x7e).contains(b)) {
+        let fcc = std::str::from_utf8(&bytes).unwrap_or("????");
+        format!("{fcc} ({raw})")
+    } else {
+        format!("{raw}")
+    }
+}
+
+pub(crate) fn map_os_call(call: &'static str, err: os::Error) -> TapError {
+    let code = format_os_error(err);
+    let cause = if err == hardware_err::PERMISSIONS {
+        // CoreAudio.framework/Headers/AudioHardwareBase.h:148,166:
+        // kAudioDevicePermissionsError = '!hog' (caller lacks permission for the audio device/operation).
+        TapFailureCause::Permission
+    } else {
+        // Every other OSStatus — including kAudioHardwareBadObjectError = '!obj'
+        // (CoreAudio.framework/Headers/AudioHardwareBase.h:136-137,160: "The AudioObjectID passed
+        // to the function doesn't map to a valid AudioObject") — maps to Device, never Permission.
+        TapFailureCause::Device
+    };
+    log::warn!("system audio tap: Core Audio call `{call}` failed ({cause:?}): {code} ({err:?})");
+    TapError::CoreAudio { cause, call, code }
+}
+
 /// The caller's sink. Owned by the worker thread, never called from the IO thread.
-type TapSink = Box<dyn FnMut(&[f32]) + Send>;
+pub type TapSink = Box<dyn FnMut(&[f32]) + Send>;
 
 /// All the IO thread touches: the pool, a bounded queue, two counters and the stop flag.
 /// No locks, no sink. `shutdown` is the worker's flag, shared so IO can see it after a stop.
@@ -344,7 +406,15 @@ fn destroy_aggregate(id: u32) -> Result<(), TapError> {
     if status == Status::NO_ERR {
         Ok(())
     } else {
-        Err(TapError::Device(format!("destroy aggregate: {status:?}")))
+        let code = os::Error::new(status.0)
+            .map(format_os_error)
+            .unwrap_or_else(|| format!("{status:?}"));
+        log::warn!(
+            "system audio tap: Core Audio call `destroy_aggregate_device` failed: {code} ({status:?})"
+        );
+        Err(TapError::Device(format!(
+            "destroy_aggregate_device: {code}"
+        )))
     }
 }
 
@@ -388,7 +458,8 @@ fn private_aggregate(tap_uid: &cf::String) -> Result<(AggregateDevice, u32), Tap
         ],
         &[&name, &agg_uid, &private_flag, &taps],
     );
-    let aggregate = AggregateDevice::with_desc(&desc).map_err(map_os)?;
+    let aggregate = AggregateDevice::with_desc(&desc)
+        .map_err(|err| map_os_call("create_aggregate_device", err))?;
     let id = aggregate.as_ref().0 .0;
     Ok((aggregate, id))
 }
@@ -399,6 +470,9 @@ pub struct StartedAggregate {
     started: Option<hardware::StartedDevice<AggregateDevice>>,
     rate: usize,
 }
+
+// Core Audio aggregate device IDs are process-wide handles not bound to the creation thread.
+unsafe impl Send for StartedAggregate {}
 
 impl SystemAudioDevice for StartedAggregate {
     fn sample_rate_hz(&self) -> usize {
@@ -419,7 +493,10 @@ impl SystemAudioDevice for StartedAggregate {
 
     fn stop(&mut self) -> Result<(), TapError> {
         match self.started.take() {
-            Some(started) => started.stop().map(|_| ()).map_err(map_os),
+            Some(started) => started
+                .stop()
+                .map(|_| ())
+                .map_err(|err| map_os_call("device_stop", err)),
             None => Ok(()),
         }
     }
@@ -441,29 +518,43 @@ pub struct SystemAudioSession<D: SystemAudioDevice = StartedAggregate> {
     shutdown: Arc<AtomicBool>,
 }
 
+// The IO proc's state pointer is only used until `stop` returns, and Core Audio
+// calls are not tied to the thread that created the tap. The session moves this
+// owner from the start command to Stop or the sleep watcher.
+unsafe impl<D: SystemAudioDevice + Send> Send for SystemAudioSession<D> {}
+
 impl SystemAudioSession<StartedAggregate> {
     pub fn start(plist_text: &str, sink: TapSink) -> Result<Self, TapError> {
         require_usage_string(plist_text)?;
 
-        let pid = ns::Number::with_u32(std::process::id());
-        let excluded = ns::Array::from_slice(&[pid.as_ref()]);
+        let excluded_ids =
+            exclude_process_object_ids(hardware::Process::with_pid(std::process::id() as i32));
+        let excluded_nums: Vec<_> = excluded_ids
+            .iter()
+            .map(|&id| ns::Number::with_u32(id))
+            .collect();
+        let excluded_refs: Vec<&ns::Number> =
+            excluded_nums.iter().map(|num| num.as_ref()).collect();
+        let excluded = ns::Array::from_slice(&excluded_refs);
         let mut desc = TapDesc::with_mono_global_tap_excluding_processes(&excluded);
         desc.set_mute_behavior(TapMuteBehavior::Unmuted);
         desc.set_private(true);
-        let tap = desc.create_process_tap().map_err(map_os)?;
+        let tap = desc
+            .create_process_tap()
+            .map_err(|err| map_os_call("create_process_tap", err))?;
 
         let uid = match tap.uid() {
             Ok(uid) => uid,
             Err(err) => {
                 release_partial(tap, None, std::ptr::null_mut());
-                return Err(map_os(err));
+                return Err(map_os_call("tap_uid", err));
             }
         };
         let asbd = match tap.asbd() {
             Ok(asbd) => asbd,
             Err(err) => {
                 release_partial(tap, None, std::ptr::null_mut());
-                return Err(map_os(err));
+                return Err(map_os_call("tap_asbd", err));
             }
         };
         if let Err(err) = check_tap_format(&asbd) {
@@ -521,7 +612,7 @@ impl SystemAudioSession<StartedAggregate> {
             Err(err) => {
                 release_partial(tap, Some(aggregate_id), state);
                 let _ = worker.join();
-                return Err(map_os(err));
+                return Err(map_os_call("create_io_proc_id", err));
             }
         };
 
@@ -543,7 +634,7 @@ impl SystemAudioSession<StartedAggregate> {
             Err(err) => {
                 release_partial(tap, Some(aggregate_id), state);
                 let _ = worker.join();
-                Err(map_os(err))
+                Err(map_os_call("device_start", err))
             }
         }
     }
@@ -1248,5 +1339,194 @@ mod tests {
             rx.try_recv().is_err(),
             "misaligned buffer was delivered to the worker"
         );
+    }
+
+    #[test]
+    fn r3_step1_core_audio_errors_name_failing_call_and_osstatus() {
+        let bad_obj = hardware_err::BAD_OBJ;
+        let bad_dev = os::Error::new(i32::from_be_bytes(*b"!dev")).unwrap();
+
+        let err_tap = map_os_call("create_process_tap", bad_obj);
+        assert_eq!(
+            err_tap,
+            TapError::CoreAudio {
+                cause: TapFailureCause::Device,
+                call: "create_process_tap",
+                code: "!obj (560947818)".into(),
+            }
+        );
+        assert_eq!(err_tap.code(), "system_audio_device");
+        assert_ne!(err_tap.code(), "system_audio_permission_denied");
+
+        let err_hog = map_os_call("create_process_tap", hardware_err::PERMISSIONS);
+        assert!(matches!(
+            err_hog,
+            TapError::CoreAudio {
+                cause: TapFailureCause::Permission,
+                call: "create_process_tap",
+                ref code,
+            } if code.contains("!hog")
+        ));
+        assert_eq!(err_hog.code(), "system_audio_permission_denied");
+
+        let err_agg = map_os_call("create_aggregate_device", bad_dev);
+        assert_eq!(
+            err_agg,
+            TapError::CoreAudio {
+                cause: TapFailureCause::Device,
+                call: "create_aggregate_device",
+                code: "!dev (560227702)".into(),
+            }
+        );
+        assert_eq!(err_agg.code(), "system_audio_device");
+
+        let err_io = map_os_call("create_io_proc_id", bad_dev);
+        assert!(matches!(
+            err_io,
+            TapError::CoreAudio {
+                cause: TapFailureCause::Device,
+                call: "create_io_proc_id",
+                ref code,
+            } if code.contains("!dev")
+        ));
+
+        let err_start = map_os_call("device_start", bad_dev);
+        assert!(matches!(
+            err_start,
+            TapError::CoreAudio {
+                cause: TapFailureCause::Device,
+                call: "device_start",
+                ref code,
+            } if code.contains("!dev")
+        ));
+    }
+
+    #[test]
+    fn ac_b19k_bad_obj_maps_to_device_and_only_hog_maps_to_permission() {
+        let err_bad_obj = map_os_call("create_process_tap", hardware_err::BAD_OBJ);
+        assert_eq!(
+            err_bad_obj,
+            TapError::CoreAudio {
+                cause: TapFailureCause::Device,
+                call: "create_process_tap",
+                code: "!obj (560947818)".into(),
+            }
+        );
+        assert_ne!(err_bad_obj.code(), "system_audio_permission_denied");
+        assert_eq!(err_bad_obj.code(), "system_audio_device");
+
+        let err_other_bad_obj = map_os_call("create_aggregate_device", hardware_err::BAD_OBJ);
+        assert_eq!(
+            err_other_bad_obj,
+            TapError::CoreAudio {
+                cause: TapFailureCause::Device,
+                call: "create_aggregate_device",
+                code: "!obj (560947818)".into(),
+            }
+        );
+        assert_ne!(err_other_bad_obj.code(), "system_audio_permission_denied");
+
+        for call in [
+            "create_process_tap",
+            "create_aggregate_device",
+            "device_start",
+        ] {
+            let err_perm = map_os_call(call, hardware_err::PERMISSIONS);
+            assert!(matches!(
+                err_perm,
+                TapError::CoreAudio {
+                    cause: TapFailureCause::Permission,
+                    call: c,
+                    ref code,
+                } if c == call && code.contains("!hog")
+            ));
+            assert_eq!(err_perm.code(), "system_audio_permission_denied");
+        }
+    }
+
+    #[test]
+    fn ac_b19l_exclude_list_uses_translated_object_id_and_never_raw_pid() {
+        let raw_pid = std::process::id();
+        let translated_id = if raw_pid == 4242 { 4243 } else { 4242 };
+
+        let ok_list = exclude_process_object_ids(Ok(hardware::Process(Obj(translated_id))));
+        assert_eq!(ok_list, vec![translated_id]);
+        assert!(!ok_list.contains(&raw_pid));
+
+        let unknown_list = exclude_process_object_ids(Ok(hardware::Process(Obj::UNKNOWN)));
+        assert!(
+            unknown_list.is_empty(),
+            "Obj::UNKNOWN (0) must yield empty exclude list, got {unknown_list:?}"
+        );
+        assert!(!unknown_list.contains(&raw_pid));
+
+        let err_list = exclude_process_object_ids(Err(hardware_err::BAD_OBJ));
+        assert!(
+            err_list.is_empty(),
+            "translation Err must yield empty exclude list, got {err_list:?}"
+        );
+        assert!(!err_list.contains(&raw_pid));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "AC-B19m: live Core Audio call; run by Voice Brain with -- --ignored tap_"]
+    fn tap_with_translated_id() {
+        let excluded_ids =
+            exclude_process_object_ids(hardware::Process::with_pid(std::process::id() as i32));
+        let excluded_nums: Vec<_> = excluded_ids
+            .iter()
+            .map(|&id| ns::Number::with_u32(id))
+            .collect();
+        let excluded_refs: Vec<&ns::Number> =
+            excluded_nums.iter().map(|num| num.as_ref()).collect();
+        let excluded = ns::Array::from_slice(&excluded_refs);
+        let mut desc = TapDesc::with_mono_global_tap_excluding_processes(&excluded);
+        desc.set_mute_behavior(TapMuteBehavior::Unmuted);
+        desc.set_private(true);
+
+        match desc.create_process_tap() {
+            Ok(tap) => {
+                // Destroy the tap immediately.
+                drop(tap);
+            }
+            Err(err) => {
+                assert_ne!(
+                    err,
+                    hardware_err::BAD_OBJ,
+                    "translated process object id must not return !obj (kAudioHardwareBadObjectError): {}",
+                    format_os_error(err)
+                );
+            }
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore = "AC-B19m: live Core Audio raw-PID negative proof; run by Voice Brain with -- --ignored tap_"]
+    fn tap_with_raw_pid_gives_bad_object() {
+        let pid = ns::Number::with_u32(std::process::id());
+        let excluded = ns::Array::from_slice(&[pid.as_ref()]);
+        let mut desc = TapDesc::with_mono_global_tap_excluding_processes(&excluded);
+        desc.set_mute_behavior(TapMuteBehavior::Unmuted);
+        desc.set_private(true);
+
+        match desc.create_process_tap() {
+            Ok(tap) => {
+                drop(tap);
+                panic!(
+                    "expected raw PID ({}) in exclude list to fail with !obj (kAudioHardwareBadObjectError), but create_process_tap succeeded",
+                    std::process::id()
+                );
+            }
+            Err(err) => {
+                assert_eq!(
+                    err,
+                    hardware_err::BAD_OBJ,
+                    "expected !obj (kAudioHardwareBadObjectError) for raw PID, got {}",
+                    format_os_error(err)
+                );
+            }
+        }
     }
 }

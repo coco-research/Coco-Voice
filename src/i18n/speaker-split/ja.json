@@ -1,0 +1,23 @@
+{
+  "meetings": {
+    "speakersAriaPrefix": "Name for",
+    "speakersLegal": "Speaker labels are worked out per meeting and nothing about anyone's voice is saved.",
+    "speakersMeta": "Names in this meeting only.",
+    "speakersNoneYet": "No separated speaker turns in Others for this meeting.",
+    "speakersRenamedDesc": "Renamed in this meeting.",
+    "speakersTitle": "Speakers",
+    "speakersUnnamedBadge": "Unnamed",
+    "speakersUnnamedDesc": "No name typed for this meeting.",
+    "speakersDownloadButton": "ダウンロード",
+    "speakersDownloadNeeded": "話者分離には初回のみ 31 MB のダウンロードが必要です。",
+    "speakersWorking": "話者を判別中…"
+  },
+  "settings": {
+    "about": {
+      "acknowledgments": {
+        "pyannoteDetails": "On-device speaker turn segmentation model licensed under MIT, Copyright (c) 2022 CNRS (https://huggingface.co/pyannote/segmentation-3.0), packaged as ONNX by k2-fsa/sherpa-onnx.",
+        "wespeakerDetails": "Pretrained speaker embedding checkpoint trained on VoxCeleb under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) from WeSpeaker (https://github.com/wenet-e2e/wespeaker), converted to ONNX by k2-fsa/sherpa-onnx."
+      }
+    }
+  }
+}

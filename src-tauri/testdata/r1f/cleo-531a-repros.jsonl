@@ -1,0 +1,13 @@
+{"id":"c01","kind":"keep","input":"Call Sam, sorry, Don't bother."}
+{"id":"c02","kind":"keep","input":"Meet in Paris, never mind, Stay home."}
+{"id":"c03","kind":"keep","input":"Send it to Priya, I mean, Call me later."}
+{"id":"c04","kind":"keep","input":"Thanks, Sam, sorry, Wait up."}
+{"id":"c05","kind":"keep","input":"My flight lands at six, sorry, my phone died."}
+{"id":"c06","kind":"keep","input":"I saw the movie, sorry, I liked it."}
+{"id":"c07","kind":"keep","input":"We ate the cake, actually, the dog barked."}
+{"id":"c08","kind":"keep","input":"We are out of time, sorry, I have no time."}
+{"id":"c09","kind":"keep","input":"We missed the bus, never mind, we can walk home."}
+{"id":"c10","kind":"keep","input":"Don't worry about the dishes, never mind, I can do them later."}
+{"id":"c11","kind":"keep","input":"We missed the bus. Never mind, we can walk home."}
+{"id":"c12","kind":"retract","input":"We finished early, actually, let's meet Tuesday, no wait, Thursday."}
+{"id":"c13","kind":"retract","input":"Three pies, I mean four pies."}

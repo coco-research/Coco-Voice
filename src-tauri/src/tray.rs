@@ -167,6 +167,96 @@ fn version_label() -> String {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TrayMenuMode {
+    Idle,
+    RecordingDictation,
+    RecordingMeeting,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TrayItem {
+    Cancel,
+    StartMeeting,
+    StopMeeting,
+    PasteLastTake,
+    CopyLastTake,
+    OpenApp,
+    Separator,
+    ModelSubmenu,
+    UnloadModel,
+    Settings,
+    Version,
+    CheckUpdates,
+    Quit,
+}
+
+impl TrayItem {
+    /// Canonical Tauri menu item id used by `lib.rs`'s `on_menu_event` match.
+    pub const fn menu_id(self) -> Option<&'static str> {
+        match self {
+            Self::Cancel => Some("cancel"),
+            Self::StartMeeting => Some("start_meeting"),
+            Self::StopMeeting => Some("stop_meeting"),
+            Self::PasteLastTake => Some("paste_last_transcript"),
+            Self::CopyLastTake => Some("copy_last_transcript"),
+            Self::OpenApp => Some("open_app"),
+            Self::Separator => None,
+            Self::ModelSubmenu => Some("model_submenu"),
+            Self::UnloadModel => Some("unload_model"),
+            Self::Settings => Some("settings"),
+            Self::Version => Some("version"),
+            Self::CheckUpdates => Some("check_updates"),
+            Self::Quit => Some("quit"),
+        }
+    }
+}
+
+/// Pure M-c4 helper deciding whether the tray's meeting slot (Start or Stop)
+/// appears. On a meetings build, Stop is never hidden while a meeting records;
+/// Start shows only when Meetings is visible on this host.
+pub(crate) fn tray_includes_meetings(
+    meetings_feature: bool,
+    mode: TrayMenuMode,
+    meetings_visible: bool,
+) -> bool {
+    meetings_feature && (mode == TrayMenuMode::RecordingMeeting || meetings_visible)
+}
+
+/// Pure tray item order matching the approved 0.20 menu bar design (E4):
+/// Idle: Start recording a meeting, Paste last take, Copy last take, Open Coco Voice,
+///       —, model submenu, Unload model, Settings…, —, version, Check for updates, —, Quit.
+/// Dictation recording: Cancel first, then the idle list without model submenu & Unload.
+/// Meeting recording: item 1 becomes Stop recording the meeting.
+pub fn tray_items(mode: TrayMenuMode, include_meetings: bool) -> Vec<TrayItem> {
+    let mut items = Vec::with_capacity(16);
+    if mode == TrayMenuMode::RecordingDictation {
+        items.push(TrayItem::Cancel);
+        items.push(TrayItem::Separator);
+    }
+    if include_meetings {
+        items.push(match mode {
+            TrayMenuMode::RecordingMeeting => TrayItem::StopMeeting,
+            TrayMenuMode::Idle | TrayMenuMode::RecordingDictation => TrayItem::StartMeeting,
+        });
+    }
+    items.push(TrayItem::PasteLastTake);
+    items.push(TrayItem::CopyLastTake);
+    items.push(TrayItem::OpenApp);
+    items.push(TrayItem::Separator);
+    if mode != TrayMenuMode::RecordingDictation {
+        items.push(TrayItem::ModelSubmenu);
+        items.push(TrayItem::UnloadModel);
+    }
+    items.push(TrayItem::Settings);
+    items.push(TrayItem::Separator);
+    items.push(TrayItem::Version);
+    items.push(TrayItem::CheckUpdates);
+    items.push(TrayItem::Separator);
+    items.push(TrayItem::Quit);
+    items
+}
+
 pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
     let state = app.state::<CurrentTrayIconState>().get();
     let settings = settings::get_settings(app);
@@ -200,18 +290,50 @@ pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
         None::<&str>,
     )
     .expect("failed to create check updates item");
+    let copy_last_label = if strings.copy_last_take.trim().is_empty() {
+        &strings.copy_last_transcript
+    } else {
+        &strings.copy_last_take
+    };
     let copy_last_transcript_i = MenuItem::with_id(
         app,
         "copy_last_transcript",
-        &strings.copy_last_transcript,
+        copy_last_label,
         true,
         None::<&str>,
     )
     .expect("failed to create copy last transcript item");
+    let paste_last_transcript_i = MenuItem::with_id(
+        app,
+        "paste_last_transcript",
+        &strings.paste_last_take,
+        true,
+        None::<&str>,
+    )
+    .expect("failed to create paste last transcript item");
+    let open_app_i = MenuItem::with_id(app, "open_app", &strings.open_app, true, None::<&str>)
+        .expect("failed to create open app item");
+    let start_meeting_i = MenuItem::with_id(
+        app,
+        "start_meeting",
+        &strings.start_recording_meeting,
+        true,
+        None::<&str>,
+    )
+    .expect("failed to create start meeting item");
+    let stop_meeting_i = MenuItem::with_id(
+        app,
+        "stop_meeting",
+        &strings.stop_recording_meeting,
+        true,
+        None::<&str>,
+    )
+    .expect("failed to create stop meeting item");
+    let cancel_i = MenuItem::with_id(app, "cancel", &strings.cancel, true, None::<&str>)
+        .expect("failed to create cancel item");
     let model_loaded = app.state::<Arc<TranscriptionManager>>().is_model_loaded();
     let quit_i = MenuItem::with_id(app, "quit", &strings.quit, true, quit_accelerator)
         .expect("failed to create quit item");
-    let separator = || PredefinedMenuItem::separator(app).expect("failed to create separator");
 
     // Build model submenu — label is the active model name
     let model_manager = app.state::<Arc<ModelManager>>();
@@ -252,45 +374,48 @@ pub fn update_tray_menu(app: &AppHandle, locale: Option<&str>) {
     )
     .expect("failed to create unload model item");
 
-    let menu = match state {
-        TrayIconState::Recording | TrayIconState::Transcribing => {
-            let cancel_i = MenuItem::with_id(app, "cancel", &strings.cancel, true, None::<&str>)
-                .expect("failed to create cancel item");
-            Menu::with_items(
-                app,
-                &[
-                    &version_i,
-                    &separator(),
-                    &cancel_i,
-                    &separator(),
-                    &copy_last_transcript_i,
-                    &separator(),
-                    &settings_i,
-                    &check_updates_i,
-                    &separator(),
-                    &quit_i,
-                ],
-            )
-            .expect("failed to create menu")
-        }
-        TrayIconState::Idle => Menu::with_items(
-            app,
-            &[
-                &version_i,
-                &separator(),
-                &copy_last_transcript_i,
-                &separator(),
-                &model_submenu,
-                &unload_model_i,
-                &separator(),
-                &settings_i,
-                &check_updates_i,
-                &separator(),
-                &quit_i,
-            ],
-        )
-        .expect("failed to create menu"),
+    #[cfg(feature = "meetings")]
+    let meeting_active = crate::managers::meetings::meeting_is_active();
+    #[cfg(not(feature = "meetings"))]
+    let meeting_active = false;
+
+    let mode = match state {
+        TrayIconState::Recording | TrayIconState::Transcribing => TrayMenuMode::RecordingDictation,
+        TrayIconState::Idle if meeting_active => TrayMenuMode::RecordingMeeting,
+        TrayIconState::Idle => TrayMenuMode::Idle,
     };
+
+    #[cfg(feature = "meetings")]
+    let meetings_visible = settings::meetings_visible_on_this_host(settings.meetings_enabled);
+    #[cfg(not(feature = "meetings"))]
+    let meetings_visible = false;
+    let include_meetings =
+        tray_includes_meetings(cfg!(feature = "meetings"), mode, meetings_visible);
+    let plan = tray_items(mode, include_meetings);
+    let menu = Menu::new(app).expect("failed to create menu");
+    for entry in plan {
+        let res = match entry {
+            TrayItem::Cancel => menu.append(&cancel_i),
+            TrayItem::StartMeeting => menu.append(&start_meeting_i),
+            TrayItem::StopMeeting => menu.append(&stop_meeting_i),
+            TrayItem::PasteLastTake => menu.append(&paste_last_transcript_i),
+            TrayItem::CopyLastTake => menu.append(&copy_last_transcript_i),
+            TrayItem::OpenApp => menu.append(&open_app_i),
+            TrayItem::Separator => {
+                let sep = PredefinedMenuItem::separator(app).expect("failed to create separator");
+                menu.append(&sep)
+            }
+            TrayItem::ModelSubmenu => menu.append(&model_submenu),
+            TrayItem::UnloadModel => menu.append(&unload_model_i),
+            TrayItem::Settings => menu.append(&settings_i),
+            TrayItem::Version => menu.append(&version_i),
+            TrayItem::CheckUpdates => menu.append(&check_updates_i),
+            TrayItem::Quit => menu.append(&quit_i),
+        };
+        if let Err(err) = res {
+            error!("Failed to append tray menu item {:?}: {}", entry, err);
+        }
+    }
 
     let tray = app.state::<TrayIcon>();
     let _ = tray.set_menu(Some(menu));
@@ -314,28 +439,232 @@ pub fn set_tray_visibility(app: &AppHandle, visible: bool) {
     }
 }
 
-pub fn copy_last_transcript(app: &AppHandle) {
-    let history_manager = app.state::<Arc<HistoryManager>>();
-    let entry = match history_manager.get_latest_completed_entry() {
-        Ok(Some(entry)) => entry,
-        Ok(None) => {
-            warn!("No completed transcription history entries available for tray copy.");
-            return;
-        }
-        Err(err) => {
-            error!(
-                "Failed to fetch last completed transcription entry: {}",
-                err
-            );
-            return;
-        }
-    };
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PasteLastTakeError {
+    BlockedApp,
+    FrontmostAppUnknown,
+    NoCompletedTake,
+    EmptyTake,
+}
 
-    let text = last_transcript_text(&entry);
-    if text.trim().is_empty() {
-        warn!("Last completed transcription is empty; skipping tray copy.");
-        return;
+impl std::fmt::Display for PasteLastTakeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let code = match self {
+            Self::BlockedApp => "blocked_app",
+            Self::FrontmostAppUnknown => "frontmost_app_unknown",
+            Self::NoCompletedTake => "no_completed_take",
+            Self::EmptyTake => "empty_take",
+        };
+        f.write_str(code)
     }
+}
+
+fn has_blocked_apps(blocked_apps: &[String]) -> bool {
+    blocked_apps.iter().any(|b| !b.trim().is_empty())
+}
+
+/// Parses an exact bundle identifier from `lsappinfo info -only bundleid` output
+/// (`"CFBundleIdentifier"="com.apple.Notes"` or `"bundleID"="com.apple.Notes"`),
+/// returning `None` on non-zero exit status, `[ NULL ]`, or malformed lines.
+pub fn parse_lsappinfo_bundle_id(status_ok: bool, stdout: &str) -> Option<String> {
+    if !status_ok {
+        return None;
+    }
+    for line in stdout.lines() {
+        let Some((lhs, rhs)) = line.split_once('=') else {
+            continue;
+        };
+        let key = lhs.trim().trim_matches('"');
+        if !key.eq_ignore_ascii_case("CFBundleIdentifier") && !key.eq_ignore_ascii_case("bundleID")
+        {
+            continue;
+        }
+        let quoted = rhs.trim();
+        let inner = quoted.strip_prefix('"')?.strip_suffix('"')?.trim();
+        if inner.is_empty()
+            || inner.eq_ignore_ascii_case("null")
+            || inner.chars().any(|c| c.is_whitespace() || c == '"')
+        {
+            return None;
+        }
+        return Some(inner.to_string());
+    }
+    None
+}
+
+pub fn is_app_blocked_for_paste(active_bundle_id: Option<&str>, blocked_apps: &[String]) -> bool {
+    if !has_blocked_apps(blocked_apps) {
+        return false;
+    }
+    let Some(bundle_id) = active_bundle_id.map(str::trim).filter(|s| !s.is_empty()) else {
+        // Fail closed when a block list is configured and the frontmost app cannot be identified.
+        return true;
+    };
+    blocked_apps.iter().any(|entry| {
+        let candidate = entry.trim();
+        !candidate.is_empty() && bundle_id.eq_ignore_ascii_case(candidate)
+    })
+}
+
+pub fn resolve_last_take_for_paste_in_app(
+    entry: Option<&HistoryEntry>,
+    active_bundle_id: Option<&str>,
+    blocked_apps: &[String],
+) -> Result<String, PasteLastTakeError> {
+    if has_blocked_apps(blocked_apps) {
+        let Some(bundle_id) = active_bundle_id.map(str::trim).filter(|s| !s.is_empty()) else {
+            return Err(PasteLastTakeError::FrontmostAppUnknown);
+        };
+        if is_app_blocked_for_paste(Some(bundle_id), blocked_apps) {
+            return Err(PasteLastTakeError::BlockedApp);
+        }
+    }
+    let entry = entry.ok_or(PasteLastTakeError::NoCompletedTake)?;
+    let text = last_transcript_text(entry);
+    if text.trim().is_empty() {
+        return Err(PasteLastTakeError::EmptyTake);
+    }
+    Ok(text.to_string())
+}
+
+pub fn resolve_last_take_for_paste(
+    entry: Option<&HistoryEntry>,
+) -> Result<String, PasteLastTakeError> {
+    resolve_last_take_for_paste_in_app(entry, None, &[])
+}
+
+fn frontmost_app_identifier() -> Option<String> {
+    #[cfg(target_os = "macos")]
+    {
+        let front = std::process::Command::new("lsappinfo")
+            .arg("front")
+            .output()
+            .ok()?;
+        if !front.status.success() {
+            return None;
+        }
+        let asn = std::str::from_utf8(&front.stdout).ok()?.trim();
+        if asn.is_empty() || !asn.starts_with("ASN:") {
+            return None;
+        }
+        let info = std::process::Command::new("lsappinfo")
+            .args(["info", "-only", "bundleid", asn])
+            .output()
+            .ok()?;
+        let stdout = String::from_utf8(info.stdout).ok()?;
+        parse_lsappinfo_bundle_id(info.status.success(), &stdout)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
+}
+
+pub fn resolve_last_take_with_memory_in_app(
+    never_store_history: bool,
+    in_memory: Option<&str>,
+    entry: Option<&HistoryEntry>,
+    active_bundle_id: Option<&str>,
+    blocked_apps: &[String],
+) -> Result<String, PasteLastTakeError> {
+    if has_blocked_apps(blocked_apps) {
+        let Some(bundle_id) = active_bundle_id.map(str::trim).filter(|s| !s.is_empty()) else {
+            return Err(PasteLastTakeError::FrontmostAppUnknown);
+        };
+        if is_app_blocked_for_paste(Some(bundle_id), blocked_apps) {
+            return Err(PasteLastTakeError::BlockedApp);
+        }
+    }
+    if let Some(mem) = in_memory.map(str::trim).filter(|s| !s.is_empty()) {
+        return Ok(mem.to_string());
+    }
+    if never_store_history {
+        return Err(PasteLastTakeError::NoCompletedTake);
+    }
+    resolve_last_take_for_paste_in_app(entry, active_bundle_id, blocked_apps)
+}
+
+pub fn paste_last_transcript(app: &AppHandle) {
+    let app_clone = app.clone();
+    std::thread::spawn(move || {
+        let settings = settings::get_settings(&app_clone);
+        if crate::app_profiles::check_active_app_start(&settings).is_blocked() {
+            warn!("Skipping tray paste_last_transcript: blocked by dictation gate");
+            return;
+        }
+        let active_app = if has_blocked_apps(&settings.never_dictate_apps) {
+            frontmost_app_identifier()
+        } else {
+            None
+        };
+        let in_memory = app_clone
+            .try_state::<crate::last_take::LastTake>()
+            .and_then(|lt| lt.get());
+        let entry = if in_memory.is_some() || settings.never_store_history {
+            None
+        } else {
+            let history_manager = app_clone.state::<Arc<HistoryManager>>();
+            match history_manager.get_latest_completed_entry() {
+                Ok(entry) => entry,
+                Err(err) => {
+                    error!("Failed to fetch last completed transcription entry for paste: {err}");
+                    return;
+                }
+            }
+        };
+        let text = match resolve_last_take_with_memory_in_app(
+            settings.never_store_history,
+            in_memory.as_deref(),
+            entry.as_ref(),
+            active_app.as_deref(),
+            &settings.never_dictate_apps,
+        ) {
+            Ok(text) => text,
+            Err(reason) => {
+                warn!("Skipping tray paste_last_transcript: {reason}");
+                return;
+            }
+        };
+        match crate::utils::replace_previous(0, text, app_clone) {
+            Ok(_) => info!("Pasted last transcript via tray."),
+            Err(err) => error!("Failed to paste last transcript via tray: {err}"),
+        }
+    });
+}
+
+pub fn copy_last_transcript(app: &AppHandle) {
+    let settings = settings::get_settings(app);
+    let in_memory = app
+        .try_state::<crate::last_take::LastTake>()
+        .and_then(|lt| lt.get());
+    let text = if let Some(mem) = in_memory.filter(|s| !s.trim().is_empty()) {
+        mem
+    } else if settings.never_store_history {
+        warn!("No in-memory take available for tray copy in Never store mode.");
+        return;
+    } else {
+        let history_manager = app.state::<Arc<HistoryManager>>();
+        let entry = match history_manager.get_latest_completed_entry() {
+            Ok(Some(entry)) => entry,
+            Ok(None) => {
+                warn!("No completed transcription history entries available for tray copy.");
+                return;
+            }
+            Err(err) => {
+                error!(
+                    "Failed to fetch last completed transcription entry: {}",
+                    err
+                );
+                return;
+            }
+        };
+        let db_text = last_transcript_text(&entry).to_string();
+        if db_text.trim().is_empty() {
+            warn!("Last completed transcription is empty; skipping tray copy.");
+            return;
+        }
+        db_text
+    };
 
     if let Err(err) = app.clipboard().write_text(text) {
         error!("Failed to copy last transcript to clipboard: {}", err);
@@ -347,7 +676,10 @@ pub fn copy_last_transcript(app: &AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::{last_transcript_text, load_tray_icon};
+    use super::{
+        is_app_blocked_for_paste, last_transcript_text, load_tray_icon, parse_lsappinfo_bundle_id,
+        resolve_last_take_for_paste, resolve_last_take_for_paste_in_app, PasteLastTakeError,
+    };
     use crate::managers::history::HistoryEntry;
 
     fn build_entry(transcription: &str, post_processed: Option<&str>) -> HistoryEntry {
@@ -361,6 +693,8 @@ mod tests {
             post_processed_text: post_processed.map(|text| text.to_string()),
             post_process_prompt: None,
             post_process_requested: false,
+            app_name: None,
+            detected_language: None,
         }
     }
 
@@ -386,5 +720,290 @@ mod tests {
         let dir = tempfile::tempdir().expect("failed to create tempdir");
         let missing = dir.path().join("does_not_exist.png");
         assert!(load_tray_icon(Ok(missing)).is_err());
+    }
+
+    #[test]
+    fn paste_last_take_prefers_cleaned_text_and_rejects_missing_or_empty_entry() {
+        assert_eq!(
+            resolve_last_take_for_paste(None),
+            Err(PasteLastTakeError::NoCompletedTake)
+        );
+        let empty = build_entry("   ", None);
+        assert_eq!(
+            resolve_last_take_for_paste(Some(&empty)),
+            Err(PasteLastTakeError::EmptyTake)
+        );
+        let raw_only = build_entry("raw spoken words", None);
+        assert_eq!(
+            resolve_last_take_for_paste(Some(&raw_only)),
+            Ok("raw spoken words".to_string())
+        );
+        let cleaned = build_entry("raw spoken words", Some("Cleaned spoken words."));
+        assert_eq!(
+            resolve_last_take_for_paste(Some(&cleaned)),
+            Ok("Cleaned spoken words.".to_string())
+        );
+        let blocked = vec!["com.1password.1password".to_string()];
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(
+                Some(&cleaned),
+                Some("com.1password.1password"),
+                &blocked
+            ),
+            Err(PasteLastTakeError::BlockedApp)
+        );
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(Some(&cleaned), Some("com.apple.Notes"), &blocked),
+            Ok("Cleaned spoken words.".to_string())
+        );
+    }
+
+    #[test]
+    fn block_list_matches_exact_bundle_id_and_fails_closed_when_frontmost_unknown() {
+        let cleaned = build_entry("raw", Some("Cleaned spoken words."));
+        let notes_blocked = vec!["com.apple.notes".to_string(), "note".to_string()];
+
+        assert!(is_app_blocked_for_paste(
+            Some("com.apple.Notes"),
+            &notes_blocked
+        ));
+        assert!(!is_app_blocked_for_paste(
+            Some("com.somevendor.notesplus"),
+            &notes_blocked
+        ));
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(
+                Some(&cleaned),
+                Some("com.somevendor.notesplus"),
+                &notes_blocked
+            ),
+            Ok("Cleaned spoken words.".to_string())
+        );
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(
+                Some(&cleaned),
+                Some("com.apple.Notes"),
+                &["note".to_string()]
+            ),
+            Ok("Cleaned spoken words.".to_string())
+        );
+        // Fail closed when block list has entries and frontmost bundle ID is unknown.
+        assert!(is_app_blocked_for_paste(None, &notes_blocked));
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(Some(&cleaned), None, &notes_blocked),
+            Err(PasteLastTakeError::FrontmostAppUnknown)
+        );
+        // Empty block list allows paste without needing frontmost inspection.
+        assert!(!is_app_blocked_for_paste(None, &[]));
+        assert_eq!(
+            resolve_last_take_for_paste_in_app(Some(&cleaned), None, &[String::from("   ")]),
+            Ok("Cleaned spoken words.".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_lsappinfo_bundle_id_checks_exit_status_and_extracts_exact_quoted_id() {
+        assert_eq!(
+            parse_lsappinfo_bundle_id(true, "\"CFBundleIdentifier\"=\"com.apple.Notes\"\n"),
+            Some("com.apple.Notes".to_string())
+        );
+        assert_eq!(
+            parse_lsappinfo_bundle_id(
+                true,
+                "\"LSDisplayName\"=\"1Password\"\n\"bundleID\"=\"com.1password.1password\"\n"
+            ),
+            Some("com.1password.1password".to_string())
+        );
+        assert_eq!(
+            parse_lsappinfo_bundle_id(false, "\"CFBundleIdentifier\"=\"com.apple.Notes\"\n"),
+            None
+        );
+        assert_eq!(
+            parse_lsappinfo_bundle_id(true, "\"CFBundleIdentifier\"=[ NULL ]\n"),
+            None
+        );
+        assert_eq!(parse_lsappinfo_bundle_id(true, "malformed output"), None);
+        assert_eq!(parse_lsappinfo_bundle_id(true, ""), None);
+    }
+
+    #[test]
+    fn paste_last_take_label_is_present_across_all_locales() {
+        assert!(crate::tray_i18n::TRANSLATIONS.len() >= 22);
+        for (lang, strings) in crate::tray_i18n::TRANSLATIONS.iter() {
+            assert!(
+                !strings.paste_last_take.trim().is_empty(),
+                "missing tray.pasteLastTake for locale {lang}"
+            );
+        }
+    }
+
+    #[test]
+    fn never_mode_paste_last_take_uses_in_memory_take_and_is_empty_without_one() {
+        use super::resolve_last_take_with_memory_in_app;
+        let db_row = build_entry("older db text", None);
+
+        // Never mode with in-memory take returns the in-memory take.
+        assert_eq!(
+            resolve_last_take_with_memory_in_app(
+                true,
+                Some("purple elephant forty two"),
+                Some(&db_row),
+                None,
+                &[],
+            ),
+            Ok("purple elephant forty two".to_string())
+        );
+
+        // Never mode after restart (in-memory None) returns NoCompletedTake even if a starred DB row exists.
+        assert_eq!(
+            resolve_last_take_with_memory_in_app(true, None, Some(&db_row), None, &[]),
+            Err(PasteLastTakeError::NoCompletedTake)
+        );
+
+        // Normal mode falls back to DB when in-memory is empty.
+        assert_eq!(
+            resolve_last_take_with_memory_in_app(false, None, Some(&db_row), None, &[]),
+            Ok("older db text".to_string())
+        );
+    }
+
+    #[test]
+    fn tray_items_match_drawn_order_for_idle_dictation_and_meeting() {
+        use super::{tray_items, TrayItem, TrayMenuMode};
+
+        assert_eq!(
+            tray_items(TrayMenuMode::Idle, true),
+            vec![
+                TrayItem::StartMeeting,
+                TrayItem::PasteLastTake,
+                TrayItem::CopyLastTake,
+                TrayItem::OpenApp,
+                TrayItem::Separator,
+                TrayItem::ModelSubmenu,
+                TrayItem::UnloadModel,
+                TrayItem::Settings,
+                TrayItem::Separator,
+                TrayItem::Version,
+                TrayItem::CheckUpdates,
+                TrayItem::Separator,
+                TrayItem::Quit,
+            ]
+        );
+
+        assert_eq!(
+            tray_items(TrayMenuMode::RecordingDictation, true),
+            vec![
+                TrayItem::Cancel,
+                TrayItem::Separator,
+                TrayItem::StartMeeting,
+                TrayItem::PasteLastTake,
+                TrayItem::CopyLastTake,
+                TrayItem::OpenApp,
+                TrayItem::Separator,
+                TrayItem::Settings,
+                TrayItem::Separator,
+                TrayItem::Version,
+                TrayItem::CheckUpdates,
+                TrayItem::Separator,
+                TrayItem::Quit,
+            ]
+        );
+
+        let meeting = tray_items(TrayMenuMode::RecordingMeeting, true);
+        assert_eq!(meeting.first(), Some(&TrayItem::StopMeeting));
+        assert_eq!(meeting.last(), Some(&TrayItem::Quit));
+
+        // Without meetings feature, neither StartMeeting nor StopMeeting appears.
+        let no_meetings = tray_items(TrayMenuMode::Idle, false);
+        assert!(!no_meetings.contains(&TrayItem::StartMeeting));
+        assert!(!no_meetings.contains(&TrayItem::StopMeeting));
+        assert_eq!(no_meetings.first(), Some(&TrayItem::PasteLastTake));
+    }
+
+    #[test]
+    fn tray_item_ids_map_to_canonical_handlers() {
+        use super::TrayItem;
+
+        let expected = [
+            (TrayItem::Cancel, Some("cancel")),
+            (TrayItem::StartMeeting, Some("start_meeting")),
+            (TrayItem::StopMeeting, Some("stop_meeting")),
+            (TrayItem::PasteLastTake, Some("paste_last_transcript")),
+            (TrayItem::CopyLastTake, Some("copy_last_transcript")),
+            (TrayItem::OpenApp, Some("open_app")),
+            (TrayItem::Separator, None),
+            (TrayItem::ModelSubmenu, Some("model_submenu")),
+            (TrayItem::UnloadModel, Some("unload_model")),
+            (TrayItem::Settings, Some("settings")),
+            (TrayItem::Version, Some("version")),
+            (TrayItem::CheckUpdates, Some("check_updates")),
+            (TrayItem::Quit, Some("quit")),
+        ];
+        for (item, id) in expected {
+            assert_eq!(item.menu_id(), id);
+        }
+    }
+
+    #[test]
+    fn plan_e_tray_labels_are_present_across_all_locales() {
+        assert!(crate::tray_i18n::TRANSLATIONS.len() >= 22);
+        for (lang, strings) in crate::tray_i18n::TRANSLATIONS.iter() {
+            assert!(
+                !strings.start_recording_meeting.trim().is_empty(),
+                "missing tray.startRecordingMeeting for locale {lang}"
+            );
+            assert!(
+                !strings.stop_recording_meeting.trim().is_empty(),
+                "missing tray.stopRecordingMeeting for locale {lang}"
+            );
+            assert!(
+                !strings.copy_last_take.trim().is_empty(),
+                "missing tray.copyLastTake for locale {lang}"
+            );
+            assert!(
+                !strings.open_app.trim().is_empty(),
+                "missing tray.openApp for locale {lang}"
+            );
+        }
+    }
+
+    /// T-mc5 (M-c4): tray meeting slot follows the Meetings switch in Idle/Dictation
+    /// and never hides Stop while a meeting is recording.
+    #[test]
+    fn t_mc5_tray_meeting_slot_follows_switch_and_keeps_stop_while_recording() {
+        use super::{tray_includes_meetings, tray_items, TrayItem, TrayMenuMode};
+
+        // Switch off & idle: no Start item.
+        let off_idle_inc = tray_includes_meetings(true, TrayMenuMode::Idle, false);
+        assert!(!off_idle_inc);
+        let off_idle = tray_items(TrayMenuMode::Idle, off_idle_inc);
+        assert!(!off_idle.contains(&TrayItem::StartMeeting));
+        assert!(!off_idle.contains(&TrayItem::StopMeeting));
+
+        // Switch off & dictation: no Start item.
+        let off_dict_inc = tray_includes_meetings(true, TrayMenuMode::RecordingDictation, false);
+        assert!(!off_dict_inc);
+        let off_dict = tray_items(TrayMenuMode::RecordingDictation, off_dict_inc);
+        assert!(!off_dict.contains(&TrayItem::StartMeeting));
+
+        // Switch on & idle: Start is first.
+        let on_idle_inc = tray_includes_meetings(true, TrayMenuMode::Idle, true);
+        assert!(on_idle_inc);
+        let on_idle = tray_items(TrayMenuMode::Idle, on_idle_inc);
+        assert_eq!(on_idle.first(), Some(&TrayItem::StartMeeting));
+
+        // Switch off while a meeting records: Stop is still first.
+        let off_rec_inc = tray_includes_meetings(true, TrayMenuMode::RecordingMeeting, false);
+        assert!(off_rec_inc);
+        let off_rec = tray_items(TrayMenuMode::RecordingMeeting, off_rec_inc);
+        assert_eq!(off_rec.first(), Some(&TrayItem::StopMeeting));
+
+        // Without the meetings feature: never included, even in RecordingMeeting.
+        assert!(!tray_includes_meetings(false, TrayMenuMode::Idle, true));
+        assert!(!tray_includes_meetings(
+            false,
+            TrayMenuMode::RecordingMeeting,
+            true
+        ));
     }
 }

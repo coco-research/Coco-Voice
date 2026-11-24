@@ -104,10 +104,15 @@ pub struct MeetingTodo {
     pub text: String,
     pub status: TodoStatus,
     pub origin: TodoMoment,
+    #[serde(default)]
+    pub said_by_me: bool,
     pub completed_meeting_id: Option<i64>,
     pub completed_segment_id: Option<i64>,
     pub completed_start_ms: Option<i64>,
 }
+
+/// Default lookback window for "Your to-dos" (14 days, AC-X37).
+pub const TODOS_LOOKBACK_DAYS: i64 = 14;
 
 pub fn format_timestamp_ms(ms: i64) -> String {
     let total_secs = (ms.max(0)) / 1000;
@@ -263,12 +268,24 @@ impl MeetingTodoStore {
         {
             return Ok(Vec::new());
         }
-        let mut st = conn.prepare(
+        let has_trash: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = 'meeting_trash'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(false);
+        let trash_filter = if has_trash {
+            " AND NOT EXISTS (SELECT 1 FROM meeting_trash t WHERE t.meeting_id = m.id)"
+        } else {
+            ""
+        };
+        let mut st = conn.prepare(&format!(
             "SELECT m.id, m.title, m.started_at, s.id, s.start_ms, s.end_ms, s.channel, s.text
              FROM meetings m JOIN meeting_segments s ON s.meeting_id = m.id
-             WHERE m.status != 'trashed'
-             ORDER BY m.started_at ASC, m.id ASC, s.start_ms ASC, s.id ASC",
-        )?;
+             WHERE m.status != 'trashed'{trash_filter}
+             ORDER BY m.started_at ASC, m.id ASC, s.start_ms ASC, s.id ASC"
+        ))?;
         let rows = st
             .query_map([], |r| {
                 Ok((
@@ -286,21 +303,111 @@ impl MeetingTodoStore {
         Ok(rows)
     }
 
+    fn read_me_action_notes(&self) -> Result<Vec<(String, String, SegRow)>> {
+        if !self.meetings_db_path.exists() {
+            return Ok(Vec::new());
+        }
+        let conn = Connection::open(&self.meetings_db_path)?;
+        conn.busy_timeout(Duration::from_secs(1))?;
+        let has_notes: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = 'meeting_notes'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(false);
+        if !has_notes {
+            return Ok(Vec::new());
+        }
+        let has_trash: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = 'meeting_trash'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(false);
+        let trash_filter = if has_trash {
+            " AND NOT EXISTS (SELECT 1 FROM meeting_trash t WHERE t.meeting_id = m.id)"
+        } else {
+            ""
+        };
+        let mut st = conn.prepare(&format!(
+            "SELECT m.id, m.title, m.started_at, n.text, n.citations
+             FROM meetings m JOIN meeting_notes n ON n.meeting_id = m.id
+             WHERE m.status != 'trashed'{trash_filter}
+               AND LOWER(n.kind) IN ('action', 'actions')
+               AND LOWER(COALESCE(n.owner, '')) IN ('me', 'mic')
+             ORDER BY m.started_at ASC, m.id ASC, n.position ASC"
+        ))?;
+        let rows: Vec<(i64, String, i64, String, String)> = st
+            .query_map([], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        let mut out = Vec::new();
+        for (mid, title, started_at, text, raw_cites) in rows {
+            let clean = text.trim();
+            if clean.is_empty() {
+                continue;
+            }
+            let cids = serde_json::from_str::<Vec<i64>>(&raw_cites).unwrap_or_default();
+            let first_cid = cids.first().copied().unwrap_or(0);
+            let seg_info: Option<(i64, i64, i64, String, String)> = if first_cid > 0 {
+                conn.query_row(
+                    "SELECT id, start_ms, end_ms, channel, text FROM meeting_segments WHERE id = ?1 AND meeting_id = ?2",
+                    params![first_cid, mid],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+                )
+                .optional()?
+            } else {
+                None
+            };
+            let (seg_id, start_ms, end_ms, ch, seg_text) =
+                seg_info.unwrap_or((first_cid, 0, 0, "me".to_string(), clean.to_string()));
+            let tokens = content_tokens(clean);
+            if tokens.is_empty() {
+                continue;
+            }
+            let key = tokens.join(" ");
+            out.push((
+                key,
+                clean.to_string(),
+                (
+                    mid, title, started_at, seg_id, start_ms, end_ms, ch, seg_text,
+                ),
+            ));
+        }
+        Ok(out)
+    }
+
     pub fn sync(&self) -> Result<Vec<MeetingTodo>> {
         let segments = self.read_segments()?;
+        let action_notes = self.read_me_action_notes()?;
         let (mut earliest, mut completions) = (HashMap::new(), HashMap::new());
         let mut ordered_keys: Vec<String> = Vec::new();
+        let mut meetings_with_action_notes: HashSet<i64> = HashSet::new();
+
+        for (key, display, origin_seg) in action_notes {
+            meetings_with_action_notes.insert(origin_seg.0);
+            let k_copy = key.clone();
+            earliest.entry(key).or_insert_with(|| {
+                ordered_keys.push(k_copy);
+                (display, origin_seg)
+            });
+        }
 
         for seg in &segments {
             if !is_user_channel(&seg.6) {
                 continue;
             }
-            for (key, display) in extract_commitments(&seg.7) {
-                let k_copy = key.clone();
-                earliest.entry(key).or_insert_with(|| {
-                    ordered_keys.push(k_copy);
-                    (display, seg.clone())
-                });
+            if !meetings_with_action_notes.contains(&seg.0) {
+                for (key, display) in extract_commitments(&seg.7) {
+                    let k_copy = key.clone();
+                    earliest.entry(key).or_insert_with(|| {
+                        ordered_keys.push(k_copy);
+                        (display, seg.clone())
+                    });
+                }
             }
             for comp_set in extract_completion_token_sets(&seg.7) {
                 for key in &ordered_keys {
@@ -383,6 +490,7 @@ impl MeetingTodoStore {
                             end_ms: r.get(8)?,
                             timestamp: format_timestamp_ms(start_ms),
                         },
+                        said_by_me: true,
                         completed_meeting_id: r.get(9)?,
                         completed_segment_id: r.get(10)?,
                         completed_start_ms: r.get(11)?,
@@ -391,6 +499,12 @@ impl MeetingTodoStore {
             )?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(out)
+    }
+
+    /// List open to-dos from the last 14 days (`AC-X37`).
+    pub fn list_last_14_days(&self, now_secs: i64) -> Result<Vec<MeetingTodo>> {
+        let cutoff = now_secs.saturating_sub(TODOS_LOOKBACK_DAYS * 86_400);
+        self.list(false, Some(cutoff))
     }
 
     pub fn set_status(&self, todo_id: i64, status: TodoStatus) -> Result<()> {

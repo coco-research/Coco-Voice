@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { platform } from "@tauri-apps/plugin-os";
 import {
@@ -19,9 +19,50 @@ import {
   accessibilityStatus,
   type AccessibilityCheck,
 } from "@/lib/utils/accessibilityStatus";
-import CocoVoiceTextLogo from "../icons/CocoVoiceTextLogo";
+import { invoke } from "@tauri-apps/api/core";
 import PermissionAction, { type PermissionStatus } from "./PermissionAction";
-import { Keyboard, Mic, Check, Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
+
+const DOT_FILLED = "●";
+export const STALE_AX_RECHECK_INTERVAL_MS = 1500;
+
+export async function persistContinueWithoutTyping(
+  changePasteMethod: (method: string) => Promise<unknown> = (m) =>
+    commands.changePasteMethodSetting(m),
+  refreshSettings?: () => Promise<unknown>,
+  finish?: () => Promise<unknown> | void,
+): Promise<void> {
+  try {
+    await changePasteMethod("none");
+    await refreshSettings?.();
+  } catch {
+    // Clipboard fallback works outside Tauri runtime too.
+  }
+  await finish?.();
+}
+
+export async function probeAccessibilityStatus(
+  checkTrusted: () => Promise<PermissionCheckResult> = () =>
+    runPermissionCheck(checkAccessibilityPermission),
+  runInputProbe: () => Promise<"ok" | "failed"> = () =>
+    commands
+      .initializeEnigo()
+      .then((result) => (result.status === "ok" ? "ok" : "failed"))
+      .catch(() => "failed" as const),
+  checkBackendStale: () => Promise<boolean> = () =>
+    invoke<boolean>("check_accessibility_stale").catch(() => false),
+): Promise<AccessibilityCheck> {
+  const trusted = await checkTrusted();
+  if (trusted !== "granted") return trusted;
+  const probe = await runInputProbe();
+  if (probe === "failed") {
+    console.warn("Input probe failed");
+    return accessibilityStatus(trusted, probe);
+  }
+  const backendStale = await checkBackendStale();
+  if (backendStale) return "stale";
+  return accessibilityStatus(trusted, probe);
+}
 
 interface AccessibilityOnboardingProps {
   onComplete: () => void;
@@ -33,6 +74,219 @@ interface PermissionsState {
   accessibility: PermissionStatus;
   microphone: PermissionStatus;
 }
+
+export interface FirstRunWelcomeCardProps {
+  microphoneStatus: PermissionStatus;
+  accessibilityStatus: PermissionStatus;
+  showMicrophone?: boolean;
+  showAccessibility?: boolean;
+  isWindows?: boolean;
+  onGrantMicrophone: () => void;
+  onGrantAccessibility: () => void;
+  onRetry: () => void;
+  onContinueWithoutTyping: () => void;
+}
+
+export const FirstRunWelcomeCard: React.FC<FirstRunWelcomeCardProps> = ({
+  microphoneStatus,
+  accessibilityStatus: axStatus,
+  showMicrophone = true,
+  showAccessibility = true,
+  isWindows = false,
+  onGrantMicrophone,
+  onGrantAccessibility,
+  onRetry,
+  onContinueWithoutTyping,
+}) => {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      data-testid="first-run-welcome"
+      className="w-full min-h-screen bg-background pt-6 px-7 pb-7 text-start space-y-4"
+    >
+      <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-logo-primary">
+        {t("onboarding.welcome.eyebrow", "Welcome")}
+      </p>
+      <h2 className="text-[22px] leading-[28px] font-semibold tracking-[-0.02em] text-text">
+        {t(
+          "onboarding.welcome.heading",
+          "Coco Voice turns your voice into text, on this Mac",
+        )}
+      </h2>
+      <p className="text-[13.5px] leading-[20px] text-mid-gray">
+        {t(
+          "onboarding.welcome.subtitle",
+          "Two permissions, then one model download. About a minute.",
+        )}
+      </p>
+
+      <div className="divide-y divide-mid-gray/20 rounded-[12px] border border-mid-gray/25 bg-background">
+        {showMicrophone ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
+            <div className="min-w-0">
+              <div className="text-[14px] font-semibold text-text">
+                {t("onboarding.welcome.microphoneTitle", "Microphone")}
+              </div>
+              <div className="text-[12.5px] text-mid-gray">
+                {t("onboarding.welcome.microphoneDesc", "To hear you")}
+              </div>
+            </div>
+            {microphoneStatus === "granted" ? (
+              <span className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <span aria-hidden="true">{DOT_FILLED}</span>
+                <span>{t("onboarding.welcome.allowed", "Allowed")}</span>
+              </span>
+            ) : (
+              <PermissionAction
+                status={microphoneStatus}
+                grantLabel={
+                  isWindows
+                    ? t("accessibility.openSettings", "Open Settings")
+                    : t(
+                        "onboarding.welcome.allowMicrophone",
+                        "Allow microphone",
+                      )
+                }
+                onGrant={onGrantMicrophone}
+                onRetry={onRetry}
+              />
+            )}
+          </div>
+        ) : null}
+
+        {showAccessibility ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
+            <div className="min-w-0">
+              <div className="text-[14px] font-semibold text-text">
+                {t("onboarding.welcome.accessibilityTitle", "Accessibility")}
+              </div>
+              <div className="text-[12.5px] text-mid-gray">
+                {t(
+                  "onboarding.welcome.accessibilityDesc",
+                  "To type your words into other apps",
+                )}
+              </div>
+            </div>
+            {axStatus === "granted" ? (
+              <span className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <span aria-hidden="true">{DOT_FILLED}</span>
+                <span>{t("onboarding.welcome.allowed", "Allowed")}</span>
+              </span>
+            ) : (
+              <PermissionAction
+                status={axStatus}
+                grantLabel={t(
+                  "accessibility.openSettings",
+                  "Open System Settings",
+                )}
+                onGrant={onGrantAccessibility}
+                onRetry={onRetry}
+              />
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      {showAccessibility ? (
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <button
+            type="button"
+            onClick={onContinueWithoutTyping}
+            className="inline-flex min-h-[34px] items-center rounded-[10px] border border-mid-gray/45 bg-background px-3.5 text-[13px] font-semibold text-text cursor-pointer hover:bg-mid-gray/10"
+          >
+            {t(
+              "onboarding.permissions.accessibility.stale.continueWithoutTyping",
+              "Continue without typing",
+            )}
+          </button>
+          <span className="text-[12.5px] text-mid-gray">
+            {t(
+              "onboarding.welcome.continueWithoutTypingHint",
+              "Your words go to the clipboard instead. You can turn typing on later.",
+            )}
+          </span>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+export interface FirstRunStaleAxCardProps {
+  onOpenAccessibility: () => void;
+  onContinueWithoutTyping: () => void;
+}
+
+export const FirstRunStaleAxCard: React.FC<FirstRunStaleAxCardProps> = ({
+  onOpenAccessibility,
+  onContinueWithoutTyping,
+}) => {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      data-testid="first-run-stale-ax"
+      className="w-full min-h-screen bg-background pt-6 px-7 pb-7 text-start space-y-4"
+    >
+      <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-logo-primary">
+        {t("onboarding.staleAx.eyebrow", "System Settings")}
+      </p>
+      <h2 className="text-[22px] leading-[28px] font-semibold tracking-[-0.02em] text-text">
+        {t(
+          "onboarding.staleAx.heading",
+          "Coco Voice is switched on, but macOS still blocks it",
+        )}
+      </h2>
+      <p className="text-[13.5px] leading-[20px] text-mid-gray">
+        {t(
+          "onboarding.staleAx.subtitle",
+          "This happens after an update: macOS keeps the old entry. Three steps fix it:",
+        )}
+      </p>
+
+      <ol className="m-0 list-none divide-y divide-mid-gray/20 rounded-[12px] border border-mid-gray/25 bg-background p-0">
+        <li className="px-4 py-3 text-[13.5px] text-text">
+          {t(
+            "onboarding.staleAx.step1",
+            "1. In System Settings › Privacy & Security, open the list of apps allowed to control your Mac, select Coco Voice and click minus (−).",
+          )}
+        </li>
+        <li className="px-4 py-3 text-[13.5px] text-text">
+          {t(
+            "onboarding.staleAx.step2",
+            "2. Click plus (+), choose Applications → Coco Voice, switch it on.",
+          )}
+        </li>
+        <li className="px-4 py-3 text-[13.5px] text-text">
+          {t(
+            "onboarding.staleAx.step3",
+            "3. Come back here. We check again by ourselves.",
+          )}
+        </li>
+      </ol>
+
+      <div className="flex flex-wrap items-center gap-3 pt-1">
+        <button
+          type="button"
+          onClick={onOpenAccessibility}
+          className="inline-flex min-h-[34px] items-center rounded-[10px] bg-logo-primary px-4 text-[13px] font-semibold text-white cursor-pointer hover:opacity-90"
+        >
+          {t("accessibility.openSettings", "Open System Settings")}
+        </button>
+        <button
+          type="button"
+          onClick={onContinueWithoutTyping}
+          className="inline-flex min-h-[34px] items-center rounded-[10px] border border-mid-gray/45 bg-background px-3.5 text-[13px] font-semibold text-text cursor-pointer hover:bg-mid-gray/10"
+        >
+          {t(
+            "onboarding.permissions.accessibility.stale.continueWithoutTyping",
+            "Continue without typing",
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
 
 // A fresh check that still says "needed" keeps a card the user is acting on in "waiting".
 const mergeCheck = (
@@ -46,14 +300,7 @@ const mergeCheck = (
  * macOS event source); it never types or pastes anything.
  */
 async function checkAccessibility(): Promise<AccessibilityCheck> {
-  const trusted = await runPermissionCheck(checkAccessibilityPermission);
-  if (trusted !== "granted") return trusted;
-  const probe = await commands
-    .initializeEnigo()
-    .then((result) => (result.status === "ok" ? "ok" : "failed"))
-    .catch(() => "failed" as const);
-  if (probe === "failed") console.warn("Input probe failed");
-  return accessibilityStatus(trusted, probe);
+  return probeAccessibilityStatus();
 }
 
 const initializeAfterAccessibilityGrant = () =>
@@ -76,6 +323,7 @@ const AccessibilityOnboarding: React.FC<AccessibilityOnboardingProps> = ({
   );
   const [permissionPlatform, setPermissionPlatform] =
     useState<PermissionPlatform | null>(null);
+  const [staleAxOverride, setStaleAxOverride] = useState(false);
   const [permissions, setPermissions] = useState<PermissionsState>({
     accessibility: "checking",
     microphone: "checking",
@@ -278,6 +526,28 @@ const AccessibilityOnboarding: React.FC<AccessibilityOnboardingProps> = ({
     }
   };
 
+  const handleContinueWithoutTyping = async () => {
+    setStaleAxOverride(false);
+    await persistContinueWithoutTyping(
+      (method) => commands.changePasteMethodSetting(method),
+      () => useSettingsStore.getState().refreshSettings(),
+      finishOnboarding,
+    );
+  };
+
+  useEffect(() => {
+    if (
+      permissionPlatform !== "macos" ||
+      permissions.accessibility !== "stale"
+    ) {
+      return;
+    }
+    const id = setInterval(() => {
+      void runChecks("macos");
+    }, STALE_AX_RECHECK_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [permissionPlatform, permissions.accessibility, runChecks]);
+
   const isChecking =
     permissionPlatform === null ||
     (isMacOS &&
@@ -308,77 +578,38 @@ const AccessibilityOnboarding: React.FC<AccessibilityOnboardingProps> = ({
     );
   }
 
-  // Show permissions request screen
+  if (permissions.accessibility === "stale" || staleAxOverride) {
+    return (
+      <div className="min-h-screen w-full bg-background">
+        <FirstRunStaleAxCard
+          onOpenAccessibility={handleGrantAccessibility}
+          onContinueWithoutTyping={() => {
+            void handleContinueWithoutTyping();
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="h-screen w-screen flex flex-col p-6 gap-6 items-center justify-center">
-      <div className="flex flex-col items-center gap-2">
-        <CocoVoiceTextLogo width={200} />
-      </div>
-
-      <div className="max-w-md w-full flex flex-col items-center gap-4">
-        <div className="text-center mb-2">
-          <h2 className="text-xl font-semibold text-text mb-2">
-            {t("onboarding.permissions.title")}
-          </h2>
-          <p className="text-text/70">
-            {t("onboarding.permissions.description")}
-          </p>
-        </div>
-
-        {/* Microphone Permission Card */}
-        {showMicrophonePermission && (
-          <div className="w-full p-4 rounded-lg bg-white/5 border border-mid-gray/20">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-logo-primary/20 shrink-0">
-                <Mic className="w-6 h-6 text-logo-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-text">
-                  {t("onboarding.permissions.microphone.title")}
-                </h3>
-                <p className="text-sm text-text/60 mb-3">
-                  {t("onboarding.permissions.microphone.description")}
-                </p>
-                <PermissionAction
-                  status={permissions.microphone}
-                  grantLabel={
-                    isWindows
-                      ? t("accessibility.openSettings")
-                      : t("onboarding.permissions.grant")
-                  }
-                  onGrant={handleGrantMicrophone}
-                  onRetry={handleRetry}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Accessibility Permission Card */}
-        {showAccessibilityPermission && (
-          <div className="w-full p-4 rounded-lg bg-white/5 border border-mid-gray/20">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-full bg-logo-primary/20 shrink-0">
-                <Keyboard className="w-6 h-6 text-logo-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-text">
-                  {t("onboarding.permissions.accessibility.title")}
-                </h3>
-                <p className="text-sm text-text/60 mb-3">
-                  {t("onboarding.permissions.accessibility.description")}
-                </p>
-                <PermissionAction
-                  status={permissions.accessibility}
-                  grantLabel={t("onboarding.permissions.grant")}
-                  onGrant={handleGrantAccessibility}
-                  onRetry={handleRetry}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+    <div className="min-h-screen w-full bg-background">
+      <FirstRunWelcomeCard
+        microphoneStatus={permissions.microphone}
+        accessibilityStatus={permissions.accessibility}
+        showMicrophone={showMicrophonePermission}
+        showAccessibility={showAccessibilityPermission}
+        isWindows={isWindows}
+        onGrantMicrophone={() => {
+          void handleGrantMicrophone();
+        }}
+        onGrantAccessibility={() => {
+          void handleGrantAccessibility();
+        }}
+        onRetry={handleRetry}
+        onContinueWithoutTyping={() => {
+          void handleContinueWithoutTyping();
+        }}
+      />
     </div>
   );
 };

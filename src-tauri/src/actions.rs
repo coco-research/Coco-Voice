@@ -42,6 +42,125 @@ const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
 /// "not cleaned" row can be read.
 const STATUS_OVERLAY_GRACE: Duration = Duration::from_millis(2500);
 
+const PILL_OUTCOME_SENT_DELAY: Duration = Duration::from_millis(1500);
+const PILL_OUTCOME_CLIPBOARD_DELAY: Duration = Duration::from_millis(2500);
+const PILL_OUTCOME_KEPT_DELAY: Duration = Duration::from_millis(4000);
+const MAX_PILL_APP_NAME_CHARS: usize = 24;
+
+/// Debug-only test seam to force a single paste failure so the tester can
+/// verify the "Words kept · press ⌘V" pill on Mac (AC-E13). Strictly omitted
+/// from release builds (`#[cfg(debug_assertions)]`).
+#[cfg(debug_assertions)]
+static FAIL_NEXT_PASTE: AtomicBool = AtomicBool::new(false);
+
+#[cfg(debug_assertions)]
+#[tauri::command]
+#[specta::specta]
+pub fn debug_set_fail_next_paste(enabled: bool) {
+    FAIL_NEXT_PASTE.store(enabled, Ordering::SeqCst);
+}
+
+#[cfg(debug_assertions)]
+fn take_fail_next_paste() -> bool {
+    FAIL_NEXT_PASTE.swap(false, Ordering::SeqCst)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PillOutcome {
+    Sent {
+        #[serde(rename = "targetApp", skip_serializing_if = "Option::is_none")]
+        target_app: Option<String>,
+    },
+    Clipboard,
+    KeptPressPaste,
+}
+
+impl PillOutcome {
+    /// Duration the outcome pill remains visible before hiding (D-E2).
+    pub fn hide_delay(&self) -> Duration {
+        match self {
+            Self::Sent { .. } => PILL_OUTCOME_SENT_DELAY,
+            Self::Clipboard => PILL_OUTCOME_CLIPBOARD_DELAY,
+            Self::KeptPressPaste => PILL_OUTCOME_KEPT_DELAY,
+        }
+    }
+
+    /// Plain-language announcement spoken by VoiceOver / screen readers (AC-E12).
+    pub fn announcement_text(&self, is_macos: bool) -> String {
+        match self {
+            Self::Sent {
+                target_app: Some(app),
+            } => format!("Sent to {app}"),
+            Self::Sent { target_app: None } => "Sent".to_string(),
+            Self::Clipboard => "On the clipboard".to_string(),
+            Self::KeptPressPaste => {
+                if is_macos {
+                    "Words kept, press Command V".to_string()
+                } else {
+                    "Words kept, press Control V".to_string()
+                }
+            }
+        }
+    }
+}
+
+/// Truncates target app names longer than 24 characters with an ellipsis.
+pub fn truncate_app_name(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if trimmed.chars().count() <= MAX_PILL_APP_NAME_CHARS {
+        return Some(trimmed.to_string());
+    }
+    let mut out: String = trimmed.chars().take(MAX_PILL_APP_NAME_CHARS).collect();
+    out.push('…');
+    Some(out)
+}
+
+/// Pure outcome classification for the recording pill (AC-E1).
+///
+/// Covers every case returned by the blocking paste task:
+/// - `Ok(Some(Ok(_)))` + `PasteMethod::None` => `Clipboard`
+/// - `Ok(Some(Ok(_)))` + real paste => `Sent(Some(app))` or `Sent(None)`
+/// - `Ok(Some(Err(f)))` + `f.kept_on_clipboard` => `KeptPressPaste`
+/// - `Ok(Some(Err(f)))` + `!f.kept_on_clipboard` => `None` (toast still fires)
+/// - `Ok(None)` (cancelled) => `None`
+/// - `Err(_)` (panicked) => `None` (toast still fires)
+pub fn pill_outcome(
+    paste_result: &Result<Option<Result<bool, crate::clipboard::PasteFailure>>, ()>,
+    paste_method: crate::settings::PasteMethod,
+    active_app: Option<&crate::app_profiles::ActiveAppInfo>,
+) -> Option<PillOutcome> {
+    match paste_result {
+        Ok(Some(Ok(_))) => {
+            if paste_method == crate::settings::PasteMethod::None {
+                Some(PillOutcome::Clipboard)
+            } else {
+                let target_app = active_app.and_then(|a| truncate_app_name(&a.app_name));
+                Some(PillOutcome::Sent { target_app })
+            }
+        }
+        Ok(Some(Err(failure))) => {
+            if failure.kept_on_clipboard {
+                Some(PillOutcome::KeptPressPaste)
+            } else {
+                None
+            }
+        }
+        Ok(None) | Err(()) => None,
+    }
+}
+
+/// Invokes `announcer` once with `text` when non-empty (AC-E12).
+pub fn announce_with<F: FnMut(&str)>(text: &str, mut announcer: F) {
+    let trimmed = text.trim();
+    if !trimmed.is_empty() {
+        announcer(trimmed);
+    }
+}
+
 /// Local cleanup length. A catalog model id is not a token count, so this is
 /// not parsed out of the model string.
 #[cfg(target_os = "macos")]
@@ -52,14 +171,20 @@ const LOCAL_LLM_MAX_TOKENS: i32 = 512;
 const STREAM_ENGINE_RETURN_WAIT: Duration = Duration::from_secs(10);
 
 /// Dictation batch transcription. With the meetings feature this holds the
-/// meeting lock so a chunk and a take cannot both take the engine.
-fn transcribe_batch(tm: &TranscriptionManager, samples: Vec<f32>) -> anyhow::Result<String> {
+/// meeting lock so a chunk and a take cannot both take the engine, and gives up
+/// while it waits only when the take was cancelled.
+fn transcribe_batch(
+    tm: &TranscriptionManager,
+    samples: Vec<f32>,
+    is_cancelled: &dyn Fn() -> bool,
+) -> anyhow::Result<String> {
     #[cfg(feature = "meetings")]
     {
-        tm.transcribe_with_meeting_lock(samples)
+        tm.transcribe_with_meeting_lock_unless(samples, is_cancelled)
     }
     #[cfg(not(feature = "meetings"))]
     {
+        let _ = is_cancelled;
         tm.transcribe(samples)
     }
 }
@@ -109,27 +234,104 @@ impl Drop for FinishGuard {
     }
 }
 
-/// Hides the overlay once [`STATUS_OVERLAY_GRACE`] has passed, unless a newer overlay
-/// was shown since `captured_overlay_gen` was taken: that take owns the overlay and the
+/// Hides the overlay once `delay` has passed, unless a newer overlay was shown
+/// since `captured_overlay_gen` was taken: that take owns the overlay and the
 /// tray icon now.
-fn hide_overlay_after_status(app: &AppHandle, captured_overlay_gen: u64) {
+fn hide_overlay_after_delay(app: &AppHandle, delay: Duration, captured_overlay_gen: u64) {
     let app_clone = app.clone();
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(STATUS_OVERLAY_GRACE).await;
+        tokio::time::sleep(delay).await;
         if crate::overlay::hide_recording_overlay_if_current(&app_clone, captured_overlay_gen) {
             change_tray_icon(&app_clone, TrayIconState::Idle);
         }
     });
 }
 
-/// Ends a take's overlay: right away, or after the grace period when `delay_hide`.
-fn finish_overlay(app: &AppHandle, delay_hide: bool, captured_overlay_gen: u64) {
-    if delay_hide {
-        hide_overlay_after_status(app, captured_overlay_gen);
+/// Ends a take's overlay: right away, or after `delay` when `Some(delay)`.
+fn finish_overlay_with_delay(app: &AppHandle, delay: Option<Duration>, captured_overlay_gen: u64) {
+    if let Some(wait) = delay {
+        hide_overlay_after_delay(app, wait, captured_overlay_gen);
     } else {
         utils::hide_recording_overlay(app);
         change_tray_icon(app, TrayIconState::Idle);
     }
+}
+
+/// Ends a take's overlay: right away, or after the grace period when `delay_hide`.
+fn finish_overlay(app: &AppHandle, delay_hide: bool, captured_overlay_gen: u64) {
+    finish_overlay_with_delay(
+        app,
+        delay_hide.then_some(STATUS_OVERLAY_GRACE),
+        captured_overlay_gen,
+    );
+}
+
+fn emit_pill_outcome(app: &AppHandle, outcome: &PillOutcome) {
+    if let Some(overlay_window) = app.get_webview_window("recording_overlay") {
+        let _ = overlay_window.emit("pill-outcome", outcome);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn spawn_fix_offer_watcher(app: AppHandle, pasted_text: String, app_name: String) {
+    let Some(cancel) = app.try_state::<Arc<crate::fix_offer::WatcherCancellation>>() else {
+        return;
+    };
+    let cancel_arc = Arc::clone(cancel.inner());
+    let generation = cancel_arc.next_generation();
+    let Some(ax_el) = crate::fix_offer::RetainedAxElement::capture_focused() else {
+        return;
+    };
+    tauri::async_runtime::spawn(async move {
+        let mut prev_delay = Duration::ZERO;
+        for &target in crate::fix_offer::FIX_OFFER_POLL_DELAYS {
+            let sleep_for = target.saturating_sub(prev_delay);
+            prev_delay = target;
+            tokio::time::sleep(sleep_for).await;
+            if !cancel_arc.is_current(generation) {
+                return;
+            }
+            let live = get_settings(&app);
+            let blocked = !matches!(
+                crate::app_profiles::check_active_app_start(&live),
+                crate::app_profiles::StartDecision::Allow
+            );
+            let gate = crate::fix_offer::FixOfferGate {
+                offer_remember_fix_enabled: live.offer_remember_fix_enabled,
+                never_store_history: live.never_store_history,
+                dictation_blocked: blocked,
+            };
+            match crate::fix_offer::evaluate_poll_tick(
+                gate,
+                &ax_el,
+                &pasted_text,
+                0,
+                &live.custom_words,
+                &live.corrections,
+            ) {
+                crate::fix_offer::PollStepOutcome::Stop => return,
+                crate::fix_offer::PollStepOutcome::Continue => continue,
+                crate::fix_offer::PollStepOutcome::Offer { old, new } => {
+                    if let Some(queue) = app.try_state::<Mutex<crate::fix_offer::FixOfferQueue>>() {
+                        let now_ms = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.as_millis() as u64)
+                            .unwrap_or(0);
+                        let pushed = queue.lock().unwrap_or_else(|e| e.into_inner()).push_offer(
+                            old,
+                            new,
+                            app_name.clone(),
+                            now_ms,
+                        );
+                        if let Some(payload) = pushed {
+                            let _ = app.emit("fix-offer", payload);
+                        }
+                    }
+                    return;
+                }
+            }
+        }
+    });
 }
 
 // Shortcut Action Trait
@@ -246,6 +448,12 @@ fn watch_generation_cancel(
 
 fn should_use_streaming_overlay(style: OverlayStyle, is_streaming: bool) -> bool {
     style == OverlayStyle::Live && is_streaming
+}
+
+/// Whether a dictation take runs clean-up: either the dedicated clean-up
+/// shortcut forced it, or "Clean every take" (`post_process_enabled`) is on.
+fn should_post_process_take(action_forces_post_process: bool, post_process_enabled: bool) -> bool {
+    action_forces_post_process || post_process_enabled
 }
 
 /// Whether the overlay stays up after the paste: only for a take whose status row
@@ -399,7 +607,9 @@ fn skip_cleanup(app: &AppHandle, reason: &SkipReason) -> bool {
 /// Post-processes `transcription`. When `prior_output` is `Some`, the call runs
 /// in *edit mode*: instead of cleaning a fresh transcript, the model edits the
 /// previous output using `transcription` as the spoken correction instruction.
-/// Sets `status_emitted` when it told the UI that cleanup did not run.
+/// Sets `status_emitted` when it told the UI that cleanup did not run, and sets
+/// `used_local_stock_prompt` when the dispatched call actually ran the on-device
+/// model with the unedited stock cleanup prompt (including after fallback).
 async fn post_process_transcription(
     app: &AppHandle,
     settings: &AppSettings,
@@ -407,6 +617,7 @@ async fn post_process_transcription(
     prior_output: Option<&str>,
     local_llm_cancel: Option<LocalLlmCancel>,
     status_emitted: &mut bool,
+    used_local_stock_prompt: &mut bool,
 ) -> Option<String> {
     #[cfg(all(test, feature = "meetings"))]
     POST_PROCESS_CALLS.fetch_add(1, Ordering::SeqCst);
@@ -420,9 +631,46 @@ async fn post_process_transcription(
             prior_output,
             local_llm_cancel,
             status_emitted,
+            used_local_stock_prompt,
         )
         .await,
     )
+}
+
+/// Resolves the prompt text and whether it is the unedited on-device stock
+/// cleanup prompt when dispatching to the local LLM provider.
+#[cfg(any(target_os = "macos", test))]
+fn resolve_local_llm_prompt<'a>(
+    settings: &'a AppSettings,
+    fallback_prompt: &'a str,
+) -> (&'a str, bool) {
+    let local_prompt = settings
+        .post_process_prompts
+        .iter()
+        .find(|candidate| {
+            settings.post_process_selected_prompt_id.as_deref() == Some(candidate.id.as_str())
+        })
+        .map(crate::settings::prompt_for_local_llm)
+        .unwrap_or(fallback_prompt);
+    let is_stock = local_prompt == crate::settings::LOCAL_LLM_CLEANUP_PROMPT;
+    (local_prompt, is_stock)
+}
+
+/// Resolves the prompt text and `keep_every_word` stock-prompt flag for a
+/// cleanup provider. Both on-device providers (`local_llm` and
+/// `apple_intelligence`) substitute the short on-device prompt and arm
+/// `keep_every_word = true` when an unedited stock prompt is selected.
+#[cfg(any(target_os = "macos", test))]
+fn resolve_provider_prompt<'a>(
+    provider_id: &str,
+    settings: &'a AppSettings,
+    fallback_prompt: &'a str,
+) -> (&'a str, bool) {
+    if provider_id == LOCAL_LLM_PROVIDER_ID || provider_id == APPLE_INTELLIGENCE_PROVIDER_ID {
+        resolve_local_llm_prompt(settings, fallback_prompt)
+    } else {
+        (fallback_prompt, false)
+    }
 }
 
 /// `None` for an output that is empty once invisible characters are removed.
@@ -439,7 +687,9 @@ async fn post_process_transcription_inner(
     prior_output: Option<&str>,
     local_llm_cancel: Option<LocalLlmCancel>,
     status_emitted: &mut bool,
+    used_local_stock_prompt: &mut bool,
 ) -> Option<String> {
+    *used_local_stock_prompt = false;
     // Only the macOS-only on-device path reads the cancel signal.
     #[cfg(not(target_os = "macos"))]
     let _ = &local_llm_cancel;
@@ -529,16 +779,10 @@ async fn post_process_transcription_inner(
     // local cleanup reachable.
     #[cfg(target_os = "macos")]
     if provider.id == LOCAL_LLM_PROVIDER_ID {
-        // Qwen3-4B follows the short on-device prompt. This branch is the only
-        // one that substitutes it, so other providers still see `prompt`.
-        let local_prompt = settings
-            .post_process_prompts
-            .iter()
-            .find(|candidate| {
-                settings.post_process_selected_prompt_id.as_deref() == Some(candidate.id.as_str())
-            })
-            .map(crate::settings::prompt_for_local_llm)
-            .unwrap_or(prompt.as_str());
+        // On-device providers follow the short local prompt for unedited stock prompts.
+        let (local_prompt, is_stock) =
+            resolve_provider_prompt(&provider.id, settings, prompt.as_str());
+        *used_local_stock_prompt = is_stock;
         return post_process_with_local_llm(
             app,
             &model,
@@ -577,8 +821,16 @@ async fn post_process_transcription_inner(
     if provider.supports_structured_output {
         debug!("Using structured outputs for provider '{}'", provider.id);
 
+        #[cfg(target_os = "macos")]
+        let (effective_prompt, provider_stock_prompt) =
+            resolve_provider_prompt(&provider.id, settings, prompt.as_str());
+        #[cfg(not(target_os = "macos"))]
+        let (effective_prompt, provider_stock_prompt) = (prompt.as_str(), false);
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        let _ = provider_stock_prompt;
+
         let (system_prompt, user_content) =
-            build_post_process_messages(&prompt, transcription, prior_output);
+            build_post_process_messages(effective_prompt, transcription, prior_output);
 
         // Handle Apple Intelligence separately since it uses native Swift APIs
         if provider.id == APPLE_INTELLIGENCE_PROVIDER_ID {
@@ -590,6 +842,7 @@ async fn post_process_transcription_inner(
                     );
                     return None;
                 }
+                *used_local_stock_prompt = provider_stock_prompt;
 
                 let token_limit = model.trim().parse::<i32>().unwrap_or(0);
                 return match apple_intelligence::process_text_with_system_prompt(
@@ -1047,6 +1300,7 @@ pub(crate) struct ProcessedTranscription {
     /// A `cleanup-status` event was sent for this take, so the overlay shows a
     /// "not cleaned" row that the paste path keeps up for [`STATUS_OVERLAY_GRACE`].
     pub status_emitted: bool,
+    pub effective_language: String,
 }
 
 /// Resolve the persisted language *intent* into the language the currently-loaded
@@ -1070,14 +1324,99 @@ fn resolve_effective_language(app: &AppHandle, settings: &AppSettings) -> String
     }
 }
 
+/// Pure core for dictation post-process clean-up called by `process_transcription_output`.
+///
+/// When `post_process` is enabled (clean-up isn't Off), ensures spoken self-corrections run
+/// before the clean-up model and runs a second pass on the final text after clean-up so a
+/// clean-up model miss cannot keep retracted words (Plan A Amendment R1 / AC-A9b).
+pub(crate) fn apply_post_process_cleanup_core<F>(
+    transcription: &str,
+    post_process: bool,
+    run_cleanup_model: F,
+) -> (String, Option<String>)
+where
+    F: FnOnce(&str) -> Option<String>,
+{
+    apply_post_process_cleanup_core_with_policy(
+        transcription,
+        post_process,
+        false,
+        run_cleanup_model,
+    )
+}
+
+pub(crate) fn apply_post_process_cleanup_core_with_policy<F>(
+    transcription: &str,
+    post_process: bool,
+    keep_every_word: bool,
+    run_cleanup_model: F,
+) -> (String, Option<String>)
+where
+    F: FnOnce(&str) -> Option<String>,
+{
+    if !post_process {
+        return (transcription.to_string(), None);
+    }
+    let pre = crate::audio_toolkit::text::rewrite_spoken_self_corrections(transcription);
+    let pre_has_cue = crate::audio_toolkit::text::has_repair_cue_hint(&pre);
+    // ponytail: ceiling = a cue the rules leave is never resolved by the model; widen the rules, not the model, to take more back.
+    // ponytail: ceiling = when any cue is left in `pre`, a model edit that drops or changes any non-filler word falls back to `pre` for the whole paste; upgrade path = per-sentence check.
+    // ponytail: ceiling = on the stock on-device prompt (`keep_every_word = true`), a model edit that changes a word (for example a misheard word being fixed) falls back to the rules text, while punctuation, case, and filler removal still go through; any other prompt (`keep_every_word = false`) checks words only when a cue remains; upgrade path = phonetically-bounded word-fix allowlist or per-sentence verifier.
+    let kept_model_text = non_blank(run_cleanup_model(&pre)).filter(|processed_text| {
+        if !crate::audio_toolkit::text::model_kept_repair_cues(&pre, processed_text) {
+            let before = crate::audio_toolkit::text::repair_cue_count(&pre);
+            let after = crate::audio_toolkit::text::repair_cue_count(processed_text);
+            info!(
+                "cleanup: model dropped a correction cue the rules kept; pasting the text as said (cues before={before} after={after})"
+            );
+            return false;
+        }
+        if (pre_has_cue || keep_every_word)
+            && !crate::audio_toolkit::text::model_kept_words(&pre, processed_text)
+        {
+            let before = crate::audio_toolkit::text::non_filler_word_count(&pre);
+            let after = crate::audio_toolkit::text::non_filler_word_count(processed_text);
+            info!(
+                "cleanup: model dropped words the rules kept; pasting the text as said (words before={before} after={after})"
+            );
+            return false;
+        }
+        true
+    });
+    if let Some(processed_text) = kept_model_text {
+        if pre_has_cue {
+            (processed_text.clone(), Some(processed_text))
+        } else {
+            let guarded =
+                crate::audio_toolkit::text::rewrite_spoken_self_corrections(&processed_text);
+            (guarded.clone(), Some(guarded))
+        }
+    } else if pre != transcription {
+        (pre.clone(), Some(pre))
+    } else {
+        (pre, None)
+    }
+}
+
 pub(crate) async fn process_transcription_output(
     app: &AppHandle,
     transcription: &str,
     post_process: bool,
     correction: bool,
+    active_app: Option<&crate::app_profiles::ActiveAppInfo>,
     local_llm_cancel: Option<LocalLlmCancel>,
 ) -> ProcessedTranscription {
-    let settings = get_settings(app);
+    let raw_settings = get_settings(app);
+    let resolved_profile =
+        active_app.map(|info| crate::app_profiles::resolve_for_app(&raw_settings, Some(info)));
+    let settings = resolved_profile
+        .as_ref()
+        .map(|r| &r.settings)
+        .unwrap_or(&raw_settings);
+    let post_process = resolved_profile
+        .as_ref()
+        .and_then(|r| r.post_process_override)
+        .unwrap_or(post_process);
     let mut final_text = transcription.to_string();
     let mut post_processed_text: Option<String> = None;
     let mut post_process_prompt: Option<String> = None;
@@ -1087,18 +1426,43 @@ pub(crate) async fn process_transcription_output(
     // Resolve the language the transcription actually ran in (the persisted
     // intent coerced against the loaded model's capabilities) so OpenCC keys off
     // the effective language rather than a possibly-stale intent.
-    let effective_language = resolve_effective_language(app, &settings);
+    let effective_language = resolve_effective_language(app, settings);
     if let Some(converted_text) =
         maybe_convert_chinese_variant(&effective_language, transcription).await
     {
         final_text = converted_text;
     }
 
+    // Plan C local-only repo symbols pass: runs after custom words and before
+    // model clean-up when active app is a code editor and repo_words is on.
+    let repo_words_on = resolved_profile
+        .as_ref()
+        .map(|r| r.repo_words_enabled)
+        .unwrap_or(settings.repo_words_enabled);
+    if repo_words_on && active_app.is_some_and(crate::repo_words::is_repo_capable_app) {
+        if let (Some(url), Some(home)) = (
+            crate::repo_words::read_front_window_document_url(),
+            std::env::var_os("HOME").map(std::path::PathBuf::from),
+        ) {
+            if let Some(root) = crate::repo_words::repo_root_from_document(&url, &home) {
+                if let Some(cache) = app.try_state::<Mutex<crate::repo_words::RepoSymbolsCache>>() {
+                    let mut guard = cache.lock().unwrap_or_else(|e| e.into_inner());
+                    final_text = guard.apply_to_take(
+                        &final_text,
+                        &root,
+                        settings.word_correction_threshold,
+                        Instant::now(),
+                    );
+                }
+            }
+        }
+    }
+
     if correction {
         // CORRECTION MODE (explicit hotkey): unconditionally treat this utterance
         // as an edit of the last output. We never sniff the words — the dedicated
         // "correction" hotkey is the only trigger.
-        if let Some(prior_output) = refine_base_for_correction(&settings) {
+        if let Some(prior_output) = refine_base_for_correction(settings) {
             // The prior output is what the previous dictation pasted (plus the
             // trailing space `paste` appends when that setting is on), so its
             // grapheme length is how many Backspaces the replace must send before
@@ -1106,13 +1470,15 @@ pub(crate) async fn process_transcription_output(
             // deletes one grapheme cluster (combining marks, joined emoji).
             let prev_char_count =
                 crate::utils::pasted_grapheme_count(&prior_output, settings.append_trailing_space);
+            let mut _used_local_stock_prompt = false;
             match post_process_transcription(
                 app,
-                &settings,
+                settings,
                 &final_text,
                 Some(&prior_output),
                 local_llm_cancel,
                 &mut status_emitted,
+                &mut _used_local_stock_prompt,
             )
             .await
             {
@@ -1148,26 +1514,38 @@ pub(crate) async fn process_transcription_output(
     } else if post_process {
         // Normal post-processing. Word-sniffing has been removed, so a fresh
         // dictation is NEVER silently reinterpreted as an edit of a prior output.
-        if let Some(processed_text) = post_process_transcription(
+        let pre_text = crate::audio_toolkit::text::rewrite_spoken_self_corrections(&final_text);
+        let mut used_local_stock_prompt = false;
+        let model_out = post_process_transcription(
             app,
-            &settings,
-            &final_text,
+            settings,
+            &pre_text,
             None,
             local_llm_cancel,
             &mut status_emitted,
+            &mut used_local_stock_prompt,
         )
-        .await
-        {
-            post_processed_text = Some(processed_text.clone());
-            final_text = processed_text;
+        .await;
+        let model_ran = non_blank(model_out.clone()).is_some();
+        let (next_final, next_processed) = apply_post_process_cleanup_core_with_policy(
+            &final_text,
+            true,
+            used_local_stock_prompt,
+            |_| model_out,
+        );
+        if let Some(processed_text) = next_processed {
+            post_processed_text = Some(processed_text);
+            final_text = next_final;
 
-            if let Some(prompt_id) = &settings.post_process_selected_prompt_id {
-                if let Some(prompt) = settings
-                    .post_process_prompts
-                    .iter()
-                    .find(|prompt| &prompt.id == prompt_id)
-                {
-                    post_process_prompt = Some(prompt.prompt.clone());
+            if model_ran {
+                if let Some(prompt_id) = &settings.post_process_selected_prompt_id {
+                    if let Some(prompt) = settings
+                        .post_process_prompts
+                        .iter()
+                        .find(|prompt| &prompt.id == prompt_id)
+                    {
+                        post_process_prompt = Some(prompt.prompt.clone());
+                    }
                 }
             }
         }
@@ -1183,11 +1561,34 @@ pub(crate) async fn process_transcription_output(
         final_text = crate::audio_toolkit::apply_corrections(&final_text, &settings.corrections);
     }
 
+    // Surface style (per-app capitalization & trailing stop) runs BEFORE saved
+    // blocks (`AC-P30`), and is skipped when the profile sets CleanupLevel::Off,
+    // so saved blocks are always typed verbatim.
+    if let Some(resolved) = &resolved_profile {
+        if resolved.apply_surface_style && !final_text.is_empty() {
+            let styled =
+                crate::app_profiles::apply_surface_style(&final_text, resolved.surface_style);
+            if styled != final_text {
+                final_text = styled;
+                post_processed_text = Some(final_text.clone());
+            }
+        }
+    }
+
+    if !settings.saved_blocks.is_empty() {
+        let expanded =
+            crate::audio_toolkit::expand_saved_blocks(&final_text, &settings.saved_blocks);
+        if expanded != final_text {
+            final_text = expanded;
+            post_processed_text = Some(final_text.clone());
+        }
+    }
+
     // Remember this dictation so a later correction-hotkey press can edit it.
     // Stored for BOTH plain and post-processed dictations, and updated after a
     // correction too, so the buffer always holds exactly what the user last
     // received and a subsequent correction deletes the right number of chars.
-    store_refine_buffer(&settings, transcription, &final_text);
+    store_refine_buffer(settings, transcription, &final_text);
 
     ProcessedTranscription {
         final_text,
@@ -1195,6 +1596,7 @@ pub(crate) async fn process_transcription_output(
         post_process_prompt,
         replace_char_count,
         status_emitted,
+        effective_language,
     }
 }
 
@@ -1202,6 +1604,12 @@ impl ShortcutAction for TranscribeAction {
     fn start(&self, app: &AppHandle, binding_id: &str, _shortcut_str: &str) {
         let start_time = Instant::now();
         debug!("TranscribeAction::start called for binding: {}", binding_id);
+
+        let settings = get_settings(app);
+        if crate::app_profiles::check_active_app_start(&settings).is_blocked() {
+            debug!("Dictation shortcut ignored in blocked frontmost app");
+            return;
+        }
 
         // Load model in the background
         let tm = app.state::<Arc<TranscriptionManager>>();
@@ -1225,7 +1633,6 @@ impl ShortcutAction for TranscribeAction {
 
         // Get the microphone mode to determine audio feedback timing
         let plan_started = Instant::now();
-        let settings = get_settings(app);
         let is_always_on = settings.always_on_microphone;
 
         let selected_model_info = app
@@ -1370,7 +1777,8 @@ impl ShortcutAction for TranscribeAction {
         // the larger panel, but it still switches from listening to a working
         // spinner while the stream finalizes. Non-streaming paths use the
         // compact transcribing pill (None no-ops in show_*).
-        let style = get_settings(app).overlay_style;
+        let current_settings = get_settings(app);
+        let style = current_settings.overlay_style;
         // Capture this before finalizing the stream so every later working state
         // targets the same overlay that was shown for this transcription.
         let use_streaming_overlay = should_use_streaming_overlay(style, tm.is_streaming());
@@ -1387,9 +1795,11 @@ impl ShortcutAction for TranscribeAction {
         play_feedback_sound(app, SoundType::Stop);
 
         let binding_id = binding_id.to_string(); // Clone binding_id for the async task
-        let post_process = self.post_process;
+        let post_process =
+            should_post_process_take(self.post_process, current_settings.post_process_enabled);
         let correction = self.correction;
         let cancel_generation = rm.cancel_generation();
+        let active_app = crate::app_profiles::read_active_app();
 
         tauri::async_runtime::spawn(async move {
             let _guard = FinishGuard(ah.clone());
@@ -1422,19 +1832,31 @@ impl ShortcutAction for TranscribeAction {
                     utils::hide_recording_overlay(&ah);
                     change_tray_icon(&ah, TrayIconState::Idle);
                 } else {
-                    // Save WAV concurrently with transcription
-                    let sample_count = samples.len();
-                    let file_name = format!("coco-voice-{}.wav", chrono::Utc::now().timestamp());
-                    let wav_path = hm.recordings_dir().join(&file_name);
-                    let wav_path_for_verify = wav_path.clone();
-                    let samples_for_wav = samples.clone();
-                    let wav_handle = tauri::async_runtime::spawn_blocking(move || {
-                        crate::audio_toolkit::save_wav_file(&wav_path, &samples_for_wav)
-                    });
+                    let policy_snapshot = hm.policy_snapshot();
+                    let take_settings = get_settings(&ah);
+                    let (_, initial_persist_wav) = dictation_persistence_policy(
+                        take_settings.never_store_history,
+                        take_settings.keep_dictation_audio,
+                    );
 
-                    // Transcribe concurrently with WAV save. If a live stream was
-                    // running, finalize it and use its text (all audio was already
-                    // fed to the stream); otherwise batch-transcribe the samples.
+                    // Stage the take WAV INSIDE `HistoryManager`'s `policy_gate` (live re-read,
+                    // insert name into `pending_audio_removal` before `create_new`, write, verify,
+                    // close) concurrently with transcription so an in-flight Never/audio-off flip
+                    // or crash never leaves an untracked orphan WAV on disk.
+                    let wav_handle = if initial_persist_wav {
+                        let samples_for_wav = samples.clone();
+                        let hm_for_wav = Arc::clone(&hm);
+                        Some(tauri::async_runtime::spawn_blocking(move || {
+                            hm_for_wav
+                                .stage_take_wav_for_snapshot(policy_snapshot, &samples_for_wav)
+                        }))
+                    } else {
+                        None
+                    };
+
+                    // Transcribe concurrently with intent-first WAV staging. If a live stream was
+                    // running, finalize it and use its text (all audio was already fed to the
+                    // stream); otherwise batch-transcribe the samples.
                     let transcription_time = Instant::now();
                     let transcription_result = match tm.finalize_stream() {
                         // A finalized stream with usable text wins. An empty result
@@ -1445,39 +1867,38 @@ impl ShortcutAction for TranscribeAction {
                         // for it to come back and then fall back to batch, otherwise
                         // surface the timeout error.
                         Ok(Some(text)) if !text.trim().is_empty() => Ok(text),
-                        Ok(_) => transcribe_batch(&tm, samples),
+                        Ok(_) => transcribe_batch(&tm, samples, &|| {
+                            rm.was_cancelled_since(cancel_generation)
+                        }),
                         Err(err) if tm.wait_for_engine(STREAM_ENGINE_RETURN_WAIT) => {
                             warn!("Stream finalize failed ({err}); falling back to batch");
-                            transcribe_batch(&tm, samples)
+                            transcribe_batch(&tm, samples, &|| {
+                                rm.was_cancelled_since(cancel_generation)
+                            })
                         }
                         Err(err) => Err(err),
                     };
 
-                    // Await WAV save and verify
-                    let wav_saved = match wav_handle.await {
-                        Ok(Ok(())) => {
-                            match crate::audio_toolkit::verify_wav_file(
-                                &wav_path_for_verify,
-                                sample_count,
-                            ) {
-                                Ok(()) => true,
-                                Err(e) => {
-                                    error!("WAV verification failed: {}", e);
-                                    false
-                                }
+                    let staged_file_name = match wav_handle {
+                        Some(handle) => match handle.await {
+                            Ok(Ok(Some(name))) => name,
+                            Ok(Ok(None)) => String::new(),
+                            Ok(Err(err)) => {
+                                error!("Failed to stage take WAV inside policy gate: {}", err);
+                                String::new()
                             }
-                        }
-                        Ok(Err(e)) => {
-                            error!("Failed to save WAV file: {}", e);
-                            false
-                        }
-                        Err(e) => {
-                            error!("WAV save task panicked: {}", e);
-                            false
-                        }
+                            Err(err) => {
+                                error!("WAV stage task panicked: {}", err);
+                                String::new()
+                            }
+                        },
+                        None => String::new(),
                     };
 
                     if rm.was_cancelled_since(cancel_generation) {
+                        if !staged_file_name.is_empty() {
+                            let _ = hm.discard_staged_wav(&staged_file_name);
+                        }
                         debug!("Transcription operation cancelled before output handling");
                         utils::hide_recording_overlay(&ah);
                         change_tray_icon(&ah, TrayIconState::Idle);
@@ -1509,12 +1930,16 @@ impl ShortcutAction for TranscribeAction {
                                     &transcription,
                                     post_process,
                                     correction,
+                                    active_app.as_ref(),
                                     Some(local_llm_cancel),
                                 ),
                                 || rm.was_cancelled_since(cancel_generation),
                             )
                             .await
                             else {
+                                if !staged_file_name.is_empty() {
+                                    let _ = hm.discard_staged_wav(&staged_file_name);
+                                }
                                 debug!("Transcription operation cancelled during output handling");
                                 utils::hide_recording_overlay(&ah);
                                 change_tray_icon(&ah, TrayIconState::Idle);
@@ -1522,30 +1947,108 @@ impl ShortcutAction for TranscribeAction {
                             };
 
                             if rm.was_cancelled_since(cancel_generation) {
+                                if !staged_file_name.is_empty() {
+                                    let _ = hm.discard_staged_wav(&staged_file_name);
+                                }
                                 debug!("Transcription operation cancelled before paste");
                                 utils::hide_recording_overlay(&ah);
                                 change_tray_icon(&ah, TrayIconState::Idle);
                                 return;
                             }
 
-                            // Save to history if WAV was saved
-                            let mut history_saved = false;
-                            if wav_saved {
-                                match hm.save_entry(
-                                    file_name,
-                                    transcription,
-                                    post_process,
-                                    processed.post_processed_text.clone(),
-                                    processed.post_process_prompt.clone(),
-                                ) {
-                                    Ok(_) => history_saved = true,
-                                    Err(err) => error!("Failed to save history entry: {}", err),
+                            // Plan E: if a local agent question card is active on the pill,
+                            // route the spoken answer back over the local socket instead of
+                            // pasting or saving to Dictation history (I7).
+                            if let Some(bridge_state) =
+                                ah.try_state::<Arc<Mutex<crate::agent_ask_bridge::AgentAskBridgeState>>>()
+                            {
+                                let answered = bridge_state
+                                    .lock()
+                                    .unwrap_or_else(|e| e.into_inner())
+                                    .answer_active(processed.final_text.clone());
+                                if let Some((agent_name, next_ev)) = answered {
+                                    if !staged_file_name.is_empty() {
+                                        let _ = hm.discard_staged_wav(&staged_file_name);
+                                    }
+                                    if let Some(ov) = ah.get_webview_window("recording_overlay") {
+                                        let _ = ov.emit(
+                                            "agent-ask-answered",
+                                            crate::agent_ask_bridge::AgentAskAnsweredEvent {
+                                                agent_name,
+                                            },
+                                        );
+                                        if let Some(ev) = next_ev {
+                                            let _ = ov.emit("agent-ask-question", ev);
+                                        }
+                                    }
+                                    change_tray_icon(&ah, TrayIconState::Idle);
+                                    return;
                                 }
                             }
+
+                            if !processed.final_text.trim().is_empty() {
+                                if let Some(last_take) =
+                                    ah.try_state::<crate::last_take::LastTake>()
+                                {
+                                    last_take.set(processed.final_text.clone());
+                                }
+                            }
+
+                            // Persist under `HistoryManager`'s serialized `HistoryPolicyGate`:
+                            // row INSERT and `pending_audio_removal` removal execute in ONE SQLite
+                            // transaction, or the staged WAV is unlinked inside the gate on Never
+                            // / audio-off.
+                            let hm_for_save = Arc::clone(&hm);
+                            let save_post_processed = processed.post_processed_text.clone();
+                            let save_prompt = processed.post_process_prompt.clone();
+                            let save_app_name = active_app.as_ref().map(|a| a.app_name.clone());
+                            let save_language = Some(processed.effective_language.clone());
+                            let save_res = tauri::async_runtime::spawn_blocking(move || {
+                                hm_for_save.save_entry_with_meta_for_snapshot(
+                                    policy_snapshot,
+                                    staged_file_name,
+                                    transcription,
+                                    post_process,
+                                    save_post_processed,
+                                    save_prompt,
+                                    save_app_name,
+                                    save_language,
+                                )
+                            })
+                            .await;
+                            let history_saved = match save_res {
+                                Ok(Ok(crate::managers::history::NormalSaveStatus::Saved(entry))) => {
+                                    debug!("History saved entry {}", entry.id);
+                                    true
+                                }
+                                Ok(Ok(
+                                    crate::managers::history::NormalSaveStatus::SavedWithIncompleteAudio {
+                                        entry,
+                                        incomplete_error,
+                                    },
+                                )) => {
+                                    // Text row is persisted, so it counts as in history for the
+                                    // paste notice; only audio verification was incomplete.
+                                    debug!(
+                                        "History saved text-only entry {} ({})",
+                                        entry.id, incomplete_error
+                                    );
+                                    true
+                                }
+                                Ok(Err(err)) => {
+                                    debug!("History entry not saved: {}", err);
+                                    false
+                                }
+                                Err(err) => {
+                                    error!("History save task panicked: {}", err);
+                                    false
+                                }
+                            };
                             let notice_settings = get_settings(&ah);
                             let clipboard_handling = notice_settings.clipboard_handling;
                             let history_limit = notice_settings.history_limit;
                             let retention = notice_settings.recording_retention_period;
+                            let never_store = notice_settings.never_store_history;
 
                             // A status row stays up for a moment after the paste so it can
                             // be read.
@@ -1557,18 +2060,49 @@ impl ShortcutAction for TranscribeAction {
                             } else {
                                 let ah_clone = ah.clone();
                                 let paste_time = Instant::now();
-                                let final_text = processed.final_text;
-                                // Non-zero only in correction mode: delete the
-                                // prior output before typing the edit so the
-                                // corrected text REPLACES it instead of appending.
-                                let replace_char_count = processed.replace_char_count;
+                                let mut final_text = processed.final_text;
+                                // Non-zero only in correction mode (or a local V-D10 spoken box
+                                // edit): delete the target span before typing the replacement.
+                                let mut replace_char_count = processed.replace_char_count;
+                                if !correction && notice_settings.read_focused_text_enabled {
+                                    if let Some(snapshot) =
+                                        crate::focused_text::read_focused_box_snapshot(
+                                            &notice_settings,
+                                        )
+                                    {
+                                        let (formatted, extra_replace) =
+                                            crate::focused_text::apply_focused_snapshot_to_take(
+                                                &snapshot,
+                                                &final_text,
+                                                notice_settings.read_focused_window_context_enabled,
+                                                &notice_settings.custom_words,
+                                            );
+                                        final_text = formatted;
+                                        if extra_replace > 0 {
+                                            replace_char_count = extra_replace;
+                                        }
+                                    }
+                                }
                                 let rm_for_paste = Arc::clone(&rm);
+                                let paste_method = notice_settings.paste_method;
+                                #[cfg(target_os = "macos")]
+                                let pasted_for_fix_offer = final_text.clone();
                                 // Sleeps in paste must not run on the UI thread.
                                 // Enigo still hops there itself. spawn_blocking
                                 // so those sleeps do not park this async worker.
                                 let pasted = tauri::async_runtime::spawn_blocking(move || {
                                     if rm_for_paste.was_cancelled_since(cancel_generation) {
                                         return None;
+                                    }
+                                    #[cfg(debug_assertions)]
+                                    if take_fail_next_paste() {
+                                        use tauri_plugin_clipboard_manager::ClipboardExt;
+                                        let kept =
+                                            ah_clone.clipboard().write_text(&final_text).is_ok();
+                                        return Some(Err(crate::clipboard::PasteFailure {
+                                            error: "debug: forced paste failure".to_string(),
+                                            kept_on_clipboard: kept,
+                                        }));
                                     }
                                     Some(utils::replace_previous(
                                         replace_char_count,
@@ -1582,7 +2116,10 @@ impl ShortcutAction for TranscribeAction {
                                 let mut show_notice = false;
                                 let mut paste_failed = false;
                                 let mut paste_lost = false;
-                                match pasted {
+                                let outcome_input: Result<
+                                    Option<Result<bool, crate::clipboard::PasteFailure>>,
+                                    (),
+                                > = match pasted {
                                     Ok(Some(Ok(restored))) => {
                                         debug!(
                                             "Text pasted successfully in {:?}",
@@ -1591,15 +2128,19 @@ impl ShortcutAction for TranscribeAction {
                                         // Restored means DontModify put the old clipboard
                                         // back, so we cannot tell whether the paste landed.
                                         show_notice = restored;
+                                        Ok(Some(Ok(restored)))
                                     }
                                     Ok(Some(Err(e))) => {
                                         error!("Failed to paste transcription: {}", e);
                                         show_notice = true;
                                         paste_failed = true;
+                                        paste_lost = !e.kept_on_clipboard;
+                                        Ok(Some(Err(e)))
                                     }
                                     Ok(None) => {
                                         debug!("Transcription operation cancelled before paste");
                                         cancelled_before_paste = true;
+                                        Ok(None)
                                     }
                                     Err(e) => {
                                         // JoinError: the blocking paste task panicked or was
@@ -1609,16 +2150,18 @@ impl ShortcutAction for TranscribeAction {
                                         // claim the clipboard holds the words.
                                         show_notice = true;
                                         paste_lost = true;
+                                        Err(())
                                     }
-                                }
+                                };
                                 if show_notice {
                                     let (on_clipboard, in_history) =
-                                        crate::clipboard::paste_word_locations(
+                                        crate::clipboard::paste_word_locations_with_privacy(
                                             clipboard_handling,
                                             paste_failed,
                                             history_saved,
                                             history_limit,
                                             retention,
+                                            never_store,
                                         );
                                     let _ = ah.emit(
                                         "paste-notice",
@@ -1632,12 +2175,51 @@ impl ShortcutAction for TranscribeAction {
                                     utils::hide_recording_overlay(&ah);
                                     change_tray_icon(&ah, TrayIconState::Idle);
                                 } else {
-                                    finish_overlay(&ah, delay_hide, captured_overlay_gen);
+                                    let maybe_outcome = pill_outcome(
+                                        &outcome_input,
+                                        paste_method,
+                                        active_app.as_ref(),
+                                    );
+                                    let hide_delay = if let Some(ref outcome) = maybe_outcome {
+                                        emit_pill_outcome(&ah, outcome);
+                                        Some(if delay_hide {
+                                            outcome.hide_delay().max(STATUS_OVERLAY_GRACE)
+                                        } else {
+                                            outcome.hide_delay()
+                                        })
+                                    } else {
+                                        delay_hide.then_some(STATUS_OVERLAY_GRACE)
+                                    };
+                                    finish_overlay_with_delay(
+                                        &ah,
+                                        hide_delay,
+                                        captured_overlay_gen,
+                                    );
+                                    // Plan C: post-paste fix_offer watcher (macOS, local AX only).
+                                    #[cfg(target_os = "macos")]
+                                    if !paste_failed
+                                        && !paste_lost
+                                        && notice_settings.offer_remember_fix_enabled
+                                        && !notice_settings.never_store_history
+                                        && !pasted_for_fix_offer.trim().is_empty()
+                                    {
+                                        spawn_fix_offer_watcher(
+                                            ah.clone(),
+                                            pasted_for_fix_offer,
+                                            active_app
+                                                .as_ref()
+                                                .map(|a| a.app_name.clone())
+                                                .unwrap_or_default(),
+                                        );
+                                    }
                                 }
                             }
                         }
                         Err(err) => {
                             if rm.was_cancelled_since(cancel_generation) {
+                                if !staged_file_name.is_empty() {
+                                    let _ = hm.discard_staged_wav(&staged_file_name);
+                                }
                                 debug!(
                                     "Transcription operation cancelled after transcription error"
                                 );
@@ -1650,16 +2232,27 @@ impl ShortcutAction for TranscribeAction {
                             // Surface the failure to the UI (toast). The full
                             // message is also in coco-voice.log via the line above.
                             let _ = ah.emit("transcription-error", err.to_string());
-                            // Save entry with empty text so user can retry
-                            if wav_saved {
-                                if let Err(save_err) = hm.save_entry(
-                                    file_name,
-                                    String::new(),
-                                    post_process,
-                                    None,
-                                    None,
-                                ) {
-                                    error!("Failed to save failed history entry: {}", save_err);
+                            // Save retry entry with empty text ONLY when serialized live policy
+                            // under `policy_gate` still allows BOTH history and audio storage;
+                            // otherwise discard the staged WAV inside `policy_gate`.
+                            if !staged_file_name.is_empty() {
+                                let hm_for_save = Arc::clone(&hm);
+                                let save_res = tauri::async_runtime::spawn_blocking(move || {
+                                    hm_for_save.save_failed_retry_entry_for_snapshot(
+                                        policy_snapshot,
+                                        staged_file_name,
+                                        post_process,
+                                    )
+                                })
+                                .await;
+                                match save_res {
+                                    Ok(Ok(_)) => {}
+                                    Ok(Err(save_err)) => {
+                                        debug!("Failed history entry not saved: {}", save_err);
+                                    }
+                                    Err(join_err) => {
+                                        error!("Failed history save task panicked: {}", join_err);
+                                    }
                                 }
                             }
                             utils::hide_recording_overlay(&ah);
@@ -1719,6 +2312,117 @@ impl ShortcutAction for TestAction {
     }
 }
 
+/// Determines whether a dictation take should persist its transcript text and/or
+/// WAV audio file to disk.
+///
+/// - `never_store_history == true` ("Never"): write neither text nor audio to disk.
+/// - `never_store_history == false && keep_dictation_audio == false` (default):
+///   write text-only history and never write a WAV file.
+/// - `never_store_history == false && keep_dictation_audio == true`: write both.
+pub fn dictation_persistence_policy(
+    never_store_history: bool,
+    keep_dictation_audio: bool,
+) -> (bool, bool) {
+    if never_store_history {
+        (false, false)
+    } else {
+        (true, keep_dictation_audio)
+    }
+}
+
+/// Remove a freshly written or partial WAV through the single bounded `unlinkat`
+/// delete in `HistoryManager`. Never follows symlinks or deletes outside its folder.
+#[cfg(test)]
+fn remove_orphan_wav(path: &std::path::Path) {
+    let Some(parent) = path.parent() else {
+        return;
+    };
+    let Some(file_name) = path.file_name().and_then(|s| s.to_str()) else {
+        return;
+    };
+    let Ok(canonical_root) = std::fs::canonicalize(parent) else {
+        return;
+    };
+    if let Err(err) = crate::managers::history::HistoryManager::unlink_recording_strict_bounded(
+        parent,
+        Some(&canonical_root),
+        file_name,
+    ) {
+        error!("Failed to remove orphan WAV file {}: {}", file_name, err);
+    }
+}
+
+/// Checks `allow_wav()` immediately before writing, writes and verifies the WAV,
+/// and removes any newly created partial file on write or verification failure.
+/// Never removes a pre-existing file that this call did not create.
+#[cfg(test)]
+fn write_wav_if_allowed<A, W, V, WE, VE>(
+    wav_path: &std::path::Path,
+    allow_wav: A,
+    write_fn: W,
+    verify_fn: V,
+) -> bool
+where
+    A: FnOnce() -> bool,
+    W: FnOnce(&std::path::Path) -> std::result::Result<(), WE>,
+    V: FnOnce(&std::path::Path) -> std::result::Result<(), VE>,
+    WE: std::fmt::Display,
+    VE: std::fmt::Display,
+{
+    if !allow_wav() {
+        return false;
+    }
+    let existed_before = wav_path.symlink_metadata().is_ok();
+    match write_fn(wav_path) {
+        Ok(()) => match verify_fn(wav_path) {
+            Ok(()) => true,
+            Err(err) => {
+                error!("WAV verification failed: {}", err);
+                if !existed_before {
+                    remove_orphan_wav(wav_path);
+                }
+                false
+            }
+        },
+        Err(err) => {
+            error!("Failed to save WAV file: {}", err);
+            if !existed_before {
+                remove_orphan_wav(wav_path);
+            }
+            false
+        }
+    }
+}
+
+/// Re-evaluates persistence policy RIGHT BEFORE inserting a DB row so an in-flight
+/// switch to Never store or audio-off cannot persist a row or leave a WAV on disk.
+/// Returns `(persist_text_now, stored_file_name)`.
+#[cfg(test)]
+fn resolve_in_flight_persistence(
+    never_store_now: bool,
+    keep_audio_now: bool,
+    wav_saved: bool,
+    file_name: String,
+    wav_path: Option<&std::path::Path>,
+) -> (bool, String) {
+    let (allow_text_now, allow_wav_now) =
+        dictation_persistence_policy(never_store_now, keep_audio_now);
+    if !allow_text_now {
+        if let Some(path) = wav_path {
+            remove_orphan_wav(path);
+        }
+        return (false, String::new());
+    }
+    if allow_wav_now && wav_saved && !file_name.is_empty() {
+        (true, file_name)
+    } else {
+        if let Some(path) = wav_path {
+            remove_orphan_wav(path);
+        }
+        (true, String::new())
+    }
+}
+
 // Static Action Map
 pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::new(|| {
     let mut map = HashMap::new();
@@ -1740,6 +2444,13 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
     // utterance edits the last output and the result replaces it at the cursor.
     // `post_process: true` so the "polishing" overlay shows while the LLM edits;
     // the correction branch in `process_transcription_output` owns the behaviour.
+    map.insert(
+        "hands_free".to_string(),
+        Arc::new(TranscribeAction {
+            post_process: false,
+            correction: false,
+        }) as Arc<dyn ShortcutAction>,
+    );
     map.insert(
         "correction".to_string(),
         Arc::new(TranscribeAction {
@@ -1770,8 +2481,8 @@ mod tests {
     use super::{
         build_post_process_messages, complete_unless_cancelled, next_cleanup_preview, non_blank,
         note_cancel_if_generation_moved, provider_configured, refine_base_for_correction,
-        should_hold_overlay, should_use_streaming_overlay, store_refine_buffer,
-        streams_cleanup_progress, SkipReason, CLEANUP_PROGRESS_MIN_GAP_MS,
+        should_hold_overlay, should_post_process_take, should_use_streaming_overlay,
+        store_refine_buffer, streams_cleanup_progress, SkipReason, CLEANUP_PROGRESS_MIN_GAP_MS,
     };
     use crate::settings::OverlayStyle;
     use std::future;
@@ -2041,5 +2752,1301 @@ mod tests {
         assert!(!should_use_streaming_overlay(OverlayStyle::Live, false));
         assert!(!should_use_streaming_overlay(OverlayStyle::Minimal, true));
         assert!(!should_use_streaming_overlay(OverlayStyle::None, true));
+    }
+
+    #[test]
+    fn clean_every_take_runs_post_processing_on_standard_dictation_when_enabled() {
+        assert!(should_post_process_take(false, true));
+        assert!(!should_post_process_take(false, false));
+        assert!(should_post_process_take(true, false));
+        assert!(should_post_process_take(true, true));
+    }
+
+    #[test]
+    fn pipeline_runs_custom_words_then_corrections_then_surface_style_then_saved_blocks() {
+        let custom_words = vec!["signoff".to_string()];
+        let corrections = vec![crate::settings::CorrectionPair {
+            from: "signoff".to_string(),
+            to: "team note".to_string(),
+        }];
+        let blocks = vec![crate::settings::SavedBlock {
+            id: "sig-1".to_string(),
+            cue: "team note".to_string(),
+            content: "Best regards,\nCoco Voice.".to_string(),
+        }];
+
+        let step1 = crate::audio_toolkit::apply_custom_words("insert signof", &custom_words, 0.5);
+        assert_eq!(step1, "insert signoff");
+        let step2 = crate::audio_toolkit::apply_corrections(&step1, &corrections);
+        assert_eq!(step2, "insert team note");
+        // AC-P30: Casual surface style (lowercase + drop trailing period) runs BEFORE
+        // expand_saved_blocks, so the expanded block keeps its exact casing & period.
+        let casual = crate::app_profiles::tone_defaults(crate::app_profiles::AppTone::Casual, None);
+        let step3 = crate::app_profiles::apply_surface_style(&step2, casual);
+        let step4 = crate::audio_toolkit::expand_saved_blocks(&step3, &blocks);
+        assert_eq!(step4, "Best regards,\nCoco Voice.");
+    }
+
+    #[test]
+    fn dictation_persistence_policy_enforces_never_store_and_keep_audio_off_default() {
+        use super::{dictation_persistence_policy, remove_orphan_wav};
+        // Never store writes neither text nor WAV even if keep_dictation_audio was true.
+        assert_eq!(dictation_persistence_policy(true, false), (false, false));
+        assert_eq!(dictation_persistence_policy(true, true), (false, false));
+        // Default (never_store=false, keep_audio=false) writes text only, zero WAV.
+        assert_eq!(dictation_persistence_policy(false, false), (true, false));
+        // Opt-in audio writes both text and WAV.
+        assert_eq!(dictation_persistence_policy(false, true), (true, true));
+
+        // Orphan WAV cleanup removes a cancelled take's file from disk.
+        let dir = tempfile::tempdir().expect("temp dir");
+        let orphan = dir.path().join("cancelled-take.wav");
+        std::fs::write(&orphan, b"RIFF").unwrap();
+        assert!(orphan.exists());
+        remove_orphan_wav(&orphan);
+        assert!(!orphan.exists());
+    }
+
+    #[test]
+    fn partial_wav_write_and_verify_failure_leave_zero_orphan_files_on_disk() {
+        use super::write_wav_if_allowed;
+
+        let dir = tempfile::tempdir().expect("temp dir");
+        let wav_write_err = dir.path().join("partial-write.wav");
+        let ok_write_err = write_wav_if_allowed(
+            &wav_write_err,
+            || true,
+            |p| {
+                std::fs::write(p, b"RIFF-partial").unwrap();
+                Err("disk full")
+            },
+            |_| Ok::<(), &str>(()),
+        );
+        assert!(!ok_write_err);
+        assert!(
+            !wav_write_err.exists(),
+            "partial WAV from failed write must be removed"
+        );
+
+        let wav_verify_err = dir.path().join("partial-verify.wav");
+        let ok_verify_err = write_wav_if_allowed(
+            &wav_verify_err,
+            || true,
+            |p| {
+                std::fs::write(p, b"RIFF-corrupt").unwrap();
+                Ok::<(), &str>(())
+            },
+            |_| Err("sample count mismatch"),
+        );
+        assert!(!ok_verify_err);
+        assert!(
+            !wav_verify_err.exists(),
+            "corrupt WAV from failed verify must be removed"
+        );
+
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn in_flight_switch_to_never_or_audio_off_writes_zero_wav_and_zero_db_rows() {
+        use super::{resolve_in_flight_persistence, write_wav_if_allowed};
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+
+        let dir = tempfile::tempdir().expect("temp dir");
+
+        // 1) User flips Never store ON before the WAV writer runs -> 0 WAV written.
+        let never_store = Arc::new(AtomicBool::new(true));
+        let keep_audio = Arc::new(AtomicBool::new(true));
+        let wav_a = dir.path().join("take-a.wav");
+        let saved_a = write_wav_if_allowed(
+            &wav_a,
+            || {
+                super::dictation_persistence_policy(
+                    never_store.load(Ordering::SeqCst),
+                    keep_audio.load(Ordering::SeqCst),
+                )
+                .1
+            },
+            |p| {
+                std::fs::write(p, b"RIFF").unwrap();
+                Ok::<(), &str>(())
+            },
+            |_| Ok::<(), &str>(()),
+        );
+        assert!(!saved_a);
+        assert!(!wav_a.exists());
+
+        // 2) WAV wrote while keep_audio=true, then user switched to Never before DB insert ->
+        //    WAV is deleted and persist_text_now is false (0 DB row, 0 WAV).
+        let wav_b = dir.path().join("take-b.wav");
+        std::fs::write(&wav_b, b"RIFF-b").unwrap();
+        let (persist_text_b, stored_b) =
+            resolve_in_flight_persistence(true, true, true, "take-b.wav".into(), Some(&wav_b));
+        assert!(!persist_text_b);
+        assert!(stored_b.is_empty());
+        assert!(!wav_b.exists(), "in-flight WAV must be deleted on Never");
+
+        // 3) WAV wrote while keep_audio=true, then user switched audio OFF before DB insert ->
+        //    WAV is deleted and DB row is saved text-only (file_name = "").
+        let wav_c = dir.path().join("take-c.wav");
+        std::fs::write(&wav_c, b"RIFF-c").unwrap();
+        let (persist_text_c, stored_c) =
+            resolve_in_flight_persistence(false, false, true, "take-c.wav".into(), Some(&wav_c));
+        assert!(persist_text_c);
+        assert!(stored_c.is_empty());
+        assert!(
+            !wav_c.exists(),
+            "in-flight WAV must be deleted when audio switched off"
+        );
+
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn pill_outcome_covers_all_seven_cases_and_truncates_long_app_names() {
+        use super::{pill_outcome, truncate_app_name, PillOutcome};
+        use crate::app_profiles::ActiveAppInfo;
+        use crate::clipboard::PasteFailure;
+        use crate::settings::PasteMethod;
+
+        let mail = ActiveAppInfo {
+            app_name: "Mail".to_string(),
+            bundle_id: Some("com.apple.mail".to_string()),
+            process_stem: None,
+        };
+        let long_app = ActiveAppInfo {
+            app_name: "VeryLongApplicationNameExceeding24Chars".to_string(),
+            bundle_id: None,
+            process_stem: None,
+        };
+
+        // 1. Real paste ok, app "Mail" -> Sent("Mail")
+        assert_eq!(
+            pill_outcome(&Ok(Some(Ok(false))), PasteMethod::CtrlV, Some(&mail)),
+            Some(PillOutcome::Sent {
+                target_app: Some("Mail".to_string())
+            })
+        );
+        // 2. Real paste ok, no app -> Sent(None)
+        assert_eq!(
+            pill_outcome(&Ok(Some(Ok(true))), PasteMethod::Direct, None),
+            Some(PillOutcome::Sent { target_app: None })
+        );
+        // 3. Long app name truncated to 24 chars + ellipsis
+        assert_eq!(
+            truncate_app_name(&long_app.app_name),
+            Some("VeryLongApplicationNameE…".to_string())
+        );
+        // 4. Ok(false) with PasteMethod::None -> Clipboard
+        assert_eq!(
+            pill_outcome(&Ok(Some(Ok(false))), PasteMethod::None, Some(&mail)),
+            Some(PillOutcome::Clipboard)
+        );
+        // 5. Failure, kept on clipboard -> KeptPressPaste
+        assert_eq!(
+            pill_outcome(
+                &Ok(Some(Err(PasteFailure {
+                    error: "blocked".to_string(),
+                    kept_on_clipboard: true,
+                }))),
+                PasteMethod::CtrlV,
+                Some(&mail),
+            ),
+            Some(PillOutcome::KeptPressPaste)
+        );
+        // 6. Failure, not kept -> None (toast still fires)
+        assert_eq!(
+            pill_outcome(
+                &Ok(Some(Err(PasteFailure {
+                    error: "blocked".to_string(),
+                    kept_on_clipboard: false,
+                }))),
+                PasteMethod::CtrlV,
+                Some(&mail),
+            ),
+            None
+        );
+        // 7. Cancelled -> None
+        assert_eq!(
+            pill_outcome(&Ok(None), PasteMethod::CtrlV, Some(&mail)),
+            None
+        );
+        // 8. Panicked -> None
+        assert_eq!(
+            pill_outcome(&Err(()), PasteMethod::CtrlV, Some(&mail)),
+            None
+        );
+    }
+
+    #[test]
+    fn pill_outcome_delays_and_accessibility_announcer_match_spec() {
+        use super::{announce_with, PillOutcome};
+        use std::time::Duration;
+
+        assert_eq!(
+            PillOutcome::Sent {
+                target_app: Some("Mail".to_string())
+            }
+            .hide_delay(),
+            Duration::from_millis(1500)
+        );
+        assert_eq!(
+            PillOutcome::Clipboard.hide_delay(),
+            Duration::from_millis(2500)
+        );
+        assert_eq!(
+            PillOutcome::KeptPressPaste.hide_delay(),
+            Duration::from_millis(4000)
+        );
+
+        let mut spoken = Vec::<String>::new();
+        announce_with("Listening", |t| spoken.push(t.to_string()));
+        announce_with(
+            &PillOutcome::Sent {
+                target_app: Some("Mail".to_string()),
+            }
+            .announcement_text(true),
+            |t| spoken.push(t.to_string()),
+        );
+        announce_with(
+            &PillOutcome::Sent { target_app: None }.announcement_text(true),
+            |t| spoken.push(t.to_string()),
+        );
+        assert_eq!(spoken, vec!["Listening", "Sent to Mail", "Sent"]);
+    }
+
+    #[test]
+    fn fail_next_paste_is_strictly_gated_to_debug_assertions() {
+        let src = include_str!("actions.rs");
+        // Slice only non-test code so this test's own strings don't match.
+        let prod_src = src.split("#[cfg(test)]").next().unwrap_or(src);
+        for symbol in [
+            "static FAIL_NEXT_PASTE",
+            "pub fn debug_set_fail_next_paste",
+            "fn take_fail_next_paste",
+            "if take_fail_next_paste()",
+        ] {
+            let idx = prod_src
+                .find(symbol)
+                .unwrap_or_else(|| panic!("expected {symbol} in actions.rs"));
+            let before = &prod_src[idx.saturating_sub(120)..idx];
+            assert!(
+                before.contains("#[cfg(debug_assertions)]"),
+                "{symbol} must be strictly guarded by #[cfg(debug_assertions)]"
+            );
+        }
+    }
+
+    #[test]
+    fn ac_a9b_spoken_retraction_real_path_and_guards() {
+        use super::apply_post_process_cleanup_core;
+        use crate::audio_toolkit::text::filter_transcription_output_with_policy;
+
+        let forms = [
+            "meeting on tuesday, scratch that, wednesday",
+            "Meeting on Tuesday. Scratch that, Wednesday.",
+            "Meeting on Tuesday. Scratch that. Wednesday.",
+            "Meeting on Tuesday, scratch that. Wednesday.",
+        ];
+
+        // Real pre-cleanup pass (`managers/transcription.rs:post_process_transcription_text`)
+        // followed by `apply_post_process_cleanup_core` (called by `process_transcription_output`).
+        let mut failures: Vec<String> = Vec::new();
+        for form in forms {
+            let pre = filter_transcription_output_with_policy(form, "en", &None, true, true);
+
+            // (a) Clean-up provider unavailable -> model stubbed to return its input unchanged.
+            let (out_echo, _) =
+                apply_post_process_cleanup_core(&pre, true, |s| Some(s.to_string()));
+            // (b) Clean-up model returns the raw un-retracted text (simulates a model miss).
+            let (out_model_miss, _) =
+                apply_post_process_cleanup_core(&pre, true, |_| Some(form.to_string()));
+            // (c) Clean-up model fails / provider unavailable -> raw fallback (`None`).
+            let (out_fallback, _) = apply_post_process_cleanup_core(&pre, true, |_| None);
+
+            for (mode, got) in [
+                ("echo", &out_echo),
+                ("model_miss", &out_model_miss),
+                ("fallback", &out_fallback),
+            ] {
+                let lc = got.to_ascii_lowercase();
+                let ok = lc.contains("wednesday")
+                    && !lc.contains("tuesday")
+                    && !lc.contains("scratch that");
+                if !ok {
+                    failures.push(format!("form={form:?} mode={mode} got={got:?}"));
+                }
+            }
+        }
+        assert!(
+            failures.is_empty(),
+            "AC-A9b failures ({}):\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
+
+        // Guard cases must stay unchanged across both echo and fallback paths.
+        let guards = [
+            "I mean it.",
+            "We should go. I mean it.",
+            "Scratch that off the list.",
+            "Don't forget. Scratch that off the list.",
+            "Good news. No wait times today.",
+        ];
+        for guard in guards {
+            let pre = filter_transcription_output_with_policy(guard, "en", &None, true, true);
+            let (out_echo, _) =
+                apply_post_process_cleanup_core(&pre, true, |s| Some(s.to_string()));
+            let (out_fallback, _) = apply_post_process_cleanup_core(&pre, true, |_| None);
+            assert_eq!(out_echo, guard, "guard altered in echo mode: {guard:?}");
+            assert_eq!(
+                out_fallback, guard,
+                "guard altered in fallback mode: {guard:?}"
+            );
+        }
+
+        // Cleanup Off leaves spoken retractions untouched.
+        let (off_out, off_pp) = apply_post_process_cleanup_core(
+            "Meeting on Tuesday. Scratch that, Wednesday.",
+            false,
+            |_| unreachable!("model must not run when cleanup is Off"),
+        );
+        assert_eq!(off_out, "Meeting on Tuesday. Scratch that, Wednesday.");
+        assert!(off_pp.is_none());
+    }
+
+    #[test]
+    fn ac_a9b_r1b_spoken_retraction_narrowed_bridge_and_must_not_change() {
+        use super::apply_post_process_cleanup_core;
+        use crate::audio_toolkit::text::filter_transcription_output_with_policy;
+
+        // Must take back (6 from R1b + 12 from R1c = 18 total under R1d):
+        // each final text has the new word and neither the old word nor the cue.
+        let r1b_take_back: &[(&str, &str, &str, &str)] = &[
+            (
+                "meeting on tuesday, scratch that, wednesday",
+                "wednesday",
+                "tuesday",
+                "scratch that",
+            ),
+            (
+                "Meeting on Tuesday. Scratch that, Wednesday.",
+                "wednesday",
+                "tuesday",
+                "scratch that",
+            ),
+            (
+                "Meeting on Tuesday. Scratch that. Wednesday.",
+                "wednesday",
+                "tuesday",
+                "scratch that",
+            ),
+            (
+                "Meeting on Tuesday, scratch that. Wednesday.",
+                "wednesday",
+                "tuesday",
+                "scratch that",
+            ),
+            (
+                "Meeting on Tuesday. I mean Wednesday.",
+                "wednesday",
+                "tuesday",
+                "i mean",
+            ),
+            (
+                "Send it to Priya. Sorry, I mean Jordan.",
+                "jordan",
+                "priya",
+                "i mean",
+            ),
+        ];
+
+        let r1c_take_back: &[(&str, &str, &str, &str)] = &[
+            (
+                "Lunch is at one. Scratch that, two.",
+                "two",
+                "one",
+                "scratch that",
+            ),
+            ("We met in Paris. I mean Rome.", "rome", "paris", "i mean"),
+            (
+                "Ship it on Friday. No wait, Monday.",
+                "monday",
+                "friday",
+                "no wait",
+            ),
+            (
+                "We'll start at nine. Correction, ten.",
+                "ten",
+                "nine",
+                "correction",
+            ),
+            (
+                "Book it for Friday. I mean Saturday.",
+                "saturday",
+                "friday",
+                "i mean",
+            ),
+            (
+                "The report is for Q3. Scratch that, Q4.",
+                "q4",
+                "q3",
+                "scratch that",
+            ),
+            (
+                "Lunch on Thursday. Scratch that, Friday.",
+                "friday",
+                "thursday",
+                "scratch that",
+            ),
+            (
+                "The flight is in March. No wait, April.",
+                "april",
+                "march",
+                "no wait",
+            ),
+            ("Call Mom. No wait, Dad.", "dad", "mom", "no wait"),
+            (
+                "Send it to Alex. Scratch that, Jamie.",
+                "jamie",
+                "alex",
+                "scratch that",
+            ),
+            (
+                "meeting on tuesday. scratch that, wednesday.",
+                "wednesday",
+                "tuesday",
+                "scratch that",
+            ),
+            (
+                "Pick it up at four. Sorry, I mean five.",
+                "five",
+                "four",
+                "i mean",
+            ),
+        ];
+
+        // R1d known misses (tested neither way; moved out of must_take_back under Amendment R1d):
+        let _r1d_known_misses: &[&str] = &[
+            "Book the room. No wait, the hall.",
+            "It goes in the oven. No wait, the fridge.",
+            "This is for the team. Scratch that, for everyone.",
+            "The deadline is the 3rd. Correction, the 5th.",
+        ];
+        assert_eq!(_r1d_known_misses.len(), 4);
+
+        let must_take_back: Vec<(&str, &str, &str, &str)> = [r1b_take_back, r1c_take_back]
+            .into_iter()
+            .flatten()
+            .copied()
+            .collect();
+        assert_eq!(must_take_back.len(), 18);
+
+        // Exact output (R1f v11: ex01 is pasted byte-identical as said so no word is lost):
+        let exact_output_cases: &[(&str, &str)] = &[(
+            "The talk was at noon. Or rather, around noon.",
+            "The talk was at noon. Or rather, around noon.",
+        )];
+
+        // Must not change (16 from R1b + 44 from R1c + 6 from R1d = 66 total):
+        // byte-identical to input in every mode (echo, model_miss, fallback, model_cuts).
+        let model_cuts = |s: &str| -> Option<String> {
+            const CUT_CUES: &[&str] = &[
+                "scratch that",
+                "never mind",
+                "no wait",
+                "or rather",
+                "i mean",
+                "correction",
+                "rephrase",
+                "actually",
+                "sorry,",
+                ", no,",
+                "scratch",
+                "rather",
+                "mean",
+            ];
+            let lc = s.to_ascii_lowercase();
+            let best = CUT_CUES
+                .iter()
+                .filter_map(|cue| lc.find(cue).map(|pos| (pos, cue.len())))
+                .min_by_key(|&(pos, len)| (pos, std::cmp::Reverse(len)));
+            let Some((pos, len)) = best else {
+                return Some(s.to_string());
+            };
+            let tail = s[pos + len..]
+                .trim_start_matches(|c: char| matches!(c, ',' | ':' | '.' | ';' | ' '));
+            if !tail.is_empty() {
+                Some(tail.to_string())
+            } else {
+                let head = s[..pos].trim_end();
+                if !head.is_empty() {
+                    Some(head.to_string())
+                } else {
+                    Some(s.to_string())
+                }
+            }
+        };
+        let r1b_must_not_change: &[&str] = &[
+            "I'll be late. Sorry, traffic is bad.",
+            "We shipped it. Actually, the tests were green.",
+            "The demo went well. Actually, it went great.",
+            "Thanks for the notes. I mean, they really helped.",
+            "Send it to Priya. Correction: the deck is final.",
+            "Is it ready? Actually, never mind.",
+            "Book the room. No wait, I'll do it myself.",
+            "Call me later. Sorry, I'm in a meeting.",
+            "We shipped it. No wait, not yet.",
+            "I mean it.",
+            "We should go. I mean it.",
+            "Scratch that off the list.",
+            "Don't forget. Scratch that off the list.",
+            "Good news. No wait times today.",
+            "That was fun. Never mind the rain.",
+            "Got it. Or rather, we got most of it.",
+        ];
+
+        let r1c_must_not_change: &[&str] = &[
+            "It was in the box. I mean, obviously.",
+            "He works at the bank. I mean, seriously.",
+            "I went to the store. I mean, honestly, what else?",
+            "Let's go to the park. I mean, why not?",
+            "We are on track. I mean, mostly.",
+            "Send the file to me. Sorry, my mistake.",
+            "It is on the desk. Never mind, found it.",
+            "Put it in the drawer. No wait, really?",
+            "I was at home. I mean, where else?",
+            "That's for the kids. I mean, of course.",
+            "Thanks again. I mean, really.",
+            "The file is on the server. No wait, hold on.",
+            "I'll send it to you. No wait, tomorrow.",
+            "Give it to Sam. No wait, okay.",
+            "Sounds good to me. No wait, one question.",
+            "Put the keys in the bowl. No wait, sorry.",
+            "The bus leaves at six. Never mind, it's late.",
+            "Dinner is at seven. I mean, roughly.",
+            "Ask him about it. No wait, never mind.",
+            "It's in the car. Actually, it's in the house.",
+            "Talk to you soon. Scratch that, bye.",
+            "Send it to the client. No wait, hmm.",
+            "I'm at the gym. No wait, okay, fine.",
+            "It's for you. Scratch that.",
+            "Thanks for coming. No wait, please stay.",
+            "We are on it. Correction: done.",
+            "Meet me in the lobby. Sorry, I mean it.",
+            "It's on GitHub. No wait, OK.",
+            "Send it to Priya. Scratch that. Okay.",
+            "I live in Boston. Never mind, Thursday works.",
+            "See you on Monday. I mean, probably.",
+            "We have two options. Actually, three.",
+            "Meet at the station. No wait, I'll drive.",
+            "That costs ten dollars. I mean, wow.",
+            "It's in May. No wait, maybe.",
+            "Ask Sarah. Sorry, my bad.",
+            "The office is in London. I mean, technically.",
+            "Book a table for two. Scratch that, sounds good.",
+            "I'll be there at five. No wait, seriously?",
+            "We met last Friday. I mean, it was fun.",
+            "It was 2019. Or rather, ages ago.",
+            "The code is in Rust. No wait, Yes.",
+            "Ping me on Slack. Never mind, Zoom is fine.",
+            "We sold 40 units. I mean, wow, 40.",
+        ];
+
+        let r1d_must_not_change: &[&str] = &[
+            "Thanks, Sam. I mean, Thanks.",
+            "Text Ana the address. I mean, the new one.",
+            "I need to call Sam. I mean, call him later.",
+            "Nice work, Ana. I mean, Bravo.",
+            "It's due Friday. No wait, Friday is fine.",
+            "Meet Leo at five. I mean, Leo.",
+        ];
+
+        let must_not_change: Vec<&str> = [
+            r1b_must_not_change,
+            r1c_must_not_change,
+            r1d_must_not_change,
+        ]
+        .into_iter()
+        .flatten()
+        .copied()
+        .collect();
+        assert_eq!(must_not_change.len(), 66);
+
+        let mut failures: Vec<String> = Vec::new();
+        for &(input, keep, drop_old, drop_cue) in &must_take_back {
+            let pre = filter_transcription_output_with_policy(input, "en", &None, true, true);
+            let (out_echo, _) =
+                apply_post_process_cleanup_core(&pre, true, |s| Some(s.to_string()));
+            let (out_model_miss, _) =
+                apply_post_process_cleanup_core(&pre, true, |_| Some(input.to_string()));
+            let (out_fallback, _) = apply_post_process_cleanup_core(&pre, true, |_| None);
+            let (out_model_cuts, _) = apply_post_process_cleanup_core(&pre, true, model_cuts);
+
+            for (mode, got) in [
+                ("echo", &out_echo),
+                ("model_miss", &out_model_miss),
+                ("fallback", &out_fallback),
+                ("model_cuts", &out_model_cuts),
+            ] {
+                let lc = got.to_ascii_lowercase();
+                let ok = lc.contains(keep)
+                    && !lc.contains(drop_old)
+                    && !lc.contains(drop_cue)
+                    && !(input.contains("Sorry, I mean") && lc.contains("sorry"));
+                if !ok {
+                    failures.push(format!("TAKE_BACK input={input:?} mode={mode} got={got:?}"));
+                }
+            }
+        }
+
+        for &(input, expected) in exact_output_cases {
+            let pre = filter_transcription_output_with_policy(input, "en", &None, true, true);
+            let (out_echo, _) =
+                apply_post_process_cleanup_core(&pre, true, |s| Some(s.to_string()));
+            let (out_model_miss, _) =
+                apply_post_process_cleanup_core(&pre, true, |_| Some(input.to_string()));
+            let (out_fallback, _) = apply_post_process_cleanup_core(&pre, true, |_| None);
+            let (out_model_cuts, _) = apply_post_process_cleanup_core(&pre, true, model_cuts);
+
+            for (mode, got) in [
+                ("echo", &out_echo),
+                ("model_miss", &out_model_miss),
+                ("fallback", &out_fallback),
+                ("model_cuts", &out_model_cuts),
+            ] {
+                if got.as_str() != expected {
+                    failures.push(format!(
+                        "EXACT_OUTPUT input={input:?} mode={mode} expected={expected:?} got={got:?}"
+                    ));
+                }
+            }
+        }
+
+        let mut model_cuts_changed_count: usize = 0;
+        for &input in &must_not_change {
+            // Test all 66 byte-identical through the retraction-only real path (`remove_fillers = false`)
+            // across echo / model_miss / fallback / model_cuts, AND also with `remove_fillers = true`
+            // for all inputs that do not contain a configured English filler token ("hmm").
+            let pre_no_fill =
+                filter_transcription_output_with_policy(input, "en", &None, false, true);
+            let (out_echo_nf, _) =
+                apply_post_process_cleanup_core(&pre_no_fill, true, |s| Some(s.to_string()));
+            let (out_miss_nf, _) =
+                apply_post_process_cleanup_core(&pre_no_fill, true, |_| Some(input.to_string()));
+            let (out_fb_nf, _) = apply_post_process_cleanup_core(&pre_no_fill, true, |_| None);
+            let (out_cuts_nf, _) = apply_post_process_cleanup_core(&pre_no_fill, true, model_cuts);
+            if out_cuts_nf.as_str() != input {
+                model_cuts_changed_count += 1;
+            }
+
+            for (mode, got) in [
+                ("echo", &out_echo_nf),
+                ("model_miss", &out_miss_nf),
+                ("fallback", &out_fb_nf),
+                ("model_cuts", &out_cuts_nf),
+            ] {
+                if got.as_str() != input {
+                    failures.push(format!(
+                        "MUST_NOT_CHANGE input={input:?} mode={mode} got={got:?}"
+                    ));
+                }
+            }
+
+            if !input.to_ascii_lowercase().contains("hmm") {
+                let pre = filter_transcription_output_with_policy(input, "en", &None, true, true);
+                let (out_echo, _) =
+                    apply_post_process_cleanup_core(&pre, true, |s| Some(s.to_string()));
+                let (out_model_miss, _) =
+                    apply_post_process_cleanup_core(&pre, true, |_| Some(input.to_string()));
+                let (out_fallback, _) = apply_post_process_cleanup_core(&pre, true, |_| None);
+                let (out_model_cuts, _) = apply_post_process_cleanup_core(&pre, true, model_cuts);
+
+                for (mode, got) in [
+                    ("echo+fillers", &out_echo),
+                    ("model_miss+fillers", &out_model_miss),
+                    ("fallback+fillers", &out_fallback),
+                    ("model_cuts+fillers", &out_model_cuts),
+                ] {
+                    if got.as_str() != input {
+                        failures.push(format!(
+                            "MUST_NOT_CHANGE input={input:?} mode={mode} got={got:?}"
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Named regression case: stub drops "No wait," from a sentence the rules kept as said.
+        let named_keep_in = "I'll send it to you. No wait, tomorrow.";
+        let (named_keep_out, _) = apply_post_process_cleanup_core(named_keep_in, true, |_| {
+            Some("I'll send it to you tomorrow.".to_string())
+        });
+        if named_keep_out != named_keep_in {
+            failures.push(format!(
+                "NAMED_KEEP input={named_keep_in:?} expected={named_keep_in:?} got={named_keep_out:?}"
+            ));
+        }
+
+        assert!(
+            failures.is_empty(),
+            "AC-A9b spoken retraction failures ({}, model_cuts_changed={}/{}):\n{}",
+            failures.len(),
+            model_cuts_changed_count,
+            must_not_change.len(),
+            failures.join("\n")
+        );
+    }
+
+    fn find_first_cut_cue(s: &str) -> Option<(usize, usize)> {
+        const CUT_CUES: &[&str] = &[
+            "scratch that",
+            "never mind",
+            "no wait",
+            "or rather",
+            "i mean",
+            "correction",
+            "rephrase",
+            "actually",
+            "sorry,",
+            ", no,",
+            "scratch",
+            "rather",
+            "mean",
+        ];
+        let lc = s.to_ascii_lowercase();
+        CUT_CUES
+            .iter()
+            .filter_map(|cue| lc.find(cue).map(|pos| (pos, cue.len())))
+            .min_by_key(|&(pos, len)| (pos, std::cmp::Reverse(len)))
+    }
+
+    fn stub_model_cuts_before_cue(s: &str) -> Option<String> {
+        let Some((pos, _)) = find_first_cut_cue(s) else {
+            return Some(s.to_string());
+        };
+        Some(s[pos..].to_string())
+    }
+
+    fn stub_model_cuts_after_cue(s: &str) -> Option<String> {
+        let Some((pos, len)) = find_first_cut_cue(s) else {
+            return Some(s.to_string());
+        };
+        let end = pos + len;
+        let rest = &s[end..];
+        if !rest.chars().any(char::is_alphanumeric) {
+            return Some(s.to_string());
+        }
+        let prefix = s[..end].trim_end();
+        if prefix.ends_with(['.', '?', '!', ',']) {
+            Some(prefix.to_string())
+        } else {
+            Some(format!("{prefix}."))
+        }
+    }
+
+    fn load_must_not_change_66() -> Vec<(String, String)> {
+        let raw = include_str!("../../docs/eval/must-not-change-66.jsonl");
+        let rows: Vec<(String, String)> = raw
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|line| {
+                let v: serde_json::Value = serde_json::from_str(line).unwrap();
+                (
+                    v["id"].as_str().unwrap().to_string(),
+                    v["input"].as_str().unwrap().to_string(),
+                )
+            })
+            .collect();
+        assert_eq!(rows.len(), 66);
+        rows
+    }
+
+    #[test]
+    fn r1f_t1_model_cuts_before_cue_keeps_all_66_and_named_k29() {
+        use crate::actions::apply_post_process_cleanup_core;
+        use crate::audio_toolkit::text::filter_transcription_output_with_policy;
+
+        let k29 = "I'll send it to you. No wait, tomorrow.";
+        assert_eq!(
+            stub_model_cuts_before_cue(k29).as_deref(),
+            Some("No wait, tomorrow.")
+        );
+        let (k29_out, _) = apply_post_process_cleanup_core(k29, true, stub_model_cuts_before_cue);
+
+        let rows = load_must_not_change_66();
+        let mut fail_no_fill: Vec<String> = Vec::new();
+        let mut fail_with_fill: Vec<String> = Vec::new();
+        for (id, input) in &rows {
+            let pre_nf = filter_transcription_output_with_policy(input, "en", &None, false, true);
+            let (out_nf, _) =
+                apply_post_process_cleanup_core(&pre_nf, true, stub_model_cuts_before_cue);
+            if out_nf != *input {
+                fail_no_fill.push(format!("{id}: got={out_nf:?}"));
+            }
+
+            let pre_f = filter_transcription_output_with_policy(input, "en", &None, true, true);
+            let (out_f, _) =
+                apply_post_process_cleanup_core(&pre_f, true, stub_model_cuts_before_cue);
+            if out_f != pre_f {
+                fail_with_fill.push(format!("{id}: expected={pre_f:?} got={out_f:?}"));
+            }
+        }
+
+        assert!(
+            k29_out == k29 && fail_no_fill.is_empty() && fail_with_fill.is_empty(),
+            "T1 model_cuts_before_cue failures: k29_ok={} no_fill={}/66 with_fill={}/66\nno_fill: {:?}\nwith_fill: {:?}",
+            k29_out == k29,
+            fail_no_fill.len(),
+            fail_with_fill.len(),
+            fail_no_fill,
+            fail_with_fill
+        );
+    }
+
+    #[test]
+    fn r1f_t2_model_cuts_after_cue_keeps_all_66_and_named_k29() {
+        use crate::actions::apply_post_process_cleanup_core;
+        use crate::audio_toolkit::text::filter_transcription_output_with_policy;
+
+        let k29 = "I'll send it to you. No wait, tomorrow.";
+        assert_eq!(
+            stub_model_cuts_after_cue(k29).as_deref(),
+            Some("I'll send it to you. No wait.")
+        );
+        let (k29_out, _) = apply_post_process_cleanup_core(k29, true, stub_model_cuts_after_cue);
+
+        let rows = load_must_not_change_66();
+        let mut fail_no_fill: Vec<String> = Vec::new();
+        let mut fail_with_fill: Vec<String> = Vec::new();
+        for (id, input) in &rows {
+            let pre_nf = filter_transcription_output_with_policy(input, "en", &None, false, true);
+            let (out_nf, _) =
+                apply_post_process_cleanup_core(&pre_nf, true, stub_model_cuts_after_cue);
+            // k38 ("Send it to the client. No wait, hmm.") drops only the exempt English filler
+            // "hmm" when fillers are off; T4 asserts that drop is allowed while every non-filler
+            // word stays intact. All other 65 rows must come back byte-identical to input.
+            let expected_nf = if id == "k38" {
+                "Send it to the client. No wait."
+            } else {
+                input.as_str()
+            };
+            if out_nf != expected_nf {
+                fail_no_fill.push(format!("{id}: expected={expected_nf:?} got={out_nf:?}"));
+            }
+
+            let pre_f = filter_transcription_output_with_policy(input, "en", &None, true, true);
+            let (out_f, _) =
+                apply_post_process_cleanup_core(&pre_f, true, stub_model_cuts_after_cue);
+            if out_f != pre_f {
+                fail_with_fill.push(format!("{id}: expected={pre_f:?} got={out_f:?}"));
+            }
+        }
+
+        assert!(
+            k29_out == k29 && fail_no_fill.is_empty() && fail_with_fill.is_empty(),
+            "T2 model_cuts_after_cue failures: k29_ok={} no_fill={}/66 with_fill={}/66\nno_fill: {:?}\nwith_fill: {:?}",
+            k29_out == k29,
+            fail_no_fill.len(),
+            fail_with_fill.len(),
+            fail_no_fill,
+            fail_with_fill
+        );
+    }
+
+    #[test]
+    fn r1f_t3_rules_resolved_takebacks_allow_model_polish_and_ceiling() {
+        use crate::actions::apply_post_process_cleanup_core;
+        use crate::audio_toolkit::text::filter_transcription_output_with_policy;
+
+        let a9b_raw = include_str!("../testdata/r1f/a9b-cases.jsonl");
+        let takebacks: Vec<String> = a9b_raw
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .filter_map(|line| {
+                let v: serde_json::Value = serde_json::from_str(line).unwrap();
+                let id = v["id"].as_str().unwrap();
+                if id.starts_with("tb") {
+                    Some(v["input"].as_str().unwrap().to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(takebacks.len(), 18);
+
+        // The R1 sentence + all 18 AC-A9b take-backs: rules remove the cue so a polishing stub
+        // is pasted as given, and a stub that drops a word from a cue-free sentence is still taken
+        // (rule (a)'s named ceiling).
+        for input in &takebacks {
+            let pre = filter_transcription_output_with_policy(input, "en", &None, true, true);
+            let polished = format!("{pre} Polished.");
+            let (out_polish, _) =
+                apply_post_process_cleanup_core(&pre, true, |_| Some(polished.clone()));
+            assert_eq!(out_polish, polished, "polish rejected for {input:?}");
+
+            let dropped = pre.split_whitespace().skip(1).collect::<Vec<_>>().join(" ");
+            assert!(!dropped.is_empty(), "expected multi-word pre for {input:?}");
+            let (out_drop, _) =
+                apply_post_process_cleanup_core(&pre, true, |_| Some(dropped.clone()));
+            assert_eq!(out_drop, dropped, "cue-free ceiling changed for {input:?}");
+        }
+
+        let r1 = "meeting on tuesday, scratch that, wednesday";
+        let pre_r1 = filter_transcription_output_with_policy(r1, "en", &None, true, true);
+        let (out_r1, _) = apply_post_process_cleanup_core(&pre_r1, true, |_| {
+            Some("Meeting on Wednesday.".to_string())
+        });
+        assert_eq!(out_r1, "Meeting on Wednesday.");
+    }
+
+    #[test]
+    fn r1f_t6_and_t7_punctuation_edit_skips_second_pass() {
+        use crate::actions::apply_post_process_cleanup_core;
+
+        let t6_raw = include_str!("../testdata/r1f/t6-v7.jsonl");
+        let t6_rows: Vec<serde_json::Value> = t6_raw
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        let t6_input = t6_rows[0]["input"].as_str().unwrap();
+        let t6_model = t6_rows[1]["input"].as_str().unwrap();
+        assert_eq!(t6_input, "Call Sam. Sorry, Ana.");
+        assert_eq!(t6_model, "Call Sam, sorry, Ana.");
+
+        let mut failures: Vec<String> = Vec::new();
+        let (t6_out, _) = apply_post_process_cleanup_core(t6_input, true, |s| {
+            Some(s.replace(". Sorry,", ", sorry,"))
+        });
+        if t6_out != t6_model {
+            failures.push(format!("T6 expected={t6_model:?} got={t6_out:?}"));
+        }
+
+        // Old T6 keep: rules leave as said; punctuation-only stub output stays verbatim.
+        let old_t6 = "Book the big room. Scratch that, we can use my office.";
+        let old_t6_expected = "Book the big room, scratch that, we can use my office.";
+        let (old_t6_out, _) = apply_post_process_cleanup_core(old_t6, true, |s| {
+            Some(s.replace(". Scratch that,", ", scratch that,"))
+        });
+        if old_t6_out != old_t6_expected {
+            failures.push(format!(
+                "OLD_T6 expected={old_t6_expected:?} got={old_t6_out:?}"
+            ));
+        }
+
+        // T7 (c11): punctuation-only stub output stays verbatim.
+        let t7_input = "We missed the bus. Never mind, we can walk home.";
+        let t7_expected = "We missed the bus, never mind, we can walk home.";
+        let (t7_out, _) = apply_post_process_cleanup_core(t7_input, true, |s| {
+            Some(s.replace(". Never mind,", ", never mind,"))
+        });
+        if t7_out != t7_expected {
+            failures.push(format!("T7 expected={t7_expected:?} got={t7_out:?}"));
+        }
+
+        assert!(
+            failures.is_empty(),
+            "T6/T7 failures ({}):\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
+    }
+
+    #[test]
+    fn r1f_t4_cleanup_core_filler_drop_passes_and_non_filler_drop_falls_back() {
+        use crate::actions::apply_post_process_cleanup_core;
+
+        let k38 = "Send it to the client. No wait, hmm.";
+        let (out_hmm_dropped, _) = apply_post_process_cleanup_core(k38, true, |_| {
+            Some("Send it to the client. No wait.".to_string())
+        });
+        assert_eq!(out_hmm_dropped, "Send it to the client. No wait.");
+
+        let (out_client_dropped, _) = apply_post_process_cleanup_core(k38, true, |_| {
+            Some("Send it to the. No wait, hmm.".to_string())
+        });
+        assert_eq!(out_client_dropped, k38);
+
+        let k29 = "I'll send it to you. No wait, tomorrow.";
+        let (out_you_dropped, _) = apply_post_process_cleanup_core(k29, true, |_| {
+            Some("I'll send it to. No wait, tomorrow.".to_string())
+        });
+        assert_eq!(out_you_dropped, k29);
+    }
+
+    #[test]
+    fn f1b_t8a_app_order_r21_keeps_every_word_under_stock_prompt() {
+        use crate::actions::apply_post_process_cleanup_core_with_policy;
+        use crate::audio_toolkit::text::filter_transcription_output_with_policy;
+
+        let r21 = "Save the file as final v2, sorry, final v3.";
+        let after_manager = filter_transcription_output_with_policy(r21, "en", &None, true, true);
+        assert_eq!(after_manager, "Save the file as final v3.");
+        assert!(
+            !crate::audio_toolkit::text::has_repair_cue_hint(&after_manager),
+            "app-order text has no cue left after manager rules"
+        );
+        let (out, _) =
+            apply_post_process_cleanup_core_with_policy(&after_manager, true, true, |_| {
+                Some("final v3".to_string())
+            });
+        assert_eq!(out, "Save the file as final v3.");
+    }
+
+    #[test]
+    fn f1b_t8c_plain_dictation_keeps_every_word_under_stock_prompt() {
+        use crate::actions::apply_post_process_cleanup_core_with_policy;
+
+        let plain = "Save the file as final v3.";
+        let (out, _) = apply_post_process_cleanup_core_with_policy(plain, true, true, |_| {
+            Some("final v3".to_string())
+        });
+        assert_eq!(out, "Save the file as final v3.");
+    }
+
+    #[test]
+    fn f1b_t3b_k02_word_guard_ceiling_and_polish_stays() {
+        use crate::actions::apply_post_process_cleanup_core_with_policy;
+
+        let k02 = "Do you want the red one or the black one?";
+        assert!(
+            !crate::audio_toolkit::text::has_repair_cue_hint(k02),
+            "T3b precondition: backtrack-30 k02 must be cue-free"
+        );
+
+        let dropped_first = "you want the red one or the black one?";
+        let (out_keep, _) = apply_post_process_cleanup_core_with_policy(k02, true, true, |_| {
+            Some(dropped_first.to_string())
+        });
+        assert_eq!(
+            out_keep, k02,
+            "keep_every_word=true must fall back to pre when first word is dropped"
+        );
+
+        let (out_other_prompt, _) =
+            apply_post_process_cleanup_core_with_policy(k02, true, false, |_| {
+                Some(dropped_first.to_string())
+            });
+        assert_eq!(
+            out_other_prompt, dropped_first,
+            "keep_every_word=false must keep cue-free ceiling for non-stock prompts"
+        );
+
+        // Polish stays: case and punctuation only must still be taken with keep_every_word=true.
+        let polished = "do you want the red one, or the black one!";
+        let (out_polish, _) = apply_post_process_cleanup_core_with_policy(k02, true, true, |_| {
+            Some(polished.to_string())
+        });
+        assert_eq!(
+            out_polish, polished,
+            "case and punctuation polish must still be taken with keep_every_word=true"
+        );
+    }
+
+    #[test]
+    fn f1b_local_stock_prompt_detection_covers_stock_edited_custom_and_fallback() {
+        use crate::actions::{
+            resolve_cleanup, resolve_local_llm_prompt, CleanupDecision, SkipReason,
+        };
+        use crate::settings::{
+            get_default_settings, LLMPrompt, LOCAL_LLM_CLEANUP_PROMPT, LOCAL_LLM_PROVIDER_ID,
+        };
+
+        let mut settings = get_default_settings();
+        settings.post_process_selected_prompt_id =
+            Some("default_improve_transcriptions".to_string());
+
+        // 1. Direct local LLM + unedited stock prompt -> keep_every_word = true.
+        let (local_prompt, is_stock) = resolve_local_llm_prompt(&settings, "fallback");
+        assert_eq!(local_prompt, LOCAL_LLM_CLEANUP_PROMPT);
+        assert!(is_stock);
+
+        // 2. Unavailable cloud provider falls back to local LLM -> provider_id is LOCAL_LLM_PROVIDER_ID,
+        // so the local-LLM dispatch site sets keep_every_word = true.
+        let decision = resolve_cleanup("openai", |id| {
+            if id == LOCAL_LLM_PROVIDER_ID {
+                Ok(())
+            } else {
+                Err(SkipReason::NoApiKey)
+            }
+        });
+        assert!(matches!(
+            decision,
+            CleanupDecision::Run {
+                ref provider_id,
+                fallback_from: Some(_)
+            } if provider_id == LOCAL_LLM_PROVIDER_ID
+        ));
+        let (_, is_stock_on_fallback) = resolve_local_llm_prompt(&settings, "fallback");
+        assert!(is_stock_on_fallback);
+
+        // 3. Edited stock prompt -> keep_every_word = false.
+        let mut edited = settings.clone();
+        if let Some(p) = edited
+            .post_process_prompts
+            .iter_mut()
+            .find(|p| p.id == "default_improve_transcriptions")
+        {
+            p.prompt = "Translate this text into French:\n\n${output}".to_string();
+        }
+        let (_, is_stock_edited) = resolve_local_llm_prompt(&edited, "fallback");
+        assert!(!is_stock_edited);
+
+        // 4. Custom prompt -> keep_every_word = false.
+        let mut custom = settings.clone();
+        custom.post_process_prompts.push(LLMPrompt {
+            id: "custom_formal".to_string(),
+            name: "Formal".to_string(),
+            prompt: "Make this formal:\n\n${output}".to_string(),
+        });
+        custom.post_process_selected_prompt_id = Some("custom_formal".to_string());
+        let (_, is_stock_custom) = resolve_local_llm_prompt(&custom, "fallback");
+        assert!(!is_stock_custom);
+
+        // 5. Available cloud provider does NOT dispatch to LOCAL_LLM_PROVIDER_ID.
+        let cloud_decision = resolve_cleanup("openai", |_| Ok(()));
+        assert!(matches!(
+            cloud_decision,
+            CleanupDecision::Run {
+                ref provider_id,
+                fallback_from: None
+            } if provider_id == "openai" && provider_id != LOCAL_LLM_PROVIDER_ID
+        ));
+    }
+
+    #[test]
+    fn f1d_t9a_apple_intelligence_unedited_stock_prompts_use_local_prompt_and_keep_every_word() {
+        use crate::actions::resolve_provider_prompt;
+        use crate::settings::{
+            get_default_settings, APPLE_INTELLIGENCE_PROVIDER_ID, LOCAL_LLM_CLEANUP_PROMPT,
+        };
+
+        for stock_id in ["default_improve_transcriptions", "coco_formatted"] {
+            let mut settings = get_default_settings();
+            settings.post_process_selected_prompt_id = Some(stock_id.to_string());
+            let stored = settings
+                .post_process_prompts
+                .iter()
+                .find(|p| p.id == stock_id)
+                .expect("stock prompt exists")
+                .prompt
+                .clone();
+
+            let (resolved, keep_every_word) =
+                resolve_provider_prompt(APPLE_INTELLIGENCE_PROVIDER_ID, &settings, &stored);
+            assert!(
+                keep_every_word,
+                "T9a: apple_intelligence with unedited stock id {stock_id} must set keep_every_word=true"
+            );
+            assert_eq!(
+                resolved, LOCAL_LLM_CLEANUP_PROMPT,
+                "T9a (F1d-c): apple_intelligence with unedited stock id {stock_id} must resolve to LOCAL_LLM_CLEANUP_PROMPT"
+            );
+        }
+    }
+
+    #[test]
+    fn f1d_t9b_apple_intelligence_edited_and_custom_prompts_keep_stored_text_and_flag_false() {
+        use crate::actions::resolve_provider_prompt;
+        use crate::settings::{get_default_settings, LLMPrompt, APPLE_INTELLIGENCE_PROVIDER_ID};
+
+        // Edited stock prompt -> stored text and flag false.
+        let mut edited = get_default_settings();
+        edited.post_process_selected_prompt_id = Some("default_improve_transcriptions".to_string());
+        let edited_body = "Translate this text into French:\n\n${output}".to_string();
+        if let Some(p) = edited
+            .post_process_prompts
+            .iter_mut()
+            .find(|p| p.id == "default_improve_transcriptions")
+        {
+            p.prompt = edited_body.clone();
+        }
+        let (resolved_edited, flag_edited) =
+            resolve_provider_prompt(APPLE_INTELLIGENCE_PROVIDER_ID, &edited, &edited_body);
+        assert!(!flag_edited);
+        assert_eq!(resolved_edited, edited_body);
+
+        // Custom prompt -> stored text and flag false.
+        let mut custom = get_default_settings();
+        let custom_body = "Make this formal:\n\n${output}".to_string();
+        custom.post_process_prompts.push(LLMPrompt {
+            id: "custom_formal".to_string(),
+            name: "Formal".to_string(),
+            prompt: custom_body.clone(),
+        });
+        custom.post_process_selected_prompt_id = Some("custom_formal".to_string());
+        let (resolved_custom, flag_custom) =
+            resolve_provider_prompt(APPLE_INTELLIGENCE_PROVIDER_ID, &custom, &custom_body);
+        assert!(!flag_custom);
+        assert_eq!(resolved_custom, custom_body);
+
+        // Cloud provider with unedited stock prompt -> stored text and flag false.
+        let mut cloud = get_default_settings();
+        cloud.post_process_selected_prompt_id = Some("default_improve_transcriptions".to_string());
+        let cloud_stored = cloud
+            .post_process_prompts
+            .iter()
+            .find(|p| p.id == "default_improve_transcriptions")
+            .unwrap()
+            .prompt
+            .clone();
+        let (resolved_cloud, flag_cloud) = resolve_provider_prompt("openai", &cloud, &cloud_stored);
+        assert!(!flag_cloud);
+        assert_eq!(resolved_cloud, cloud_stored);
+    }
+
+    #[test]
+    fn f1d_t9c_apple_intelligence_t8a_t8c_and_local_parity_keep_every_word_on_r21() {
+        use crate::actions::{
+            apply_post_process_cleanup_core_with_policy, resolve_provider_prompt,
+        };
+        use crate::audio_toolkit::text::filter_transcription_output_with_policy;
+        use crate::settings::{
+            get_default_settings, APPLE_INTELLIGENCE_PROVIDER_ID, LOCAL_LLM_PROVIDER_ID,
+        };
+
+        let mut settings = get_default_settings();
+        settings.post_process_selected_prompt_id =
+            Some("default_improve_transcriptions".to_string());
+        let stored = settings
+            .post_process_prompts
+            .iter()
+            .find(|p| p.id == "default_improve_transcriptions")
+            .unwrap()
+            .prompt
+            .clone();
+
+        let (apple_prompt, apple_keep) =
+            resolve_provider_prompt(APPLE_INTELLIGENCE_PROVIDER_ID, &settings, &stored);
+        let (local_prompt, local_keep) =
+            resolve_provider_prompt(LOCAL_LLM_PROVIDER_ID, &settings, &stored);
+
+        // App order (T8a) with Apple decision flag and stub reply "final v3".
+        let r21 = "Save the file as final v2, sorry, final v3.";
+        let after_manager = filter_transcription_output_with_policy(r21, "en", &None, true, true);
+        assert_eq!(after_manager, "Save the file as final v3.");
+        let (apple_t8a, _) =
+            apply_post_process_cleanup_core_with_policy(&after_manager, true, apple_keep, |_| {
+                Some("final v3".to_string())
+            });
+        assert_eq!(apple_t8a, "Save the file as final v3.");
+
+        // Plain dictation (T8c) with Apple decision flag and stub reply "final v3".
+        let plain = "Save the file as final v3.";
+        let (apple_t8c, _) =
+            apply_post_process_cleanup_core_with_policy(plain, true, apple_keep, |_| {
+                Some("final v3".to_string())
+            });
+        assert_eq!(apple_t8c, "Save the file as final v3.");
+
+        // T8b replacement: Apple decision and local decision give the exact same paste & prompt.
+        let (local_t8a, _) =
+            apply_post_process_cleanup_core_with_policy(&after_manager, true, local_keep, |_| {
+                Some("final v3".to_string())
+            });
+        assert_eq!(apple_prompt, local_prompt);
+        assert_eq!(apple_t8a, local_t8a);
     }
 }

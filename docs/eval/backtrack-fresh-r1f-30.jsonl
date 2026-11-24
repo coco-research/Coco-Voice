@@ -1,0 +1,30 @@
+{"id": "n01", "kind": "keep", "input": "Never mind the noise, the recording is fine.", "keep": ["never mind the noise", "recording"], "drop": []}
+{"id": "n02", "kind": "keep", "input": "I'll keep that in mind, thanks for the heads up.", "keep": ["in mind", "thanks"], "drop": []}
+{"id": "n03", "kind": "keep", "input": "Can you scratch that line from the contract before Monday?", "keep": ["scratch that line", "monday"], "drop": []}
+{"id": "n04", "kind": "keep", "input": "He said no, so we moved the launch to Thursday.", "keep": ["said no", "thursday"], "drop": []}
+{"id": "n05", "kind": "keep", "input": "Sorry, I was on mute for the first part.", "keep": ["sorry", "mute"], "drop": []}
+{"id": "n06", "kind": "keep", "input": "I mean what I said about the deadline.", "keep": ["i mean what", "deadline"], "drop": []}
+{"id": "n07", "kind": "keep", "input": "We actually finished the draft on Sunday.", "keep": ["actually finished", "sunday"], "drop": []}
+{"id": "n08", "kind": "keep", "input": "The kids drew on the wall, and I had to scratch that paint off with a sponge.", "keep": ["wall", "scratch that paint"], "drop": []}
+{"id": "n09", "kind": "keep", "input": "Rather than email, call me after lunch.", "keep": ["rather than email", "lunch"], "drop": []}
+{"id": "n10", "kind": "keep", "input": "Tell Nina the correction is in the second paragraph.", "keep": ["nina", "correction is"], "drop": []}
+{"id": "n11", "kind": "keep", "input": "Yes, no, maybe, we'll see what the board says.", "keep": ["yes", "maybe"], "drop": []}
+{"id": "n12", "kind": "keep", "input": "The plumber came at nine, I mean it was a long morning.", "keep": ["at nine", "long morning"], "drop": []}
+{"id": "n13", "kind": "keep", "input": "We should go to the lake on Saturday, I mean if the weather holds.", "keep": ["on saturday", "weather holds"], "drop": []}
+{"id": "n14", "kind": "keep", "input": "My flight lands at six, sorry, my phone is about to die.", "keep": ["lands at six", "phone"], "drop": []}
+{"id": "n15", "kind": "keep", "input": "The design is final, actually, so please send it to print.", "keep": ["is final", "print"], "drop": []}
+{"id": "n16", "kind": "retract", "input": "Move the call to Tuesday, no wait, Thursday.", "keep": ["call", "thursday"], "drop": ["tuesday"]}
+{"id": "n17", "kind": "retract", "input": "Order forty chairs, sorry, I mean sixty chairs.", "keep": ["sixty chairs"], "drop": ["forty"]}
+{"id": "n18", "kind": "retract", "input": "Send the invoice to Marco, scratch that, send it to Lena.", "keep": ["invoice", "lena"], "drop": ["marco"]}
+{"id": "n19", "kind": "retract", "input": "The meeting is in room four, correction, room nine.", "keep": ["meeting", "nine"], "drop": ["four"]}
+{"id": "n20", "kind": "retract", "input": "Pick up milk on the way home, never mind, we have enough milk.", "keep": ["enough milk"], "drop": ["way home"]}
+{"id": "n21", "kind": "retract", "input": "The train leaves at seven fifteen, I mean seven forty five.", "keep": ["train", "forty five"], "drop": ["fifteen"]}
+{"id": "n22", "kind": "retract", "input": "Book the hotel for three nights, or rather four nights.", "keep": ["hotel", "four nights"], "drop": ["three"]}
+{"id": "n23", "kind": "retract", "input": "Set the alarm for six, actually make it five thirty.", "keep": ["alarm", "five thirty"], "drop": ["six"]}
+{"id": "n24", "kind": "retract", "input": "The rent is due on the first, no wait, on the fifth.", "keep": ["rent", "fifth"], "drop": ["first"]}
+{"id": "n25", "kind": "retract", "input": "Ship it in March, sorry, I mean May.", "keep": ["ship", "may"], "drop": ["march"]}
+{"id": "n26", "kind": "retract", "input": "We need twelve boxes for the move, I mean twenty boxes.", "keep": ["twenty boxes"], "drop": ["twelve"]}
+{"id": "n27", "kind": "retract", "input": "The budget is ten thousand, scratch that, twelve thousand.", "keep": ["budget", "twelve thousand"], "drop": ["ten thousand"]}
+{"id": "n28", "kind": "retract", "input": "Call the vendor at noon, no wait, at two.", "keep": ["vendor", "two"], "drop": ["noon"]}
+{"id": "n29", "kind": "retract", "input": "Tell Dana the review is Friday, I mean Monday.", "keep": ["dana", "monday"], "drop": ["friday"]}
+{"id": "n30", "kind": "retract", "input": "Put the boxes in the garage, never mind, I'll put them in the shed.", "keep": ["shed"], "drop": ["garage"]}

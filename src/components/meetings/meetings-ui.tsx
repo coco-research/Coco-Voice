@@ -1,12 +1,31 @@
-import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { Users } from "lucide-react";
 import { platform, version } from "@tauri-apps/plugin-os";
+import {
+  commands,
+  type MeetingOffer,
+  type MeetingStatus,
+} from "../../bindings.meetings";
+import { useSettings } from "../../hooks/useSettings";
 import { MeetingsToggle } from "../settings/MeetingsToggle";
-import { commands } from "../../bindings.meetings";
+import { OfferCard } from "./OfferCard";
+import { ConsentDialog as ApprovedConsentDialog } from "./MeetingEntryPanels";
+import {
+  MEETINGS_OFFER_EVENT,
+  MEETINGS_OPEN_CONSENT_EVENT,
+  MEETING_STATE_EVENT,
+  handOffMeetingStartRefusal,
+} from "./meetingEvents";
 import type { MeetingsUi } from "./gate";
-
+import {
+  INITIAL_OFFER_VIEW_STATE,
+  applyMeetingStatus,
+  applyOfferEvent,
+  isOfferVisible,
+  markOfferHeld,
+} from "./offerState";
+import { RecordMeetingPage as MeetingsView } from "./RecordMeetingPage";
 export const MEETINGS_UI_SENTINEL = "coco-meetings-ui-v1";
 
 function meetingsEnabled(settings: unknown): boolean {
@@ -37,17 +56,17 @@ export function sidebarVisible(settings: unknown): boolean {
 // nothing. "I've told everyone" is recommended, not a gate, and is never
 // remembered: every open starts with it unchecked.
 function ConsentDialogPanel({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation();
-  const [toldEveryone, setToldEveryone] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
 
   const start = async () => {
+    setStarting(true);
     const result = await commands.confirmMeetingStart();
+    setStarting(false);
     if (result.status === "error") {
-      setError(t("meetings.consent.cannotStart"));
+      onClose();
+      handOffMeetingStartRefusal(result.error ?? "system_audio_unavailable");
       return;
     }
-    setError(null);
     onClose();
   };
 
@@ -56,69 +75,14 @@ function ConsentDialogPanel({ onClose }: { onClose: () => void }) {
     onClose();
   };
 
-  const copyAnnouncement = async () => {
-    try {
-      await navigator.clipboard.writeText(t("meetings.consent.announcement"));
-    } catch (copyError) {
-      console.error("Could not copy the meeting announcement", copyError);
-    }
-  };
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="meetings-consent-reminder"
-    >
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-neutral-900">
-        <p
-          id="meetings-consent-reminder"
-          className="text-sm leading-relaxed text-neutral-800 dark:text-neutral-200"
-        >
-          {t("meetings.consent.reminder")}
-        </p>
-        <button
-          type="button"
-          className="mt-4 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-          onClick={() => void copyAnnouncement()}
-        >
-          {t("meetings.consent.copyAnnouncement")}
-        </button>
-        <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
-          {t("meetings.consent.orgRules")}
-        </p>
-        <label className="mt-4 flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={toldEveryone}
-            onChange={(event) => setToldEveryone(event.target.checked)}
-          />
-          {t("meetings.consent.toldEveryone")}
-        </label>
-        {error && (
-          <p className="mt-3 text-sm text-red-600" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            type="button"
-            className="rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            onClick={() => void cancel()}
-          >
-            {t("meetings.consent.cancel")}
-          </button>
-          <button
-            type="button"
-            className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900"
-            onClick={() => void start()}
-          >
-            {t("meetings.consent.start")}
-          </button>
-        </div>
-      </div>
-    </div>
+    <ApprovedConsentDialog
+      open={true}
+      starting={starting}
+      errorMessage={null}
+      onConfirmStart={() => void start()}
+      onCancel={() => void cancel()}
+    />
   );
 }
 
@@ -130,10 +94,12 @@ export function ConsentDialog() {
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | undefined;
-    void listen("meetings-open-consent", () => setOpen(true)).then((stop) => {
-      if (disposed) stop();
-      else unlisten = stop;
-    });
+    void listen(MEETINGS_OPEN_CONSENT_EVENT, () => setOpen(true)).then(
+      (stop) => {
+        if (disposed) stop();
+        else unlisten = stop;
+      },
+    );
     return () => {
       disposed = true;
       unlisten?.();
@@ -144,12 +110,98 @@ export function ConsentDialog() {
   return <ConsentDialogPanel onClose={() => setOpen(false)} />;
 }
 
-export function MeetingsView() {
-  const { t } = useTranslation();
+export function OfferPanel() {
+  const { settings } = useSettings();
+  const [viewState, setViewState] = useState(INITIAL_OFFER_VIEW_STATE);
+  const sawOfferEvent = useRef(false);
+  const sawStateEvent = useRef(false);
+
+  useEffect(() => {
+    const unlisteners: Array<() => void> = [];
+    let cancelled = false;
+    void listen<MeetingOffer | null>(MEETINGS_OFFER_EVENT, (event) => {
+      sawOfferEvent.current = true;
+      setViewState((prev) => applyOfferEvent(prev, event.payload));
+    }).then((stop) => {
+      if (cancelled) stop();
+      else unlisteners.push(stop);
+    });
+    void listen<MeetingStatus>(MEETING_STATE_EVENT, (event) => {
+      if (!event.payload) return;
+      sawStateEvent.current = true;
+      setViewState((prev) => applyMeetingStatus(prev, event.payload.state));
+    }).then((stop) => {
+      if (cancelled) stop();
+      else unlisteners.push(stop);
+    });
+    commands
+      .currentMeetingOffer()
+      .then((result) => {
+        if (cancelled || sawOfferEvent.current || result.status === "error") {
+          return;
+        }
+        setViewState((prev) => applyOfferEvent(prev, result.data));
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to read the meeting offer", error);
+      });
+    commands
+      .meetingStatus()
+      .then((status) => {
+        if (cancelled || sawStateEvent.current) return;
+        setViewState((prev) => applyMeetingStatus(prev, status.state));
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to read the meeting status", error);
+      });
+    return () => {
+      cancelled = true;
+      for (const stop of unlisteners) stop();
+    };
+  }, []);
+
+  if (
+    !isOfferVisible(viewState, sidebarVisible(settings)) ||
+    !viewState.offer
+  ) {
+    return null;
+  }
+
+  const activeOffer = viewState.offer;
+
+  const onStart = () => {
+    setViewState((prev) => markOfferHeld(prev));
+    void commands.openMeetingConsent().then(
+      (result) => {
+        if (result.status === "error") {
+          setViewState((prev) => applyMeetingStatus(prev, "idle"));
+        }
+      },
+      (error: unknown) => {
+        console.error("Failed to open the meeting consent reminder", error);
+        setViewState((prev) => applyMeetingStatus(prev, "idle"));
+      },
+    );
+  };
+
+  const onNotNow = () => {
+    const bundleId = activeOffer.bundleId;
+    sawOfferEvent.current = true;
+    setViewState(INITIAL_OFFER_VIEW_STATE);
+    void commands.dismissMeetingOffer(bundleId).then(
+      (result) => {
+        if (result.status === "error") {
+          console.error("Failed to dismiss the meeting offer", result.error);
+        }
+      },
+      (error: unknown) => {
+        console.error("Failed to dismiss the meeting offer", error);
+      },
+    );
+  };
+
   return (
-    <div className="max-w-3xl w-full mx-auto">
-      <p className="text-sm font-medium">{t("meetings.sidebar")}</p>
-    </div>
+    <OfferCard offer={activeOffer} onStart={onStart} onNotNow={onNotNow} />
   );
 }
 
@@ -158,6 +210,7 @@ export const meetingsUi = {
   MeetingsToggle,
   ConsentDialog,
   MeetingsView,
+  OfferPanel,
   icon: Users,
   sidebarVisible,
 } satisfies MeetingsUi;

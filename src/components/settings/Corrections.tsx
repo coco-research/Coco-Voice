@@ -38,7 +38,9 @@ export const Corrections: React.FC<CorrectionsProps> = React.memo(
           (pair) => pair.from.toLowerCase() === from.toLowerCase(),
         )
       ) {
-        toast.error(`A correction for "${from}" already exists`);
+        toast.error(
+          t("settings.advanced.corrections.duplicate", { word: from }),
+        );
         return;
       }
       updateSetting("corrections", [...corrections, { from, to }]);
@@ -65,8 +67,8 @@ export const Corrections: React.FC<CorrectionsProps> = React.memo(
     return (
       <>
         <SettingContainer
-          title="Corrections"
-          description="Replace specific words or phrases in the final output. Each rule is a case-insensitive, whole-word match applied after AI post-processing."
+          title={t("settings.advanced.corrections.title")}
+          description={t("settings.advanced.corrections.description")}
           descriptionMode={descriptionMode}
           grouped={grouped}
         >
@@ -77,7 +79,7 @@ export const Corrections: React.FC<CorrectionsProps> = React.memo(
               value={newFrom}
               onChange={(e) => setNewFrom(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder="From"
+              placeholder={t("settings.advanced.corrections.fromPlaceholder")}
               variant="compact"
               disabled={disabled}
             />
@@ -88,7 +90,7 @@ export const Corrections: React.FC<CorrectionsProps> = React.memo(
               value={newTo}
               onChange={(e) => setNewTo(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder="To"
+              placeholder={t("settings.advanced.corrections.toPlaceholder")}
               variant="compact"
               disabled={disabled}
             />
@@ -116,10 +118,13 @@ export const Corrections: React.FC<CorrectionsProps> = React.memo(
                 variant="secondary"
                 size="sm"
                 className="inline-flex items-center gap-1 cursor-pointer"
-                aria-label={`Remove correction from ${pair.from} to ${pair.to}`}
+                aria-label={t("settings.advanced.corrections.remove", {
+                  from: pair.from,
+                  to: pair.to || t("common.delete"),
+                })}
               >
                 <span>
-                  {pair.from} → {pair.to || "(remove)"}
+                  {pair.from} → {pair.to || `(${t("common.delete")})`}
                 </span>
                 <svg
                   className="w-3 h-3"

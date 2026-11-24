@@ -1,4 +1,19 @@
 fn main() {
+    let git_sha = std::env::var("COCO_GIT_SHA")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .or_else(|| {
+            std::process::Command::new("git")
+                .args(["rev-parse", "--short=12", "HEAD"])
+                .output()
+                .ok()
+                .filter(|o| o.status.success())
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| s.trim().to_string())
+        })
+        .unwrap_or_else(|| "unknown".to_string());
+    println!("cargo:rustc-env=COCO_GIT_SHA={git_sha}");
+
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     build_apple_intelligence_bridge();
 
@@ -261,12 +276,23 @@ fn generate_tray_translations() {
         }
     }
 
-    // English defines the schema
+    // English defines the schema, plus any newly introduced Plan E tray keys that
+    // may be merged into locale JSONs in a separate i18n pass.
     let english = translations.get("en").unwrap().as_object().unwrap();
-    let fields: Vec<_> = english
+    let mut fields: Vec<(String, String, &'static str)> = english
         .keys()
-        .map(|k| (camel_to_snake(k), k.clone()))
+        .map(|k| (camel_to_snake(k), k.clone(), ""))
         .collect();
+    if !fields
+        .iter()
+        .any(|(_, json_key, _)| json_key == "stopRecordingMeeting")
+    {
+        fields.push((
+            "stop_recording_meeting".to_string(),
+            "stopRecordingMeeting".to_string(),
+            "Stop recording the meeting",
+        ));
+    }
 
     // Generate code
     let mut out = String::from(
@@ -275,7 +301,7 @@ fn generate_tray_translations() {
 
     // Struct
     out.push_str("#[derive(Debug, Clone)]\npub struct TrayStrings {\n");
-    for (rust_field, _) in &fields {
+    for (rust_field, _, _) in &fields {
         out.push_str(&format!("    pub {rust_field}: String,\n"));
     }
     out.push_str("}\n\n");
@@ -288,8 +314,12 @@ fn generate_tray_translations() {
 
     for (lang, tray) in &translations {
         out.push_str(&format!("    m.insert(\"{lang}\", TrayStrings {{\n"));
-        for (rust_field, json_key) in &fields {
-            let val = tray.get(json_key).and_then(|v| v.as_str()).unwrap_or("");
+        for (rust_field, json_key, fallback) in &fields {
+            let val = tray
+                .get(json_key)
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.trim().is_empty())
+                .unwrap_or(fallback);
             out.push_str(&format!(
                 "        {rust_field}: \"{}\".to_string(),\n",
                 escape_string(val)

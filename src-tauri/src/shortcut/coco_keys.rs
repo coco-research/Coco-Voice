@@ -36,11 +36,62 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::settings::{self, get_settings, ShortcutBinding};
 
 use super::handler::handle_shortcut_event;
+
+/// Maximum time to wait for the hotkey manager thread to initialize before
+/// reporting a start failure (R1).
+pub(crate) const START_DEADLINE_MS: u64 = 5000;
+
+/// Process-wide lock held across manager check, start and store (R4).
+static INIT_LOCK: Mutex<()> = Mutex::new(());
+
+/// Tracks whether a manager thread is alive, including one whose `make` call
+/// outlived `START_DEADLINE_MS` (R4 / V1). Set only in `start_with` via
+/// `compare_exchange` and cleared only by [`ManagerAliveGuard::drop`].
+static MANAGER_ALIVE: AtomicBool = AtomicBool::new(false);
+
+struct ManagerAliveGuard;
+
+impl Drop for ManagerAliveGuard {
+    fn drop(&mut self) {
+        MANAGER_ALIVE.store(false, Ordering::SeqCst);
+    }
+}
+
+/// Reason `HotkeyManager` failed to start on the manager thread (R1/R3).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum StartError {
+    AccessibilityNotGranted,
+    Other(String),
+}
+
+impl StartError {
+    fn from_handy_keys(err: handy_keys::Error) -> Self {
+        match err {
+            handy_keys::Error::AccessibilityNotGranted => Self::AccessibilityNotGranted,
+            other => Self::Other(other.to_string()),
+        }
+    }
+
+    fn cause(&self) -> super::ShortcutFailureCause {
+        match self {
+            Self::AccessibilityNotGranted => super::ShortcutFailureCause::Permission,
+            Self::Other(_) => super::ShortcutFailureCause::Other,
+        }
+    }
+
+    fn message(&self) -> String {
+        match self {
+            Self::AccessibilityNotGranted => handy_keys::Error::AccessibilityNotGranted.to_string(),
+            Self::Other(msg) => msg.clone(),
+        }
+    }
+}
 
 /// Commands that can be sent to the hotkey manager thread
 enum ManagerCommand {
@@ -104,38 +155,107 @@ pub struct FrontendKeyEvent {
 }
 
 impl CocoVoiceKeysState {
-    /// Create a new CocoVoiceKeysState
-    pub fn new(app: AppHandle) -> Result<Self, String> {
-        let (cmd_tx, cmd_rx) = mpsc::channel::<ManagerCommand>();
+    /// Start a new `CocoVoiceKeysState`, waiting up to `deadline` for the
+    /// manager thread to construct `HotkeyManager` (R1/R4).
+    pub(crate) fn start<F>(app: AppHandle, make: F, deadline: Duration) -> Result<Self, StartError>
+    where
+        F: FnOnce() -> handy_keys::Result<HotkeyManager> + Send + 'static,
+    {
+        Self::start_with(
+            move |binding_id, hotkey_string, is_pressed| {
+                handle_shortcut_event(&app, binding_id, hotkey_string, is_pressed);
+            },
+            make,
+            deadline,
+        )
+    }
 
-        // Start the manager thread
-        let app_clone = app.clone();
+    fn start_with<F, H>(on_event: H, make: F, deadline: Duration) -> Result<Self, StartError>
+    where
+        F: FnOnce() -> handy_keys::Result<HotkeyManager> + Send + 'static,
+        H: Fn(&str, &str, bool) + Send + 'static,
+    {
+        if MANAGER_ALIVE
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
+        {
+            return Err(StartError::Other(
+                "previous shortcut engine is still stopping".to_string(),
+            ));
+        }
+
+        // Guard is created before spawning and moved into the manager thread so
+        // every exit path — including spawn failure, start error, late success,
+        // Disconnected or panic — clears `MANAGER_ALIVE`.
+        let alive_guard = ManagerAliveGuard;
+        let (cmd_tx, cmd_rx) = mpsc::channel::<ManagerCommand>();
+        let (started_tx, started_rx) = mpsc::channel::<Result<(), StartError>>();
+
         let thread_handle = thread::spawn(move || {
-            Self::manager_thread(cmd_rx, app_clone);
+            Self::manager_thread(cmd_rx, on_event, make, started_tx, alive_guard);
         });
 
-        Ok(Self {
-            command_sender: Mutex::new(cmd_tx),
-            thread_handle: Mutex::new(Some(thread_handle)),
-            recording_listener: Mutex::new(None),
-            is_recording: AtomicBool::new(false),
-            recording_binding_id: Mutex::new(None),
-            recording_generation: Arc::new(AtomicU64::new(0)),
-        })
+        match started_rx.recv_timeout(deadline) {
+            Ok(Ok(())) => Ok(Self {
+                command_sender: Mutex::new(cmd_tx),
+                thread_handle: Mutex::new(Some(thread_handle)),
+                recording_listener: Mutex::new(None),
+                is_recording: AtomicBool::new(false),
+                recording_binding_id: Mutex::new(None),
+                recording_generation: Arc::new(AtomicU64::new(0)),
+            }),
+            Ok(Err(err)) => {
+                drop(cmd_tx);
+                let _ = thread_handle.join();
+                Err(err)
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                let msg = format!(
+                    "hotkey manager did not start within {} ms",
+                    deadline.as_millis()
+                );
+                error!("Failed to create HotkeyManager: {}", msg);
+                drop(cmd_tx);
+                Err(StartError::Other(msg))
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                drop(cmd_tx);
+                let _ = thread_handle.join();
+                Err(StartError::Other("hotkey manager thread ended".to_string()))
+            }
+        }
     }
 
     /// The main manager thread - owns the HotkeyManager and processes commands
-    fn manager_thread(cmd_rx: Receiver<ManagerCommand>, app: AppHandle) {
+    fn manager_thread<F, H>(
+        cmd_rx: Receiver<ManagerCommand>,
+        on_event: H,
+        make: F,
+        started: Sender<Result<(), StartError>>,
+        _alive_guard: ManagerAliveGuard,
+    ) where
+        F: FnOnce() -> handy_keys::Result<HotkeyManager>,
+        H: Fn(&str, &str, bool),
+    {
         info!("coco-keys manager thread started");
 
         // Create the HotkeyManager in this thread
-        let manager = match HotkeyManager::new_with_blocking() {
+        let manager = match make() {
             Ok(m) => m,
             Err(e) => {
                 error!("Failed to create HotkeyManager: {}", e);
+                let _ = started.send(Err(StartError::from_handy_keys(e)));
                 return;
             }
         };
+
+        if started.send(Ok(())).is_err() {
+            // `start` timed out and dropped the receiver while `make` was still
+            // running. Drop the manager at once so no second event tap lives.
+            drop(manager);
+            info!("coco-keys manager thread exited after late start");
+            return;
+        }
 
         // Maps binding IDs to HotkeyIds and hotkey strings
         let mut binding_to_hotkey: HashMap<String, HotkeyId> = HashMap::new();
@@ -150,7 +270,7 @@ impl CocoVoiceKeysState {
                         binding_id, hotkey_string, event.state
                     );
                     let is_pressed = event.state == HotkeyState::Pressed;
-                    handle_shortcut_event(&app, binding_id, hotkey_string, is_pressed);
+                    on_event(binding_id, hotkey_string, is_pressed);
                 }
             }
 
@@ -445,17 +565,36 @@ pub fn validate_shortcut(raw: &str) -> Result<(), String> {
         .map_err(|e| format!("Invalid shortcut for CocoVoiceKeys: {}", e))
 }
 
-/// Initialize coco-keys shortcuts.
-///
-/// `Err` means the hotkey manager itself did not start. Binding failures are
-/// `Ok(failures)` so a later init can retry the ones that did not register.
-/// A second call reuses the manager already stored on the app.
-pub fn init_shortcuts(app: &AppHandle) -> Result<Vec<super::ShortcutFailure>, String> {
+fn init_shortcuts_core<R, StartFn, RegFn>(
+    app: &AppHandle<R>,
+    start_fn: StartFn,
+    register_active: RegFn,
+) -> Result<Vec<super::ShortcutFailure>, String>
+where
+    R: tauri::Runtime,
+    StartFn: FnOnce() -> Result<CocoVoiceKeysState, StartError>,
+    RegFn: FnOnce(&AppHandle<R>) -> Vec<super::ShortcutFailure>,
+{
+    let _guard = INIT_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     if app.try_state::<CocoVoiceKeysState>().is_none() {
-        app.manage(CocoVoiceKeysState::new(app.clone())?);
+        match start_fn() {
+            Ok(state) => {
+                app.manage(state);
+            }
+            Err(err) => {
+                let failures = super::start_failures(app, err.cause(), &err.message());
+                for failure in &failures {
+                    error!(
+                        "Failed to start coco-keys for shortcut {} during init: {}",
+                        failure.id, failure.error
+                    );
+                }
+                return Ok(failures);
+            }
+        }
     }
 
-    let failures = super::register_active_shortcuts(app);
+    let failures = register_active(app);
     for failure in &failures {
         error!(
             "Failed to register coco-keys shortcut {} during init: {}",
@@ -464,6 +603,37 @@ pub fn init_shortcuts(app: &AppHandle) -> Result<Vec<super::ShortcutFailure>, St
     }
     info!("coco-keys shortcuts initialized");
     Ok(failures)
+}
+
+/// Initialize coco-keys shortcuts using a custom `HotkeyManager` factory (test seam).
+pub(crate) fn init_shortcuts_with<F>(
+    app: &AppHandle,
+    make: F,
+) -> Result<Vec<super::ShortcutFailure>, String>
+where
+    F: FnOnce() -> handy_keys::Result<HotkeyManager> + Send + 'static,
+{
+    let app_for_start = app.clone();
+    init_shortcuts_core(
+        app,
+        move || {
+            CocoVoiceKeysState::start(
+                app_for_start,
+                make,
+                Duration::from_millis(START_DEADLINE_MS),
+            )
+        },
+        super::register_active_shortcuts,
+    )
+}
+
+/// Initialize coco-keys shortcuts.
+///
+/// Start failures store nothing and return `Ok(failures)` (one per active
+/// binding) so a later call can retry once Accessibility or the OS allows it
+/// without switching `keyboard_implementation`.
+pub fn init_shortcuts(app: &AppHandle) -> Result<Vec<super::ShortcutFailure>, String> {
+    init_shortcuts_with(app, HotkeyManager::new_with_blocking)
 }
 
 /// Register the cancel shortcut (called when recording starts)
@@ -577,5 +747,264 @@ mod tests {
 
         end_capture(&generation);
         assert!(!capture_is_current(&generation, second));
+    }
+
+    static TEST_SERIAL: Mutex<()> = Mutex::new(());
+
+    fn wait_for_manager_exit() {
+        let deadline = std::time::Instant::now() + Duration::from_secs(1);
+        while MANAGER_ALIVE.load(Ordering::SeqCst) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "MANAGER_ALIVE did not clear within 1 s"
+            );
+            thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    fn init_shortcuts_for_test<R, F>(
+        app: &AppHandle<R>,
+        make: F,
+        deadline: Duration,
+    ) -> Result<Vec<super::super::ShortcutFailure>, String>
+    where
+        R: tauri::Runtime,
+        F: FnOnce() -> handy_keys::Result<HotkeyManager> + Send + 'static,
+    {
+        init_shortcuts_core(
+            app,
+            move || CocoVoiceKeysState::start_with(|_, _, _| {}, make, deadline),
+            |_| Vec::new(),
+        )
+    }
+
+    fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
+        tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app")
+    }
+
+    #[test]
+    fn t_g1_accessibility_not_granted_returns_permission_failures_and_stores_nothing() {
+        let _serial = TEST_SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        wait_for_manager_exit();
+        let app = mock_app();
+
+        let failures = init_shortcuts_for_test(
+            app.handle(),
+            || Err(handy_keys::Error::AccessibilityNotGranted),
+            Duration::from_millis(500),
+        )
+        .expect("start failure must return Ok(failures), not Err");
+
+        assert!(
+            !failures.is_empty(),
+            "expected one failure per active binding"
+        );
+        assert!(
+            failures
+                .iter()
+                .all(|f| f.cause == super::super::ShortcutFailureCause::Permission),
+            "all failures must carry cause Permission: {failures:?}"
+        );
+        assert!(app.try_state::<CocoVoiceKeysState>().is_none());
+        wait_for_manager_exit();
+    }
+
+    #[test]
+    fn t_g2_retry_after_failed_start_invokes_make_again() {
+        use std::sync::atomic::AtomicUsize;
+
+        let _serial = TEST_SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        wait_for_manager_exit();
+        let app = mock_app();
+        let calls = Arc::new(AtomicUsize::new(0));
+
+        for expected in 1..=2 {
+            let calls_clone = Arc::clone(&calls);
+            let failures = init_shortcuts_for_test(
+                app.handle(),
+                move || {
+                    calls_clone.fetch_add(1, Ordering::SeqCst);
+                    Err(handy_keys::Error::AccessibilityNotGranted)
+                },
+                Duration::from_millis(500),
+            )
+            .expect("start failure returns Ok(failures)");
+            assert!(!failures.is_empty());
+            assert_eq!(calls.load(Ordering::SeqCst), expected);
+            assert!(app.try_state::<CocoVoiceKeysState>().is_none());
+        }
+        wait_for_manager_exit();
+    }
+
+    #[test]
+    fn t_g3_event_tap_creation_failed_returns_other_stores_nothing_and_retries() {
+        use std::sync::atomic::AtomicUsize;
+
+        let _serial = TEST_SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        wait_for_manager_exit();
+        let app = mock_app();
+        let calls = Arc::new(AtomicUsize::new(0));
+
+        for expected in 1..=2 {
+            let calls_clone = Arc::clone(&calls);
+            let failures = init_shortcuts_for_test(
+                app.handle(),
+                move || {
+                    calls_clone.fetch_add(1, Ordering::SeqCst);
+                    Err(handy_keys::Error::EventTapCreationFailed("x".to_string()))
+                },
+                Duration::from_millis(500),
+            )
+            .expect("EventTapCreationFailed must return Ok(failures), not Err");
+            assert!(!failures.is_empty());
+            assert!(
+                failures
+                    .iter()
+                    .all(|f| f.cause == super::super::ShortcutFailureCause::Other),
+                "expected Other cause: {failures:?}"
+            );
+            assert!(app.try_state::<CocoVoiceKeysState>().is_none());
+            assert_eq!(calls.load(Ordering::SeqCst), expected);
+        }
+        wait_for_manager_exit();
+    }
+
+    #[test]
+    fn t_g6_start_timeout_returns_other_stores_nothing_and_retries() {
+        use std::sync::atomic::AtomicUsize;
+
+        let _serial = TEST_SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        wait_for_manager_exit();
+        let app = mock_app();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+
+        let c1 = Arc::clone(&calls);
+        let failures = init_shortcuts_for_test(
+            app.handle(),
+            move || {
+                c1.fetch_add(1, Ordering::SeqCst);
+                let _ = release_rx.recv_timeout(Duration::from_secs(2));
+                Err(handy_keys::Error::EventTapCreationFailed(
+                    "late".to_string(),
+                ))
+            },
+            Duration::from_millis(50),
+        )
+        .expect("timeout returns Ok(failures)");
+
+        assert!(!failures.is_empty());
+        assert!(failures.iter().all(|f| {
+            f.cause == super::super::ShortcutFailureCause::Other
+                && f.error.contains("did not start within")
+        }));
+        assert!(app.try_state::<CocoVoiceKeysState>().is_none());
+
+        let _ = release_tx.send(());
+        wait_for_manager_exit();
+
+        let c2 = Arc::clone(&calls);
+        let retry_failures = init_shortcuts_for_test(
+            app.handle(),
+            move || {
+                c2.fetch_add(1, Ordering::SeqCst);
+                Err(handy_keys::Error::AccessibilityNotGranted)
+            },
+            Duration::from_millis(500),
+        )
+        .expect("retry after timeout returns Ok(failures)");
+        assert!(!retry_failures.is_empty());
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        wait_for_manager_exit();
+    }
+
+    #[test]
+    fn t_g9_slow_make_blocks_concurrent_retry_until_old_thread_exits() {
+        use std::sync::atomic::AtomicUsize;
+
+        let _serial = TEST_SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+        wait_for_manager_exit();
+        let app = mock_app();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let in_flight = Arc::new(AtomicUsize::new(0));
+        let max_in_flight = Arc::new(AtomicUsize::new(0));
+
+        let track_make = |sleep_ms: u64,
+                          calls: Arc<AtomicUsize>,
+                          in_flight: Arc<AtomicUsize>,
+                          max_in_flight: Arc<AtomicUsize>| {
+            move || {
+                calls.fetch_add(1, Ordering::SeqCst);
+                let cur = in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+                max_in_flight.fetch_max(cur, Ordering::SeqCst);
+                if sleep_ms > 0 {
+                    thread::sleep(Duration::from_millis(sleep_ms));
+                }
+                in_flight.fetch_sub(1, Ordering::SeqCst);
+                Err(handy_keys::Error::EventTapCreationFailed(
+                    "slow".to_string(),
+                ))
+            }
+        };
+
+        // 1. Slow make (200 ms) times out at 50 ms.
+        let first = init_shortcuts_for_test(
+            app.handle(),
+            track_make(
+                200,
+                Arc::clone(&calls),
+                Arc::clone(&in_flight),
+                Arc::clone(&max_in_flight),
+            ),
+            Duration::from_millis(50),
+        )
+        .expect("first call returns Ok(failures)");
+        assert!(!first.is_empty());
+        assert!(first.iter().all(|f| {
+            f.cause == super::super::ShortcutFailureCause::Other
+                && f.error.contains("did not start within")
+        }));
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+        // 2. Immediate retry while old thread is still alive is refused without calling make.
+        let second = init_shortcuts_for_test(
+            app.handle(),
+            track_make(
+                0,
+                Arc::clone(&calls),
+                Arc::clone(&in_flight),
+                Arc::clone(&max_in_flight),
+            ),
+            Duration::from_millis(50),
+        )
+        .expect("immediate retry returns Ok(failures)");
+        assert!(!second.is_empty());
+        assert!(second.iter().all(|f| {
+            f.cause == super::super::ShortcutFailureCause::Other
+                && f.error
+                    .contains("previous shortcut engine is still stopping")
+        }));
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+        // 3. Once the old thread exits (within 1 s), a retry calls make (count 2).
+        wait_for_manager_exit();
+        let third = init_shortcuts_for_test(
+            app.handle(),
+            track_make(
+                0,
+                Arc::clone(&calls),
+                Arc::clone(&in_flight),
+                Arc::clone(&max_in_flight),
+            ),
+            Duration::from_millis(500),
+        )
+        .expect("retry after exit returns Ok(failures)");
+        assert!(!third.is_empty());
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        assert_eq!(max_in_flight.load(Ordering::SeqCst), 1);
+        wait_for_manager_exit();
     }
 }

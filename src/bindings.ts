@@ -93,6 +93,38 @@ async changeSelectedLanguageSetting(language: string) : Promise<Result<null, str
     else return { status: "error", error: e  as any };
 }
 },
+async changeDoubleTapHandsFreeSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_double_tap_hands_free_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async changeMeetingLanguageSetting(language: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_meeting_language_setting", { language }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setMeetingLanguageOverrideCmd(language: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_meeting_language_override_cmd", { language }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async meetingLanguagePlan() : Promise<Result<MeetingLanguagePlanView, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("meeting_language_plan") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async changeOverlayPositionSetting(position: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_overlay_position_setting", { position }) };
@@ -877,12 +909,178 @@ async updateRecordingRetentionPeriod(period: string) : Promise<Result<null, stri
     else return { status: "error", error: e  as any };
 }
 },
+async updateKeepDictations(choice: KeepDictationsChoice) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_keep_dictations", { choice }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateKeepDictationAudio(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_keep_dictation_audio", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async changeNeverStoreHistorySetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_never_store_history_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async changeKeepDictationAudioSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_keep_dictation_audio_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async checkAccessibilityStale() : Promise<boolean> {
+    return await TAURI_INVOKE("check_accessibility_stale");
+},
+async homeHealthStatus() : Promise<Result<HomeHealthStatusView, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("home_health_status") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async evaluateTryItTake(raw: string, finalText: string) : Promise<TryItTake> {
+    return await TAURI_INVOKE("evaluate_try_it_take", { raw, finalText });
+},
+async evaluateUpdateNoticeAndAdvance() : Promise<Result<UpdateNoticeState, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("evaluate_update_notice_and_advance") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
  * Checks if the Mac is a laptop by detecting battery presence
  * 
  * This uses pmset to check for battery information.
  * Returns true if a battery is detected (laptop), false otherwise (desktop)
  */
+async getActiveAppInfo() : Promise<Result<ActiveAppInfo, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_active_app_info") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e as any };
+}
+},
+async updateAppProfiles(profiles: AppProfile[]) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_app_profiles", { profiles }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e as any };
+}
+},
+async updateBlockedApps(apps: string[]) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_blocked_apps", { apps }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e as any };
+}
+},
+async updateSavedBlocks(blocks: SavedBlock[]) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_saved_blocks", { blocks }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e as any };
+}
+},
+async setReadFocusedTextEnabled(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_read_focused_text_enabled", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e as any };
+}
+},
+async setReadFocusedWindowContextEnabled(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_read_focused_window_context_enabled", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e as any };
+}
+},
+async rememberSpellingFix(wrong: string, right: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("remember_spelling_fix", { wrong, right }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e as any };
+}
+},
+async changeOfferRememberFixSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_offer_remember_fix_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e as any };
+}
+},
+async changeRepoWordsSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_repo_words_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e as any };
+}
+},
+async changeFillerWordRemovalSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_filler_word_removal_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e as any };
+}
+},
+async changeAgentsCanAskSetting(enabled: boolean) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_agents_can_ask_setting", { enabled }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateBlockedSites(sites: BlockedSite[]) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_blocked_sites", { sites }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e as any };
+}
+},
+async dismissFixOffer(id: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("dismiss_fix_offer", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e as any };
+}
+},
+async appDisplayNames(ids: string[]) : Promise<Result<AppDisplayName[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("app_display_names", { ids }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e as any };
+}
+},
 async isLaptop() : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("is_laptop") };
@@ -947,7 +1145,7 @@ whats_new_last_seen_version?: string; selected_model?: string; onboarding_comple
  * not gated on this — that follows model capability. Migrated from the old
  * `overlay_position` (position `none` → style `None`).
  */
-overlay_style?: OverlayStyle }
+overlay_style?: OverlayStyle; app_profiles?: AppProfile[]; blocked_apps?: string[]; blocked_sites?: BlockedSite[]; never_dictate_apps?: string[]; voice_pages_seeded?: boolean; saved_blocks?: SavedBlock[]; double_tap_hands_free?: boolean; hands_free_enabled?: boolean; never_store_history?: boolean; keep_dictation_audio?: boolean; pill_placement?: string; meeting_language?: string; agent_ask_enabled?: boolean; agents_can_ask_enabled?: boolean; offer_remember_fix_enabled?: boolean; filler_word_removal_enabled?: boolean; repo_words_enabled?: boolean; code_editor_mode_enabled?: boolean; save_notes_as_markdown?: boolean; notes_markdown_folder?: string | null; read_focused_text_enabled?: boolean; read_focused_window_context_enabled?: boolean; meeting_templates_seeded?: boolean }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
 export type AvailableAccelerators = { transcribe: string[]; ort: string[]; gpu_devices: GpuDeviceOption[] }
@@ -958,6 +1156,15 @@ export type CleanupStatus = { reason: CleanupStatusReason; needs_action: boolean
 export type CleanupStatusReason = "no_provider_selected" | "no_model_configured" | "no_prompt_selected" | "prompt_not_found" | "prompt_empty" | "no_api_key" | "provider_unavailable_in_this_build" | "apple_intelligence_unavailable" | "local_model_not_downloaded" | "provider_not_found" | "too_long" | "stopped_early" | "model_load_failed"
 export type ClipboardHandling = "dont_modify" | "copy_to_clipboard"
 export type CustomSounds = { start: boolean; stop: boolean }
+export type SavedBlock = { name?: string; trigger?: string; content?: string; expansion?: string }
+export type ActiveAppInfo = { app_name: string; bundle_id: string | null; process_stem: string | null }
+export type AppTone = "default" | "auto" | "casual" | "direct" | "formal" | "code"
+export type CapitalizationStyle = "default" | "sentence" | "lowercase"
+export type PunctuationStyle = "default" | "full" | "drop_trailing_period"
+export type CleanupLevel = "default" | "on" | "light" | "off"
+export type BlockedSite = { name: string; browser_identifier: string; domain: string }
+export type AppDisplayName = { id: string; name: string }
+export type AppProfile = { id: string; name: string; app_identifier: string; blocked?: boolean; tone?: AppTone; capitalization?: CapitalizationStyle; punctuation?: PunctuationStyle; cleanup?: CleanupLevel; repo_words?: boolean | null; post_process_enabled?: boolean | null; prompt_id?: string | null; provider_id?: string | null; model?: string | null; corrections?: CorrectionPair[] }
 /** Why a model download failed, so the UI can say what to do next. */
 export type DownloadFailureCause = "network" | "disk_space" | "checksum" | "other"
 export type EngineType = 
@@ -973,7 +1180,7 @@ export type EngineType =
  */
 "LlamaCpp"
 export type GpuDeviceOption = { id: number; name: string; total_vram_mb: number }
-export type HistoryEntry = { id: number; file_name: string; timestamp: number; saved: boolean; title: string; transcription_text: string; post_processed_text: string | null; post_process_prompt: string | null; post_process_requested: boolean }
+export type HistoryEntry = { id: number; file_name: string; timestamp: number; saved: boolean; title: string; transcription_text: string; post_processed_text: string | null; post_process_prompt: string | null; post_process_requested: boolean; app_name?: string | null; detected_language?: string | null }
 export type HistoryUpdatePayload = { action: "added"; entry: HistoryEntry } | { action: "updated"; entry: HistoryEntry } | { action: "deleted"; id: number } | { action: "toggled"; id: number }
 /**
  * Result of changing keyboard implementation
@@ -987,7 +1194,9 @@ export type KeyboardImplementation = "tauri" | "coco_voice_keys"
 export type CorrectionPair = { from: string; to: string }
 export type LLMPrompt = { id: string; name: string; prompt: string }
 export type LogLevel = "trace" | "debug" | "info" | "warn" | "error"
-export type ModelInfo = { id: string; name: string; description: string; filename: string; source: ModelSource; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; is_directory: boolean; engine_type: EngineType; accuracy_score: number; speed_score: number; supports_translation: boolean; is_recommended: boolean; supported_languages: string[]; supports_language_selection: boolean; is_custom: boolean; supports_streaming: boolean; supports_language_detection: boolean }
+export type MeasuredReason = { clip_set: string; words_wrong_per_100: number; speed_x_realtime: number; peak_memory_mb: number; models_compared: number }
+export type MeetingLanguagePlanView = { language: string; model_name: string | null }
+export type ModelInfo = { id: string; name: string; description: string; filename: string; source: ModelSource; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; is_directory: boolean; engine_type: EngineType; accuracy_score: number; speed_score: number; supports_translation: boolean; is_recommended: boolean; measured_best?: MeasuredReason | null; supported_languages: string[]; supports_language_selection: boolean; is_custom: boolean; supports_streaming: boolean; supports_language_detection: boolean }
 /** Payload of the `model-download-failed` event. */
 export type ModelDownloadFailed = { model_id: string; error: string; cause: DownloadFailureCause }
 export type ModelLoadStatus = { is_loaded: boolean; current_model: string | null }
@@ -1033,7 +1242,11 @@ export type PaginatedHistory = { entries: HistoryEntry[]; has_more: boolean }
 export type PasteMethod = "ctrl_v" | "direct" | "none" | "shift_insert" | "ctrl_shift_v" | "external_script"
 export type PermissionAccess = "allowed" | "denied" | "unknown"
 export type PostProcessProvider = { id: string; label: string; base_url: string; allow_base_url_edit?: boolean; models_endpoint?: string | null; supports_structured_output?: boolean }
-export type RecordingRetentionPeriod = "never" | "preserve_limit" | "days_3" | "weeks_2" | "months_3"
+export type RecordingRetentionPeriod = "never" | "preserve_limit" | "hours24" | "hours_24" | "days3" | "days_3" | "weeks2" | "weeks_2" | "days30" | "days_30" | "months3" | "months_3"
+export type KeepDictationsChoice = { kind: "never" } | { kind: "hours24" } | { kind: "days30" } | { kind: "forever" } | { kind: "keep_latest"; count: number } | { kind: "days3" } | { kind: "weeks2" } | { kind: "months3" }
+export type HomeHealthStatusView = { staleAccessibility: boolean; shortcutUnset: boolean; shortcutFailureCause: string | null; typingOff: boolean; cleanupEnabledWithoutLocalModel: boolean; cleanupNoticeAlreadyShown: boolean; updateReadyVersion: string | null; rolledBackFromVersion: string | null }
+export type TryItTake = { dropped: string | null }
+export type UpdateNoticeState = { kind: "none" } | { kind: "whats_new"; version: string; previous_version: string } | { kind: "went_back"; rolled_back_from: string; current_version: string; message: string }
 export type SecretMap = Partial<{ [key in string]: string }>
 export type ShortcutBinding = { id: string; name: string; description: string; default_binding: string; current_binding: string }
 export type SoundTheme = "marimba" | "pop" | "custom"

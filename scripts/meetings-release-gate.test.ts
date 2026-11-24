@@ -197,7 +197,7 @@ test("macos_floor_stays_14_4", () => {
   );
   expect(settingsRs).toContain("macos_at_least_14_4(os, version)");
   expect(settingsRs).toMatch(
-    /fn default_meetings_enabled\(\)\s*->\s*bool\s*\{\s*false\s*\}/,
+    /fn default_meetings_enabled\(\)\s*->\s*bool\s*\{\s*true\s*\}/,
   );
 });
 

@@ -1,30 +1,120 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { ChevronDown, Globe, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, Globe, RefreshCw } from "lucide-react";
 import type { ModelCardStatus } from "@/components/onboarding";
-import { ModelCard } from "@/components/onboarding";
+import RecommendedBadge from "@/components/onboarding/RecommendedBadge";
 import { useModelStore } from "@/stores/modelStore";
+import { useSettings } from "@/hooks/useSettings";
 import {
   getLanguageLabel,
   MODEL_CAPABILITY_LANGUAGES,
   supportsLanguageCode,
 } from "@/lib/constants/languages.ts";
-import type { ModelInfo } from "@/bindings";
+import { formatModelSize } from "@/lib/utils/format";
+import type { DownloadFailureCause, ModelInfo } from "@/bindings";
 
-// check if model supports a language based on its supported_languages list
+const DOT_FILLED = "●";
+
 const modelSupportsLanguage = (model: ModelInfo, langCode: string): boolean => {
   return supportsLanguageCode(model.supported_languages, langCode);
 };
 
-// Legacy models are the blob (Url-sourced) .bin/ONNX downloads, superseded by
-// the catalog GGUFs. They stay runnable when already on disk, but we no longer
-// advertise the download.
-const isLegacyModel = (model: ModelInfo): boolean =>
-  typeof model.source === "object" && "Url" in model.source;
+const isCleanupLlmModel = (model: ModelInfo): boolean => {
+  if (model.engine_type === "LlamaCpp") return true;
+  const hay = `${model.id} ${model.name}`.toLowerCase();
+  return hay.includes("qwen") || hay.includes("gemma") || hay.includes("llama");
+};
+
+export function formatCleanModelSize(sizeMb: number): string {
+  return formatModelSize(sizeMb).replace(/([.,])0(?=\s*(?:MB|GB)\b)/, "");
+}
+
+export function formatSpeechModelSubtitle(
+  model: ModelInfo,
+  t: TFunction,
+): string {
+  const idLower = model.id.toLowerCase();
+  const sizeText = formatCleanModelSize(model.size_mb);
+  const desc = (model.description ?? "").trim();
+
+  if (idLower.includes("parakeet") && idLower.includes("v3")) {
+    return [
+      t("v022.models.parakeetV3Languages", "English and 24 European languages"),
+      t("v022.models.noteFast", "fast"),
+      sizeText,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  if (idLower.includes("whisper") && !idLower.includes(".en")) {
+    return [t("v022.models.whisper99Languages", "99 languages"), sizeText]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  if (idLower.includes("moonshine") && idLower.includes("base")) {
+    return [
+      t("v022.models.englishOnly", "English"),
+      t("v022.models.noteSmallest", "smallest"),
+      sizeText,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  const descMentionsLang =
+    /\b(\d+[- ]languages?|english|russian|mandarin|european)\b/i.test(desc);
+  if (descMentionsLang) {
+    return [desc, sizeText].filter(Boolean).join(" · ");
+  }
+
+  const langCount = model.supported_languages?.length ?? 0;
+  const langText =
+    langCount > 1
+      ? t("v022.models.languageCount", {
+          count: langCount,
+          defaultValue: `${langCount} languages`,
+        })
+      : langCount === 1
+        ? getLanguageLabel(model.supported_languages[0]) ||
+          model.supported_languages[0]
+        : "";
+  return [langText, desc, sizeText]
+    .filter((s) => Boolean(s && s.trim()))
+    .join(" · ");
+}
+
+function formatDownloadFailure(
+  cause: DownloadFailureCause,
+  t: TFunction,
+): string {
+  switch (cause) {
+    case "network":
+      return t(
+        "v022.models.downloadFailedNetwork",
+        "Download failed: check your connection.",
+      );
+    case "disk_space":
+      return t(
+        "v022.models.downloadFailedDiskSpace",
+        "Download failed: not enough free disk space.",
+      );
+    case "checksum":
+      return t(
+        "v022.models.downloadFailedChecksum",
+        "Download failed: file check did not match.",
+      );
+    default:
+      return t("v022.models.downloadFailedOther", "Download failed.");
+  }
+}
 
 export const ModelsSettings: React.FC = () => {
   const { t } = useTranslation();
+  const { settings, setPostProcessProvider, updateSetting } = useSettings();
   const [switchingModelId, setSwitchingModelId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [languageFilter, setLanguageFilter] = useState("all");
@@ -37,7 +127,7 @@ export const ModelsSettings: React.FC = () => {
     currentModel,
     downloadingModels,
     downloadProgress,
-    downloadStats,
+    downloadFailures,
     verifyingModels,
     extractingModels,
     loading,
@@ -49,7 +139,6 @@ export const ModelsSettings: React.FC = () => {
     rescanLocalModels,
   } = useModelStore();
 
-  // click outside handler for language dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -64,21 +153,18 @@ export const ModelsSettings: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // focus search input when dropdown opens
   useEffect(() => {
     if (languageDropdownOpen && languageSearchInputRef.current) {
       languageSearchInputRef.current.focus();
     }
   }, [languageDropdownOpen]);
 
-  // filtered languages for dropdown (exclude "auto")
   const filteredLanguages = useMemo(() => {
     return MODEL_CAPABILITY_LANGUAGES.filter((lang) =>
       lang.label.toLowerCase().includes(languageSearch.toLowerCase()),
     );
   }, [languageSearch]);
 
-  // Get selected language label
   const selectedLanguageLabel = useMemo(() => {
     if (languageFilter === "all") {
       return t("settings.models.filters.allLanguages");
@@ -87,36 +173,14 @@ export const ModelsSettings: React.FC = () => {
   }, [languageFilter, t]);
 
   const getModelStatus = (modelId: string): ModelCardStatus => {
-    if (modelId in extractingModels) {
-      return "extracting";
-    }
-    if (modelId in verifyingModels) {
-      return "verifying";
-    }
-    if (modelId in downloadingModels) {
-      return "downloading";
-    }
-    if (switchingModelId === modelId) {
-      return "switching";
-    }
-    if (modelId === currentModel) {
-      return "active";
-    }
+    if (modelId in extractingModels) return "extracting";
+    if (modelId in verifyingModels) return "verifying";
+    if (modelId in downloadingModels) return "downloading";
+    if (switchingModelId === modelId) return "switching";
+    if (modelId === currentModel) return "active";
     const model = models.find((m: ModelInfo) => m.id === modelId);
-    if (model?.is_downloaded) {
-      return "available";
-    }
+    if (model?.is_downloaded) return "available";
     return "downloadable";
-  };
-
-  const getDownloadProgress = (modelId: string): number | undefined => {
-    const progress = downloadProgress[modelId];
-    return progress?.percentage;
-  };
-
-  const getDownloadSpeed = (modelId: string): number | undefined => {
-    const stats = downloadStats[modelId];
-    return stats?.speed;
   };
 
   const handleModelSelect = async (modelId: string) => {
@@ -164,12 +228,15 @@ export const ModelsSettings: React.FC = () => {
     }
   };
 
-  // Filter models by search query (name + description) and language filter
-  const filteredModels = useMemo(() => {
+  const { speechModels, localCleanupModel } = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return models.filter((model: ModelInfo) => {
-      // Hide deprecated legacy (.bin/ONNX) downloads unless already on disk.
-      if (isLegacyModel(model) && !model.is_downloaded) return false;
+    const cleanupCandidate =
+      models.find((m) => m.id.toLowerCase().includes("qwen")) ??
+      models.find((m) => isCleanupLlmModel(m)) ??
+      null;
+
+    const speech = models.filter((model: ModelInfo) => {
+      if (cleanupCandidate && model.id === cleanupCandidate.id) return false;
       if (languageFilter !== "all") {
         if (!modelSupportsLanguage(model, languageFilter)) return false;
       }
@@ -179,39 +246,44 @@ export const ModelsSettings: React.FC = () => {
       }
       return true;
     });
-  }, [models, languageFilter, searchQuery]);
 
-  // Split filtered models into downloaded (including custom) and available sections
-  const { downloadedModels, availableModels } = useMemo(() => {
-    const downloaded: ModelInfo[] = [];
-    const available: ModelInfo[] = [];
-
-    for (const model of filteredModels) {
-      if (
-        model.is_custom ||
-        model.is_downloaded ||
-        model.id in downloadingModels ||
-        model.id in extractingModels
-      ) {
-        downloaded.push(model);
-      } else {
-        available.push(model);
-      }
-    }
-
-    // Sort: active model first, then non-custom, then custom at the bottom
-    downloaded.sort((a, b) => {
+    speech.sort((a, b) => {
       if (a.id === currentModel) return -1;
       if (b.id === currentModel) return 1;
+      const aMeasured =
+        a.measured_best !== null && a.measured_best !== undefined;
+      const bMeasured =
+        b.measured_best !== null && b.measured_best !== undefined;
+      if (aMeasured !== bMeasured) return aMeasured ? -1 : 1;
+      if (a.is_downloaded !== b.is_downloaded) return a.is_downloaded ? -1 : 1;
       if (a.is_custom !== b.is_custom) return a.is_custom ? 1 : -1;
       return 0;
     });
 
-    return {
-      downloadedModels: downloaded,
-      availableModels: available,
-    };
-  }, [filteredModels, downloadingModels, extractingModels, currentModel]);
+    return { speechModels: speech, localCleanupModel: cleanupCandidate };
+  }, [models, languageFilter, searchQuery, currentModel]);
+
+  // AC-D13: Local clean-up model (Qwen3-4B) is "In use" ONLY when post-processing
+  // is enabled, provider is specifically "local_llm" (never Apple Intelligence or cloud),
+  // AND the local model is actually downloaded on disk.
+  const cleanupProviderId = settings?.post_process_provider_id || "";
+  const selectedLocalModel = settings?.post_process_models?.local_llm || "";
+  const isLocalCleanupInUse = Boolean(
+    settings?.post_process_enabled &&
+    cleanupProviderId === "local_llm" &&
+    localCleanupModel?.is_downloaded &&
+    (!selectedLocalModel || selectedLocalModel === localCleanupModel.id),
+  );
+
+  const cleanupStatus = localCleanupModel
+    ? getModelStatus(localCleanupModel.id)
+    : "downloadable";
+  const cleanupFailure = localCleanupModel
+    ? downloadFailures[localCleanupModel.id]
+    : undefined;
+  const cleanupPct = localCleanupModel
+    ? Math.round(downloadProgress[localCleanupModel.id]?.percentage ?? 0)
+    : 0;
 
   if (loading) {
     return (
@@ -224,190 +296,342 @@ export const ModelsSettings: React.FC = () => {
   }
 
   return (
-    <div className="max-w-3xl w-full mx-auto space-y-4">
-      <div className="mb-4">
-        <h1 className="text-xl font-semibold mb-2">
-          {t("settings.models.title")}
-        </h1>
-        <p className="text-sm text-text/60">
-          {t("settings.models.description")}
+    <div
+      data-route-domain="shared"
+      className="max-w-3xl w-full mx-auto space-y-3"
+    >
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.06em] text-logo-primary">
+          {t("sidebar.models")}
         </p>
-      </div>
+        <div className="mt-0.5 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-[22px] leading-[28px] font-semibold tracking-[-0.02em] text-text">
+            {t("sidebar.models")}
+          </h1>
 
-      {/* Search bar — filter the catalog by name or description */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text/40 pointer-events-none" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={t("settings.models.searchPlaceholder")}
-          className="w-full pl-9 pr-3 py-2 text-sm bg-mid-gray/10 border border-mid-gray/40 rounded-lg focus:outline-none focus:ring-1 focus:ring-logo-primary placeholder:text-text/40"
-        />
-      </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t("v022.models.searchModels", "Search models")}
+              aria-label={t("v022.models.searchModels", "Search models")}
+              className="w-48 rounded-lg border border-mid-gray/40 bg-background px-3 py-1.5 text-xs text-text placeholder:text-mid-gray focus:outline-none focus:ring-1 focus:ring-logo-primary"
+            />
+            <button
+              type="button"
+              onClick={() => void rescanLocalModels()}
+              disabled={isRescanning}
+              title={t("settings.models.rescan.tooltip", "Rescan local models")}
+              className="flex items-center gap-1.5 rounded-lg border border-mid-gray/35 bg-surface px-2.5 py-1.5 text-xs text-text/80 hover:text-text hover:bg-mid-gray/10 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${isRescanning ? "animate-spin" : ""}`}
+              />
+              <span>
+                {isRescanning
+                  ? t("settings.models.rescanning", "Rescanning…")
+                  : t("settings.models.rescan.label", "Rescan")}
+              </span>
+            </button>
 
-      {filteredModels.length > 0 ? (
-        <div className="space-y-6">
-          {/* Downloaded Models Section — header always visible so filter stays accessible */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-text/60">
-                {t("settings.models.yourModels")}
-              </h2>
-              <div className="flex items-center gap-2">
-                {/* Rescan local sources for models added outside Coco Voice */}
-                <button
-                  type="button"
-                  onClick={() => rescanLocalModels()}
-                  disabled={isRescanning}
-                  title={t("settings.models.rescan.tooltip")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-mid-gray/10 text-text/60 hover:bg-mid-gray/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <RefreshCw
-                    className={`w-3.5 h-3.5 ${isRescanning ? "animate-spin" : ""}`}
-                  />
-                  <span>{t("settings.models.rescan.label")}</span>
-                </button>
-                {/* Language filter dropdown */}
-                <div className="relative" ref={languageDropdownRef}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setLanguageDropdownOpen(!languageDropdownOpen)
-                    }
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                      languageFilter !== "all"
-                        ? "bg-logo-primary/20 text-logo-primary"
-                        : "bg-mid-gray/10 text-text/60 hover:bg-mid-gray/20"
-                    }`}
-                  >
-                    <Globe className="w-3.5 h-3.5" />
-                    <span className="max-w-[120px] truncate">
-                      {selectedLanguageLabel}
-                    </span>
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 transition-transform ${
-                        languageDropdownOpen ? "rotate-180" : ""
-                      }`}
+            <div className="relative" ref={languageDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setLanguageDropdownOpen(!languageDropdownOpen)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border transition-colors cursor-pointer ${
+                  languageFilter !== "all"
+                    ? "border-logo-primary/40 bg-logo-primary/15 text-logo-primary font-semibold"
+                    : "border-mid-gray/35 bg-surface text-text/80 hover:bg-mid-gray/10"
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span className="max-w-[110px] truncate">
+                  {selectedLanguageLabel}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 transition-transform ${
+                    languageDropdownOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {languageDropdownOpen && (
+                <div className="absolute end-0 mt-1 w-56 bg-background border border-mid-gray/30 rounded-lg shadow-lg z-50 overflow-hidden">
+                  <div className="p-2 border-b border-mid-gray/20">
+                    <input
+                      ref={languageSearchInputRef}
+                      type="text"
+                      value={languageSearch}
+                      onChange={(e) => setLanguageSearch(e.target.value)}
+                      placeholder={t("settings.models.filters.searchLanguages")}
+                      className="w-full px-2.5 py-1.5 text-xs bg-mid-gray/10 border border-mid-gray/20 rounded-md focus:outline-none focus:ring-1 focus:ring-logo-primary"
                     />
-                  </button>
+                  </div>
+                  <div className="max-h-56 overflow-y-auto py-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLanguageFilter("all");
+                        setLanguageDropdownOpen(false);
+                        setLanguageSearch("");
+                      }}
+                      className={`w-full px-3 py-1.5 text-start text-xs transition-colors cursor-pointer ${
+                        languageFilter === "all"
+                          ? "bg-logo-primary/20 text-logo-primary font-semibold"
+                          : "hover:bg-mid-gray/10"
+                      }`}
+                    >
+                      {t("settings.models.filters.allLanguages")}
+                    </button>
+                    {filteredLanguages.map((lang) => (
+                      <button
+                        key={lang.value}
+                        type="button"
+                        onClick={() => {
+                          setLanguageFilter(lang.value);
+                          setLanguageDropdownOpen(false);
+                          setLanguageSearch("");
+                        }}
+                        className={`w-full px-3 py-1.5 text-start text-xs transition-colors cursor-pointer ${
+                          languageFilter === lang.value
+                            ? "bg-logo-primary/20 text-logo-primary font-semibold"
+                            : "hover:bg-mid-gray/10"
+                        }`}
+                      >
+                        {lang.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
-                  {languageDropdownOpen && (
-                    <div className="absolute top-full right-0 mt-1 w-56 bg-background border border-mid-gray/80 rounded-lg shadow-lg z-50 overflow-hidden">
-                      <div className="p-2 border-b border-mid-gray/40">
-                        <input
-                          ref={languageSearchInputRef}
-                          type="text"
-                          value={languageSearch}
-                          onChange={(e) => setLanguageSearch(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (
-                              e.key === "Enter" &&
-                              filteredLanguages.length > 0
-                            ) {
-                              setLanguageFilter(filteredLanguages[0].value);
-                              setLanguageDropdownOpen(false);
-                              setLanguageSearch("");
-                            } else if (e.key === "Escape") {
-                              setLanguageDropdownOpen(false);
-                              setLanguageSearch("");
-                            }
-                          }}
-                          placeholder={t(
-                            "settings.general.language.searchPlaceholder",
-                          )}
-                          className="w-full px-2 py-1 text-sm bg-mid-gray/10 border border-mid-gray/40 rounded-md focus:outline-none focus:ring-1 focus:ring-logo-primary"
-                        />
-                      </div>
-                      <div className="max-h-48 overflow-y-auto">
+      {/* Section 1: Speech: used for dictation and meetings */}
+      <section data-testid="speech-models-section" className="space-y-2">
+        <p className="text-xs text-mid-gray">
+          {t(
+            "v022.models.speechHeading",
+            "Speech: used for dictation and meetings",
+          )}
+        </p>
+
+        {speechModels.length > 0 ? (
+          <div className="rounded-xl border border-mid-gray/25 bg-surface divide-y divide-mid-gray/20">
+            {speechModels.map((model: ModelInfo) => {
+              const status = getModelStatus(model.id);
+              const failure = downloadFailures[model.id];
+              const pct = Math.round(
+                downloadProgress[model.id]?.percentage ?? 0,
+              );
+              const subtitleParts = formatSpeechModelSubtitle(model, t);
+
+              return (
+                <div
+                  key={model.id}
+                  data-model-row-id={model.id}
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[14px] font-semibold text-text">
+                        {model.name}
+                      </span>
+                      {model.measured_best ? (
+                        <RecommendedBadge reason={model.measured_best} />
+                      ) : null}
+                    </div>
+                    <p className="mt-0.5 text-xs text-mid-gray truncate">
+                      {subtitleParts}
+                    </p>
+                    {failure &&
+                    status !== "downloading" &&
+                    status !== "verifying" &&
+                    status !== "extracting" ? (
+                      <p role="alert" className="mt-1 text-xs text-red-400">
+                        {formatDownloadFailure(failure, t)}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-2">
+                    {status === "active" ? (
+                      <span
+                        data-testid={`model-in-use-${model.id}`}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                      >
+                        <span aria-hidden="true">{DOT_FILLED}</span>
+                        <span>{t("v022.models.inUse", "In use")}</span>
+                      </span>
+                    ) : status === "available" ? (
+                      <>
                         <button
                           type="button"
-                          onClick={() => {
-                            setLanguageFilter("all");
-                            setLanguageDropdownOpen(false);
-                            setLanguageSearch("");
-                          }}
-                          className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${
-                            languageFilter === "all"
-                              ? "bg-logo-primary/20 text-logo-primary font-semibold"
-                              : "hover:bg-mid-gray/10"
-                          }`}
+                          onClick={() => void handleModelSelect(model.id)}
+                          className="rounded-lg border border-mid-gray/40 px-2.5 py-1 text-xs font-semibold text-text cursor-pointer hover:bg-mid-gray/10"
                         >
-                          {t("settings.models.filters.allLanguages")}
+                          {t("v022.models.useButton", "Use")}
                         </button>
-                        {filteredLanguages.map((lang) => (
-                          <button
-                            key={lang.value}
-                            type="button"
-                            onClick={() => {
-                              setLanguageFilter(lang.value);
-                              setLanguageDropdownOpen(false);
-                              setLanguageSearch("");
-                            }}
-                            className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${
-                              languageFilter === lang.value
-                                ? "bg-logo-primary/20 text-logo-primary font-semibold"
-                                : "hover:bg-mid-gray/10"
-                            }`}
-                          >
-                            {lang.label}
-                          </button>
-                        ))}
-                        {filteredLanguages.length === 0 && (
-                          <div className="px-3 py-2 text-sm text-text/50 text-center">
-                            {t("settings.general.language.noResults")}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                        <button
+                          type="button"
+                          onClick={() => void handleModelDelete(model.id)}
+                          className="rounded-lg border border-mid-gray/40 px-2.5 py-1 text-xs font-semibold text-text cursor-pointer hover:bg-mid-gray/10"
+                        >
+                          {t("v022.models.deleteButton", "Delete")}
+                        </button>
+                      </>
+                    ) : status === "downloading" ||
+                      status === "verifying" ||
+                      status === "extracting" ? (
+                      <>
+                        <span className="font-mono text-xs text-mid-gray">
+                          {pct}%
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void handleModelCancel(model.id)}
+                          className="rounded-lg border border-mid-gray/40 px-2.5 py-1 text-xs font-semibold text-text cursor-pointer hover:bg-mid-gray/10"
+                        >
+                          {t("settings.postProcessing.api.localLlm.cancel")}
+                        </button>
+                      </>
+                    ) : failure ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleModelDownload(model.id)}
+                        className="rounded-lg border border-red-500/40 px-2.5 py-1 text-xs font-semibold text-red-400 cursor-pointer hover:bg-red-500/10"
+                      >
+                        {t("v022.models.tryAgainButton", "Try again")}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void handleModelDownload(model.id)}
+                        className="rounded-lg border border-mid-gray/40 px-2.5 py-1 text-xs font-semibold text-text cursor-pointer hover:bg-mid-gray/10"
+                      >
+                        {t("v022.models.downloadButton", "Download")}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-            {downloadedModels.map((model: ModelInfo) => (
-              <ModelCard
-                key={model.id}
-                model={model}
-                status={getModelStatus(model.id)}
-                onSelect={handleModelSelect}
-                onDownload={handleModelDownload}
-                onDelete={handleModelDelete}
-                onCancel={handleModelCancel}
-                downloadProgress={getDownloadProgress(model.id)}
-                downloadSpeed={getDownloadSpeed(model.id)}
-                showRecommended={false}
-              />
-            ))}
+              );
+            })}
           </div>
+        ) : (
+          <div className="rounded-xl border border-mid-gray/20 bg-surface py-6 text-center text-xs text-mid-gray">
+            {t("settings.models.noModelsMatch")}
+          </div>
+        )}
+      </section>
 
-          {/* Available Models Section */}
-          {availableModels.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-sm font-medium text-text/60">
-                {t("settings.models.availableModels")}
-              </h2>
-              {availableModels.map((model: ModelInfo) => (
-                <ModelCard
-                  key={model.id}
-                  model={model}
-                  status={getModelStatus(model.id)}
-                  onSelect={handleModelSelect}
-                  onDownload={handleModelDownload}
-                  onDelete={handleModelDelete}
-                  onCancel={handleModelCancel}
-                  downloadProgress={getDownloadProgress(model.id)}
-                  downloadSpeed={getDownloadSpeed(model.id)}
-                  showRecommended={true}
-                />
-              ))}
-            </div>
+      {/* Section 2: Clean-up and notes: runs on this Mac */}
+      <section
+        data-testid="local-cleanup-models-section"
+        className="space-y-2 pt-1"
+      >
+        <p className="text-xs text-mid-gray">
+          {t(
+            "v022.models.cleanupNotesHeading",
+            "Clean-up and notes: runs on this Mac",
           )}
+        </p>
+
+        <div className="rounded-xl border border-mid-gray/25 bg-surface px-4 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-[14px] font-semibold text-text">
+                {localCleanupModel?.name ||
+                  t("v022.models.qwenTitle", "Qwen3-4B")}
+              </div>
+              <p className="mt-0.5 text-xs text-mid-gray">
+                {t(
+                  "v022.models.qwenDescription",
+                  "Clean-up, meeting notes and Ask · 2.5 GB · Apache-2.0",
+                )}
+              </p>
+              {cleanupFailure &&
+              cleanupStatus !== "downloading" &&
+              cleanupStatus !== "verifying" &&
+              cleanupStatus !== "extracting" ? (
+                <p role="alert" className="mt-1 text-xs text-red-400">
+                  {formatDownloadFailure(cleanupFailure, t)}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              {isLocalCleanupInUse ? (
+                <span
+                  data-testid="cleanup-model-in-use"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                >
+                  <span aria-hidden="true">{DOT_FILLED}</span>
+                  <span>{t("v022.models.inUse", "In use")}</span>
+                </span>
+              ) : localCleanupModel &&
+                (cleanupStatus === "downloading" ||
+                  cleanupStatus === "verifying" ||
+                  cleanupStatus === "extracting") ? (
+                <>
+                  <span className="font-mono text-xs text-mid-gray">
+                    {cleanupPct}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void handleModelCancel(localCleanupModel.id)}
+                    className="rounded-lg border border-mid-gray/40 px-2.5 py-1 text-xs font-semibold text-text cursor-pointer hover:bg-mid-gray/10"
+                  >
+                    {t("settings.postProcessing.api.localLlm.cancel")}
+                  </button>
+                </>
+              ) : localCleanupModel && cleanupFailure ? (
+                <button
+                  type="button"
+                  onClick={() => void handleModelDownload(localCleanupModel.id)}
+                  className="rounded-lg border border-red-500/40 px-2.5 py-1 text-xs font-semibold text-red-400 cursor-pointer hover:bg-red-500/10"
+                >
+                  {t("v022.models.tryAgainButton", "Try again")}
+                </button>
+              ) : !localCleanupModel || !localCleanupModel.is_downloaded ? (
+                <button
+                  type="button"
+                  disabled={!localCleanupModel}
+                  onClick={() =>
+                    localCleanupModel &&
+                    void handleModelDownload(localCleanupModel.id)
+                  }
+                  className="rounded-lg border border-mid-gray/40 px-2.5 py-1 text-xs font-semibold text-text cursor-pointer hover:bg-mid-gray/10 disabled:opacity-50"
+                >
+                  {t("v022.models.downloadButton", "Download")}
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void updateSetting("post_process_enabled", true);
+                      void setPostProcessProvider("local_llm");
+                    }}
+                    className="rounded-lg border border-mid-gray/40 px-2.5 py-1 text-xs font-semibold text-text cursor-pointer hover:bg-mid-gray/10"
+                  >
+                    {t("v022.models.useButton", "Use")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleModelDelete(localCleanupModel.id)}
+                    className="rounded-lg border border-mid-gray/40 px-2.5 py-1 text-xs font-semibold text-text cursor-pointer hover:bg-mid-gray/10"
+                  >
+                    {t("v022.models.deleteButton", "Delete")}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="text-center py-8 text-text/50">
-          {t("settings.models.noModelsMatch")}
-        </div>
-      )}
+      </section>
     </div>
   );
 };

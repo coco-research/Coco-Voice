@@ -17,7 +17,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, OnceLock, PoisonError};
 
 use log::{error, info, warn};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
@@ -136,7 +136,7 @@ pub fn unregister_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<
 
 /// Why a binding failed, so the notice can say something a person can act on.
 ///
-/// Serialized lowercase (`taken`, `rejected`, `other`) for the frontend.
+/// Serialized lowercase (`taken`, `rejected`, `permission`, `other`) for the frontend.
 /// `error` stays the backend text for the log.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -145,8 +145,73 @@ pub enum ShortcutFailureCause {
     Taken,
     /// The binding is not a shortcut this backend can register.
     Rejected,
+    /// Accessibility permission has not been granted yet.
+    Permission,
     /// A transient or unrecognized failure.
     Other,
+}
+
+impl ShortcutFailureCause {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Taken => "taken",
+            Self::Rejected => "rejected",
+            Self::Permission => "permission",
+            Self::Other => "other",
+        }
+    }
+}
+
+/// In-memory outcome of the most recent shortcut registration pass.
+/// Never persisted so each app launch tries again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Registration {
+    NotTried,
+    Failed { cause: ShortcutFailureCause },
+    Ok,
+}
+
+impl Registration {
+    pub fn from_failures(failures: &[ShortcutFailure]) -> Self {
+        match failures.first() {
+            Some(first) => Self::Failed { cause: first.cause },
+            None => Self::Ok,
+        }
+    }
+
+    pub fn should_skip_init(self) -> bool {
+        matches!(self, Self::Ok)
+    }
+
+    pub fn failure_cause_str(self) -> Option<&'static str> {
+        match self {
+            Self::Failed { cause } => Some(cause.as_str()),
+            Self::NotTried | Self::Ok => None,
+        }
+    }
+}
+
+/// Managed app state holding the current [`Registration`] in memory.
+pub struct ShortcutRegistration(pub Mutex<Registration>);
+
+impl Default for ShortcutRegistration {
+    fn default() -> Self {
+        Self(Mutex::new(Registration::NotTried))
+    }
+}
+
+pub fn current_registration<R: tauri::Runtime>(app: &AppHandle<R>) -> Registration {
+    app.try_state::<ShortcutRegistration>()
+        .map(|state| *state.0.lock().unwrap_or_else(PoisonError::into_inner))
+        .unwrap_or(Registration::NotTried)
+}
+
+pub fn set_registration<R: tauri::Runtime>(app: &AppHandle<R>, next: Registration) {
+    if let Some(state) = app.try_state::<ShortcutRegistration>() {
+        *state.0.lock().unwrap_or_else(PoisonError::into_inner) = next;
+    } else {
+        app.manage(ShortcutRegistration(Mutex::new(next)));
+    }
 }
 
 /// One binding the init loop tried to register and could not.
@@ -321,9 +386,10 @@ impl ShortcutRegistrar for SettingsRegistrar<'_> {
     }
 }
 
-/// Bindings the active settings say should be registered right now.
-fn register_active_shortcuts(app: &AppHandle) -> Vec<ShortcutFailure> {
-    let settings = settings::load_or_create_app_settings(app);
+/// Active shortcut candidates and their resolved bindings from settings.
+fn active_shortcut_candidates_from_settings(
+    settings: &settings::AppSettings,
+) -> (Vec<ShortcutCandidate>, HashMap<String, ShortcutBinding>) {
     let defaults = settings::get_default_settings().bindings;
     let mut candidates = Vec::new();
     let mut bindings = HashMap::new();
@@ -354,6 +420,50 @@ fn register_active_shortcuts(app: &AppHandle) -> Vec<ShortcutFailure> {
         bindings.insert(id, binding);
     }
 
+    (candidates, bindings)
+}
+
+/// Active shortcut candidates that should be registered right now, filtered
+/// to omit intentionally skipped bindings (empty bindings and disabled
+/// iterative correction).
+fn active_shortcut_candidates<R: tauri::Runtime>(app: &AppHandle<R>) -> Vec<ShortcutCandidate> {
+    let settings = settings::get_settings(app);
+    let (candidates, _) = active_shortcut_candidates_from_settings(&settings);
+    candidates
+        .into_iter()
+        .filter(|candidate| {
+            !shortcut_intentionally_skipped(
+                &candidate.id,
+                &candidate.binding,
+                settings.iterative_correction_enabled,
+            )
+        })
+        .collect()
+}
+
+/// Build one [`ShortcutFailure`] per active binding when the hotkey manager
+/// itself fails to start.
+pub(crate) fn start_failures<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    cause: ShortcutFailureCause,
+    error: &str,
+) -> Vec<ShortcutFailure> {
+    active_shortcut_candidates(app)
+        .into_iter()
+        .map(|candidate| ShortcutFailure {
+            id: candidate.id,
+            binding: candidate.binding,
+            error: error.to_string(),
+            cause,
+        })
+        .collect()
+}
+
+/// Bindings the active settings say should be registered right now.
+fn register_active_shortcuts(app: &AppHandle) -> Vec<ShortcutFailure> {
+    let settings = settings::load_or_create_app_settings(app);
+    let (candidates, bindings) = active_shortcut_candidates_from_settings(&settings);
+
     let mut registrar = SettingsRegistrar { app, bindings };
     collect_shortcut_failures(
         &candidates,
@@ -363,11 +473,28 @@ fn register_active_shortcuts(app: &AppHandle) -> Vec<ShortcutFailure> {
     .failures
 }
 
-pub fn emit_shortcut_registration_failures(app: &AppHandle, failures: &[ShortcutFailure]) {
+pub fn emit_shortcut_registration_failures<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    failures: &[ShortcutFailure],
+) {
     if failures.is_empty() {
         return;
     }
     let _ = app.emit("shortcut-registration-failed", failures);
+}
+
+pub fn emit_shortcuts_registered<R: tauri::Runtime>(app: &AppHandle<R>) {
+    let _ = app.emit("shortcuts-registered", ());
+}
+
+fn record_switch_registration<R: tauri::Runtime>(app: &AppHandle<R>, failures: &[ShortcutFailure]) {
+    let next = Registration::from_failures(failures);
+    set_registration(app, next);
+    if next == Registration::Ok {
+        emit_shortcuts_registered(app);
+    } else {
+        emit_shortcut_registration_failures(app, failures);
+    }
 }
 
 // ============================================================================
@@ -820,7 +947,7 @@ fn initialize_handy_keys_with_rollback(app: &AppHandle) -> Result<bool, String> 
     match coco_keys::init_shortcuts(app) {
         Ok(failures) => {
             // init_shortcuts already registered what it could.
-            emit_shortcut_registration_failures(app, &failures);
+            record_switch_registration(app, &failures);
             Ok(true)
         }
         Err(e) => {
@@ -928,6 +1055,83 @@ pub fn change_translate_to_english_setting(app: AppHandle, enabled: bool) -> Res
 pub fn change_selected_language_setting(app: AppHandle, language: String) -> Result<(), String> {
     settings::update_settings(&app, |s| s.selected_language = language);
     Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn change_double_tap_hands_free_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+    settings::update_settings(&app, |s| {
+        s.double_tap_hands_free = enabled;
+        s.hands_free_enabled = enabled;
+    });
+
+    let _ = app.emit(
+        "settings-changed",
+        serde_json::json!({
+            "setting": "double_tap_hands_free",
+            "value": enabled
+        }),
+    );
+
+    Ok(())
+}
+
+#[cfg(feature = "meetings")]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Type)]
+pub struct MeetingLanguagePlanView {
+    pub language: String,
+    pub model_name: Option<String>,
+}
+
+#[cfg(feature = "meetings")]
+#[tauri::command]
+#[specta::specta]
+pub fn change_meeting_language_setting(app: AppHandle, language: String) -> Result<(), String> {
+    let normalized = crate::meeting_language::normalize_meeting_language(&language);
+    settings::update_settings(&app, |s| s.meeting_language = normalized.clone());
+
+    let _ = app.emit(
+        "settings-changed",
+        serde_json::json!({
+            "setting": "meeting_language",
+            "value": normalized
+        }),
+    );
+
+    Ok(())
+}
+
+#[cfg(feature = "meetings")]
+#[tauri::command]
+#[specta::specta]
+pub fn set_meeting_language_override_cmd(
+    app: AppHandle,
+    language: Option<String>,
+) -> Result<(), String> {
+    if let Some(tm) =
+        app.try_state::<std::sync::Arc<crate::managers::transcription::TranscriptionManager>>()
+    {
+        tm.set_meeting_language_override(language.as_deref());
+    }
+    Ok(())
+}
+
+#[cfg(feature = "meetings")]
+#[tauri::command]
+#[specta::specta]
+pub fn meeting_language_plan(app: AppHandle) -> Result<MeetingLanguagePlanView, String> {
+    let language = if let Some(tm) =
+        app.try_state::<std::sync::Arc<crate::managers::transcription::TranscriptionManager>>()
+    {
+        tm.resolved_meeting_language()
+    } else {
+        let s = settings::get_settings(&app);
+        crate::meeting_language::normalize_meeting_language(&s.meeting_language)
+    };
+    Ok(MeetingLanguagePlanView {
+        language,
+        model_name: None,
+    })
 }
 
 #[tauri::command]
@@ -1311,6 +1515,28 @@ pub fn change_experimental_enabled_setting(app: AppHandle, enabled: bool) -> Res
 }
 
 #[cfg(feature = "meetings")]
+fn report_meeting_shortcut_failure<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    binding: &ShortcutBinding,
+    error: String,
+) -> String {
+    let failure = ShortcutFailure {
+        id: binding.id.clone(),
+        binding: binding.current_binding.clone(),
+        cause: classify_shortcut_error(&error),
+        error,
+    };
+    // The binding string is the shortcut text. The error repeats that string
+    // and nothing else about the keys.
+    error!(
+        "meeting shortcut '{}' ({}) failed: {}",
+        failure.id, failure.binding, failure.error
+    );
+    emit_shortcut_registration_failures(app, std::slice::from_ref(&failure));
+    failure.error
+}
+
+#[cfg(feature = "meetings")]
 #[tauri::command]
 #[specta::specta]
 pub fn change_meetings_enabled_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
@@ -1322,16 +1548,20 @@ pub fn change_meetings_enabled_setting(app: AppHandle, enabled: bool) -> Result<
 
     // The meeting shortcut opens the consent dialog only, so there is nothing to
     // register until the user assigns a key. Turning the switch off releases it.
-    if let Some(binding) = binding {
-        if enabled {
-            if !binding.current_binding.trim().is_empty() {
-                let _ = register_shortcut(&app, binding);
-            }
+    // An empty binding is not a failure: the default ships with no key.
+    if let Some(binding) = binding.filter(|binding| !binding.current_binding.trim().is_empty()) {
+        let result = if enabled {
+            register_shortcut(&app, binding.clone())
         } else {
-            let _ = unregister_shortcut(&app, binding);
+            unregister_shortcut(&app, binding.clone())
+        };
+        if let Err(error) = result {
+            settings::update_settings(&app, |s| s.meetings_enabled = !enabled);
+            return Err(report_meeting_shortcut_failure(&app, &binding, error));
         }
     }
 
+    tray::update_tray_menu(&app, None);
     Ok(())
 }
 
@@ -1952,8 +2182,8 @@ mod classify_shortcut_error_tests {
             classify_shortcut_error("the shortcut engine stopped"),
             ShortcutFailureCause::Other
         );
-        // handy-keys 0.3.4 src/error.rs — AccessibilityNotGranted. Not a cause
-        // of its own: the engine falls back to Tauri before this matters.
+        // AccessibilityNotGranted is a manager start error. init_shortcuts reports
+        // it as cause Permission (row F-g), and a register call never returns it.
         assert_eq!(
             classify_shortcut_error(
                 "Accessibility permission not granted. Please enable it in System Settings > Privacy & Security > Accessibility"
@@ -1992,5 +2222,179 @@ mod classify_shortcut_error_tests {
             serde_json::to_string(&ShortcutFailureCause::Other).unwrap(),
             "\"other\""
         );
+    }
+
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn report_meeting_shortcut_failure_emits_classified_failure_and_returns_error() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+        use tauri::Listener;
+
+        use super::{report_meeting_shortcut_failure, ShortcutBinding, ShortcutFailure};
+
+        let app = tauri::test::mock_builder()
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let (tx, rx) = mpsc::channel();
+        app.listen("shortcut-registration-failed", move |event| {
+            let _ = tx.send(event.payload().to_string());
+        });
+
+        let binding = ShortcutBinding {
+            id: "meeting".to_string(),
+            name: "Meeting".to_string(),
+            description: "Open meeting consent".to_string(),
+            default_binding: String::new(),
+            current_binding: "Opt+M".to_string(),
+        };
+        let raw_error = "Hotkey already registered: Opt+M".to_string();
+        let returned = report_meeting_shortcut_failure(app.handle(), &binding, raw_error.clone());
+        assert_eq!(returned, raw_error);
+
+        let payload = rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("shortcut-registration-failed event was not emitted");
+        let expected = serde_json::to_string(&[ShortcutFailure {
+            id: "meeting".to_string(),
+            binding: "Opt+M".to_string(),
+            error: raw_error,
+            cause: ShortcutFailureCause::Taken,
+        }])
+        .unwrap();
+        assert_eq!(payload, expected);
+    }
+
+    #[test]
+    fn double_tap_hands_free_round_trips_in_settings() {
+        let mut s = crate::settings::get_default_settings();
+        assert!(!s.double_tap_hands_free);
+        s.double_tap_hands_free = true;
+        let json = serde_json::to_string(&s).expect("serialize settings");
+        let parsed: crate::settings::AppSettings =
+            serde_json::from_str(&json).expect("deserialize settings");
+        assert!(parsed.double_tap_hands_free);
+    }
+
+    #[cfg(feature = "meetings")]
+    #[test]
+    fn meeting_language_normalization_and_plan_view_contract() {
+        assert_eq!(
+            crate::meeting_language::normalize_meeting_language("hi"),
+            "hi"
+        );
+        assert_eq!(
+            crate::meeting_language::normalize_meeting_language("es-ES"),
+            "es"
+        );
+        assert_eq!(
+            crate::meeting_language::normalize_meeting_language("  "),
+            "auto"
+        );
+
+        let view = super::MeetingLanguagePlanView {
+            language: "hi".to_string(),
+            model_name: None,
+        };
+        let encoded = serde_json::to_value(&view).expect("serialize plan view");
+        assert_eq!(encoded["language"], "hi");
+        assert!(encoded["model_name"].is_null());
+    }
+
+    #[test]
+    fn t_g7_permission_cause_serializes_and_registration_retries_until_ok() {
+        use super::{
+            current_registration, record_switch_registration, Registration, ShortcutFailure,
+            ShortcutInit,
+        };
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::{mpsc, Arc};
+        use std::time::Duration;
+        use tauri::Listener;
+
+        assert_eq!(
+            serde_json::to_string(&ShortcutFailureCause::Permission).unwrap(),
+            "\"permission\""
+        );
+
+        let app = tauri::test::mock_builder()
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let (reg_tx, reg_rx) = mpsc::channel();
+        app.listen("shortcuts-registered", move |_| {
+            let _ = reg_tx.send(());
+        });
+
+        let calls = Arc::new(AtomicUsize::new(0));
+        let failure = ShortcutFailure {
+            id: "transcribe".to_string(),
+            binding: "fn".to_string(),
+            error: "Accessibility permission not granted".to_string(),
+            cause: ShortcutFailureCause::Permission,
+        };
+
+        // First call fails -> Registration::Failed { Permission }, does not emit shortcuts-registered.
+        let c1 = Arc::clone(&calls);
+        let f1 = failure.clone();
+        crate::commands::run_initialize_shortcuts(app.handle(), move |_| {
+            c1.fetch_add(1, Ordering::SeqCst);
+            ShortcutInit::from_failures(vec![f1])
+        })
+        .expect("first init");
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            current_registration(app.handle()),
+            Registration::Failed {
+                cause: ShortcutFailureCause::Permission
+            }
+        );
+        assert!(reg_rx.try_recv().is_err());
+
+        // Second call while Failed -> runs init again and succeeds -> Registration::Ok + emits shortcuts-registered.
+        let c2 = Arc::clone(&calls);
+        crate::commands::run_initialize_shortcuts(app.handle(), move |_| {
+            c2.fetch_add(1, Ordering::SeqCst);
+            ShortcutInit::from_failures(vec![])
+        })
+        .expect("second init");
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        assert_eq!(current_registration(app.handle()), Registration::Ok);
+        reg_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("shortcuts-registered event was not emitted");
+
+        // Third call while Ok -> returns early without running init again.
+        let c3 = Arc::clone(&calls);
+        crate::commands::run_initialize_shortcuts(app.handle(), move |_| {
+            c3.fetch_add(1, Ordering::SeqCst);
+            ShortcutInit::from_failures(vec![])
+        })
+        .expect("third init");
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+
+        // Switch path with Ok(failures) sets Registration::Failed so Try again retries.
+        record_switch_registration(
+            app.handle(),
+            &[ShortcutFailure {
+                id: "transcribe".to_string(),
+                binding: "fn".to_string(),
+                error: "Hotkey already registered: fn".to_string(),
+                cause: ShortcutFailureCause::Taken,
+            }],
+        );
+        assert_eq!(
+            current_registration(app.handle()),
+            Registration::Failed {
+                cause: ShortcutFailureCause::Taken
+            }
+        );
+        let c4 = Arc::clone(&calls);
+        crate::commands::run_initialize_shortcuts(app.handle(), move |_| {
+            c4.fetch_add(1, Ordering::SeqCst);
+            ShortcutInit::from_failures(vec![])
+        })
+        .expect("retry after switch failure");
+        assert_eq!(calls.load(Ordering::SeqCst), 3);
+        assert_eq!(current_registration(app.handle()), Registration::Ok);
     }
 }
