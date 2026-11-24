@@ -960,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "Un appel est en cours dans Google Meet.",
+      "meetOpen": "Google Meet est peut-être ouvert.",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
