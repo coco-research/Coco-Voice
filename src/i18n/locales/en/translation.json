@@ -331,7 +331,8 @@
         "label": "Rescan",
         "tooltip": "Rescan for models added to the models folder or Hugging Face cache outside Coco Voice"
       },
-      "noModelsMatch": "No models match this filter."
+      "noModelsMatch": "No models match this filter.",
+      "rescanning": "Rescanning…"
     },
     "sound": {
       "title": "Sound",
@@ -959,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "Google Meet is in a call.",
+      "meetOpen": "Google Meet may be open.",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
@@ -1186,7 +1188,9 @@
       "trashEmpty": "Trash is empty.",
       "selectedTag": "(selected)",
       "selectedCount": "{{count}} selected",
-      "importIntoFolderLabel": "Import into folder"
+      "importIntoFolderLabel": "Import into folder",
+      "deletePartFailed": "Could not delete this part.",
+      "restoreFailed": "Could not restore the meeting."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1281,7 +1285,8 @@
       "sameAsDefault": "Same as default",
       "thisMeetingHelp": "Applies only to the current recording and clears when it stops.",
       "thisMeetingSelectLabel": "This meeting",
-      "changeAria": "Change Meeting language"
+      "changeAria": "Change Meeting language",
+      "heading": "Meeting language"
     },
     "title": {
       "editHint": "Click to rename",
@@ -1290,6 +1295,7 @@
     },
     "todos": {
       "empty": "No to-dos from the last 14 days.",
+      "loadFailed": "Could not load to-dos.",
       "youSaidIn": "You said it in {{title}}, {{date}}",
       "youSaidInNoDate": "You said it in {{title}}"
     },
@@ -1495,7 +1501,21 @@
       "trayPasteLastTitle": "Menu bar · Paste last take",
       "wherePillShowsGeneralDesc": "Choose top or bottom of your active screen.",
       "yourShortcut": "your shortcut",
-      "appearance": "Appearance"
+      "appearance": "Appearance",
+      "keptOnMac": "Kept on this Mac",
+      "off": "Off",
+      "listeningPreview": "Listening",
+      "calendars": "Calendars",
+      "openButton": "Open",
+      "microphone": "Microphone",
+      "language": "Language",
+      "howWordsTyped": "How words are typed",
+      "keepClipboard": "Keep words on the clipboard",
+      "clipboardOnFailOnly": "Only if pasting fails",
+      "calendarsSelected": "{{count}} selected",
+      "appHeading": "App",
+      "sounds": "Sounds",
+      "contactsGithubAtLaunch": "Contacts github.com at launch"
     },
     "words": {
       "addABlockButton": "Add a block",

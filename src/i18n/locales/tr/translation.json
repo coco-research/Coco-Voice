@@ -286,7 +286,8 @@
       "rescan": {
         "label": "Yeniden tara",
         "tooltip": "Coco Voice dışında modeller klasörüne veya Hugging Face önbelleğine eklenen modelleri yeniden tara"
-      }
+      },
+      "rescanning": "Yeniden taranıyor…"
     },
     "general": {
       "title": "Genel",
@@ -959,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "Google Meet bir görüşmede.",
+      "meetOpen": "Google Meet açık olabilir.",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
@@ -1186,7 +1188,9 @@
       "trashEmpty": "Çöp kutusu boş.",
       "selectedTag": "(seçili)",
       "selectedCount": "{{count}} seçildi",
-      "importIntoFolderLabel": "Klasöre aktar"
+      "importIntoFolderLabel": "Klasöre aktar",
+      "deletePartFailed": "Bu bölüm silinemedi.",
+      "restoreFailed": "Toplantı geri yüklenemedi."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1281,7 +1285,8 @@
       "sameAsDefault": "Varsayılanla aynı",
       "thisMeetingHelp": "Yalnızca geçerli kayıt için geçerlidir ve kayıt durunca temizlenir.",
       "thisMeetingSelectLabel": "Bu toplantı",
-      "changeAria": "Toplantı dilini değiştir"
+      "changeAria": "Toplantı dilini değiştir",
+      "heading": "Toplantı dili"
     },
     "title": {
       "editHint": "Yeniden adlandırmak için tıklayın",
@@ -1290,6 +1295,7 @@
     },
     "todos": {
       "empty": "Son 14 günden yapılacak iş yok.",
+      "loadFailed": "Yapılacak işler yüklenemedi.",
       "youSaidIn": "Bunu {{title}}, {{date}} içinde söylediniz",
       "youSaidInNoDate": "Bunu {{title}} içinde söylediniz"
     },
@@ -1495,7 +1501,21 @@
       "trayPasteLastTitle": "Menü çubuğu · Son kaydı yapıştır",
       "wherePillShowsGeneralDesc": "Etkin ekranınızın üstünü veya altını seçin.",
       "yourShortcut": "kısayolunuz",
-      "appearance": "Görünüm"
+      "appearance": "Görünüm",
+      "keptOnMac": "Bu Mac’te saklanır",
+      "off": "Kapalı",
+      "listeningPreview": "Dinleniyor",
+      "calendars": "Takvimler",
+      "openButton": "Aç",
+      "microphone": "Mikrofon",
+      "language": "Dil",
+      "howWordsTyped": "Kelimeler nasıl yazılır",
+      "keepClipboard": "Kelimeleri panoda tut",
+      "clipboardOnFailOnly": "Yalnızca yapıştırma başarısız olursa",
+      "calendarsSelected": "{{count}} seçildi",
+      "appHeading": "Uygulama",
+      "sounds": "Sesler",
+      "contactsGithubAtLaunch": "Açılışta github.com ile iletişim kurar"
     },
     "words": {
       "addABlockButton": "Add a block",

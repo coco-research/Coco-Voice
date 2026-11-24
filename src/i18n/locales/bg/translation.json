@@ -331,7 +331,8 @@
       "rescan": {
         "label": "Сканиране отново",
         "tooltip": "Сканиране отново за модели, добавени в папката с модели или кеша на Hugging Face извън Coco Voice"
-      }
+      },
+      "rescanning": "Повторно сканиране…"
     },
     "sound": {
       "title": "Звук",
@@ -959,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "Google Meet е в разговор.",
+      "meetOpen": "Google Meet може да е отворен.",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
@@ -1186,7 +1188,9 @@
       "trashEmpty": "Кошчето е празно.",
       "selectedTag": "(избрано)",
       "selectedCount": "{{count}} избрани",
-      "importIntoFolderLabel": "Импортирай в папка"
+      "importIntoFolderLabel": "Импортирай в папка",
+      "deletePartFailed": "Неуспешно изтриване на тази част.",
+      "restoreFailed": "Неуспешно възстановяване на срещата."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1281,7 +1285,8 @@
       "sameAsDefault": "Както по подразбиране",
       "thisMeetingHelp": "Важи само за текущия запис и се изчиства при спирането му.",
       "thisMeetingSelectLabel": "Тази среща",
-      "changeAria": "Промяна на езика на срещата"
+      "changeAria": "Промяна на езика на срещата",
+      "heading": "Език за срещи"
     },
     "title": {
       "editHint": "Щракнете за преименуване",
@@ -1290,6 +1295,7 @@
     },
     "todos": {
       "empty": "Няма задачи от последните 14 дни.",
+      "loadFailed": "Неуспешно зареждане на задачите.",
       "youSaidIn": "Казахте го в {{title}}, {{date}}",
       "youSaidInNoDate": "Казахте го в {{title}}"
     },
@@ -1495,7 +1501,21 @@
       "trayPasteLastTitle": "Лента с менюта · Постави последния запис",
       "wherePillShowsGeneralDesc": "Изберете горе или долу на активния екран.",
       "yourShortcut": "вашата клавишна комбинация",
-      "appearance": "Облик"
+      "appearance": "Облик",
+      "keptOnMac": "Запазва се на този Mac",
+      "off": "Изкл.",
+      "listeningPreview": "Слуша",
+      "calendars": "Календари",
+      "openButton": "Отвори",
+      "microphone": "Микрофон",
+      "language": "Език",
+      "howWordsTyped": "Как се въвеждат думите",
+      "keepClipboard": "Запазвай думите в клипборда",
+      "clipboardOnFailOnly": "Само ако поставянето не успее",
+      "calendarsSelected": "{{count}} избрани",
+      "appHeading": "Приложение",
+      "sounds": "Звуци",
+      "contactsGithubAtLaunch": "Свързва се с github.com при стартиране"
     },
     "words": {
       "addABlockButton": "Add a block",

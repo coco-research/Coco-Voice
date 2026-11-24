@@ -231,6 +231,7 @@ impl MeetingTodoStore {
     fn init(&self) -> Result<()> {
         let mut conn = Connection::open(&self.todos_db_path)?;
         conn.busy_timeout(Duration::from_secs(1))?;
+        conn.execute_batch("PRAGMA secure_delete = ON;")?;
         let migrations = Migrations::new(MIGRATIONS.to_vec());
         #[cfg(debug_assertions)]
         migrations
@@ -248,7 +249,18 @@ impl MeetingTodoStore {
     fn todos_conn(&self) -> Result<Connection> {
         let conn = Connection::open(&self.todos_db_path)?;
         conn.busy_timeout(Duration::from_secs(1))?;
+        conn.execute_batch("PRAGMA secure_delete = ON;")?;
         Ok(conn)
+    }
+
+    /// Securely zero freed pages and truncate the WAL on `todos.db`.
+    pub fn compact_secure(&self) -> Result<()> {
+        let conn = self.todos_conn()?;
+        conn.execute_batch("PRAGMA secure_delete = ON;")?;
+        crate::managers::meetings::wal_checkpoint_truncate(&conn)?;
+        conn.execute_batch("VACUUM;")?;
+        crate::managers::meetings::wal_checkpoint_truncate(&conn)?;
+        Ok(())
     }
 
     fn read_segments(&self) -> Result<Vec<SegRow>> {
@@ -507,6 +519,13 @@ impl MeetingTodoStore {
         self.list(false, Some(cutoff))
     }
 
+    /// Sync from `meetings.db` and return open to-dos from the last 14 days,
+    /// failing closed if the sync cannot finish.
+    pub fn sync_then_list_last_14_days(&self, now_secs: i64) -> Result<Vec<MeetingTodo>> {
+        self.sync()?;
+        self.list_last_14_days(now_secs)
+    }
+
     pub fn set_status(&self, todo_id: i64, status: TodoStatus) -> Result<()> {
         let conn = self.todos_conn()?;
         if conn.execute(
@@ -689,5 +708,118 @@ mod tests {
         let open_only: Vec<MeetingTodo> =
             serde_json::from_str(&run_todos_json(dir.path(), false).unwrap()).unwrap();
         assert_eq!(open_only.len(), 3);
+    }
+
+    #[test]
+    fn todo_store_connection_enables_secure_delete() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingTodoStore::open(dir.path()).unwrap();
+        let conn = store.todos_conn().unwrap();
+        let sd: i64 = conn
+            .query_row("PRAGMA secure_delete;", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(sd, 1, "PRAGMA secure_delete must be enabled on todos.db");
+    }
+
+    #[test]
+    fn deleted_meeting_todos_are_gone_after_sync_or_defer() {
+        let dir = tempfile::tempdir().unwrap();
+        let m1 = seed(
+            dir.path(),
+            1_700_000_000,
+            "Product sync",
+            &[(10_000, 15_000, "me", "I'll send the rollout summary.")],
+        );
+        let store = MeetingTodoStore::open(dir.path()).unwrap();
+        assert_eq!(store.sync().unwrap().len(), 1);
+
+        let mc = Connection::open(dir.path().join("meetings/meetings.db")).unwrap();
+        mc.execute(
+            "DELETE FROM meeting_segments WHERE meeting_id = ?1",
+            params![m1],
+        )
+        .unwrap();
+        mc.execute("DELETE FROM meetings WHERE id = ?1", params![m1])
+            .unwrap();
+        drop(mc);
+
+        crate::meeting_ask_index::sync_or_defer(dir.path(), true, "delete_meeting");
+        let remaining = store.list(true, None).unwrap();
+        assert!(
+            remaining.is_empty(),
+            "deleted meeting to-dos must be removed from todos.db"
+        );
+        let wal = dir.path().join("meetings/todos.db-wal");
+        let wal_len = fs::metadata(&wal).map(|m| m.len()).unwrap_or(0);
+        assert_eq!(wal_len, 0, "todos.db-wal must truncate to 0 bytes");
+    }
+
+    #[test]
+    fn sync_then_list_last_14_days_errors_while_todos_db_is_locked() {
+        let dir = tempfile::tempdir().unwrap();
+        let now = 1_700_100_000;
+        let _m1 = seed(
+            dir.path(),
+            now - 3_600,
+            "Product sync",
+            &[(10_000, 15_000, "me", "I'll send the rollout summary.")],
+        );
+        let store = MeetingTodoStore::open(dir.path()).unwrap();
+        assert_eq!(store.sync_then_list_last_14_days(now).unwrap().len(), 1);
+
+        let locker = Connection::open(dir.path().join("meetings/todos.db")).unwrap();
+        locker.execute_batch("BEGIN IMMEDIATE;").unwrap();
+
+        let res = store.sync_then_list_last_14_days(now);
+        assert!(
+            res.is_err(),
+            "sync_then_list_last_14_days must return Err while todos.db write lock is held"
+        );
+
+        locker.execute_batch("COMMIT;").unwrap();
+    }
+
+    #[test]
+    fn deferred_todo_clean_finishes_on_retry() {
+        let _serial = crate::meeting_ask_index::tests::test_pending_lock()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let m1 = seed(
+            dir.path(),
+            1_700_000_000,
+            "Product sync",
+            &[(10_000, 15_000, "me", "I'll send the rollout summary.")],
+        );
+        let store = MeetingTodoStore::open(dir.path()).unwrap();
+        assert_eq!(store.sync().unwrap().len(), 1);
+
+        let mc = Connection::open(dir.path().join("meetings/meetings.db")).unwrap();
+        mc.execute(
+            "DELETE FROM meeting_segments WHERE meeting_id = ?1",
+            params![m1],
+        )
+        .unwrap();
+        mc.execute("DELETE FROM meetings WHERE id = ?1", params![m1])
+            .unwrap();
+        drop(mc);
+
+        let locker = Connection::open(dir.path().join("meetings/todos.db")).unwrap();
+        locker.execute_batch("BEGIN IMMEDIATE;").unwrap();
+
+        crate::meeting_ask_index::sync_or_defer(dir.path(), true, "delete_meeting");
+        assert!(crate::meeting_ask_index::any_ask_clean_pending());
+        let rows_before: i64 = locker
+            .query_row("SELECT COUNT(*) FROM meeting_todos", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows_before, 1);
+
+        locker.execute_batch("COMMIT;").unwrap();
+        drop(locker);
+
+        assert!(crate::meeting_ask_index::run_pending_ask_clean(dir.path()).unwrap());
+        assert!(store.list(true, None).unwrap().is_empty());
+        assert!(!crate::meeting_ask_index::run_pending_ask_clean(dir.path()).unwrap());
+        assert!(!crate::meeting_ask_index::any_ask_clean_pending());
     }
 }

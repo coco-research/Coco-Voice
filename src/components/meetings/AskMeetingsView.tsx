@@ -670,28 +670,59 @@ export function formatTodoSourceLine(
     : `${item.meeting_title}, ${item.meeting_date}`;
 }
 
+export type MeetingTodosLoadResult = {
+  items: MeetingTodoItem[];
+  loadFailed: boolean;
+};
+
+export async function loadMeetingTodos(
+  listTodos: () => Promise<
+    | { status: "ok"; data: MeetingTodoItem[] }
+    | { status: "error"; error: string }
+  > = () => commands.listMeetingTodos(),
+): Promise<MeetingTodosLoadResult> {
+  try {
+    const res = await listTodos();
+    if (res.status === "ok") {
+      return { items: res.data, loadFailed: false };
+    }
+    return { items: [], loadFailed: true };
+  } catch {
+    return { items: [], loadFailed: true };
+  }
+}
+
 export const MeetingTodosPanel: React.FC<{
   items?: MeetingTodoItem[];
+  loadFailed?: boolean;
   onComplete?: (id: string) => void;
   onOpenMoment?: (item: MeetingTodoItem) => void;
-}> = ({ items: propItems, onComplete, onOpenMoment }) => {
+}> = ({
+  items: propItems,
+  loadFailed: propLoadFailed,
+  onComplete,
+  onOpenMoment,
+}) => {
   const { t } = useTranslation();
   const [localItems, setLocalItems] = useState<MeetingTodoItem[]>([]);
+  const [localLoadFailed, setLocalLoadFailed] = useState(false);
 
   useEffect(() => {
-    if (propItems) return;
+    if (propItems || propLoadFailed !== undefined) return;
     let cancelled = false;
-    void commands.listMeetingTodos().then((res) => {
-      if (!cancelled && res.status === "ok") {
-        setLocalItems(res.data);
+    void loadMeetingTodos().then((result) => {
+      if (!cancelled) {
+        setLocalItems(result.items);
+        setLocalLoadFailed(result.loadFailed);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [propItems]);
+  }, [propItems, propLoadFailed]);
 
   const items = propItems ?? localItems;
+  const loadFailed = propLoadFailed ?? localLoadFailed;
   const markDone = (id: string) => {
     if (onComplete) {
       onComplete(id);
@@ -716,7 +747,15 @@ export const MeetingTodosPanel: React.FC<{
         </p>
       </div>
 
-      {items.length > 0 ? (
+      {loadFailed ? (
+        <p
+          role="alert"
+          data-testid="meetings-todos-error"
+          className="text-[12px] text-red-600"
+        >
+          {t("meetings.todos.loadFailed", "Could not load to-dos.")}
+        </p>
+      ) : items.length > 0 ? (
         <ul className="divide-y divide-mid-gray/20 rounded-[14px] border border-mid-gray/25 bg-background px-4">
           {items.map((item, idx) => {
             const prevMeetingId = idx > 0 ? items[idx - 1].meeting_id : null;

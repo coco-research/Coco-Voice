@@ -286,7 +286,8 @@
       "rescan": {
         "label": "Znovu prohledat",
         "tooltip": "Znovu prohledat modely přidané do složky modelů nebo mezipaměti Hugging Face mimo Coco Voice"
-      }
+      },
+      "rescanning": "Znovu prohledávám…"
     },
     "general": {
       "title": "Obecné",
@@ -959,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "V Google Meet probíhá hovor.",
+      "meetOpen": "Google Meet může být otevřený.",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
@@ -1186,7 +1188,9 @@
       "trashEmpty": "Koš je prázdný.",
       "selectedTag": "(vybráno)",
       "selectedCount": "Vybráno: {{count}}",
-      "importIntoFolderLabel": "Importovat do složky"
+      "importIntoFolderLabel": "Importovat do složky",
+      "deletePartFailed": "Tuto část se nepodařilo smazat.",
+      "restoreFailed": "Schůzku se nepodařilo obnovit."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1281,7 +1285,8 @@
       "sameAsDefault": "Stejný jako výchozí",
       "thisMeetingHelp": "Platí jen pro aktuální nahrávku a po jejím zastavení se vymaže.",
       "thisMeetingSelectLabel": "Tato schůzka",
-      "changeAria": "Změnit jazyk schůzky"
+      "changeAria": "Změnit jazyk schůzky",
+      "heading": "Jazyk schůzek"
     },
     "title": {
       "editHint": "Kliknutím přejmenujete",
@@ -1290,6 +1295,7 @@
     },
     "todos": {
       "empty": "Žádné úkoly za posledních 14 dní.",
+      "loadFailed": "Úkoly se nepodařilo načíst.",
       "youSaidIn": "Řekli jste to ve schůzce {{title}}, {{date}}",
       "youSaidInNoDate": "Řekli jste to ve schůzce {{title}}"
     },
@@ -1495,7 +1501,21 @@
       "trayPasteLastTitle": "Řádek nabídek · Vložit poslední záznam",
       "wherePillShowsGeneralDesc": "Vyberte horní nebo dolní okraj aktivní obrazovky.",
       "yourShortcut": "vaši zkratku",
-      "appearance": "Vzhled"
+      "appearance": "Vzhled",
+      "keptOnMac": "Uloženo na tomto Macu",
+      "off": "Vypnuto",
+      "listeningPreview": "Naslouchám",
+      "calendars": "Kalendáře",
+      "openButton": "Otevřít",
+      "microphone": "Mikrofon",
+      "language": "Jazyk",
+      "howWordsTyped": "Jak se píšou slova",
+      "keepClipboard": "Ponechat slova ve schránce",
+      "clipboardOnFailOnly": "Jen když vložení selže",
+      "calendarsSelected": "Vybráno: {{count}}",
+      "appHeading": "Aplikace",
+      "sounds": "Zvuky",
+      "contactsGithubAtLaunch": "Při spuštění kontaktuje github.com"
     },
     "words": {
       "addABlockButton": "Add a block",

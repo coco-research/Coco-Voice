@@ -39,10 +39,7 @@ describe("G8 speaker split/rename and test-calendar upcoming meetings", () => {
   test("About acknowledgments translations carry exact CNRS MIT and WeSpeaker CC BY 4.0 VoxCeleb sherpa-onnx provenance", () => {
     const repoRoot = join(import.meta.dir, "..");
     const enRaw = JSON.parse(
-      readFileSync(
-        join(repoRoot, "src/i18n/locales/en/translation.json"),
-        "utf8",
-      ),
+      readFileSync(join(repoRoot, "src/i18n/speaker-split/en.json"), "utf8"),
     );
     const ack = enRaw.settings.about.acknowledgments;
     expect(ack.pyannoteDetails).toContain("MIT, Copyright (c) 2022 CNRS");
@@ -100,7 +97,7 @@ describe("G8 speaker split/rename and test-calendar upcoming meetings", () => {
       "None chosen yet. Pick the calendars Coming up may read.",
     );
     expect(html).not.toContain("checked=");
-    expect(html).toContain("Work calendar: never read");
+    expect(html).toContain("You marked this as work: never read");
     expect(html).toContain("disabled");
   });
 
@@ -113,7 +110,9 @@ describe("G8 speaker split/rename and test-calendar upcoming meetings", () => {
       />,
     );
     expect(emptyHtml).toContain('data-testid="frame-10-coming-up"');
-    expect(emptyHtml).toContain("No calendars chosen yet");
+    expect(emptyHtml.replaceAll("&#x27;", "'")).toContain(
+      "Pick calendars in Settings › Meetings to see what's coming up.",
+    );
 
     const sample = {
       title: "Design review",
