@@ -8,6 +8,7 @@ import {
 } from "../meetings/AskMeetingsView";
 import { FoldersAndTemplatesView } from "../meetings/FoldersAndTemplatesView";
 import { MeetingHistoryHub } from "../meetings/MeetingHistoryExtras";
+import { queueMeetingCitationJump } from "../meetings/MeetingsList";
 import { RecordMeetingPage } from "../meetings/RecordMeetingPage";
 import type { MeetingsUi } from "../meetings/gate";
 import { AppProfilesView } from "../settings/AppProfilesView";
@@ -137,7 +138,17 @@ export function renderShellSection(
   if (s === "meetings-ask")
     return (
       <div data-route-domain="meetings" className="w-full">
-        <AskMeetingsView />
+        <AskMeetingsView
+          onJumpToCitation={(citation) => {
+            if (typeof citation.meetingId !== "number" || !ex?.onNavigate)
+              return;
+            queueMeetingCitationJump({
+              meetingId: citation.meetingId,
+              startMs: citation.start_ms,
+            });
+            ex.onNavigate("meetings-history");
+          }}
+        />
       </div>
     );
   if (s === "meetings-folders")
