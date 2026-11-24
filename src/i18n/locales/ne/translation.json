@@ -1188,7 +1188,9 @@
       "trashEmpty": "रद्दीटोकरी खाली छ।",
       "selectedTag": "(छानिएको)",
       "selectedCount": "{{count}} छानिए",
-      "importIntoFolderLabel": "फोल्डरमा आयात गर्नुहोस्"
+      "importIntoFolderLabel": "फोल्डरमा आयात गर्नुहोस्",
+      "deletePartFailed": "यो भाग मेटाउन सकिएन।",
+      "restoreFailed": "बैठक पुनर्स्थापना गर्न सकिएन।"
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1293,6 +1295,7 @@
     },
     "todos": {
       "empty": "पछिल्ला १४ दिनका कुनै कार्यसूची छैनन्।",
+      "loadFailed": "कार्यसूची लोड गर्न सकिएन।",
       "youSaidIn": "तपाईंले यो {{title}}, {{date}} मा भन्नुभएको थियो",
       "youSaidInNoDate": "तपाईंले यो {{title}} मा भन्नुभएको थियो"
     },

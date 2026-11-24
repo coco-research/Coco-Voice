@@ -1188,7 +1188,9 @@
       "trashEmpty": "A lixeira está vazia.",
       "selectedTag": "(selecionado)",
       "selectedCount": "{{count}} selecionados",
-      "importIntoFolderLabel": "Importar para a pasta"
+      "importIntoFolderLabel": "Importar para a pasta",
+      "deletePartFailed": "Não foi possível excluir esta parte.",
+      "restoreFailed": "Não foi possível restaurar a reunião."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1293,6 +1295,7 @@
     },
     "todos": {
       "empty": "Nenhuma tarefa nos últimos 14 dias.",
+      "loadFailed": "Não foi possível carregar as tarefas.",
       "youSaidIn": "Você disse isso em {{title}}, {{date}}",
       "youSaidInNoDate": "Você disse isso em {{title}}"
     },

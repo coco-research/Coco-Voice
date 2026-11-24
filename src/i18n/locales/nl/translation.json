@@ -1188,7 +1188,9 @@
       "trashEmpty": "De prullenmand is leeg.",
       "selectedTag": "(geselecteerd)",
       "selectedCount": "{{count}} geselecteerd",
-      "importIntoFolderLabel": "Importeren in map"
+      "importIntoFolderLabel": "Importeren in map",
+      "deletePartFailed": "Kon dit deel niet verwijderen.",
+      "restoreFailed": "Kon de vergadering niet herstellen."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1293,6 +1295,7 @@
     },
     "todos": {
       "empty": "Geen taken uit de laatste 14 dagen.",
+      "loadFailed": "Kon taken niet laden.",
       "youSaidIn": "Je zei dit in {{title}}, {{date}}",
       "youSaidInNoDate": "Je zei dit in {{title}}"
     },

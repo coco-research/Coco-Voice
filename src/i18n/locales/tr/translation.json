@@ -1188,7 +1188,9 @@
       "trashEmpty": "Çöp kutusu boş.",
       "selectedTag": "(seçili)",
       "selectedCount": "{{count}} seçildi",
-      "importIntoFolderLabel": "Klasöre aktar"
+      "importIntoFolderLabel": "Klasöre aktar",
+      "deletePartFailed": "Bu bölüm silinemedi.",
+      "restoreFailed": "Toplantı geri yüklenemedi."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1293,6 +1295,7 @@
     },
     "todos": {
       "empty": "Son 14 günden yapılacak iş yok.",
+      "loadFailed": "Yapılacak işler yüklenemedi.",
       "youSaidIn": "Bunu {{title}}, {{date}} içinde söylediniz",
       "youSaidInNoDate": "Bunu {{title}} içinde söylediniz"
     },

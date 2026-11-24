@@ -23,6 +23,7 @@ import {
   AddAudioControl,
   OlderNoteWhileRecordingBanner,
 } from "./MeetingHistoryExtras";
+import { runOptimisticCommand } from "./optimisticCommand";
 import { EditableMeetingTitle } from "./MeetingEntryPanels";
 import { MeetingNotesSection } from "./MeetingNotesPanel";
 import { AskMeetingsView } from "./AskMeetingsView";
@@ -350,6 +351,7 @@ export function MeetingsList({
   const [selectedSpanKeys, setSelectedSpanKeys] = useState<string[]>([]);
   const [lastClickedKey, setLastClickedKey] = useState<string | null>(null);
   const [confirmDeletePart, setConfirmDeletePart] = useState(false);
+  const [detailErrorKey, setDetailErrorKey] = useState<string | null>(null);
   const [speakerNames, setSpeakerNames] = useState<Record<string, string>>({});
   const [liveStatus, setLiveStatus] = useState<MeetingStatus | null>(null);
   const [jumpTarget, setJumpTarget] = useState<{
@@ -390,6 +392,7 @@ export function MeetingsList({
     setSelectedSpanKeys([]);
     setLastClickedKey(null);
     setConfirmDeletePart(false);
+    setDetailErrorKey(null);
     if (switchingMeeting) {
       setSpeakerNames({});
     }
@@ -650,25 +653,43 @@ export function MeetingsList({
       if (!bounds) return;
       const { startMs, endMs } = bounds;
       const deletedKeys = new Set(bounds.picked.map(segmentKey));
-      setConfirmDeletePart(false);
-      setSelectedSpanKeys([]);
-      setLastClickedKey(null);
-      setDetailSegments((prev) =>
-        prev.filter(
-          (s) =>
-            !deletedKeys.has(segmentKey(s)) &&
-            !(s.end_ms > startMs && s.start_ms < endMs),
-        ),
+      const isRemoved = (s: MeetingSegmentView) =>
+        deletedKeys.has(segmentKey(s)) ||
+        (s.end_ms > startMs && s.start_ms < endMs);
+      const removedSegments = detailSegments.filter(isRemoved);
+      const meetingId = selectedMeeting.id;
+      const outcome = await runOptimisticCommand(
+        () => {
+          setDetailErrorKey(null);
+          setConfirmDeletePart(false);
+          setSelectedSpanKeys([]);
+          setLastClickedKey(null);
+          setDetailSegments((prev) => prev.filter((s) => !isRemoved(s)));
+        },
+        () =>
+          meetingCommands.deleteTranscriptSpanSecure(meetingId, startMs, endMs),
+        () => {
+          if (selectedIdRef.current !== meetingId) return;
+          setDetailSegments((prev) => {
+            const present = new Set(prev.map(segmentKey));
+            const restored = [
+              ...prev,
+              ...removedSegments.filter((s) => !present.has(segmentKey(s))),
+            ];
+            restored.sort(
+              (a, b) => a.start_ms - b.start_ms || a.end_ms - b.end_ms,
+            );
+            return restored;
+          });
+          setDetailErrorKey("meetings.storage.deletePartFailed");
+        },
       );
-      await meetingCommands.deleteTranscriptSpanSecure(
-        selectedMeeting.id,
-        startMs,
-        endMs,
-      );
-      const snapRes = await meetingCommands.meetingNotesSnapshot(
-        selectedMeeting.id,
-      );
-      if (snapRes.status === "ok") setDetailNotes(snapRes.data);
+      if (!outcome.ok) return;
+      if (selectedIdRef.current !== meetingId) return;
+      const snapRes = await meetingCommands.meetingNotesSnapshot(meetingId);
+      if (snapRes.status === "ok" && selectedIdRef.current === meetingId) {
+        setDetailNotes(snapRes.data);
+      }
     };
 
     const detailDateLabel = formatShortDateDddDDMon(
@@ -735,6 +756,11 @@ export function MeetingsList({
             }}
           />
         ) : null}
+        {detailErrorKey !== null && (
+          <p role="alert" className="text-sm text-red-600">
+            {t(detailErrorKey)}
+          </p>
+        )}
         <div className="pb-2 border-b border-mid-gray/15 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button

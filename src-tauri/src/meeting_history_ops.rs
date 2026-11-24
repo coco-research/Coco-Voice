@@ -88,18 +88,11 @@ fn open_conn(store: &MeetingsStore) -> Result<Connection> {
     Ok(conn)
 }
 
-fn sync_and_compact_ask_index(store: &MeetingsStore) {
+fn sync_and_compact_ask_index(store: &MeetingsStore, context: &str) {
     let Some(app_data_dir) = store.db_path().parent().and_then(Path::parent) else {
         return;
     };
-    let index_file = app_data_dir.join("meetings").join("ask_index.db");
-    if !index_file.exists() {
-        return;
-    }
-    if let Ok(idx) = crate::meeting_ask_index::MeetingAskIndex::open(app_data_dir) {
-        let _ = idx.sync();
-        let _ = idx.compact_secure();
-    }
+    crate::meeting_ask_index::sync_or_defer(app_data_dir, true, context);
 }
 
 fn like_pattern(query: &str) -> String {
@@ -181,8 +174,8 @@ pub fn purge_expired_trash(store: &MeetingsStore, now_secs: i64) -> Result<usize
         store.delete_meeting_forever(*id)?;
     }
     if !expired.is_empty() {
-        let _ = store.checkpoint_and_vacuum_secure();
-        sync_and_compact_ask_index(store);
+        store.checkpoint_and_vacuum_secure_or_defer("purge_expired_trash");
+        sync_and_compact_ask_index(store, "purge_expired_trash");
     }
     Ok(expired.len())
 }
@@ -312,8 +305,8 @@ pub fn delete_transcript_span(
         (removed_segments, removed_notes)
     };
 
-    let _ = store.checkpoint_and_vacuum_secure();
-    sync_and_compact_ask_index(store);
+    store.checkpoint_and_vacuum_secure_or_defer("delete_transcript_span");
+    sync_and_compact_ask_index(store, "delete_transcript_span");
 
     let wiped_audio_files = with_meeting_io_lock(meeting_id, || -> Result<usize> {
         let mut wiped = 0usize;
@@ -394,8 +387,8 @@ pub fn delete_transcript_segments_by_ids(
         (removed_segments, removed_notes)
     };
 
-    let _ = store.checkpoint_and_vacuum_secure();
-    sync_and_compact_ask_index(store);
+    store.checkpoint_and_vacuum_secure_or_defer("delete_transcript_segments");
+    sync_and_compact_ask_index(store, "delete_transcript_segments");
 
     let wiped_audio_files = with_meeting_io_lock(meeting_id, || -> Result<usize> {
         let mut wiped_files = HashSet::new();
@@ -451,8 +444,8 @@ pub fn apply_transcript_retention(
     }
     tx.commit()?;
     if !ids.is_empty() {
-        let _ = store.checkpoint_and_vacuum_secure();
-        sync_and_compact_ask_index(store);
+        store.checkpoint_and_vacuum_secure_or_defer("apply_transcript_retention");
+        sync_and_compact_ask_index(store, "apply_transcript_retention");
     }
     Ok(ids.len())
 }

@@ -1188,7 +1188,9 @@
       "trashEmpty": "Кошик порожній.",
       "selectedTag": "(вибрано)",
       "selectedCount": "Вибрано: {{count}}",
-      "importIntoFolderLabel": "Імпортувати до папки"
+      "importIntoFolderLabel": "Імпортувати до папки",
+      "deletePartFailed": "Не вдалося видалити цю частину.",
+      "restoreFailed": "Не вдалося відновити зустріч."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1293,6 +1295,7 @@
     },
     "todos": {
       "empty": "За останні 14 днів завдань немає.",
+      "loadFailed": "Не вдалося завантажити завдання.",
       "youSaidIn": "Ви сказали це у зустрічі {{title}}, {{date}}",
       "youSaidInNoDate": "Ви сказали це у зустрічі {{title}}"
     },

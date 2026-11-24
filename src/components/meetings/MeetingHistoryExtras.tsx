@@ -3,10 +3,13 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import {
   commands as meetingCommands,
   type ImportBatchSummary,
+  type MeetingRetentionState,
+  type Result,
 } from "../../bindings.meetings";
 import { useTranslation } from "react-i18next";
 import { ConsentDialog, formatMeetingClock } from "./MeetingEntryPanels";
 import { MeetingsList } from "./MeetingsList";
+import { runOptimisticCommand } from "./optimisticCommand";
 
 const DOT_FILLED = "●";
 const MORE_DOTS = "…";
@@ -19,6 +22,99 @@ export interface TrashedMeetingItem {
   title: string;
   deletedAt?: number;
   deletedWhen?: string;
+}
+
+export async function restoreTrashedMeetingAction(
+  id: number,
+  currentItems: TrashedMeetingItem[],
+  setTrashed: React.Dispatch<React.SetStateAction<TrashedMeetingItem[]>>,
+  setErrorKey: (key: string | null) => void,
+  restoreCmd: (meetingId: number) => Promise<Result<null, string>> = (
+    meetingId,
+  ) => meetingCommands.restoreTrashedMeetingV2(meetingId),
+): Promise<boolean> {
+  const removedIndex = currentItems.findIndex((item) => item.id === id);
+  const removed = removedIndex >= 0 ? currentItems[removedIndex] : null;
+  const outcome = await runOptimisticCommand(
+    () => {
+      setErrorKey(null);
+      setTrashed((prev) => prev.filter((item) => item.id !== id));
+    },
+    () => restoreCmd(id),
+    () => {
+      if (removed) {
+        setTrashed((prev) => {
+          if (prev.some((item) => item.id === removed.id)) return prev;
+          const next = [...prev];
+          next.splice(Math.min(removedIndex, next.length), 0, removed);
+          return next;
+        });
+      }
+      setErrorKey("meetings.storage.restoreFailed");
+    },
+  );
+  return outcome.ok;
+}
+
+export async function deleteTrashedMeetingNowAction(
+  id: number,
+  currentItems: TrashedMeetingItem[],
+  setTrashed: React.Dispatch<React.SetStateAction<TrashedMeetingItem[]>>,
+  setErrorKey: (key: string | null) => void,
+  setAudioLeftWarning: (show: boolean) => void,
+  deleteCmd: (meetingId: number) => Promise<Result<boolean, string>> = (
+    meetingId,
+  ) => meetingCommands.deleteMeetingForever(meetingId),
+): Promise<boolean> {
+  const removedIndex = currentItems.findIndex((item) => item.id === id);
+  const removed = removedIndex >= 0 ? currentItems[removedIndex] : null;
+  const outcome = await runOptimisticCommand(
+    () => {
+      setErrorKey(null);
+      setAudioLeftWarning(false);
+      setTrashed((prev) => prev.filter((item) => item.id !== id));
+    },
+    () => deleteCmd(id),
+    () => {
+      if (removed) {
+        setTrashed((prev) => {
+          if (prev.some((item) => item.id === removed.id)) return prev;
+          const next = [...prev];
+          next.splice(Math.min(removedIndex, next.length), 0, removed);
+          return next;
+        });
+      }
+      setErrorKey("meetings.list.deleteFailed");
+    },
+  );
+  if (outcome.ok && outcome.data === true) {
+    setAudioLeftWarning(true);
+  }
+  return outcome.ok;
+}
+
+export async function changeTranscriptKeepDaysAction(
+  days: number | null,
+  previousDays: number | null,
+  setTranscriptDeleteDays: (next: number | null) => void,
+  setErrorKey: (key: string | null) => void,
+  changeCmd: (
+    nextDays: number | null,
+  ) => Promise<Result<MeetingRetentionState, string>> = (nextDays) =>
+    meetingCommands.changeTranscriptDeleteDaysSetting(nextDays),
+): Promise<boolean> {
+  const outcome = await runOptimisticCommand(
+    () => {
+      setErrorKey(null);
+      setTranscriptDeleteDays(days);
+    },
+    () => changeCmd(days),
+    () => {
+      setTranscriptDeleteDays(previousDays);
+      setErrorKey("meetings.retention.actionFailed");
+    },
+  );
+  return outcome.ok;
 }
 
 export function formatDeletedAgoLabel(
@@ -532,8 +628,12 @@ export const MeetingHistoryHub: React.FC<{
   const [importResult, setImportResult] = useState<ImportBatchSummary | null>(
     null,
   );
+  const [trashErrorKey, setTrashErrorKey] = useState<string | null>(null);
+  const [trashAudioLeftWarning, setTrashAudioLeftWarning] = useState(false);
 
   useEffect(() => {
+    setTrashErrorKey(null);
+    setTrashAudioLeftWarning(false);
     let cancelled = false;
     void meetingCommands.listTrashedMeetingsV2().then((res) => {
       if (!cancelled && res.status === "ok") {
@@ -617,6 +717,19 @@ export const MeetingHistoryHub: React.FC<{
   return (
     <div className="max-w-3xl w-full mx-auto space-y-3">
       <div className="flex flex-wrap items-center gap-2">{tabRow}</div>
+      {trashAudioLeftWarning && (
+        <p
+          role="status"
+          className="rounded-[10px] border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-text"
+        >
+          {t("meetings.list.audioLeftWarning")}
+        </p>
+      )}
+      {trashErrorKey !== null && (
+        <p role="alert" className="text-sm text-red-600">
+          {t(trashErrorKey)}
+        </p>
+      )}
       {tab === "all" ? <MeetingsList /> : null}
       {tab === "todos" ? todosSlot : null}
       {tab === "trash" ? (
@@ -624,16 +737,29 @@ export const MeetingHistoryHub: React.FC<{
           items={trashed}
           transcriptDeleteDays={transcriptDeleteDays}
           onRestore={(id) => {
-            setTrashed((prev) => prev.filter((item) => item.id !== id));
-            void meetingCommands.restoreTrashedMeetingV2(id);
+            void restoreTrashedMeetingAction(
+              id,
+              trashed,
+              setTrashed,
+              setTrashErrorKey,
+            );
           }}
           onDeleteNow={(id) => {
-            setTrashed((prev) => prev.filter((item) => item.id !== id));
-            void meetingCommands.deleteMeetingForever(id);
+            void deleteTrashedMeetingNowAction(
+              id,
+              trashed,
+              setTrashed,
+              setTrashErrorKey,
+              setTrashAudioLeftWarning,
+            );
           }}
           onChangeTranscriptDeleteDays={(days) => {
-            setTranscriptDeleteDays(days);
-            void meetingCommands.changeTranscriptDeleteDaysSetting(days);
+            void changeTranscriptKeepDaysAction(
+              days,
+              transcriptDeleteDays,
+              setTranscriptDeleteDays,
+              setTrashErrorKey,
+            );
           }}
         />
       ) : null}

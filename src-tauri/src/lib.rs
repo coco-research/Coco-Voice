@@ -323,6 +323,9 @@ fn initialize_core_logic(app_handle: &AppHandle) {
                     &store,
                     chrono::Utc::now().timestamp(),
                 );
+                if let Ok(data_dir) = portable::app_data_dir(app_handle) {
+                    meeting_ask_index::sync_or_defer(&data_dir, true, "startup");
+                }
                 let mut s = settings::get_settings(app_handle);
                 if let Ok(true) = store.seed_stock_templates_once(s.meeting_templates_seeded) {
                     s.meeting_templates_seeded = true;
@@ -334,14 +337,43 @@ fn initialize_core_logic(app_handle: &AppHandle) {
             }
         }
         meeting_pipeline::sweep_interrupted_on_startup(app_handle);
+        // ponytail: ceiling = the 10-minute wake checks in-memory pending-clean flags
+        // while keeping the daily trash purge at 24 hours by elapsed monotonic time
+        // (the startup purge above is unchanged); upgrade path = replace with a shared
+        // scheduler if additional background maintenance tasks are introduced.
         let purge_app = app_handle.clone();
-        std::thread::spawn(move || loop {
-            std::thread::sleep(std::time::Duration::from_secs(24 * 60 * 60));
-            if let Ok(store) = managers::meetings::MeetingsStore::open_app(&purge_app) {
-                let _ = meeting_history_ops::purge_expired_trash(
-                    &store,
-                    chrono::Utc::now().timestamp(),
-                );
+        std::thread::spawn(move || {
+            let mut last_purge = std::time::Instant::now();
+            loop {
+                std::thread::sleep(managers::meetings::SECURE_CLEAN_RETRY_INTERVAL);
+                let run_purge = managers::meetings::should_run_daily_purge(last_purge.elapsed());
+                if !run_purge
+                    && !managers::meetings::any_secure_clean_pending()
+                    && !meeting_ask_index::any_ask_clean_pending()
+                {
+                    continue;
+                }
+                if let Ok(store) = managers::meetings::MeetingsStore::open_app(&purge_app) {
+                    if let Err(err) = store.run_pending_secure_clean() {
+                        log::warn!("meetings background secure clean deferred: {err}");
+                    }
+                    if let Ok(data_dir) = portable::app_data_dir(&purge_app) {
+                        if let Err(err) = meeting_ask_index::run_pending_ask_clean(&data_dir) {
+                            log::warn!("ask index background clean deferred: {err}");
+                        }
+                    }
+                    if run_purge {
+                        let _ = meeting_history_ops::purge_expired_trash(
+                            &store,
+                            chrono::Utc::now().timestamp(),
+                        );
+                        last_purge = std::time::Instant::now();
+                    }
+                } else if let Ok(data_dir) = portable::app_data_dir(&purge_app) {
+                    if let Err(err) = meeting_ask_index::run_pending_ask_clean(&data_dir) {
+                        log::warn!("ask index background clean deferred: {err}");
+                    }
+                }
             }
         });
     }

@@ -1188,7 +1188,9 @@
       "trashEmpty": "La corbeille est vide.",
       "selectedTag": "(sélectionné)",
       "selectedCount": "{{count}} sélectionnés",
-      "importIntoFolderLabel": "Importer dans le dossier"
+      "importIntoFolderLabel": "Importer dans le dossier",
+      "deletePartFailed": "Impossible de supprimer cette partie.",
+      "restoreFailed": "Impossible de restaurer la réunion."
     },
     "ask": {
       "singleHeading": "Interroger cette réunion",
@@ -1293,6 +1295,7 @@
     },
     "todos": {
       "empty": "Aucune tâche sur les 14 derniers jours.",
+      "loadFailed": "Impossible de charger les tâches.",
       "youSaidIn": "Vous l'avez dit dans {{title}}, {{date}}",
       "youSaidInNoDate": "Vous l'avez dit dans {{title}}"
     },
