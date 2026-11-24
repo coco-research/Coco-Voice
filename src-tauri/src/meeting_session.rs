@@ -863,6 +863,8 @@ mod tests {
         let system_bytes = std::fs::read(&system_path).unwrap();
         harness.session.abandon();
         let store = MeetingsStore::open(harness.dir.path()).unwrap();
+        assert_eq!(store.meeting(id2).unwrap().status, "recording");
+        assert_eq!(store.recover_unfinished().unwrap(), 1);
         let recovered = store.meeting(id2).unwrap();
         assert_eq!(recovered.status, "transcript_ready");
         assert!(recovered.ended_at.is_some());
