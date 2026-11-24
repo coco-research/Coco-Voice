@@ -637,8 +637,9 @@ export const HomeView: React.FC<{
         : null;
 
   const startRecording = () => {
-    void emit("meetings-open-consent").catch(() => {});
-    onNavigate(ROUTE_MEETINGS_RECORD);
+    void invoke("open_meeting_consent", { templateId: null })
+      .catch(() => emit("meetings-open-consent").catch(() => {}))
+      .finally(() => onNavigate(ROUTE_MEETINGS_RECORD));
   };
 
   const handleTurnTypingOn = () => {
