@@ -286,7 +286,8 @@
       "rescan": {
         "label": "Réanalyser",
         "tooltip": "Réanalyser pour détecter les modèles ajoutés au dossier des modèles ou au cache Hugging Face en dehors de Coco Voice"
-      }
+      },
+      "rescanning": "Nouvelle analyse…"
     },
     "general": {
       "title": "Général",
@@ -959,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "Un appel est en cours dans Google Meet.",
+      "meetOpen": "Google Meet est peut-être ouvert.",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
@@ -1186,7 +1188,9 @@
       "trashEmpty": "La corbeille est vide.",
       "selectedTag": "(sélectionné)",
       "selectedCount": "{{count}} sélectionnés",
-      "importIntoFolderLabel": "Importer dans le dossier"
+      "importIntoFolderLabel": "Importer dans le dossier",
+      "deletePartFailed": "Impossible de supprimer cette partie.",
+      "restoreFailed": "Impossible de restaurer la réunion."
     },
     "ask": {
       "singleHeading": "Interroger cette réunion",
@@ -1281,7 +1285,8 @@
       "sameAsDefault": "Identique par défaut",
       "thisMeetingHelp": "S'applique uniquement à l'enregistrement en cours et s'efface à son arrêt.",
       "thisMeetingSelectLabel": "Cette réunion",
-      "changeAria": "Modifier la langue de la réunion"
+      "changeAria": "Modifier la langue de la réunion",
+      "heading": "Langue des réunions"
     },
     "title": {
       "editHint": "Cliquer pour renommer",
@@ -1290,6 +1295,7 @@
     },
     "todos": {
       "empty": "Aucune tâche sur les 14 derniers jours.",
+      "loadFailed": "Impossible de charger les tâches.",
       "youSaidIn": "Vous l'avez dit dans {{title}}, {{date}}",
       "youSaidInNoDate": "Vous l'avez dit dans {{title}}"
     },
@@ -1495,7 +1501,21 @@
       "trayPasteLastTitle": "Barre des menus · Coller la dernière prise",
       "wherePillShowsGeneralDesc": "Choisissez le haut ou le bas de votre écran actif.",
       "yourShortcut": "votre raccourci",
-      "appearance": "Apparence"
+      "appearance": "Apparence",
+      "keptOnMac": "Conservé sur ce Mac",
+      "off": "Désactivé",
+      "listeningPreview": "À l'écoute",
+      "calendars": "Calendriers",
+      "openButton": "Ouvrir",
+      "microphone": "Microphone",
+      "language": "Langue",
+      "howWordsTyped": "Comment les mots sont saisis",
+      "keepClipboard": "Garder les mots dans le presse-papiers",
+      "clipboardOnFailOnly": "Uniquement si le collage échoue",
+      "calendarsSelected": "{{count}} sélectionnés",
+      "appHeading": "Application",
+      "sounds": "Sons",
+      "contactsGithubAtLaunch": "Contacte github.com au lancement"
     },
     "words": {
       "addABlockButton": "Add a block",

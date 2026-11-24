@@ -331,7 +331,8 @@
       "rescan": {
         "label": "Skanna om",
         "tooltip": "Skanna om efter modeller som lagts till i modellmappen eller Hugging Face-cachen utanför Coco Voice"
-      }
+      },
+      "rescanning": "Skannar om…"
     },
     "sound": {
       "title": "Ljud",
@@ -959,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "Google Meet är i ett samtal.",
+      "meetOpen": "Google Meet kan vara öppet.",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
@@ -1186,7 +1188,9 @@
       "trashEmpty": "Papperskorgen är tom.",
       "selectedTag": "(vald)",
       "selectedCount": "{{count}} valda",
-      "importIntoFolderLabel": "Importera till mapp"
+      "importIntoFolderLabel": "Importera till mapp",
+      "deletePartFailed": "Kunde inte ta bort den här delen.",
+      "restoreFailed": "Kunde inte återställa mötet."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1281,7 +1285,8 @@
       "sameAsDefault": "Samma som standard",
       "thisMeetingHelp": "Gäller bara den aktuella inspelningen och rensas när den stoppas.",
       "thisMeetingSelectLabel": "Detta möte",
-      "changeAria": "Ändra mötesspråk"
+      "changeAria": "Ändra mötesspråk",
+      "heading": "Mötesspråk"
     },
     "title": {
       "editHint": "Klicka för att byta namn",
@@ -1290,6 +1295,7 @@
     },
     "todos": {
       "empty": "Inga uppgifter från de senaste 14 dagarna.",
+      "loadFailed": "Kunde inte läsa in uppgifterna.",
       "youSaidIn": "Du sa det i {{title}}, {{date}}",
       "youSaidInNoDate": "Du sa det i {{title}}"
     },
@@ -1495,7 +1501,21 @@
       "trayPasteLastTitle": "Menyrad · Klistra in senaste tagningen",
       "wherePillShowsGeneralDesc": "Välj över- eller underkanten av din aktiva skärm.",
       "yourShortcut": "ditt kortkommando",
-      "appearance": "Utseende"
+      "appearance": "Utseende",
+      "keptOnMac": "Sparas på den här Mac-datorn",
+      "off": "Av",
+      "listeningPreview": "Lyssnar",
+      "calendars": "Kalendrar",
+      "openButton": "Öppna",
+      "microphone": "Mikrofon",
+      "language": "Språk",
+      "howWordsTyped": "Hur ord skrivs in",
+      "keepClipboard": "Behåll ord i urklipp",
+      "clipboardOnFailOnly": "Endast om inklistring misslyckas",
+      "calendarsSelected": "{{count}} valda",
+      "appHeading": "App",
+      "sounds": "Ljud",
+      "contactsGithubAtLaunch": "Kontaktar github.com vid start"
     },
     "words": {
       "addABlockButton": "Add a block",

@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import type { MeetingOffer } from "../src/bindings.meetings";
 import en from "../src/i18n/locales/en/translation.json";
+import { OfferPanel } from "../src/components/meetings/MeetingEntryPanels";
 import { OfferCard } from "../src/components/meetings/OfferCard";
 import { AgentsCanAskSection } from "../src/components/settings/AgentsCanAskCard";
 import {
@@ -15,6 +16,7 @@ import {
   applyOfferEvent,
   isOfferVisible,
   markOfferHeld,
+  offerBodyKey,
   shouldShowOffer,
 } from "../src/components/meetings/offerState";
 
@@ -65,6 +67,13 @@ const MEET_TAB: MeetingOffer = {
   startsCapture: false,
 };
 
+const MEET_CALL: MeetingOffer = {
+  bundleId: "com.google.Chrome",
+  app: "meet",
+  inCall: true,
+  startsCapture: false,
+};
+
 describe("meeting offer floating panel and wired v0.20 screens", () => {
   test("shows only active calls and Meet browser call tabs", () => {
     expect(shouldShowOffer(null)).toBe(false);
@@ -72,7 +81,46 @@ describe("meeting offer floating panel and wired v0.20 screens", () => {
     expect(shouldShowOffer(TEAMS_OPEN)).toBe(false);
     expect(shouldShowOffer(ZOOM_CALL)).toBe(true);
     expect(shouldShowOffer(TEAMS_CALL)).toBe(true);
-    expect(shouldShowOffer(MEET_TAB)).toBe(true);
+    expect(shouldShowOffer(MEET_TAB)).toBe(false);
+    expect(shouldShowOffer(MEET_CALL)).toBe(true);
+    expect(applyOfferEvent(INITIAL_OFFER_VIEW_STATE, MEET_TAB)).toEqual(
+      INITIAL_OFFER_VIEW_STATE,
+    );
+    expect(offerBodyKey(MEET_TAB)).toBe("meetings.offer.meetOpen");
+    expect(offerBodyKey(MEET_CALL)).toBe("meetings.offer.meet");
+  });
+
+  test("renders Google Meet wording by inCall state in OfferPanel and OfferCard", async () => {
+    const i18n = await createTestI18n();
+    const tabPanelHtml = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <OfferPanel
+          offer={MEET_TAB}
+          onStartNotes={() => {}}
+          onDismiss={() => {}}
+        />
+      </I18nextProvider>,
+    );
+    expect(tabPanelHtml).toContain("Google Meet may be open.");
+    expect(tabPanelHtml).not.toContain("in a call");
+
+    const callPanelHtml = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <OfferPanel
+          offer={MEET_CALL}
+          onStartNotes={() => {}}
+          onDismiss={() => {}}
+        />
+      </I18nextProvider>,
+    );
+    expect(callPanelHtml).toContain("Google Meet is in a call.");
+
+    const callCardHtml = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <OfferCard offer={MEET_CALL} onStart={() => {}} onNotNow={() => {}} />
+      </I18nextProvider>,
+    );
+    expect(callCardHtml).toContain("Google Meet is in a call.");
   });
 
   test("renders brand row, copy, actions, and footer after buttons", async () => {

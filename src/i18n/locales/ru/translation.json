@@ -286,7 +286,8 @@
       "rescan": {
         "label": "Пересканировать",
         "tooltip": "Пересканировать модели, добавленные в папку моделей или кэш Hugging Face вне Coco Voice"
-      }
+      },
+      "rescanning": "Пересканирование…"
     },
     "general": {
       "title": "Общие",
@@ -959,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "В Google Meet идёт звонок.",
+      "meetOpen": "Возможно, открыт Google Meet.",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
@@ -1186,7 +1188,9 @@
       "trashEmpty": "Корзина пуста.",
       "selectedTag": "(выбрано)",
       "selectedCount": "Выбрано: {{count}}",
-      "importIntoFolderLabel": "Импортировать в папку"
+      "importIntoFolderLabel": "Импортировать в папку",
+      "deletePartFailed": "Не удалось удалить эту часть.",
+      "restoreFailed": "Не удалось восстановить встречу."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1281,7 +1285,8 @@
       "sameAsDefault": "Как по умолчанию",
       "thisMeetingHelp": "Действует только для текущей записи и сбрасывается после остановки.",
       "thisMeetingSelectLabel": "Эта встреча",
-      "changeAria": "Изменить язык встречи"
+      "changeAria": "Изменить язык встречи",
+      "heading": "Язык встреч"
     },
     "title": {
       "editHint": "Нажмите, чтобы переименовать",
@@ -1290,6 +1295,7 @@
     },
     "todos": {
       "empty": "За последние 14 дней задач нет.",
+      "loadFailed": "Не удалось загрузить задачи.",
       "youSaidIn": "Вы сказали это во встрече {{title}}, {{date}}",
       "youSaidInNoDate": "Вы сказали это во встрече {{title}}"
     },
@@ -1495,7 +1501,21 @@
       "trayPasteLastTitle": "Строка меню · Вставить последнюю запись",
       "wherePillShowsGeneralDesc": "Выберите верх или низ активного экрана.",
       "yourShortcut": "ваше сочетание клавиш",
-      "appearance": "Оформление"
+      "appearance": "Оформление",
+      "keptOnMac": "Хранится на этом Mac",
+      "off": "Выкл.",
+      "listeningPreview": "Слушаю",
+      "calendars": "Календари",
+      "openButton": "Открыть",
+      "microphone": "Микрофон",
+      "language": "Язык",
+      "howWordsTyped": "Как вводятся слова",
+      "keepClipboard": "Оставлять слова в буфере обмена",
+      "clipboardOnFailOnly": "Только если вставка не удалась",
+      "calendarsSelected": "Выбрано: {{count}}",
+      "appHeading": "Приложение",
+      "sounds": "Звуки",
+      "contactsGithubAtLaunch": "Обращается к github.com при запуске"
     },
     "words": {
       "addABlockButton": "Add a block",

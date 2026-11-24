@@ -364,7 +364,9 @@ export const ModelsSettings: React.FC = () => {
                       type="text"
                       value={languageSearch}
                       onChange={(e) => setLanguageSearch(e.target.value)}
-                      placeholder={t("settings.models.filters.searchLanguages")}
+                      placeholder={t(
+                        "settings.general.language.searchPlaceholder",
+                      )}
                       className="w-full px-2.5 py-1.5 text-xs bg-mid-gray/10 border border-mid-gray/20 rounded-md focus:outline-none focus:ring-1 focus:ring-logo-primary"
                     />
                   </div>

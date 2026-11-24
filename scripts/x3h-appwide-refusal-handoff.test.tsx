@@ -72,6 +72,15 @@ mock.module("@tauri-apps/api/event", () => ({
     };
   },
   emit: async () => {},
+  emitTo: async () => {},
+  once: async () => () => {},
+  TauriEvent: {},
+}));
+
+mock.module("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    onFocusChanged: async () => () => {},
+  }),
 }));
 
 mock.module("@tauri-apps/api/app", () => ({

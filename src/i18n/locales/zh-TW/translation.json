@@ -331,7 +331,8 @@
       "rescan": {
         "label": "重新掃描",
         "tooltip": "重新掃描在 Coco Voice 之外新增到模型資料夾或 Hugging Face 快取中的模型"
-      }
+      },
+      "rescanning": "正在重新掃描…"
     },
     "sound": {
       "title": "聲音",
@@ -959,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "Google Meet 正在通話中。",
+      "meetOpen": "Google Meet 可能已開啟。",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
@@ -1186,7 +1188,9 @@
       "trashEmpty": "垃圾桶是空的。",
       "selectedTag": "（已選取）",
       "selectedCount": "已選取 {{count}} 項",
-      "importIntoFolderLabel": "匯入至資料夾"
+      "importIntoFolderLabel": "匯入至資料夾",
+      "deletePartFailed": "無法刪除此部分。",
+      "restoreFailed": "無法還原該會議。"
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1281,7 +1285,8 @@
       "sameAsDefault": "與預設相同",
       "thisMeetingHelp": "僅套用於目前錄音，停止後即清除。",
       "thisMeetingSelectLabel": "這場會議",
-      "changeAria": "變更會議語言"
+      "changeAria": "變更會議語言",
+      "heading": "會議語言"
     },
     "title": {
       "editHint": "點按以重新命名",
@@ -1290,6 +1295,7 @@
     },
     "todos": {
       "empty": "最近 14 天沒有待辦事項。",
+      "loadFailed": "無法載入待辦事項。",
       "youSaidIn": "你在《{{title}}》（{{date}}）中提過",
       "youSaidInNoDate": "你在《{{title}}》中提過"
     },
@@ -1495,7 +1501,21 @@
       "trayPasteLastTitle": "選單列 · 貼上上一段錄音",
       "wherePillShowsGeneralDesc": "選擇目前使用中螢幕的頂部或底部。",
       "yourShortcut": "您的快速鍵",
-      "appearance": "外觀"
+      "appearance": "外觀",
+      "keptOnMac": "保留在這台 Mac 上",
+      "off": "關",
+      "listeningPreview": "正在聆聽",
+      "calendars": "行事曆",
+      "openButton": "開啟",
+      "microphone": "麥克風",
+      "language": "語言",
+      "howWordsTyped": "文字輸入方式",
+      "keepClipboard": "在剪貼簿保留文字",
+      "clipboardOnFailOnly": "僅在貼上失敗時",
+      "calendarsSelected": "已選取 {{count}} 項",
+      "appHeading": "應用程式",
+      "sounds": "聲音",
+      "contactsGithubAtLaunch": "啟動時聯絡 github.com"
     },
     "words": {
       "addABlockButton": "Add a block",

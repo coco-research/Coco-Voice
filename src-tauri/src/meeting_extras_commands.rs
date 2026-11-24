@@ -177,11 +177,9 @@ fn format_short_date(started_at: i64) -> String {
         .unwrap_or_default()
 }
 
-fn sync_ask_index_if_present(app: &AppHandle) {
+fn sync_ask_index_if_present(app: &AppHandle, context: &str) {
     if let Ok(data_dir) = crate::portable::app_data_dir(app) {
-        if let Ok(idx) = MeetingAskIndex::open(&data_dir) {
-            let _ = idx.sync();
-        }
+        crate::meeting_ask_index::sync_or_defer(&data_dir, false, context);
     }
 }
 
@@ -203,7 +201,7 @@ pub fn trash_meeting(app: AppHandle, id: i64) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     meeting_history_ops::trash_meeting_at(&store, id, Utc::now().timestamp())
         .map_err(|e| e.to_string())?;
-    sync_ask_index_if_present(&app);
+    sync_ask_index_if_present(&app, "trash_meeting");
     Ok(())
 }
 
@@ -215,10 +213,7 @@ pub fn delete_meeting_forever(app: AppHandle, id: i64) -> Result<bool, String> {
         .delete_meeting_forever(id)
         .map_err(|e| e.to_string())?;
     if let Ok(data_dir) = crate::portable::app_data_dir(&app) {
-        if let Ok(idx) = MeetingAskIndex::open(&data_dir) {
-            let _ = idx.sync();
-            let _ = idx.compact_secure();
-        }
+        crate::meeting_ask_index::sync_or_defer(&data_dir, true, "delete_meeting_forever");
     }
     Ok(matches!(outcome, DeleteOutcome::DeletedAudioLeft { .. }))
 }
@@ -243,7 +238,7 @@ pub fn list_trashed_meetings_v2(app: AppHandle) -> Result<Vec<TrashedMeetingRowD
 pub fn restore_trashed_meeting_v2(app: AppHandle, meeting_id: i64) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     meeting_history_ops::restore_meeting(&store, meeting_id).map_err(|e| e.to_string())?;
-    sync_ask_index_if_present(&app);
+    sync_ask_index_if_present(&app, "restore_trashed_meeting_v2");
     Ok(())
 }
 
@@ -353,7 +348,7 @@ pub fn create_meeting_folder(app: AppHandle, name: String) -> Result<MeetingFold
 pub fn rename_meeting_folder(app: AppHandle, id: i64, name: String) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     store.rename_folder(id, &name).map_err(|e| e.to_string())?;
-    sync_ask_index_if_present(&app);
+    sync_ask_index_if_present(&app, "rename_meeting_folder");
     Ok(())
 }
 
@@ -362,7 +357,7 @@ pub fn rename_meeting_folder(app: AppHandle, id: i64, name: String) -> Result<()
 pub fn delete_meeting_folder(app: AppHandle, id: i64) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     store.delete_folder(id).map_err(|e| e.to_string())?;
-    sync_ask_index_if_present(&app);
+    sync_ask_index_if_present(&app, "delete_meeting_folder");
     Ok(())
 }
 
@@ -389,8 +384,8 @@ pub fn set_meeting_folder(
     if let Ok(data_dir) = crate::portable::app_data_dir(&app) {
         if let Ok(idx) = MeetingAskIndex::open(&data_dir) {
             let _ = idx.set_folder(meeting_id, folder_name.as_deref());
-            let _ = idx.sync();
         }
+        crate::meeting_ask_index::sync_or_defer(&data_dir, false, "set_meeting_folder");
     }
     Ok(())
 }
@@ -770,7 +765,7 @@ pub fn import_meeting_notes_batch(
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     let pb: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
     let summary = import_notes_paths(&store, &pb, folder.as_deref()).map_err(|e| e.to_string())?;
-    sync_ask_index_if_present(&app);
+    sync_ask_index_if_present(&app, "import_meeting_notes_batch");
     Ok(summary)
 }
 

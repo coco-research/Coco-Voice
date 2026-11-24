@@ -331,7 +331,8 @@
       "rescan": {
         "label": "Reescanear",
         "tooltip": "Reescaneia em busca de modelos adicionados à pasta de modelos ou ao cache do Hugging Face fora do Coco Voice"
-      }
+      },
+      "rescanning": "Reescaneando…"
     },
     "sound": {
       "title": "Som",
@@ -959,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "O Google Meet está em uma chamada.",
+      "meetOpen": "O Google Meet pode estar aberto.",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
@@ -1186,7 +1188,9 @@
       "trashEmpty": "A lixeira está vazia.",
       "selectedTag": "(selecionado)",
       "selectedCount": "{{count}} selecionados",
-      "importIntoFolderLabel": "Importar para a pasta"
+      "importIntoFolderLabel": "Importar para a pasta",
+      "deletePartFailed": "Não foi possível excluir esta parte.",
+      "restoreFailed": "Não foi possível restaurar a reunião."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1281,7 +1285,8 @@
       "sameAsDefault": "Igual ao padrão",
       "thisMeetingHelp": "Aplica-se apenas à gravação atual e é limpo quando ela parar.",
       "thisMeetingSelectLabel": "Esta reunião",
-      "changeAria": "Alterar idioma da reunião"
+      "changeAria": "Alterar idioma da reunião",
+      "heading": "Idioma da reunião"
     },
     "title": {
       "editHint": "Clique para renomear",
@@ -1290,6 +1295,7 @@
     },
     "todos": {
       "empty": "Nenhuma tarefa nos últimos 14 dias.",
+      "loadFailed": "Não foi possível carregar as tarefas.",
       "youSaidIn": "Você disse isso em {{title}}, {{date}}",
       "youSaidInNoDate": "Você disse isso em {{title}}"
     },
@@ -1495,7 +1501,21 @@
       "trayPasteLastTitle": "Barra de menus · Colar última gravação",
       "wherePillShowsGeneralDesc": "Escolha a parte superior ou inferior da tela ativa.",
       "yourShortcut": "seu atalho",
-      "appearance": "Aparência"
+      "appearance": "Aparência",
+      "keptOnMac": "Mantido neste Mac",
+      "off": "Desativado",
+      "listeningPreview": "Ouvindo",
+      "calendars": "Calendários",
+      "openButton": "Abrir",
+      "microphone": "Microfone",
+      "language": "Idioma",
+      "howWordsTyped": "Como as palavras são digitadas",
+      "keepClipboard": "Manter palavras na área de transferência",
+      "clipboardOnFailOnly": "Apenas se colar falhar",
+      "calendarsSelected": "{{count}} selecionados",
+      "appHeading": "Aplicativo",
+      "sounds": "Sons",
+      "contactsGithubAtLaunch": "Contata github.com ao iniciar"
     },
     "words": {
       "addABlockButton": "Add a block",
