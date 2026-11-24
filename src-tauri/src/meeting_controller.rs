@@ -199,6 +199,7 @@ struct MeetingInner {
     mic_name: Option<String>,
     mic_only: bool,
     warnings: Vec<MeetingWarning>,
+    pending_template_id: Option<i64>,
 }
 
 impl MeetingInner {
@@ -262,6 +263,7 @@ impl MeetingController {
                 mic_name: None,
                 mic_only: false,
                 warnings: Vec::new(),
+                pending_template_id: None,
             }),
             start_gate: Mutex::new(()),
             append_gate: crate::meeting_append::AppendConsentGate::new(),
@@ -288,6 +290,12 @@ impl MeetingController {
     /// The shortcut path. It only ever opens the dialog: an earlier accept is
     /// not remembered, and a recording meeting is left alone.
     pub fn open_consent(&self) -> MeetingStatus {
+        self.open_consent_with_template(None)
+    }
+
+    /// Open the consent dialog and remember an optional note template id until
+    /// recording confirms or consent is cancelled. A recording meeting is left alone.
+    pub fn open_consent_with_template(&self, template_id: Option<i64>) -> MeetingStatus {
         let mut inner = self.lock();
         if inner.state == MeetingState::Idle {
             inner.state = MeetingState::ConsentOpen;
@@ -299,8 +307,15 @@ impl MeetingController {
             inner.warnings.clear();
             inner.started_at = None;
             inner.recorded_elapsed = Duration::ZERO;
+            inner.pending_template_id = template_id;
+        } else if inner.state == MeetingState::ConsentOpen {
+            inner.pending_template_id = template_id;
         }
         inner.status()
+    }
+
+    pub fn take_pending_template_id(&self) -> Option<i64> {
+        self.lock().pending_template_id.take()
     }
 
     pub fn set_title(&self, title: Option<String>) {
@@ -427,6 +442,7 @@ impl MeetingController {
             inner.title = None;
             inner.attendees.clear();
             inner.mic_only = false;
+            inner.pending_template_id = None;
         }
         inner.status()
     }
@@ -508,6 +524,7 @@ impl MeetingController {
             inner.state = MeetingState::Idle;
             inner.started_at = None;
             inner.recorded_elapsed = Duration::ZERO;
+            inner.pending_template_id = None;
             if !warnings.is_empty() {
                 inner.warnings = warnings;
             }
@@ -536,10 +553,22 @@ fn emit_status(app: &AppHandle, status: MeetingStatus) {
     let _ = app.emit(STATE_EVENT, status);
 }
 
+pub(crate) fn apply_pending_template(
+    meeting: &MeetingController,
+    store: &crate::managers::meetings::MeetingsStore,
+    meeting_id: i64,
+) {
+    if let Some(template_id) = meeting.take_pending_template_id() {
+        if let Err(err) = store.set_meeting_template(meeting_id, Some(template_id)) {
+            log::warn!("meeting {meeting_id}: failed to record template {template_id}: {err:#}");
+        }
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
-pub fn open_meeting_consent(app: AppHandle) -> MeetingStatus {
-    let status = controller(&app).open_consent();
+pub fn open_meeting_consent(app: AppHandle, template_id: Option<i64>) -> MeetingStatus {
+    let status = controller(&app).open_consent_with_template(template_id);
     emit_status(&app, status.clone());
     if status.state == MeetingState::ConsentOpen {
         // The dialog lives in the main window: surface it when the shortcut is
@@ -597,6 +626,11 @@ fn confirm_meeting_start_inner(
     })?;
     crate::tray::update_tray_menu(&app, None);
     if let Some(meeting_id) = status.meeting_id {
+        if let Ok(store) = crate::managers::meetings::MeetingsStore::open_app(&app) {
+            apply_pending_template(&meeting, &store, meeting_id);
+        } else {
+            let _ = meeting.take_pending_template_id();
+        }
         if let Some(calendar) = app.try_state::<crate::calendar_commands::CalendarState>() {
             if let Some(event) = calendar.take_started_for_notes() {
                 if let Ok(store) = crate::managers::meetings::MeetingsStore::open_app(&app) {
@@ -617,6 +651,8 @@ fn confirm_meeting_start_inner(
         }
         crate::meeting_pipeline::start_rolling_if_managed(&app, meeting_id);
         watch_for_sleep(app, meeting_id);
+    } else {
+        let _ = meeting.take_pending_template_id();
     }
     Ok(status)
 }
@@ -1172,5 +1208,23 @@ mod tests {
         assert_eq!(started_mic.state, MeetingState::Recording);
         assert!(started_mic.mic_only);
         assert_eq!(*fake_mic.mic_only_starts.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn pending_template_id_attaches_once_and_clears_on_cancel_or_default_open() {
+        let controller = MeetingController::default();
+
+        controller.open_consent_with_template(Some(17));
+        assert_eq!(controller.take_pending_template_id(), Some(17));
+        assert_eq!(controller.take_pending_template_id(), None);
+
+        controller.cancel_consent();
+        controller.open_consent_with_template(Some(23));
+        controller.cancel_consent();
+        assert_eq!(controller.take_pending_template_id(), None);
+
+        controller.open_consent_with_template(Some(29));
+        controller.open_consent();
+        assert_eq!(controller.take_pending_template_id(), None);
     }
 }

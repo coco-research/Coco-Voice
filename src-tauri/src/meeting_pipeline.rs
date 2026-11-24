@@ -1071,6 +1071,13 @@ where
                     prompt.push_str(&config.custom_words.join(", "));
                     prompt.push('\n');
                 }
+                if let Some(tpl) = config.template_body.as_deref() {
+                    prompt.push_str(
+                        "\nUser template instructions (keep strict [S<id>] citations; never invent decisions or owners):\n",
+                    );
+                    prompt.push_str(tpl.trim());
+                    prompt.push('\n');
+                }
                 let reply = match generator.generate(&prompt) {
                     Ok(r) => r,
                     Err(_) => {
@@ -1264,25 +1271,41 @@ fn resolve_local_notes_generator(
     Err(NotesFailReason::Unavailable)
 }
 
-fn config_from_app(app: &AppHandle) -> AfterStopConfig {
-    let s = settings::get_settings(app);
+fn config_from_settings(
+    s: &settings::AppSettings,
+    store: &MeetingsStore,
+    meeting_id: i64,
+) -> AfterStopConfig {
     let mut words = s.meeting_custom_words.clone();
-    for w in s.custom_words {
+    for w in &s.custom_words {
         if !words
             .iter()
-            .any(|existing| existing.eq_ignore_ascii_case(&w))
+            .any(|existing| existing.eq_ignore_ascii_case(w))
         {
-            words.push(w);
+            words.push(w.clone());
         }
     }
+    let template_body = match store.meeting_template_body(meeting_id) {
+        Ok(Some(body)) if !body.trim().is_empty() => Some(body),
+        Ok(_) => None,
+        Err(err) => {
+            log::warn!("meeting {meeting_id}: failed to load template body: {err:#}");
+            None
+        }
+    };
     AfterStopConfig {
         delete_audio_after_notes: s.delete_audio_after_notes,
         save_notes_as_markdown: s.save_notes_as_markdown,
-        notes_markdown_folder: s.notes_markdown_folder.map(PathBuf::from),
+        notes_markdown_folder: s.notes_markdown_folder.clone().map(PathBuf::from),
         custom_words: words,
-        template_body: None,
+        template_body,
         hooks: AfterStopHooks::default(),
     }
+}
+
+fn config_from_app(app: &AppHandle, store: &MeetingsStore, meeting_id: i64) -> AfterStopConfig {
+    let s = settings::get_settings(app);
+    config_from_settings(&s, store, meeting_id)
 }
 
 fn dictation_is_active(app: &AppHandle) -> bool {
@@ -1359,7 +1382,7 @@ pub fn stop_rolling_and_run_after_stop(app: &AppHandle, meeting_id: i64) {
             log::warn!("meeting {meeting_id}: cannot open store for after-stop notes");
             return;
         };
-        let config = config_from_app(&app_handle);
+        let config = config_from_app(&app_handle, &store, meeting_id);
         let gen_result = resolve_local_notes_generator(&app_handle);
 
         let ticker_done = Arc::new(AtomicBool::new(false));
@@ -2039,6 +2062,91 @@ mod tests {
         assert!(
             snap.left_out.iter().any(|l| l.category == "small_talk"),
             "persisted meeting_left_out spans must appear in snapshot"
+        );
+    }
+
+    struct PromptCapturingGen {
+        inner: FakeGen,
+        prompts: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl NotesGenerator for PromptCapturingGen {
+        fn generate(&mut self, prompt: &str) -> Result<String> {
+            self.prompts.lock().unwrap().push(prompt.to_string());
+            self.inner.generate(prompt)
+        }
+    }
+
+    #[test]
+    fn after_stop_config_carries_stored_template_body_and_omits_when_unset() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let pipeline = MeetingPipelineState::new();
+        let settings = settings::get_default_settings();
+        let template_body = "## Their needs\n## Decisions\n## Follow-ups\n";
+        let tpl_id = store
+            .create_template("Customer call", template_body)
+            .unwrap();
+
+        let controller = crate::meeting_controller::MeetingController::default();
+        controller.open_consent_with_template(Some(tpl_id));
+        let (templated_id, _, _) = seed_meeting_with_audio(&store, dir.path());
+        crate::meeting_controller::apply_pending_template(&controller, &store, templated_id);
+
+        let cfg_with = config_from_settings(&settings, &store, templated_id);
+        assert_eq!(cfg_with.template_body.as_deref(), Some(template_body));
+
+        let prompts_with = Arc::new(Mutex::new(Vec::new()));
+        let out_with = run_after_stop_with_generator(
+            &store,
+            &pipeline,
+            templated_id,
+            &cfg_with,
+            Ok(PromptCapturingGen {
+                inner: FakeGen::ok("Customer Sync"),
+                prompts: Arc::clone(&prompts_with),
+            }),
+            |_| {},
+        )
+        .unwrap();
+        assert!(matches!(out_with, AfterStopOutcome::Ready { .. }));
+        assert!(
+            prompts_with
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|p| p.contains("## Their needs") && p.contains("## Follow-ups")),
+            "notes prompt for a meeting started with a template must include its headings"
+        );
+
+        controller.open_consent();
+        let (default_id, _, _) = seed_meeting_with_audio(&store, dir.path());
+        crate::meeting_controller::apply_pending_template(&controller, &store, default_id);
+
+        let cfg_without = config_from_settings(&settings, &store, default_id);
+        assert_eq!(cfg_without.template_body, None);
+
+        let prompts_without = Arc::new(Mutex::new(Vec::new()));
+        let out_without = run_after_stop_with_generator(
+            &store,
+            &pipeline,
+            default_id,
+            &cfg_without,
+            Ok(PromptCapturingGen {
+                inner: FakeGen::ok("Default Sync"),
+                prompts: Arc::clone(&prompts_without),
+            }),
+            |_| {},
+        )
+        .unwrap();
+        assert!(matches!(out_without, AfterStopOutcome::Ready { .. }));
+        assert!(
+            prompts_without
+                .lock()
+                .unwrap()
+                .iter()
+                .all(|p| !p.contains("User template instructions")),
+            "notes prompt for a meeting started without a template must stay on default sections"
         );
     }
 }
