@@ -53,6 +53,41 @@ export interface MeetingListItem {
   system_audio_silent?: boolean;
 }
 
+export interface PendingMeetingCitationJump {
+  meetingId: number;
+  startMs: number;
+}
+
+const PENDING_CITATION_JUMP_TTL_MS = 10_000;
+
+// One-shot cross-route handoff from standalone Ask to MeetingsList; stale entries
+// expire so an interrupted navigation cannot auto-open a meeting later.
+let pendingCitationJump: PendingMeetingCitationJump | null = null;
+let pendingCitationJumpQueuedAt = 0;
+
+export function queueMeetingCitationJump(
+  target: PendingMeetingCitationJump,
+): void {
+  pendingCitationJump = target;
+  pendingCitationJumpQueuedAt = Date.now();
+}
+
+export function peekPendingMeetingCitationJump(): PendingMeetingCitationJump | null {
+  if (
+    pendingCitationJump &&
+    Date.now() - pendingCitationJumpQueuedAt > PENDING_CITATION_JUMP_TTL_MS
+  ) {
+    pendingCitationJump = null;
+  }
+  return pendingCitationJump;
+}
+
+export function consumePendingMeetingCitationJump(): PendingMeetingCitationJump | null {
+  const current = peekPendingMeetingCitationJump();
+  pendingCitationJump = null;
+  return current;
+}
+
 interface MeetingDeleteResult {
   audio_left: boolean;
 }
@@ -358,12 +393,21 @@ export function MeetingsList({
     startMs: number;
     seq: number;
   } | null>(null);
+  const [pendingJump, setPendingJump] =
+    useState<PendingMeetingCitationJump | null>(() =>
+      peekPendingMeetingCitationJump(),
+    );
   const jumpSeqRef = useRef(0);
   const selectedIdRef = useRef<number | null>(null);
   const notepadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingNotepadRef = useRef<{ meetingId: number; text: string } | null>(
     null,
   );
+
+  const jumpToTimestamp = useCallback((startMs: number) => {
+    jumpSeqRef.current += 1;
+    setJumpTarget({ startMs, seq: jumpSeqRef.current });
+  }, []);
 
   const flushDetailNotepad = useCallback(() => {
     if (notepadTimerRef.current !== null) {
@@ -381,7 +425,15 @@ export function MeetingsList({
     selectedIdRef.current = selectedMeeting?.id ?? null;
   }, [selectedMeeting]);
 
-  const openMeetingDetail = async (item: MeetingListItem) => {
+  useEffect(() => {
+    const queued = consumePendingMeetingCitationJump();
+    if (queued) setPendingJump(queued);
+  }, []);
+
+  const openMeetingDetail = async (
+    item: MeetingListItem,
+    jumpStartMs?: number,
+  ) => {
     flushDetailNotepad();
     const switchingMeeting = selectedIdRef.current !== item.id;
     selectedIdRef.current = item.id;
@@ -395,6 +447,7 @@ export function MeetingsList({
     setDetailErrorKey(null);
     if (switchingMeeting) {
       setSpeakerNames({});
+      setJumpTarget(null);
     }
     setTranscriptQuery("");
     setMatchCursor(0);
@@ -416,7 +469,23 @@ export function MeetingsList({
     if (speakersRes.status === "ok") {
       setSpeakerNames(buildSpeakerNameMapFromSlots(speakersRes.data));
     }
+    if (jumpStartMs !== undefined) {
+      jumpToTimestamp(jumpStartMs);
+    }
   };
+  const openMeetingDetailRef = useRef(openMeetingDetail);
+  useEffect(() => {
+    openMeetingDetailRef.current = openMeetingDetail;
+  });
+
+  useEffect(() => {
+    if (!pendingJump || loading) return;
+    const match = items.find((m) => m.id === pendingJump.meetingId);
+    setPendingJump(null);
+    if (match) {
+      void openMeetingDetailRef.current(match, pendingJump.startMs);
+    }
+  }, [pendingJump, loading, items]);
 
   const loadList = useCallback(async (searchText: string) => {
     const seq = ++requestSeq.current;
@@ -892,10 +961,7 @@ export function MeetingsList({
               flushDetailNotepad();
             }, NOTEPAD_SAVE_DEBOUNCE_MS);
           }}
-          onJumpToSegment={(startMs) => {
-            jumpSeqRef.current += 1;
-            setJumpTarget({ startMs, seq: jumpSeqRef.current });
-          }}
+          onJumpToSegment={jumpToTimestamp}
           onRetry={() => {
             const mid = selectedMeeting.id;
             setFinishingIds((prev) =>
@@ -946,13 +1012,7 @@ export function MeetingsList({
         <AskMeetingsView
           meetingId={selectedMeeting.id}
           initialMeetingTitle={selectedMeeting.title}
-          onJumpToCitation={(citation) => {
-            jumpSeqRef.current += 1;
-            setJumpTarget({
-              startMs: citation.start_ms,
-              seq: jumpSeqRef.current,
-            });
-          }}
+          onJumpToCitation={(citation) => jumpToTimestamp(citation.start_ms)}
         />
         {SpeakerSplitSection ? (
           <SpeakerSplitSection
