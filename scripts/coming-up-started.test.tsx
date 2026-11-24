@@ -646,33 +646,50 @@ describe("Coming up row started status and event hold", () => {
   });
 
   test("an open-consent event from outside the page drops a pending coming-up meeting", async () => {
+    startOutcome = {
+      status: "error",
+      error: {
+        system_audio_tap_failed: {
+          cause: "permission",
+          call: "create_process_tap",
+          code: "!obj (560947818)",
+        },
+      },
+    };
     const mounted = await openConsentFromComingUp();
     try {
-      const dialogNodes = collectElements(
-        mounted.getTree(),
-        (el) => el.props["data-testid"] === "frame-2-consent",
-      );
-      const cancelBtns = collectElements(
-        dialogNodes[0]!,
-        (el) => el.type === "button" && textContent(el).trim() === "Cancel",
-      );
-      (cancelBtns[0]!.props.onClick as () => void)();
-      await mounted.flushAndRerender();
+      const clickStart = async () => {
+        const dialogNodes = collectElements(
+          mounted.getTree(),
+          (el) => el.props["data-testid"] === "frame-2-consent",
+        );
+        expect(dialogNodes.length).toBe(1);
+        const startBtns = collectElements(
+          dialogNodes[0]!,
+          (el) =>
+            el.type === "button" &&
+            textContent(el).trim() === "Start recording",
+        );
+        (startBtns[0]!.props.onClick as () => void)();
+        await mounted.flushAndRerender();
+      };
+
+      await clickStart();
+      expect(keptEvents).toEqual([]);
 
       fireEvent("meetings-open-consent");
       await mounted.flushAndRerender();
 
-      const reopenedDialog = collectElements(
+      // The event clears the refusal and reopens the dialog, so start again.
+      await clickStart();
+      const micBtns = collectElements(
         mounted.getTree(),
-        (el) => el.props["data-testid"] === "frame-2-consent",
-      );
-      expect(reopenedDialog.length).toBe(1);
-      const startBtns = collectElements(
-        reopenedDialog[0]!,
         (el) =>
-          el.type === "button" && textContent(el).trim() === "Start recording",
+          el.type === "button" &&
+          el.props["data-testid"] === "meeting-start-mic-only-btn",
       );
-      (startBtns[0]!.props.onClick as () => void)();
+      expect(micBtns.length).toBe(1);
+      (micBtns[0]!.props.onClick as () => void)();
       await mounted.flushAndRerender();
 
       expect(keptEvents).toEqual([]);
