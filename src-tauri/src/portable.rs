@@ -10,38 +10,44 @@ use tauri::Manager;
 
 static PORTABLE_DATA_DIR: OnceLock<Option<PathBuf>> = OnceLock::new();
 
+const PORTABLE_MARKER: &str = "Coco Voice Portable Mode";
+const LEGACY_PORTABLE_MARKER: &str = "Handy Portable Mode";
+
+fn detect_portable_in(exe_dir: &Path) -> Option<PathBuf> {
+    let marker_path = exe_dir.join("portable");
+    let data_dir = exe_dir.join("Data");
+
+    let is_portable = if is_valid_portable_marker(&marker_path) {
+        true
+    } else if marker_path.exists() && data_dir.exists() {
+        // Migration: v0.8.0 created an empty marker file. If we find an
+        // empty/invalid marker alongside an existing Data/ dir, this is a
+        // real portable install — upgrade the marker in place.
+        eprintln!("[portable] upgrading legacy empty marker to magic string");
+        let _ = std::fs::write(&marker_path, PORTABLE_MARKER);
+        true
+    } else {
+        false
+    };
+
+    if is_portable {
+        if !data_dir.exists() {
+            std::fs::create_dir_all(&data_dir).ok()?;
+        }
+        eprintln!("[portable] data dir: {}", data_dir.display());
+        Some(data_dir)
+    } else {
+        None
+    }
+}
+
 /// Detect portable mode by looking for a `portable` marker file next to the exe.
 /// Must be called once at startup before Tauri initializes.
 pub fn init() {
     PORTABLE_DATA_DIR.get_or_init(|| {
         let exe_path = std::env::current_exe().ok()?;
         let exe_dir = exe_path.parent()?;
-
-        let marker_path = exe_dir.join("portable");
-        let data_dir = exe_dir.join("Data");
-
-        let is_portable = if is_valid_portable_marker(&marker_path) {
-            true
-        } else if marker_path.exists() && data_dir.exists() {
-            // Migration: v0.8.0 created an empty marker file. If we find an
-            // empty/invalid marker alongside an existing Data/ dir, this is a
-            // real portable install — upgrade the marker in place.
-            eprintln!("[portable] upgrading legacy empty marker to magic string");
-            let _ = std::fs::write(&marker_path, "Handy Portable Mode");
-            true
-        } else {
-            false
-        };
-
-        if is_portable {
-            if !data_dir.exists() {
-                std::fs::create_dir_all(&data_dir).ok()?;
-            }
-            eprintln!("[portable] data dir: {}", data_dir.display());
-            Some(data_dir)
-        } else {
-            None
-        }
+        detect_portable_in(exe_dir)
     });
 }
 
@@ -116,11 +122,15 @@ pub fn store_path(relative: &str) -> PathBuf {
     }
 }
 
-/// Check if a marker file path contains the portable magic string.
+/// Check if a marker file path contains the portable magic string
+/// (or the legacy marker string for existing portable installs).
 /// Extracted for testability.
 fn is_valid_portable_marker(path: &std::path::Path) -> bool {
     std::fs::read_to_string(path)
-        .map(|s| s.trim().starts_with("Handy Portable Mode"))
+        .map(|s| {
+            let trimmed = s.trim();
+            trimmed.starts_with(PORTABLE_MARKER) || trimmed.starts_with(LEGACY_PORTABLE_MARKER)
+        })
         .unwrap_or(false)
 }
 
@@ -135,9 +145,32 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let marker = dir.join("portable");
         let mut f = std::fs::File::create(&marker).unwrap();
-        write!(f, "Handy Portable Mode").unwrap();
+        write!(f, "{PORTABLE_MARKER}").unwrap();
         assert!(is_valid_portable_marker(&marker));
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn test_legacy_magic_string_still_enables_portable() {
+        let dir = tempfile::tempdir().unwrap();
+        let marker = dir.path().join("portable");
+        std::fs::write(&marker, LEGACY_PORTABLE_MARKER).unwrap();
+        assert!(is_valid_portable_marker(&marker));
+        std::fs::write(&marker, format!("  {LEGACY_PORTABLE_MARKER}\n")).unwrap();
+        assert!(is_valid_portable_marker(&marker));
+    }
+
+    #[test]
+    fn test_legacy_empty_marker_upgrade_writes_new_magic_string() {
+        let dir = tempfile::tempdir().unwrap();
+        let marker = dir.path().join("portable");
+        let data = dir.path().join("Data");
+        std::fs::File::create(&marker).unwrap();
+        std::fs::create_dir_all(&data).unwrap();
+
+        let detected = detect_portable_in(dir.path());
+        assert_eq!(detected.as_deref(), Some(data.as_path()));
+        assert_eq!(std::fs::read_to_string(&marker).unwrap(), PORTABLE_MARKER);
     }
 
     #[test]
@@ -184,7 +217,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let marker = dir.join("portable");
         let mut f = std::fs::File::create(&marker).unwrap();
-        write!(f, "  Handy Portable Mode\n").unwrap();
+        write!(f, "  {PORTABLE_MARKER}\n").unwrap();
         assert!(is_valid_portable_marker(&marker));
         std::fs::remove_dir_all(dir).unwrap();
     }
