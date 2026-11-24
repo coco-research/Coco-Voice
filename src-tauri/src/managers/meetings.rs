@@ -353,8 +353,10 @@ pub struct MeetingsStore {
 }
 
 impl MeetingsStore {
-    /// Open `{app_data_dir}/meetings/meetings.db`, migrate, enable WAL, and
-    /// recover a row left `recording` with a null `ended_at`.
+    /// Open `{app_data_dir}/meetings/meetings.db`, migrate, and enable WAL.
+    ///
+    /// Does not sweep `recording` rows; call [`recover_unfinished`](Self::recover_unfinished)
+    /// once on app startup so reopening the store during a live meeting keeps it recording.
     pub fn open(app_data_dir: &Path) -> Result<Self> {
         let meetings_dir = app_data_dir.join("meetings");
         fs::create_dir_all(&meetings_dir)?;
@@ -1185,7 +1187,6 @@ impl MeetingsStore {
         if !mode.eq_ignore_ascii_case("wal") {
             anyhow::bail!("meetings.db journal mode is {mode}, expected wal");
         }
-        self.recover_unfinished(&conn)?;
         Ok(())
     }
 
@@ -1196,9 +1197,11 @@ impl MeetingsStore {
         Ok(conn)
     }
 
-    /// A crash leaves the row `recording` with `ended_at` null. Keep the files.
-    /// Do not invent the missing audio tail.
-    fn recover_unfinished(&self, conn: &Connection) -> Result<()> {
+    /// Recover any meeting left `recording` with a null `ended_at` after a crash.
+    /// Call once per app run at startup, never while a meeting can be live.
+    /// Keep the audio files and do not invent the missing audio tail.
+    pub fn recover_unfinished(&self) -> Result<usize> {
+        let conn = self.connection()?;
         let now = Utc::now().timestamp();
         let n = conn.execute(
             "UPDATE meetings
@@ -1209,7 +1212,7 @@ impl MeetingsStore {
         if n > 0 {
             info!("recovered {n} unfinished meeting row(s); audio files kept");
         }
-        Ok(())
+        Ok(n)
     }
 
     fn finalise_recording(&self, meeting_id: i64) -> Result<()> {
@@ -1583,7 +1586,23 @@ mod tests {
     }
 
     #[test]
-    fn unfinished_meeting_row_recovers_on_open() {
+    fn reopening_store_keeps_live_recording_meeting() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = store.start_meeting("Live standup", "model").unwrap();
+        let started = store.meeting(id).unwrap();
+        assert_eq!(started.status, "recording");
+        assert!(started.ended_at.is_none());
+
+        // Commands reopen the store while the meeting is still recording.
+        let reopened = MeetingsStore::open(dir.path()).unwrap();
+        let still_live = reopened.meeting(id).unwrap();
+        assert_eq!(still_live.status, "recording");
+        assert!(still_live.ended_at.is_none());
+    }
+
+    #[test]
+    fn unfinished_meeting_row_recovers_on_startup_sweep() {
         let dir = tempfile::tempdir().unwrap();
         let id = {
             let store = MeetingsStore::open(dir.path()).unwrap();
@@ -1599,6 +1618,7 @@ mod tests {
         };
 
         let store = MeetingsStore::open(dir.path()).unwrap();
+        assert_eq!(store.recover_unfinished().unwrap(), 1);
         let row = store.meeting(id).unwrap();
         assert_eq!(row.status, "transcript_ready");
         assert!(row.ended_at.is_some());
@@ -1615,6 +1635,7 @@ mod tests {
         let ended = row.ended_at;
         drop(store);
         let store = MeetingsStore::open(dir.path()).unwrap();
+        assert_eq!(store.recover_unfinished().unwrap(), 0);
         let again = store.meeting(id).unwrap();
         assert_eq!(again.status, "transcript_ready");
         assert_eq!(again.ended_at, ended);

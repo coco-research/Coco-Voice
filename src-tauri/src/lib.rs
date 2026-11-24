@@ -315,10 +315,13 @@ fn initialize_core_logic(app_handle: &AppHandle) {
             Box::new(meeting_session::MeetingSession::new(app_handle.clone())),
         )));
         app_handle.manage(Arc::new(meeting_pipeline::MeetingPipelineState::new()));
-        // Open runs unfinished-row recovery. A later meeting start opens the
-        // same file again; the update is a no-op once no row is still recording.
+        // Startup-only crash sweep: recover any meeting left `recording` by a
+        // prior crash. Later `open_app` calls during a live meeting do not sweep.
         match managers::meetings::MeetingsStore::open_app(app_handle) {
             Ok(store) => {
+                if let Err(err) = store.recover_unfinished() {
+                    log::warn!("meetings store recovery failed: {err}");
+                }
                 let _ = meeting_history_ops::purge_expired_trash(
                     &store,
                     chrono::Utc::now().timestamp(),
