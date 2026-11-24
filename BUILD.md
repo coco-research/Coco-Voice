@@ -101,13 +101,20 @@ cd Coco Voice
 bun install
 ```
 
-### 3. Start Dev Server
+### 3. Download Required Models
+
+```bash
+mkdir -p src-tauri/resources/models
+curl -o src-tauri/resources/models/silero_vad_v4.onnx https://blob.handy.computer/silero_vad_v4.onnx
+```
+
+### 4. Start Dev Server
 
 ```bash
 bun tauri dev
 ```
 
-### 4. Build for Production
+### 5. Build for Production
 
 ```bash
 bun run tauri build

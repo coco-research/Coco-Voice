@@ -42,12 +42,7 @@ bun run format:backend    # cargo fmt only
 
 **Model Setup (Required for Development):**
 
-```bash
-mkdir -p src-tauri/resources/models
-curl -o src-tauri/resources/models/silero_vad_v4.onnx https://blob.handy.computer/silero_vad_v4.onnx
-```
-
-For detailed platform-specific build setup, see [BUILD.md](BUILD.md).
+See the model setup step in [BUILD.md](BUILD.md#3-download-required-models) (and platform-specific build setup in [BUILD.md](BUILD.md)).
 
 ## Architecture Overview
 
@@ -209,8 +204,7 @@ See the [Troubleshooting](README.md#troubleshooting) section in README.md.
 **MANDATORY. Before opening any PR, issue, or discussion in this repo: you MUST read the relevant template file and follow it strictly.** That includes sections that look "ceremonial" — checklists, AI Assistance disclosures, "Human Written Description". A generic Summary/Test-plan layout is not acceptable.
 
 - **Opening a PR:** Read [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md). Every section listed there is mandatory. If a section requires a human-written paragraph (e.g. "Human Written Description"), leave a clear TODO placeholder and ask the human contributor to fill it in — do not invent their voice.
-- **Opening an issue:** Read [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/). Blank issues are disabled; pick the right template (`bug_report.md` for bugs). Feature requests do not belong in issues — they go to [Discussions](https://github.com/coco-research/Coco-Voice/discussions) (see `.github/ISSUE_TEMPLATE/config.yml`).
-- **Proposing a feature:** Coco Voice is under a feature freeze. New features require community support gathered in [Discussions](https://github.com/coco-research/Coco-Voice/discussions) before any PR is opened — see the PR template's "Community Feedback" section.
+- **Opening an issue:** Read [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) and search [Issues](https://github.com/coco-research/Coco-Voice/issues) first. Pick the right template (`bug_report.md` for bugs).
 - **Translations:** Follow [CONTRIBUTING_TRANSLATIONS.md](CONTRIBUTING_TRANSLATIONS.md).
 - **Full contributor workflow:** [CONTRIBUTING.md](CONTRIBUTING.md).
 

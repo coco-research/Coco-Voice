@@ -2,12 +2,6 @@
 
 Thank you for your interest in contributing to Coco Voice! This guide will help you get started with contributing to this open source speech-to-text application.
 
-## ⚠️ Feature Freeze
-
-**Coco Voice is currently undergoing a feature freeze.** If you are submitting a PR which is a new feature that the community has not asked for, it will be rejected. If the community has asked for it, or you have explicitly gathered support, it may still be considered.
-
-**Bug fixes are the top priority.** There are 60+ issues to fix. Please focus your contributions on fixing bugs and improving stability.
-
 ## 📖 Philosophy
 
 Coco Voice aims to be the most forkable speech-to-text app. The goal is to create both a useful tool and a foundation for others to build upon—a well-patterned, simple codebase that serves the community. We prioritize:
@@ -50,12 +44,7 @@ Before you begin, ensure you have the following installed:
    bun install
    ```
 
-5. **Download required models**:
-
-   ```bash
-   mkdir -p src-tauri/resources/models
-   curl -o src-tauri/resources/models/silero_vad_v4.onnx https://blob.handy.computer/silero_vad_v4.onnx
-   ```
+5. **Download required models**: Follow the model setup step in [BUILD.md](BUILD.md#3-download-required-models).
 
 6. **Run in development mode**:
    ```bash
@@ -93,9 +82,8 @@ For more details, see the Architecture section in [README.md](README.md) or [AGE
 ### Before Submitting a Bug Report
 
 1. **Search existing issues** at [github.com/coco-research/Coco-Voice/issues](https://github.com/coco-research/Coco-Voice/issues)
-2. **Check discussions** at [github.com/coco-research/Coco-Voice/discussions](https://github.com/coco-research/Coco-Voice/discussions)
-3. **Try the latest release** to see if the issue has been fixed
-4. **Enable debug mode** (`Cmd/Ctrl+Shift+D`) to gather diagnostic information
+2. **Try the latest release** to see if the issue has been fixed
+3. **Enable debug mode** (`Cmd/Ctrl+Shift+D`) to gather diagnostic information
 
 ### Submitting a Bug Report
 
@@ -121,21 +109,17 @@ Use the [Bug Report template](.github/ISSUE_TEMPLATE/bug_report.md) when creatin
 
 ## 💡 Suggesting Features
 
-We use GitHub Discussions for feature requests rather than issues. This keeps issues focused on bugs and actionable tasks while allowing more open-ended conversations about features.
+We track feature ideas and requests in [GitHub Issues](https://github.com/coco-research/Coco-Voice/issues).
 
 ### Before Suggesting a Feature
 
-1. **Search existing discussions** at [github.com/coco-research/Coco-Voice/discussions](https://github.com/coco-research/Coco-Voice/discussions)
-2. **Check common feature requests**:
-   - [Post-processing / Editing Transcripts](https://github.com/coco-research/Coco-Voice/discussions/168)
-   - [Keyboard Shortcuts / Hotkeys](https://github.com/coco-research/Coco-Voice/discussions/211)
+1. **Search existing issues** at [github.com/coco-research/Coco-Voice/issues](https://github.com/coco-research/Coco-Voice/issues) to see if someone has already proposed the same idea
 
 ### Submitting a Feature Request
 
-1. Go to [Discussions](https://github.com/coco-research/Coco-Voice/discussions)
-2. Click "New discussion"
-3. Choose the appropriate category (Ideas, Feature Requests, etc.)
-4. Describe your feature idea including:
+1. Go to [GitHub Issues](https://github.com/coco-research/Coco-Voice/issues)
+2. Click "New issue"
+3. Describe your feature idea including:
    - The problem you're trying to solve
    - Your proposed solution
    - Any alternatives you've considered
@@ -155,7 +139,7 @@ We use GitHub Discussions for feature requests rather than issues. This keeps is
 
 2. **If something was previously closed** - If you want to revisit a closed issue or PR, you need to:
    - Provide a strong argument for why it should be reconsidered
-   - Gather community feedback first via [Discussions](https://github.com/coco-research/Coco-Voice/discussions)
+   - Gather community feedback first via [GitHub Issues](https://github.com/coco-research/Coco-Voice/issues)
    - Link to that discussion in your PR
 
 3. **Get community feedback for features** - PRs with demonstrated community interest are **much more likely to be merged**. Start a discussion, get feedback, and link to it in your PR. This helps ensure Coco Voice stays focused and useful for the most people without becoming bloated.
@@ -226,7 +210,7 @@ Community feedback is essential to keeping Coco Voice the best it can be for eve
      - Screenshots/videos if applicable
      - Breaking changes (if any)
 
-   **Remember:** PRs with community support are prioritized. If you haven't already, start a [discussion](https://github.com/coco-research/Coco-Voice/discussions) to gather feedback before or alongside your PR. It is not explicitly required to gather feedback, but it certainly helps your PR get merged faster.
+   **Remember:** PRs with community support are prioritized. If you haven't already, open an [issue](https://github.com/coco-research/Coco-Voice/issues) to gather feedback before or alongside your PR. It is not explicitly required to gather feedback, but it certainly helps your PR get merged faster.
 
 ### AI Assistance Disclosure
 
@@ -309,8 +293,7 @@ Look for issues labeled `good first issue` or `help wanted` if you're new to the
 
 ## 📞 Getting Help
 
-- **Discord**: Join our [Discord community](https://discord.com/invite/WVBeWsNXK4)
-- **Discussions**: Ask questions in [GitHub Discussions](https://github.com/coco-research/Coco-Voice/discussions)
+- **Issues**: Ask questions or report bugs in [GitHub Issues](https://github.com/coco-research/Coco-Voice/issues)
 
 ## 📜 License
 
