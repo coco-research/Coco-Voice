@@ -11,15 +11,13 @@ export const INITIAL_OFFER_VIEW_STATE: OfferViewState = {
 };
 
 /**
- * Approved Frame 1 surfaces the floating offer only when a call is active
- * (`inCall: true` for Zoom and Teams) or when a Google Meet call tab is open
- * (`app === "meet"`). Idle desktop windows ("Zoom is open." / "Teams is open.")
- * stay silent.
+ * The floating offer shows only for an active call (Zoom, Teams, or a Meet
+ * meeting-code tab). Idle offers, the bare Meet tab included, stay silent.
  */
 export function shouldShowOffer(
   offer: MeetingOffer | null,
 ): offer is MeetingOffer {
-  return offer !== null && (offer.inCall || offer.app === "meet");
+  return offer !== null && offer.inCall;
 }
 
 export function sameOffer(a: MeetingOffer, b: MeetingOffer): boolean {
@@ -30,9 +28,12 @@ export function offerBodyKey(
   offer: MeetingOffer,
 ):
   | "meetings.offer.meet"
+  | "meetings.offer.meetOpen"
   | "meetings.offer.teamsInCall"
   | "meetings.offer.zoomInCall" {
-  if (offer.app === "meet") return "meetings.offer.meet";
+  if (offer.app === "meet") {
+    return offer.inCall ? "meetings.offer.meet" : "meetings.offer.meetOpen";
+  }
   if (offer.app === "teams") return "meetings.offer.teamsInCall";
   return "meetings.offer.zoomInCall";
 }

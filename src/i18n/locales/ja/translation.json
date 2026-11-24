@@ -286,7 +286,8 @@
       "rescan": {
         "label": "再スキャン",
         "tooltip": "Coco Voice を使わずに models フォルダーまたは Hugging Face キャッシュに追加されたモデルを再スキャンします"
-      }
+      },
+      "rescanning": "再スキャン中…"
     },
     "general": {
       "title": "一般",
@@ -959,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "Google Meet で通話中です。",
+      "meetOpen": "Google Meet が開いている可能性があります。",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
@@ -1283,7 +1285,8 @@
       "sameAsDefault": "デフォルトと同じ",
       "thisMeetingHelp": "現在の録音にのみ適用され、停止するとリセットされます。",
       "thisMeetingSelectLabel": "この会議",
-      "changeAria": "会議の言語を変更"
+      "changeAria": "会議の言語を変更",
+      "heading": "会議の言語"
     },
     "title": {
       "editHint": "クリックして名前を変更",
@@ -1498,7 +1501,21 @@
       "trayPasteLastTitle": "メニューバー · 直前のテイクを貼り付け",
       "wherePillShowsGeneralDesc": "アクティブな画面の上部または下部を選択します。",
       "yourShortcut": "ショートカット",
-      "appearance": "外観"
+      "appearance": "外観",
+      "keptOnMac": "この Mac に保存",
+      "off": "オフ",
+      "listeningPreview": "聞き取り中",
+      "calendars": "カレンダー",
+      "openButton": "開く",
+      "microphone": "マイク",
+      "language": "言語",
+      "howWordsTyped": "文字の入力方法",
+      "keepClipboard": "クリップボードに言葉を残す",
+      "clipboardOnFailOnly": "貼り付けに失敗したときのみ",
+      "calendarsSelected": "{{count}} 件選択中",
+      "appHeading": "アプリ",
+      "sounds": "サウンド",
+      "contactsGithubAtLaunch": "起動時に github.com へ接続"
     },
     "words": {
       "addABlockButton": "Add a block",

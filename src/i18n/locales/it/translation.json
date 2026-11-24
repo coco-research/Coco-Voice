@@ -286,7 +286,8 @@
       "rescan": {
         "label": "Riscansiona",
         "tooltip": "Riscansiona per trovare modelli aggiunti alla cartella dei modelli o alla cache di Hugging Face al di fuori di Coco Voice"
-      }
+      },
+      "rescanning": "Nuova scansione…"
     },
     "general": {
       "title": "Generale",
@@ -959,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "Google Meet è in una chiamata.",
+      "meetOpen": "Google Meet potrebbe essere aperto.",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
@@ -1283,7 +1285,8 @@
       "sameAsDefault": "Come predefinita",
       "thisMeetingHelp": "Si applica solo alla registrazione attuale e si azzera quando si ferma.",
       "thisMeetingSelectLabel": "Questa riunione",
-      "changeAria": "Cambia lingua della riunione"
+      "changeAria": "Cambia lingua della riunione",
+      "heading": "Lingua delle riunioni"
     },
     "title": {
       "editHint": "Fai clic per rinominare",
@@ -1498,7 +1501,21 @@
       "trayPasteLastTitle": "Barra dei menu · Incolla l'ultima registrazione",
       "wherePillShowsGeneralDesc": "Scegli la parte superiore o inferiore dello schermo attivo.",
       "yourShortcut": "la tua scorciatoia",
-      "appearance": "Aspetto"
+      "appearance": "Aspetto",
+      "keptOnMac": "Conservato su questo Mac",
+      "off": "Disattivato",
+      "listeningPreview": "In ascolto",
+      "calendars": "Calendari",
+      "openButton": "Apri",
+      "microphone": "Microfono",
+      "language": "Lingua",
+      "howWordsTyped": "Come vengono inserite le parole",
+      "keepClipboard": "Mantieni parole negli appunti",
+      "clipboardOnFailOnly": "Solo se l'incolla fallisce",
+      "calendarsSelected": "{{count}} selezionati",
+      "appHeading": "App",
+      "sounds": "Suoni",
+      "contactsGithubAtLaunch": "Contatta github.com all'avvio"
     },
     "words": {
       "addABlockButton": "Add a block",

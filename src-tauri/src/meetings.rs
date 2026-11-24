@@ -129,7 +129,7 @@ impl OfferState {
 
     fn meet_offer(&self, input: &DetectInput<'_>) -> Option<MeetingOffer> {
         // Titles are the only signal. Without Accessibility already granted there is no offer,
-        // and this path never claims the browser is in a call.
+        // and only a meeting-code title counts as a call; any other Meet title says it may be open.
         if !input.accessibility_granted {
             return None;
         }
@@ -142,11 +142,17 @@ impl OfferState {
             };
             let matched = app.window_titles.iter().any(|title| meet_title(title));
             if matched {
+                let in_call = app.window_titles.iter().any(|title| meet_call_title(title));
+                let body = if in_call {
+                    "Google Meet is in a call."
+                } else {
+                    "Google Meet may be open."
+                };
                 return Some(MeetingOffer {
                     bundle_id: (*bundle_id).to_string(),
                     app: "meet".to_string(),
-                    in_call: true,
-                    body: "Google Meet is in a call.".to_string(),
+                    in_call,
+                    body: body.to_string(),
                     starts_capture: false,
                 });
             }
@@ -165,6 +171,29 @@ fn title_has(app: &RunningApp, accessibility_granted: bool, mark: &str) -> bool 
 
 fn meet_title(title: &str) -> bool {
     title.starts_with("Meet - ") || title.contains("Google Meet")
+}
+
+fn meet_call_title(title: &str) -> bool {
+    let Some(rest) = title.strip_prefix("Meet - ") else {
+        return false;
+    };
+    let bytes = rest.as_bytes();
+    if bytes.len() < 12 {
+        return false;
+    }
+    let is_lower = |b: u8| b.is_ascii_lowercase();
+    let code_ok = bytes[0..3].iter().all(|&b| is_lower(b))
+        && bytes[3] == b'-'
+        && bytes[4..8].iter().all(|&b| is_lower(b))
+        && bytes[8] == b'-'
+        && bytes[9..12].iter().all(|&b| is_lower(b));
+    if !code_ok {
+        return false;
+    }
+    match bytes.get(12) {
+        None => true,
+        Some(&b) => !matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'-'),
+    }
 }
 
 fn native(app: &str, bundle_id: &str, in_call: bool) -> MeetingOffer {
@@ -680,7 +709,7 @@ mod tests {
     }
 
     #[test]
-    fn meet_offer_matches_browser_tab_and_says_in_call() {
+    fn meet_offer_claims_a_call_only_for_a_meeting_code_title() {
         let mut state = OfferState::default();
         let chrome = vec![app("com.google.Chrome", &["Weekly - Google Meet"])];
         let offer = state
@@ -688,16 +717,33 @@ mod tests {
             .expect("a meet title is an offer");
         assert_eq!(offer.app, "meet");
         assert_eq!(offer.bundle_id, "com.google.Chrome");
-        assert_eq!(offer.body, "Google Meet is in a call.");
-        assert!(offer.in_call);
+        assert_eq!(offer.body, "Google Meet may be open.");
+        assert!(!offer.in_call);
         assert!(!offer.starts_capture);
 
-        let tab = vec![app("com.apple.Safari", &["Meet - abc-defg-hij"])];
-        let tab_offer = state
-            .decide(&input(true, "14.4", false, true, &tab))
-            .expect("Meet - is an offer");
-        assert_eq!(tab_offer.body, "Google Meet is in a call.");
-        assert!(tab_offer.in_call);
+        let bare = vec![app("com.google.Chrome", &["Google Meet"])];
+        let bare_offer = state
+            .decide(&input(true, "14.4", false, true, &bare))
+            .expect("a bare meet tab is an offer");
+        assert_eq!(bare_offer.app, "meet");
+        assert_eq!(bare_offer.body, "Google Meet may be open.");
+        assert!(!bare_offer.body.contains("in a call"));
+        assert!(!bare_offer.in_call);
+        assert!(!bare_offer.starts_capture);
+
+        let safari_tab = vec![app("com.apple.Safari", &["Meet - abc-defg-hij"])];
+        let safari_offer = state
+            .decide(&input(true, "14.4", false, true, &safari_tab))
+            .expect("Meet - code in Safari is a call offer");
+        assert_eq!(safari_offer.body, "Google Meet is in a call.");
+        assert!(safari_offer.in_call);
+
+        let chrome_tab = vec![app("com.google.Chrome", &["Meet - abc-defg-hij"])];
+        let chrome_offer = state
+            .decide(&input(true, "14.4", false, true, &chrome_tab))
+            .expect("Meet - code in Chrome is a call offer");
+        assert_eq!(chrome_offer.body, "Google Meet is in a call.");
+        assert!(chrome_offer.in_call);
 
         let closed = vec![app("com.google.Chrome", &["Inbox - Gmail"])];
         assert!(state
@@ -715,6 +761,23 @@ mod tests {
                 .is_none(),
             "without accessibility the detector does not read titles and does not ask"
         );
+    }
+
+    #[test]
+    fn meet_call_title_needs_the_code_shape() {
+        assert!(meet_call_title("Meet - abc-defg-hij"));
+        for title in [
+            "Meet - ",
+            "Meet - abc",
+            "Meet - ABC-DEFG-HIJ",
+            "Meet - abcd-efg-hij",
+            "Meet - abc-defg-hijk",
+            "Meet - abc-defg-hij1",
+            "Let's Meet - abc-defg-hij",
+            "Google Meet",
+        ] {
+            assert!(!meet_call_title(title), "unexpected match for {title:?}");
+        }
     }
 
     #[test]

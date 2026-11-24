@@ -331,7 +331,8 @@
         "label": "Opnieuw scannen",
         "tooltip": "Scannen naar modellen die buiten Coco Voice om zijn toegevoegd aan de modellenmap of Hugging Face-cache"
       },
-      "noModelsMatch": "Geen modellen voldoen aan dit filter."
+      "noModelsMatch": "Geen modellen voldoen aan dit filter.",
+      "rescanning": "Opnieuw scannen…"
     },
     "sound": {
       "title": "Geluid",
@@ -959,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "Google Meet is in gesprek.",
+      "meetOpen": "Google Meet is mogelijk geopend.",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
@@ -1283,7 +1285,8 @@
       "sameAsDefault": "Zelfde als standaard",
       "thisMeetingHelp": "Geldt alleen voor de huidige opname en wordt gewist zodra deze stopt.",
       "thisMeetingSelectLabel": "Deze vergadering",
-      "changeAria": "Vergadertaal wijzigen"
+      "changeAria": "Vergadertaal wijzigen",
+      "heading": "Vergadertaal"
     },
     "title": {
       "editHint": "Klik om te hernoemen",
@@ -1498,7 +1501,21 @@
       "trayPasteLastTitle": "Menubalk · Laatste opname plakken",
       "wherePillShowsGeneralDesc": "Kies boven- of onderkant van je actieve scherm.",
       "yourShortcut": "je sneltoets",
-      "appearance": "Weergave"
+      "appearance": "Weergave",
+      "keptOnMac": "Bewaard op deze Mac",
+      "off": "Uit",
+      "listeningPreview": "Luisteren",
+      "calendars": "Agenda's",
+      "openButton": "Openen",
+      "microphone": "Microfoon",
+      "language": "Taal",
+      "howWordsTyped": "Hoe woorden worden getypt",
+      "keepClipboard": "Woorden op klembord houden",
+      "clipboardOnFailOnly": "Alleen als plakken mislukt",
+      "calendarsSelected": "{{count}} geselecteerd",
+      "appHeading": "App",
+      "sounds": "Geluiden",
+      "contactsGithubAtLaunch": "Maakt bij opstarten contact met github.com"
     },
     "words": {
       "addABlockButton": "Add a block",

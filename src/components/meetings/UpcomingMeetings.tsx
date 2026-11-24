@@ -316,15 +316,24 @@ function selectedCount(settings: unknown): number {
  */
 export const UpcomingMeetings: React.FC<{
   mode?: "card" | "page";
+  startedKey?: string | null;
   onOpenConsent: () => void;
+  onStartNotes?: (meeting: UpcomingMeeting) => void;
   onOpenView?: () => void;
   onBack?: () => void;
   onOpenSettings?: () => void;
-}> = ({ mode = "card", onOpenConsent, onOpenView, onBack, onOpenSettings }) => {
+}> = ({
+  mode = "card",
+  startedKey = null,
+  onOpenConsent,
+  onStartNotes,
+  onOpenView,
+  onBack,
+  onOpenSettings,
+}) => {
   const { settings } = useSettings();
   const [meetings, setMeetings] = useState<UpcomingMeeting[]>([]);
   const [permissionDenied, setPermissionDenied] = useState(false);
-  const [startedKey, setStartedKey] = useState<string | null>(null);
   const picked = selectedCount(settings);
 
   useEffect(() => {
@@ -367,9 +376,11 @@ export const UpcomingMeetings: React.FC<{
       onBack={onBack}
       onOpenSettings={onOpenSettings}
       onStartNotes={(m) => {
-        setStartedKey(upcomingEventKey(m));
-        void commands.keepUpcomingForNotes(m.start, m.title, m.calendar_name);
-        onOpenConsent();
+        if (onStartNotes) {
+          onStartNotes(m);
+        } else {
+          onOpenConsent();
+        }
       }}
     />
   );

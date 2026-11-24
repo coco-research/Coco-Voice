@@ -331,7 +331,8 @@
       "rescan": {
         "label": "סריקה מחדש",
         "tooltip": "סריקה מחדש לאיתור מודלים שנוספו לתיקיית המודלים או למטמון של Hugging Face מחוץ ל-Coco Voice"
-      }
+      },
+      "rescanning": "סורק מחדש…"
     },
     "sound": {
       "title": "שמע",
@@ -959,6 +960,7 @@
       "teamsInCall": "Teams is in a call.",
       "teamsOpen": "Teams is open.",
       "meet": "Google Meet נמצא בשיחה.",
+      "meetOpen": "ייתכן ש-Google Meet פתוח.",
       "notRecording": "Not recording",
       "neverOnItsOwn": "Coco Voice never records on its own.",
       "start": "Start notes",
@@ -1283,7 +1285,8 @@
       "sameAsDefault": "כמו ברירת המחדל",
       "thisMeetingHelp": "חל רק על ההקלטה הנוכחית ומתאפס כשהיא נעצרת.",
       "thisMeetingSelectLabel": "פגישה זו",
-      "changeAria": "שינוי שפת הפגישה"
+      "changeAria": "שינוי שפת הפגישה",
+      "heading": "שפת פגישות"
     },
     "title": {
       "editHint": "לחץ לשינוי שם",
@@ -1498,7 +1501,21 @@
       "trayPasteLastTitle": "שורת התפריטים · הדבק את ההקלטה האחרונה",
       "wherePillShowsGeneralDesc": "בחר את החלק העליון או התחתון של המסך הפעיל.",
       "yourShortcut": "קיצור הדרך שלך",
-      "appearance": "מראה"
+      "appearance": "מראה",
+      "keptOnMac": "נשמר ב-Mac הזה",
+      "off": "כבוי",
+      "listeningPreview": "מאזין",
+      "calendars": "יומנים",
+      "openButton": "פתח",
+      "microphone": "מיקרופון",
+      "language": "שפה",
+      "howWordsTyped": "איך המילים מוקלדות",
+      "keepClipboard": "שמור מילים בלוח",
+      "clipboardOnFailOnly": "רק אם ההדבקה נכשלת",
+      "calendarsSelected": "{{count}} נבחרו",
+      "appHeading": "אפליקציה",
+      "sounds": "צלילים",
+      "contactsGithubAtLaunch": "מתחבר ל-github.com בהפעלה"
     },
     "words": {
       "addABlockButton": "Add a block",

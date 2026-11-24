@@ -31,7 +31,7 @@ function offerReasonKey(offer: MeetingOffer): string {
       : "meetings.offer.teamsOpen";
   }
   if (offer.app === "meet") {
-    return "meetings.offer.meet";
+    return offer.inCall ? "meetings.offer.meet" : "meetings.offer.meetOpen";
   }
   return offer.inCall ? "meetings.offer.zoomInCall" : "meetings.offer.zoomOpen";
 }
