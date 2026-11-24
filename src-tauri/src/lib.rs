@@ -458,7 +458,7 @@ fn initialize_core_logic(app_handle: &AppHandle) {
             "start_meeting" | "start_notes" => {
                 // Same path as the meeting shortcut: consent only, never a recording.
                 show_main_window(app);
-                let _ = crate::meeting_controller::open_meeting_consent(app.clone());
+                let _ = crate::meeting_controller::open_meeting_consent(app.clone(), None);
             }
             #[cfg(feature = "meetings")]
             "stop_meeting" => {

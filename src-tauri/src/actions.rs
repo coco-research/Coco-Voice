@@ -349,7 +349,7 @@ struct MeetingConsentAction;
 #[cfg(feature = "meetings")]
 impl ShortcutAction for MeetingConsentAction {
     fn start(&self, app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {
-        let _ = crate::meeting_controller::open_meeting_consent(app.clone());
+        let _ = crate::meeting_controller::open_meeting_consent(app.clone(), None);
     }
 
     fn stop(&self, _app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {}
