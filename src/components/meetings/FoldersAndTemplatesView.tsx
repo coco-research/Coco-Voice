@@ -644,10 +644,12 @@ export const FoldersAndTemplatesView: React.FC = () => {
         const active = folders.find((f) => f.open);
         const fid = active?.numericId;
         const tid = Number(tplId);
-        if (fid !== undefined && Number.isFinite(tid)) {
-          void commands.setFolderLastTemplate(fid, tid);
+        const validTid =
+          tplId.trim() !== "" && Number.isFinite(tid) && tid > 0 ? tid : null;
+        if (fid !== undefined && validTid !== null) {
+          void commands.setFolderLastTemplate(fid, validTid);
         }
-        void commands.openMeetingConsent();
+        void commands.openMeetingConsent(validTid);
       }}
       onCreateTemplate={(name, sections) => {
         const body = buildTemplateBodyFromSections(sections);
