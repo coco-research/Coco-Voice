@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import React from "react";
@@ -197,7 +198,6 @@ describe("V-C7 (E18): Localized Corrections and History strings with zero missin
 
     const allowedHandyFiles = new Set([
       "src/bindings.ts",
-      "src/components/settings/CocoVoiceKeysShortcutInput.tsx",
       "src/components/settings/about/WhatGoesOnline.tsx",
       "src/content/release-notes/0.9.0.md",
       "src/lib/utils/theme.ts",
@@ -260,5 +260,87 @@ describe("V-C7 (E18): Localized Corrections and History strings with zero missin
         delete (globalThis as { localStorage?: unknown }).localStorage;
       }
     }
+  });
+});
+
+/**
+ * Repo-wide upstream name gate (post-rebrand allow-list).
+ *
+ * Every entry below is either:
+ * - Tier C upstream URL/crate/repo/historical reference (blob.handy.computer,
+ *   handy-computer/*, handy-keys, 0.9.0 release note, test env hook),
+ * - A runtime upgrade fallback (HANDY_NO_GTK_LAYER_SHELL in overlay.rs,
+ *   legacy portable marker in portable.rs / installer.nsi, handy.theme in theme.ts),
+ * - Upstream attribution (NOTICE and the single Credits line in README.md), or
+ * - This gate file itself.
+ *
+ * Exact-match ratchet: any new file, higher count, or lower count fails so the
+ * allow-list stays tight as remaining upstream references are retired.
+ */
+const REPO_HANDY_ALLOWLIST: Record<string, number> = {
+  ".github/workflows/build.yml": 2,
+  "BUILD.md": 1,
+  NOTICE: 1,
+  "README.md": 1,
+  "sbom/Coco-Voice.cdx.json": 1,
+  "sbom/model-licences.md": 47,
+  "scripts/ac-a7-partial-cleanup.test.tsx": 1,
+  "scripts/mirror-models.test.ts": 5,
+  "scripts/mirror-models.ts": 2,
+  "scripts/mirror-render.test.ts": 8,
+  "scripts/mirror-render.ts": 5,
+  "scripts/mirror-templates.test.ts": 2,
+  "scripts/mirror-upload.test.ts": 1,
+  "scripts/mirror/ATTRIBUTION.template.md": 8,
+  "scripts/mirror/README-card.template.md": 8,
+  "scripts/privacy-allowlist.json": 1,
+  "scripts/vc-makes-sense.test.tsx": 20,
+  "scripts/vd10-y7-vk1.test.tsx": 2,
+  "scripts/voice-journeys.json": 1,
+  "src-tauri/Cargo.toml": 4,
+  "src-tauri/nsis/installer.nsi": 1,
+  "src-tauri/src/catalog/catalog.json": 46,
+  "src-tauri/src/catalog/measured.rs": 5,
+  "src-tauri/src/catalog/measured_runs.json": 2,
+  "src-tauri/src/catalog/mod.rs": 59,
+  "src-tauri/src/catalog/model_licences.json": 46,
+  "src-tauri/src/commands/history.rs": 1,
+  "src-tauri/src/commands/models.rs": 3,
+  "src-tauri/src/managers/meeting_chunker.rs": 3,
+  "src-tauri/src/managers/model.rs": 40,
+  "src-tauri/src/managers/transcription.rs": 13,
+  "src-tauri/src/meeting_session.rs": 5,
+  "src-tauri/src/overlay.rs": 1,
+  "src-tauri/src/portable.rs": 1,
+  "src-tauri/src/shortcut/coco_keys.rs": 25,
+  "src-tauri/src/shortcut/handler.rs": 1,
+  "src-tauri/src/shortcut/mod.rs": 13,
+  "src/bindings.ts": 1,
+  "src/components/settings/about/WhatGoesOnline.tsx": 1,
+  "src/content/release-notes/0.9.0.md": 1,
+  "src/lib/utils/theme.ts": 1,
+};
+
+describe("Repo-wide Handy gate", () => {
+  test("git grep -c -i handy matches the exact allow-list ratchet", () => {
+    const raw = execFileSync(
+      "git",
+      ["grep", "-c", "-i", "handy", "--", ".", ":!*.lock"],
+      { cwd: rootDir, encoding: "utf8" },
+    );
+
+    const actual: Record<string, number> = {};
+    for (const line of raw.trim().split("\n")) {
+      if (!line) continue;
+      const idx = line.lastIndexOf(":");
+      if (idx === -1) {
+        throw new Error(`Unexpected git grep output line: ${line}`);
+      }
+      const file = line.slice(0, idx);
+      const count = Number(line.slice(idx + 1));
+      actual[file] = count;
+    }
+
+    expect(actual).toEqual(REPO_HANDY_ALLOWLIST);
   });
 });
