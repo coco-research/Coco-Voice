@@ -654,6 +654,7 @@ export const RecordMeetingPage: React.FC = () => {
 
   const activeMeetingIdRef = useRef<number | null>(null);
   const pendingUpcomingRef = useRef<UpcomingMeeting | null>(null);
+  const upcomingConsentRef = useRef(false);
   const notepadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingNotepadRef = useRef<{ meetingId: number; text: string } | null>(
     null,
@@ -788,7 +789,11 @@ export const RecordMeetingPage: React.FC = () => {
 
     void listen(MEETINGS_OPEN_CONSENT_EVENT, () => {
       if (!cancelled) {
-        pendingUpcomingRef.current = null;
+        if (upcomingConsentRef.current) {
+          upcomingConsentRef.current = false;
+        } else {
+          pendingUpcomingRef.current = null;
+        }
         setStartRefusal(null);
         setConsentOpen(true);
       }
@@ -956,6 +961,7 @@ export const RecordMeetingPage: React.FC = () => {
 
   const commitPendingUpcoming = () => {
     const pending = pendingUpcomingRef.current;
+    upcomingConsentRef.current = false;
     pendingUpcomingRef.current = null;
     if (!pending) return;
     setStartedUpcomingKey(upcomingEventKey(pending));
@@ -985,9 +991,21 @@ export const RecordMeetingPage: React.FC = () => {
       startedUpcomingKey={startedUpcomingKey}
       onStartUpcoming={(meeting) => {
         pendingUpcomingRef.current = meeting;
+        upcomingConsentRef.current = true;
         setStartRefusal(null);
         setConsentOpen(true);
-        void commands.openMeetingConsent();
+        void commands
+          .openMeetingConsent()
+          .then((res) => {
+            if (res.status !== "ok" || res.data?.state !== "consent_open") {
+              upcomingConsentRef.current = false;
+              pendingUpcomingRef.current = null;
+            }
+          })
+          .catch(() => {
+            upcomingConsentRef.current = false;
+            pendingUpcomingRef.current = null;
+          });
       }}
       onOpenComingUp={() => setComingUpOpen(true)}
       onCloseComingUp={() => setComingUpOpen(false)}
@@ -997,6 +1015,7 @@ export const RecordMeetingPage: React.FC = () => {
         void commands.changeMeetingsEnabledSetting(enabled);
       }}
       onOpenConsent={() => {
+        upcomingConsentRef.current = false;
         pendingUpcomingRef.current = null;
         setStartRefusal(null);
         setConsentOpen(true);
@@ -1032,11 +1051,13 @@ export const RecordMeetingPage: React.FC = () => {
         void commands.openSystemAudioPrivacySettings();
       }}
       onDismissStartRefusal={() => {
+        upcomingConsentRef.current = false;
         pendingUpcomingRef.current = null;
         setStartRefusal(null);
         void commands.cancelMeetingConsent();
       }}
       onCancelConsent={() => {
+        upcomingConsentRef.current = false;
         pendingUpcomingRef.current = null;
         setConsentOpen(false);
         setStartRefusal(null);

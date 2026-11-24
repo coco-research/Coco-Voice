@@ -23,6 +23,11 @@ const idleStatus: MeetingStatus = {
   warnings: [],
 };
 
+const consentOpenStatus: MeetingStatus = {
+  ...idleStatus,
+  state: "consent_open",
+};
+
 const recordingStatus: MeetingStatus = {
   state: "recording",
   elapsed_secs: 0,
@@ -55,6 +60,18 @@ const keptEvents: Array<{
   title: string;
   calendar_name: string;
 }> = [];
+const eventHandlers = new Map<
+  string,
+  Set<(ev: { payload?: unknown }) => void>
+>();
+
+function fireEvent(name: string, payload?: unknown) {
+  const handlers = eventHandlers.get(name);
+  if (!handlers) return;
+  for (const handler of [...handlers]) {
+    handler({ payload });
+  }
+}
 
 const i18nInst = i18next.createInstance();
 await i18nInst.use(initReactI18next).init({
@@ -83,7 +100,20 @@ mock.module("@tauri-apps/api/core", () => ({
 }));
 
 mock.module("@tauri-apps/api/event", () => ({
-  listen: async () => () => {},
+  listen: async (
+    event: string,
+    handler: (ev: { payload?: unknown }) => void,
+  ) => {
+    let handlers = eventHandlers.get(event);
+    if (!handlers) {
+      handlers = new Set();
+      eventHandlers.set(event, handlers);
+    }
+    handlers.add(handler);
+    return () => {
+      handlers?.delete(handler);
+    };
+  },
   once: async () => () => {},
   emit: async () => {},
   emitTo: async () => {},
@@ -99,7 +129,10 @@ mock.module("../src/bindings.meetings", () => ({
     setMeetingCustomWords: async () => ({ status: "ok", data: null }),
     setMeetingOfferVisible: async () => ({ status: "ok", data: null }),
     changeMeetingsEnabledSetting: async () => ({ status: "ok", data: null }),
-    openMeetingConsent: async () => ({ status: "ok", data: null }),
+    openMeetingConsent: async () => {
+      fireEvent("meetings-open-consent");
+      return { status: "ok", data: consentOpenStatus };
+    },
     confirmMeetingStart: async () => startOutcome,
     confirmMeetingStartMicOnly: async () => micOnlyOutcome,
     cancelMeetingConsent: async () => ({ status: "ok", data: idleStatus }),
@@ -438,6 +471,7 @@ async function openConsentFromComingUp() {
 describe("Coming up row started status and event hold", () => {
   beforeEach(() => {
     keptEvents.length = 0;
+    eventHandlers.clear();
     startOutcome = { status: "ok", data: recordingStatus };
     micOnlyOutcome = { status: "ok", data: micOnlyStatus };
   });
@@ -606,6 +640,42 @@ describe("Coming up row started status and event hold", () => {
       expect(afterHtml).toContain('data-testid="frame-10-coming-up"');
       expect(afterHtml).toContain("Notes started");
       expect(afterHtml).not.toContain("Not started");
+    } finally {
+      mounted.unmount();
+    }
+  });
+
+  test("an open-consent event from outside the page drops a pending coming-up meeting", async () => {
+    const mounted = await openConsentFromComingUp();
+    try {
+      const dialogNodes = collectElements(
+        mounted.getTree(),
+        (el) => el.props["data-testid"] === "frame-2-consent",
+      );
+      const cancelBtns = collectElements(
+        dialogNodes[0]!,
+        (el) => el.type === "button" && textContent(el).trim() === "Cancel",
+      );
+      (cancelBtns[0]!.props.onClick as () => void)();
+      await mounted.flushAndRerender();
+
+      fireEvent("meetings-open-consent");
+      await mounted.flushAndRerender();
+
+      const reopenedDialog = collectElements(
+        mounted.getTree(),
+        (el) => el.props["data-testid"] === "frame-2-consent",
+      );
+      expect(reopenedDialog.length).toBe(1);
+      const startBtns = collectElements(
+        reopenedDialog[0]!,
+        (el) =>
+          el.type === "button" && textContent(el).trim() === "Start recording",
+      );
+      (startBtns[0]!.props.onClick as () => void)();
+      await mounted.flushAndRerender();
+
+      expect(keptEvents).toEqual([]);
     } finally {
       mounted.unmount();
     }
