@@ -331,7 +331,8 @@
       "rescan": {
         "label": "Пересканувати",
         "tooltip": "Пересканувати моделі, додані до папки моделей або кешу Hugging Face поза межами Coco Voice"
-      }
+      },
+      "rescanning": "Пересканування…"
     },
     "sound": {
       "title": "Звук",
@@ -1281,7 +1282,8 @@
       "sameAsDefault": "Як за замовчуванням",
       "thisMeetingHelp": "Діє лише для поточного запису та очищується після зупинки.",
       "thisMeetingSelectLabel": "Ця зустріч",
-      "changeAria": "Змінити мову зустрічі"
+      "changeAria": "Змінити мову зустрічі",
+      "heading": "Мова зустрічей"
     },
     "title": {
       "editHint": "Натисніть, щоб перейменувати",
@@ -1495,7 +1497,21 @@
       "trayPasteLastTitle": "Панель меню · Вставити останній запис",
       "wherePillShowsGeneralDesc": "Виберіть верх або низ активного екрана.",
       "yourShortcut": "вашу комбінацію",
-      "appearance": "Оформлення"
+      "appearance": "Оформлення",
+      "keptOnMac": "Зберігається на цьому Mac",
+      "off": "Вимк.",
+      "listeningPreview": "Слухаю",
+      "calendars": "Календарі",
+      "openButton": "Відкрити",
+      "microphone": "Мікрофон",
+      "language": "Мова",
+      "howWordsTyped": "Як вводяться слова",
+      "keepClipboard": "Залишати слова в буфері обміну",
+      "clipboardOnFailOnly": "Лише якщо вставлення не вдалося",
+      "calendarsSelected": "Вибрано: {{count}}",
+      "appHeading": "Додаток",
+      "sounds": "Звуки",
+      "contactsGithubAtLaunch": "Звертається до github.com під час запуску"
     },
     "words": {
       "addABlockButton": "Add a block",

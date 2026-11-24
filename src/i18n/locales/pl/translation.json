@@ -286,7 +286,8 @@
       "rescan": {
         "label": "Skanuj ponownie",
         "tooltip": "Skanuj ponownie w poszukiwaniu modeli dodanych do folderu modeli lub pamięci podręcznej Hugging Face poza Coco Voice"
-      }
+      },
+      "rescanning": "Ponowne skanowanie…"
     },
     "general": {
       "title": "Ogólne",
@@ -1281,7 +1282,8 @@
       "sameAsDefault": "Taki jak domyślny",
       "thisMeetingHelp": "Dotyczy tylko bieżącego nagrania i jest czyszczone po jego zatrzymaniu.",
       "thisMeetingSelectLabel": "To spotkanie",
-      "changeAria": "Zmień język spotkania"
+      "changeAria": "Zmień język spotkania",
+      "heading": "Język spotkań"
     },
     "title": {
       "editHint": "Kliknij, aby zmienić nazwę",
@@ -1495,7 +1497,21 @@
       "trayPasteLastTitle": "Pasek menu · Wklej ostatnie nagranie",
       "wherePillShowsGeneralDesc": "Wybierz górę lub dół aktywnego ekranu.",
       "yourShortcut": "twój skrót",
-      "appearance": "Wygląd"
+      "appearance": "Wygląd",
+      "keptOnMac": "Przechowywane na tym Macu",
+      "off": "Wyłączone",
+      "listeningPreview": "Słucham",
+      "calendars": "Kalendarze",
+      "openButton": "Otwórz",
+      "microphone": "Mikrofon",
+      "language": "Język",
+      "howWordsTyped": "Jak wpisywane są słowa",
+      "keepClipboard": "Zostawiaj słowa w schowku",
+      "clipboardOnFailOnly": "Tylko gdy wklejanie się nie uda",
+      "calendarsSelected": "Wybrano: {{count}}",
+      "appHeading": "Aplikacja",
+      "sounds": "Dźwięki",
+      "contactsGithubAtLaunch": "Łączy się z github.com przy uruchomieniu"
     },
     "words": {
       "addABlockButton": "Add a block",
