@@ -331,7 +331,8 @@
       "rescan": {
         "label": "Reescanear",
         "tooltip": "Reescaneia em busca de modelos adicionados à pasta de modelos ou ao cache do Hugging Face fora do Coco Voice"
-      }
+      },
+      "rescanning": "Reescaneando…"
     },
     "sound": {
       "title": "Som",
@@ -1281,7 +1282,8 @@
       "sameAsDefault": "Igual ao padrão",
       "thisMeetingHelp": "Aplica-se apenas à gravação atual e é limpo quando ela parar.",
       "thisMeetingSelectLabel": "Esta reunião",
-      "changeAria": "Alterar idioma da reunião"
+      "changeAria": "Alterar idioma da reunião",
+      "heading": "Idioma da reunião"
     },
     "title": {
       "editHint": "Clique para renomear",
@@ -1495,7 +1497,21 @@
       "trayPasteLastTitle": "Barra de menus · Colar última gravação",
       "wherePillShowsGeneralDesc": "Escolha a parte superior ou inferior da tela ativa.",
       "yourShortcut": "seu atalho",
-      "appearance": "Aparência"
+      "appearance": "Aparência",
+      "keptOnMac": "Mantido neste Mac",
+      "off": "Desativado",
+      "listeningPreview": "Ouvindo",
+      "calendars": "Calendários",
+      "openButton": "Abrir",
+      "microphone": "Microfone",
+      "language": "Idioma",
+      "howWordsTyped": "Como as palavras são digitadas",
+      "keepClipboard": "Manter palavras na área de transferência",
+      "clipboardOnFailOnly": "Apenas se colar falhar",
+      "calendarsSelected": "{{count}} selecionados",
+      "appHeading": "Aplicativo",
+      "sounds": "Sons",
+      "contactsGithubAtLaunch": "Contata github.com ao iniciar"
     },
     "words": {
       "addABlockButton": "Add a block",

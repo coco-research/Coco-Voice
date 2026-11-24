@@ -286,7 +286,8 @@
       "rescan": {
         "label": "Volver a escanear",
         "tooltip": "Vuelve a escanear en busca de modelos añadidos a la carpeta de modelos o a la caché de Hugging Face fuera de Coco Voice"
-      }
+      },
+      "rescanning": "Volviendo a escanear…"
     },
     "general": {
       "title": "General",
@@ -1281,7 +1282,8 @@
       "sameAsDefault": "Igual que el predeterminado",
       "thisMeetingHelp": "Se aplica solo a la grabación actual y se restablece al detenerla.",
       "thisMeetingSelectLabel": "Esta reunión",
-      "changeAria": "Cambiar idioma de la reunión"
+      "changeAria": "Cambiar idioma de la reunión",
+      "heading": "Idioma de reuniones"
     },
     "title": {
       "editHint": "Haz clic para renombrar",
@@ -1495,7 +1497,21 @@
       "trayPasteLastTitle": "Barra de menús · Pegar la última toma",
       "wherePillShowsGeneralDesc": "Elige la parte superior o inferior de la pantalla activa.",
       "yourShortcut": "tu atajo",
-      "appearance": "Apariencia"
+      "appearance": "Apariencia",
+      "keptOnMac": "Guardado en este Mac",
+      "off": "Desactivado",
+      "listeningPreview": "Escuchando",
+      "calendars": "Calendarios",
+      "openButton": "Abrir",
+      "microphone": "Micrófono",
+      "language": "Idioma",
+      "howWordsTyped": "Cómo se escriben las palabras",
+      "keepClipboard": "Mantener palabras en el portapapeles",
+      "clipboardOnFailOnly": "Solo si falla el pegado",
+      "calendarsSelected": "{{count}} seleccionados",
+      "appHeading": "Aplicación",
+      "sounds": "Sonidos",
+      "contactsGithubAtLaunch": "Contacta con github.com al iniciar"
     },
     "words": {
       "addABlockButton": "Add a block",

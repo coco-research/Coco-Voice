@@ -198,7 +198,11 @@ test("README light/dark picture banner, 1280x640 social preview, and cross-OS IN
   expect(readme.includes("<picture>")).toBe(true);
   expect(readme.includes("assets/branding/banner-dark.png")).toBe(true);
   expect(readme.includes("assets/branding/banner-light.png")).toBe(true);
-  expect(readme.includes("0.20.0")).toBe(true);
+  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+    version: string;
+  };
+  const majorMinor = pkg.version.split(".").slice(0, 2).join(".");
+  expect(readme.includes(majorMinor)).toBe(true);
   expect(readme.toLowerCase().includes("parrot")).toBe(false);
 
   const install = readFileSync(join(root, "INSTALL.md"), "utf8");
