@@ -21,10 +21,10 @@ const modelSupportsLanguage = (model: ModelInfo, langCode: string): boolean => {
   return supportsLanguageCode(model.supported_languages, langCode);
 };
 
+const LOCAL_LLM_DEFAULT_MODEL_ID = "Qwen/Qwen3-4B-GGUF/Qwen3-4B-Q4_K_M.gguf";
+
 const isCleanupLlmModel = (model: ModelInfo): boolean => {
-  if (model.engine_type === "LlamaCpp") return true;
-  const hay = `${model.id} ${model.name}`.toLowerCase();
-  return hay.includes("qwen") || hay.includes("gemma") || hay.includes("llama");
+  return model.engine_type === "LlamaCpp";
 };
 
 export function formatCleanModelSize(sizeMb: number): string {
@@ -230,13 +230,14 @@ export const ModelsSettings: React.FC = () => {
 
   const { speechModels, localCleanupModel } = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    const cleanupModels = models.filter(isCleanupLlmModel);
     const cleanupCandidate =
-      models.find((m) => m.id.toLowerCase().includes("qwen")) ??
-      models.find((m) => isCleanupLlmModel(m)) ??
+      cleanupModels.find((m) => m.id === LOCAL_LLM_DEFAULT_MODEL_ID) ??
+      cleanupModels[0] ??
       null;
 
     const speech = models.filter((model: ModelInfo) => {
-      if (cleanupCandidate && model.id === cleanupCandidate.id) return false;
+      if (isCleanupLlmModel(model)) return false;
       if (languageFilter !== "all") {
         if (!modelSupportsLanguage(model, languageFilter)) return false;
       }

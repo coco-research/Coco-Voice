@@ -10,6 +10,66 @@ import {
 
 const SCRATCH_THAT_RE =
   /^(.*?\b(?:scratch that|i mean|no wait)\b)[,.\s]+(.*)$/i;
+const TRY_IT_ECHO_WINDOW_MS = 5_000;
+
+interface PendingTakeEcho {
+  text: string;
+  remaining: string;
+  expiresAt: number;
+}
+
+// Returns the single contiguous span inserted into `prev` to produce `next`,
+// or null when `next` is not `prev` plus one insertion (deletion or replacement).
+function extractInsertedText(prev: string, next: string): string | null {
+  if (next.length <= prev.length) return null;
+  let prefix = 0;
+  while (prefix < prev.length && prev[prefix] === next[prefix]) {
+    prefix += 1;
+  }
+  let suffix = 0;
+  while (
+    suffix < prev.length - prefix &&
+    prev[prev.length - 1 - suffix] === next[next.length - 1 - suffix]
+  ) {
+    suffix += 1;
+  }
+  if (prefix + suffix !== prev.length) return null;
+  return next.slice(prefix, next.length - suffix);
+}
+
+// Absorb OS paste or direct-typed echo of the take already applied from history-update-payload.
+function consumeTakeEcho(
+  echo: PendingTakeEcho,
+  prev: string,
+  next: string,
+  now: number,
+): { absorbed: boolean; nextEcho: PendingTakeEcho | null } {
+  if (now > echo.expiresAt) return { absorbed: false, nextEcho: null };
+  const inserted = extractInsertedText(prev, next);
+  if (inserted === null) return { absorbed: false, nextEcho: null };
+  const atStart =
+    echo.remaining === echo.text && !echo.remaining.startsWith(" ");
+  if (atStart && inserted === " ") {
+    return { absorbed: true, nextEcho: echo };
+  }
+  const candidate = atStart ? inserted.replace(/^ /, "") : inserted;
+  if (candidate.length > 0 && echo.remaining.startsWith(candidate)) {
+    const remaining = echo.remaining.slice(candidate.length);
+    return {
+      absorbed: true,
+      nextEcho: remaining ? { ...echo, remaining } : null,
+    };
+  }
+  const consumedLen = echo.text.length - echo.remaining.length;
+  if (candidate.length > consumedLen && echo.text.startsWith(candidate)) {
+    const remaining = echo.text.slice(candidate.length);
+    return {
+      absorbed: true,
+      nextEcho: remaining ? { ...echo, remaining } : null,
+    };
+  }
+  return { absorbed: false, nextEcho: null };
+}
 
 export function applyTryItSelfCorrection(input: string): {
   cleaned: string;
@@ -163,14 +223,20 @@ export const TryItStepCard: React.FC<{
   onDone: () => void;
 }> = ({ shortcut, spokenCleanedText = null, droppedText = null, onDone }) => {
   const { t } = useTranslation();
-  const initialText =
-    spokenCleanedText ?? t("onboarding.tryIt.cleanedResult", "Tuesday.");
-  const [boxText, setBoxText] = useState(initialText);
+  const placeholderText = t("onboarding.tryIt.cleanedResult", "Tuesday.");
+  const [boxText, setBoxText] = useState(spokenCleanedText ?? "");
   const [droppedPhrase, setDroppedPhrase] = useState<string | null>(
     droppedText,
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const handledHistoryTakeRef = useRef(false);
+  const boxTextRef = useRef(boxText);
+  const pendingEchoRef = useRef<PendingTakeEcho | null>(null);
+
+  const updateBoxText = (next: string) => {
+    boxTextRef.current = next;
+    setBoxText(next);
+  };
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -188,7 +254,26 @@ export const TryItStepCard: React.FC<{
         const raw = payload.entry.transcription_text ?? "";
         const finalText =
           payload.entry.post_processed_text?.trim() || raw.trim();
-        setBoxText(finalText);
+        const trimmed = boxTextRef.current.trim();
+        const rawPrefix = boxTextRef.current.trimStart();
+        let remainingEcho: string | null = null;
+        if (finalText) {
+          if (trimmed === finalText) {
+            remainingEcho = null;
+          } else if (rawPrefix && finalText.startsWith(rawPrefix)) {
+            remainingEcho = finalText.slice(rawPrefix.length);
+          } else {
+            remainingEcho = finalText;
+          }
+        }
+        pendingEchoRef.current = remainingEcho
+          ? {
+              text: finalText,
+              remaining: remainingEcho,
+              expiresAt: Date.now() + TRY_IT_ECHO_WINDOW_MS,
+            }
+          : null;
+        updateBoxText(finalText);
         void evaluateTryItTakeResult(raw, finalText).then((dropped) => {
           if (active) setDroppedPhrase(dropped);
         });
@@ -202,13 +287,25 @@ export const TryItStepCard: React.FC<{
   }, []);
 
   const handleInputChange = (nextValue: string) => {
+    if (pendingEchoRef.current) {
+      const echoResult = consumeTakeEcho(
+        pendingEchoRef.current,
+        boxTextRef.current,
+        nextValue,
+        Date.now(),
+      );
+      pendingEchoRef.current = echoResult.nextEcho;
+      if (echoResult.absorbed) {
+        return;
+      }
+    }
     const result = applyTryItSelfCorrection(nextValue);
     if (result.droppedPrefix) {
-      setBoxText(result.cleaned);
+      updateBoxText(result.cleaned);
       setDroppedPhrase(result.droppedPrefix);
       return;
     }
-    setBoxText(nextValue);
+    updateBoxText(nextValue);
   };
 
   return (
@@ -230,6 +327,7 @@ export const TryItStepCard: React.FC<{
         ref={inputRef}
         type="text"
         value={boxText}
+        placeholder={placeholderText}
         onChange={(e) => handleInputChange(e.target.value)}
         aria-label={t("onboarding.tryIt.inputAria", "Try it here")}
         className="w-full rounded-[10px] border border-mid-gray/35 bg-background px-3.5 py-2.5 text-[14px] font-medium text-text focus:border-logo-primary focus:outline-none"
