@@ -1186,7 +1186,9 @@
       "trashEmpty": "Papperskorgen är tom.",
       "selectedTag": "(vald)",
       "selectedCount": "{{count}} valda",
-      "importIntoFolderLabel": "Importera till mapp"
+      "importIntoFolderLabel": "Importera till mapp",
+      "deletePartFailed": "Kunde inte ta bort den här delen.",
+      "restoreFailed": "Kunde inte återställa mötet."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1290,6 +1292,7 @@
     },
     "todos": {
       "empty": "Inga uppgifter från de senaste 14 dagarna.",
+      "loadFailed": "Kunde inte läsa in uppgifterna.",
       "youSaidIn": "Du sa det i {{title}}, {{date}}",
       "youSaidInNoDate": "Du sa det i {{title}}"
     },

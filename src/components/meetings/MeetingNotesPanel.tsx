@@ -6,6 +6,7 @@ import {
   type MeetingNoteLineView,
   type MeetingNotesSnapshot,
   type MeetingSegmentView,
+  type Result,
 } from "../../bindings.meetings";
 import { segmentChannelLabel } from "./channelLabels";
 import {
@@ -22,22 +23,28 @@ const LEFT_OUT_CATEGORIES = [
   ["uncovered", "meetings.notes.uncoveredLabel"],
 ] as const;
 
-const FALLBACK_FAILED_SEGMENTS: MeetingSegmentView[] = [
-  {
-    meeting_id: 0,
-    channel: "me",
-    start_ms: 432_000,
-    end_ms: 435_000,
-    text: "Let us lock the desktop release scope for this week.",
-  },
-  {
-    meeting_id: 0,
-    channel: "others",
-    start_ms: 435_000,
-    end_ms: 441_000,
-    text: "Agreed. Export stays one plain Markdown file on this Mac.",
-  },
-];
+export interface FailedTranscriptLoadResult {
+  segments: MeetingSegmentView[];
+  loadFailed: boolean;
+}
+
+export async function loadFailedTranscriptSegments(
+  meetingId: number,
+  fetchSegments: (
+    id: number,
+  ) => Promise<Result<MeetingSegmentView[], string>> = (id) =>
+    commands.meetingSegments(id),
+): Promise<FailedTranscriptLoadResult> {
+  try {
+    const res = await fetchSegments(meetingId);
+    if (res.status === "ok") {
+      return { segments: res.data, loadFailed: false };
+    }
+    return { segments: [], loadFailed: true };
+  } catch {
+    return { segments: [], loadFailed: true };
+  }
+}
 
 export function formatNoteTime(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -268,8 +275,9 @@ export const MeetingNotesSection: React.FC<MeetingNotesSectionProps> = ({
     initialView,
   );
   const [failedSegments, setFailedSegments] = useState<MeetingSegmentView[]>(
-    segments && segments.length > 0 ? segments : FALLBACK_FAILED_SEGMENTS,
+    segments ?? [],
   );
+  const [segmentsLoadFailed, setSegmentsLoadFailed] = useState(false);
   const citedLines = filterCitedNoteLines(snapshot?.lines ?? []);
   const leftOut: LeftOutSegmentView[] = snapshot?.left_out ?? [];
   const totalSteps = Math.max(1, snapshot?.progress_total ?? 5);
@@ -279,10 +287,11 @@ export const MeetingNotesSection: React.FC<MeetingNotesSectionProps> = ({
   );
 
   useEffect(() => {
+    setFailedSegments(segments ?? []);
     if (segments && segments.length > 0) {
-      setFailedSegments(segments);
+      setSegmentsLoadFailed(false);
     }
-  }, [segments]);
+  }, [segments, snapshot?.meeting_id]);
 
   useEffect(() => {
     if (recording || snapshot?.state !== "failed" || !snapshot.meeting_id) {
@@ -292,14 +301,13 @@ export const MeetingNotesSection: React.FC<MeetingNotesSectionProps> = ({
       return;
     }
     let cancelled = false;
-    void commands
-      .meetingSegments(snapshot.meeting_id)
-      .then((res) => {
-        if (!cancelled && res.status === "ok" && res.data.length > 0) {
-          setFailedSegments(res.data);
-        }
-      })
-      .catch(() => {});
+    setSegmentsLoadFailed(false);
+    void loadFailedTranscriptSegments(snapshot.meeting_id).then((res) => {
+      if (!cancelled) {
+        setFailedSegments(res.segments);
+        setSegmentsLoadFailed(res.loadFailed);
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -470,6 +478,11 @@ export const MeetingNotesSection: React.FC<MeetingNotesSectionProps> = ({
             <h3 className="text-[13.5px] font-semibold text-text">
               {t("meetings.notes.transcriptHeading", "Transcript")}
             </h3>
+            {segmentsLoadFailed ? (
+              <p role="alert" className="text-sm text-red-600">
+                {t("meetings.view.loadFailed")}
+              </p>
+            ) : null}
             <ol className="divide-y divide-mid-gray/15 text-[12px]">
               {failedSegments.slice(0, 4).map((seg) => {
                 const speaker =

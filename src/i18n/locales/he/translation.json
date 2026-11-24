@@ -1186,7 +1186,9 @@
       "trashEmpty": "האשפה ריקה.",
       "selectedTag": "(נבחר)",
       "selectedCount": "{{count}} נבחרו",
-      "importIntoFolderLabel": "ייבוא לתיקייה"
+      "importIntoFolderLabel": "ייבוא לתיקייה",
+      "deletePartFailed": "לא ניתן למחוק חלק זה.",
+      "restoreFailed": "לא ניתן לשחזר את הפגישה."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1290,6 +1292,7 @@
     },
     "todos": {
       "empty": "אין משימות מ-14 הימים האחרונים.",
+      "loadFailed": "לא ניתן לטעון את המשימות.",
       "youSaidIn": "אמרת את זה ב-{{title}}, {{date}}",
       "youSaidInNoDate": "אמרת את זה ב-{{title}}"
     },

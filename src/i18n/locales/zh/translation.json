@@ -1186,7 +1186,9 @@
       "trashEmpty": "废纸篓为空。",
       "selectedTag": "（已选中）",
       "selectedCount": "已选 {{count}} 项",
-      "importIntoFolderLabel": "导入到文件夹"
+      "importIntoFolderLabel": "导入到文件夹",
+      "deletePartFailed": "无法删除这一部分。",
+      "restoreFailed": "无法恢复该会议。"
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1290,6 +1292,7 @@
     },
     "todos": {
       "empty": "最近 14 天没有待办事项。",
+      "loadFailed": "无法加载待办事项。",
       "youSaidIn": "你在《{{title}}》（{{date}}）中提到过",
       "youSaidInNoDate": "你在《{{title}}》中提到过"
     },

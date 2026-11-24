@@ -28,6 +28,11 @@ import {
 import { RecordMeetingPage as MeetingsView } from "./RecordMeetingPage";
 export const MEETINGS_UI_SENTINEL = "coco-meetings-ui-v1";
 
+export {
+  runOptimisticCommand,
+  type OptimisticActionOutcome,
+} from "./optimisticCommand";
+
 function meetingsEnabled(settings: unknown): boolean {
   return (
     typeof settings === "object" &&

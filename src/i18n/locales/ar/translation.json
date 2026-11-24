@@ -1186,7 +1186,9 @@
       "trashEmpty": "سلة المهملات فارغة.",
       "selectedTag": "(محدد)",
       "selectedCount": "تم تحديد {{count}}",
-      "importIntoFolderLabel": "استيراد إلى مجلد"
+      "importIntoFolderLabel": "استيراد إلى مجلد",
+      "deletePartFailed": "تعذر حذف هذا الجزء.",
+      "restoreFailed": "تعذر استعادة الاجتماع."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1290,6 +1292,7 @@
     },
     "todos": {
       "empty": "لا توجد مهام من آخر 14 يوماً.",
+      "loadFailed": "تعذر تحميل المهام.",
       "youSaidIn": "قلت ذلك في {{title}}، {{date}}",
       "youSaidInNoDate": "قلت ذلك في {{title}}"
     },

@@ -1186,7 +1186,9 @@
       "trashEmpty": "Kosz jest pusty.",
       "selectedTag": "(zaznaczone)",
       "selectedCount": "Wybrano: {{count}}",
-      "importIntoFolderLabel": "Importuj do folderu"
+      "importIntoFolderLabel": "Importuj do folderu",
+      "deletePartFailed": "Nie udało się usunąć tej części.",
+      "restoreFailed": "Nie udało się przywrócić spotkania."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1290,6 +1292,7 @@
     },
     "todos": {
       "empty": "Brak zadań z ostatnich 14 dni.",
+      "loadFailed": "Nie udało się wczytać zadań.",
       "youSaidIn": "Powiedziałeś to w {{title}}, {{date}}",
       "youSaidInNoDate": "Powiedziałeś to w {{title}}"
     },

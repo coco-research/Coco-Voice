@@ -1186,7 +1186,9 @@
       "trashEmpty": "Trash is empty.",
       "selectedTag": "(selected)",
       "selectedCount": "{{count}} selected",
-      "importIntoFolderLabel": "Import into folder"
+      "importIntoFolderLabel": "Import into folder",
+      "deletePartFailed": "Could not delete this part.",
+      "restoreFailed": "Could not restore the meeting."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1290,6 +1292,7 @@
     },
     "todos": {
       "empty": "No to-dos from the last 14 days.",
+      "loadFailed": "Could not load to-dos.",
       "youSaidIn": "You said it in {{title}}, {{date}}",
       "youSaidInNoDate": "You said it in {{title}}"
     },

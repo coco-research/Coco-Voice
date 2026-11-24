@@ -1186,7 +1186,9 @@
       "trashEmpty": "Кошчето е празно.",
       "selectedTag": "(избрано)",
       "selectedCount": "{{count}} избрани",
-      "importIntoFolderLabel": "Импортирай в папка"
+      "importIntoFolderLabel": "Импортирай в папка",
+      "deletePartFailed": "Неуспешно изтриване на тази част.",
+      "restoreFailed": "Неуспешно възстановяване на срещата."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1290,6 +1292,7 @@
     },
     "todos": {
       "empty": "Няма задачи от последните 14 дни.",
+      "loadFailed": "Неуспешно зареждане на задачите.",
       "youSaidIn": "Казахте го в {{title}}, {{date}}",
       "youSaidInNoDate": "Казахте го в {{title}}"
     },

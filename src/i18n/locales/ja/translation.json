@@ -1186,7 +1186,9 @@
       "trashEmpty": "ゴミ箱は空です。",
       "selectedTag": "（選択中）",
       "selectedCount": "{{count}} 件選択中",
-      "importIntoFolderLabel": "フォルダへインポート"
+      "importIntoFolderLabel": "フォルダへインポート",
+      "deletePartFailed": "この部分を削除できませんでした。",
+      "restoreFailed": "会議を復元できませんでした。"
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1290,6 +1292,7 @@
     },
     "todos": {
       "empty": "直近 14 日間の To-Do はありません。",
+      "loadFailed": "To-Do を読み込めませんでした。",
       "youSaidIn": "{{title}}（{{date}}）での発言",
       "youSaidInNoDate": "{{title}} での発言"
     },

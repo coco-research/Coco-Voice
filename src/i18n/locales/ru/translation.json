@@ -1186,7 +1186,9 @@
       "trashEmpty": "Корзина пуста.",
       "selectedTag": "(выбрано)",
       "selectedCount": "Выбрано: {{count}}",
-      "importIntoFolderLabel": "Импортировать в папку"
+      "importIntoFolderLabel": "Импортировать в папку",
+      "deletePartFailed": "Не удалось удалить эту часть.",
+      "restoreFailed": "Не удалось восстановить встречу."
     },
     "ask": {
       "singleHeading": "Ask this meeting",
@@ -1290,6 +1292,7 @@
     },
     "todos": {
       "empty": "За последние 14 дней задач нет.",
+      "loadFailed": "Не удалось загрузить задачи.",
       "youSaidIn": "Вы сказали это во встрече {{title}}, {{date}}",
       "youSaidInNoDate": "Вы сказали это во встрече {{title}}"
     },

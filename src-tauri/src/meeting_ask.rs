@@ -354,4 +354,62 @@ mod tests {
         assert!(!ans.answer.contains("Invalid"));
         assert_eq!(ans.citations.len(), 1);
     }
+
+    #[test]
+    fn ask_never_cites_a_meeting_deleted_without_an_index_sync() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        seed_three_meetings(p);
+        let idx = MeetingAskIndex::open(p).unwrap();
+        idx.sync().unwrap();
+
+        let before = idx
+            .ask(&AskScope::AllMeetings, "dark sidebar", None)
+            .unwrap();
+        assert!(
+            before.citations.iter().any(|c| c.meeting_id == 2),
+            "baseline must cite meeting 2"
+        );
+
+        let mc = rusqlite::Connection::open(p.join("meetings/meetings.db")).unwrap();
+        mc.execute("DELETE FROM meeting_segments WHERE meeting_id = 2", [])
+            .unwrap();
+        mc.execute("DELETE FROM meetings WHERE id = 2", []).unwrap();
+        drop(mc);
+
+        let after = idx
+            .ask(&AskScope::AllMeetings, "dark sidebar", None)
+            .unwrap();
+        assert!(
+            after.citations.iter().all(|c| c.meeting_id != 2),
+            "deleted meeting must never be cited even without post-delete sync"
+        );
+        assert!(after.citations.is_empty());
+    }
+
+    #[test]
+    fn ask_errors_while_the_index_sync_is_blocked() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        seed_three_meetings(p);
+        let idx = MeetingAskIndex::open(p).unwrap();
+        idx.sync().unwrap();
+
+        let mc = rusqlite::Connection::open(p.join("meetings/meetings.db")).unwrap();
+        mc.execute("DELETE FROM meeting_segments WHERE meeting_id = 2", [])
+            .unwrap();
+        mc.execute("DELETE FROM meetings WHERE id = 2", []).unwrap();
+        drop(mc);
+
+        let locker = rusqlite::Connection::open(p.join("meetings/ask_index.db")).unwrap();
+        locker.execute_batch("BEGIN IMMEDIATE;").unwrap();
+
+        let result = idx.ask(&AskScope::AllMeetings, "dark sidebar", None);
+        assert!(
+            result.is_err(),
+            "ask must fail closed when the index sync is blocked"
+        );
+
+        locker.execute_batch("COMMIT;").unwrap();
+    }
 }
