@@ -198,7 +198,7 @@ Access debug features: `Cmd+Shift+D` (macOS) or `Ctrl+Shift+D` (Windows/Linux)
 
 - **macOS**: Metal acceleration, accessibility permissions required for keyboard shortcuts
 - **Windows**: Vulkan acceleration, code signing
-- **Linux**: OpenBLAS + Vulkan, limited Wayland support, overlay uses GTK layer shell (disable with `HANDY_NO_GTK_LAYER_SHELL=1`)
+- **Linux**: OpenBLAS + Vulkan, limited Wayland support, overlay uses GTK layer shell (disable with `COCO_VOICE_NO_GTK_LAYER_SHELL=1`)
 
 ## Troubleshooting
 

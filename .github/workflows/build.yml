@@ -423,8 +423,8 @@ jobs:
             }
             $dirs = "$($crt.FullName);$($omp.FullName)"
           }
-          Write-Host "HANDY_VC_REDIST_DIRS=$dirs"
-          Add-Content -Path $env:GITHUB_ENV -Value "HANDY_VC_REDIST_DIRS=$dirs"
+          Write-Host "COCO_VOICE_VC_REDIST_DIRS=$dirs"
+          Add-Content -Path $env:GITHUB_ENV -Value "COCO_VOICE_VC_REDIST_DIRS=$dirs"
 
       # MSI packaging verifies bundled .dll/.exe resources with signtool before
       # custom signing. Tauri's SDK lookup has no ARM64 host mapping, so pass
@@ -550,7 +550,7 @@ jobs:
       # transcribe-cpp-sys's CMake install during the cargo build, but nothing
       # ships them. Pre-build the app so that install dir exists, then expose it
       # via LD_LIBRARY_PATH so the AppImage's linuxdeploy can resolve
-      # libtranscribe.so (a NEEDED of `handy`) while bundling. tauri-action
+      # libtranscribe.so (a NEEDED of `coco-voice`) while bundling. tauri-action
       # reuses this compile incrementally. TRANSCRIBE_LIBDIR is consumed by the
       # AppImage post-processing step to co-locate the dlopen'd ggml modules.
       - name: Pre-build and locate transcribe-cpp backend libs (Linux)
@@ -776,7 +776,7 @@ jobs:
             local label="$2"
             # Run under a virtual X server: coco-voice initializes GTK on startup even
             # on the headless --list-devices path, which fails without a display.
-            HANDY_NO_GTK_LAYER_SHELL=1 \
+            COCO_VOICE_NO_GTK_LAYER_SHELL=1 \
             LD_LIBRARY_PATH="${root}/usr/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
               xvfb-run -a "${root}/usr/bin/coco-voice" --list-devices >/tmp/coco-voice-package-smoke.log
             echo "${label} --list-devices smoke passed"

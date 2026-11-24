@@ -56,7 +56,7 @@ export const CocoVoiceKeysShortcutInput: React.FC<
     }
 
     // Stop backend recording
-    await commands.stopHandyKeysRecording().catch(console.error);
+    await commands.stopCocoKeysRecording().catch(console.error);
 
     // Restore original binding
     if (originalBinding) {
@@ -122,7 +122,7 @@ export const CocoVoiceKeysShortcutInput: React.FC<
               unlistenRef.current();
               unlistenRef.current = null;
             }
-            await commands.stopHandyKeysRecording().catch(console.error);
+            await commands.stopCocoKeysRecording().catch(console.error);
             setIsRecording(false);
             setCurrentKeys("");
             currentKeysRef.current = "";
@@ -143,7 +143,7 @@ export const CocoVoiceKeysShortcutInput: React.FC<
         unlistenRef.current = null;
       }
       // Stop backend recording on unmount to prevent orphaned recording loops
-      commands.stopHandyKeysRecording().catch(console.error);
+      commands.stopCocoKeysRecording().catch(console.error);
     };
   }, [
     isRecording,
@@ -180,7 +180,7 @@ export const CocoVoiceKeysShortcutInput: React.FC<
 
     // Start backend recording
     try {
-      await commands.startHandyKeysRecording(shortcutId);
+      await commands.startCocoKeysRecording(shortcutId);
       setIsRecording(true);
       setCurrentKeys("");
       currentKeysRef.current = "";
