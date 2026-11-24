@@ -657,6 +657,7 @@ export function MeetingsList({
         deletedKeys.has(segmentKey(s)) ||
         (s.end_ms > startMs && s.start_ms < endMs);
       const removedSegments = detailSegments.filter(isRemoved);
+      const meetingId = selectedMeeting.id;
       const outcome = await runOptimisticCommand(
         () => {
           setDetailErrorKey(null);
@@ -666,12 +667,9 @@ export function MeetingsList({
           setDetailSegments((prev) => prev.filter((s) => !isRemoved(s)));
         },
         () =>
-          meetingCommands.deleteTranscriptSpanSecure(
-            selectedMeeting.id,
-            startMs,
-            endMs,
-          ),
+          meetingCommands.deleteTranscriptSpanSecure(meetingId, startMs, endMs),
         () => {
+          if (selectedIdRef.current !== meetingId) return;
           setDetailSegments((prev) => {
             const present = new Set(prev.map(segmentKey));
             const restored = [
@@ -687,10 +685,11 @@ export function MeetingsList({
         },
       );
       if (!outcome.ok) return;
-      const snapRes = await meetingCommands.meetingNotesSnapshot(
-        selectedMeeting.id,
-      );
-      if (snapRes.status === "ok") setDetailNotes(snapRes.data);
+      if (selectedIdRef.current !== meetingId) return;
+      const snapRes = await meetingCommands.meetingNotesSnapshot(meetingId);
+      if (snapRes.status === "ok" && selectedIdRef.current === meetingId) {
+        setDetailNotes(snapRes.data);
+      }
     };
 
     const detailDateLabel = formatShortDateDddDDMon(
