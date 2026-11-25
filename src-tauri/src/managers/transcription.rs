@@ -3216,6 +3216,8 @@ mod tests {
     #[cfg(feature = "meetings")]
     #[test]
     fn dictation_cancelled_during_the_lease_wait_gives_up() {
+        use std::sync::atomic::AtomicUsize;
+
         let app = tauri::test::mock_builder()
             .plugin(tauri_plugin_store::Builder::default().build())
             .build(tauri::test::mock_context(tauri::test::noop_assets()))
@@ -3224,22 +3226,22 @@ mod tests {
         // A simulated stream holds the engine; the meeting lock stays free.
         tm.lease_engine_for_test("handy-computer/parakeet-tdt-0.6b-v3-gguf");
 
-        let cancelled = Arc::new(AtomicBool::new(false));
-        let take_cancelled = Arc::clone(&cancelled);
-        let canceller = thread::spawn(move || {
-            thread::sleep(Duration::from_millis(20));
-            take_cancelled.store(true, Ordering::SeqCst);
-        });
-
+        // Call 1: post-lock check; call 2: first poll inside lease wait;
+        // call 3+: cancel lands inside the lease wait (or post-wait check) with no wall-clock race.
+        let calls = AtomicUsize::new(0);
         let result = tm.transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| {
-            cancelled.load(Ordering::SeqCst)
+            calls.fetch_add(1, Ordering::SeqCst) + 1 >= 3
         });
-        canceller.join().expect("the cancel thread panicked");
 
         let err = result.expect_err("a take cancelled during the lease wait still transcribed");
         assert!(
             err.downcast_ref::<TranscriptionCancelled>().is_some(),
             "unexpected error: {err:?}"
+        );
+        assert!(
+            calls.load(Ordering::SeqCst) >= 3,
+            "cancel signal must fire inside the lease wait (got {} calls)",
+            calls.load(Ordering::SeqCst)
         );
 
         tm.release_engine_lease_for_test("handy-computer/parakeet-tdt-0.6b-v3-gguf");
@@ -3252,20 +3254,22 @@ mod tests {
     #[cfg(feature = "meetings")]
     #[test]
     fn uncancelled_cancel_aware_wait_acquires_engine_once_stream_lease_releases() {
+        use std::sync::atomic::AtomicUsize;
+
         let app = tauri::test::mock_builder()
             .build(tauri::test::mock_context(tauri::test::noop_assets()))
             .expect("mock app");
         let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
         tm.lease_engine_for_test("handy-computer/parakeet-tdt-0.6b-v3-gguf");
 
-        let tm_releaser = Arc::clone(&tm);
-        let releaser = thread::spawn(move || {
-            thread::sleep(Duration::from_millis(30));
-            tm_releaser.release_engine_lease_for_test("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+        // ponytail: ceiling = preemption > 100 ms between poll_until setting its deadline and its first deadline check on the test thread (no cross-thread ordering); upgrade path = injectable clock if that ever flakes.
+        let calls = AtomicUsize::new(0);
+        let result = tm.transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| {
+            if calls.fetch_add(1, Ordering::SeqCst) + 1 == 2 {
+                tm.release_engine_lease_for_test("handy-computer/parakeet-tdt-0.6b-v3-gguf");
+            }
+            false
         });
-
-        let result = tm.transcribe_with_meeting_lock_unless(vec![0.25_f32; 16_000], &|| false);
-        releaser.join().expect("the release thread panicked");
 
         if let Err(err) = result {
             assert!(
@@ -3274,6 +3278,11 @@ mod tests {
                 "uncancelled take should pass the stream lease gate, got: {err:?}"
             );
         }
+        assert!(
+            calls.load(Ordering::SeqCst) >= 2,
+            "lease release must fire inside the lease wait (got {} calls)",
+            calls.load(Ordering::SeqCst)
+        );
         assert!(tm.is_engine_available());
     }
 
