@@ -6,6 +6,53 @@ from the conventional commit titles when a release is cut. The user-facing notes
 for each version are in [src/content/release-notes/](src/content/release-notes/)
 and on the [GitHub Release](https://github.com/coco-research/Coco-Voice/releases).
 
+## [0.20.2](https://github.com/coco-research/Coco-Voice/compare/v0.11.0...v0.20.2) (2026-11-25)
+
+
+### Added
+
+* choose one-shot or pieces for meeting notes ([#244](https://github.com/coco-research/Coco-Voice/issues/244)) ([8bdcede](https://github.com/coco-research/Coco-Voice/commit/8bdcede7c47421cb523b4d9821b9551f7ae87f77))
+* **dictation:** add opt-in local stdio ask_user pill bridge ([#275](https://github.com/coco-research/Coco-Voice/issues/275)) ([244c447](https://github.com/coco-research/Coco-Voice/commit/244c4475cb45d9d9404aec5cdef96bbc21fc0beb))
+* **meetings:** add local SQLite BM25 index, cited meeting Q&A, and spoken WAV queries ([#269](https://github.com/coco-research/Coco-Voice/issues/269)) ([2ea16ab](https://github.com/coco-research/Coco-Voice/commit/2ea16ab571b278c860785feefa602946dbe8327b))
+* **meetings:** delete a meeting with its notes and audio ([#252](https://github.com/coco-research/Coco-Voice/issues/252)) ([eae0234](https://github.com/coco-research/Coco-Voice/commit/eae0234f2b9f3999339215b48faceea067f007e5))
+* **meetings:** enable meetings in macOS release builds only ([#264](https://github.com/coco-research/Coco-Voice/issues/264)) ([dbd5778](https://github.com/coco-research/Coco-Voice/commit/dbd577891822c3d922fc879effa90aeb9efa6f9c))
+* **meetings:** extract and sync cross-meeting spoken to-dos ([#274](https://github.com/coco-research/Coco-Voice/issues/274)) ([cda3eb4](https://github.com/coco-research/Coco-Voice/commit/cda3eb4e7634fa95e013988ae8e46c3aed969168))
+* **meetings:** list meetings and search them by any text ([#250](https://github.com/coco-research/Coco-Voice/issues/250)) ([64491f6](https://github.com/coco-research/Coco-Voice/commit/64491f63e924f6bec4bab135f5f4aeb16858a0ac))
+* merge meeting note lines across transcript pieces ([#242](https://github.com/coco-research/Coco-Voice/issues/242)) ([a4e7534](https://github.com/coco-research/Coco-Voice/commit/a4e7534a32c3950a3141221a19f06609486a09be))
+* **settings:** add What goes online network disclosure section to About ([#265](https://github.com/coco-research/Coco-Voice/issues/265)) ([dbd9355](https://github.com/coco-research/Coco-Voice/commit/dbd9355c4f92d2899dc9b4c64b7d7f073fb1e850))
+* **shell:** add grouped Home, Meetings, and Voice navigation shell ([#288](https://github.com/coco-research/Coco-Voice/issues/288)) ([e5dabd2](https://github.com/coco-research/Coco-Voice/commit/e5dabd23d0d37883f032586b16097b390a58312e))
+
+
+### Fixed
+
+* **ci:** create the folders ort-sys copies DLLs into on Windows ([#259](https://github.com/coco-research/Coco-Voice/issues/259)) ([413c1da](https://github.com/coco-research/Coco-Voice/commit/413c1da0f90f3e432a0bf8598413085964289a82))
+* **ci:** fetch Windows ONNX Runtime from NuGet, pinned by SHA-256 ([#263](https://github.com/coco-research/Coco-Voice/issues/263)) ([874054d](https://github.com/coco-research/Coco-Voice/commit/874054d186a8e141e14f7c5fff5b5f38f1c2df19))
+* keep a live meeting recording when the meeting store reopens ([#346](https://github.com/coco-research/Coco-Voice/issues/346)) ([0535b4f](https://github.com/coco-research/Coco-Voice/commit/0535b4faea2b862232997d91cd423396fbe5e4a0))
+* keep meeting Stop and Pause off the main thread and pause recording ([#351](https://github.com/coco-research/Coco-Voice/issues/351)) ([126f4e7](https://github.com/coco-research/Coco-Voice/commit/126f4e73a72ff5faec4f4d7e9753539cedb6db7d))
+* let a new meeting start after the last one finishes ([#342](https://github.com/coco-research/Coco-Voice/issues/342)) ([623509b](https://github.com/coco-research/Coco-Voice/commit/623509b98bae87c9acfc6ed4cf710b33b86ee509))
+* let Ask answer questions asked in different words ([#348](https://github.com/coco-research/Coco-Voice/issues/348)) ([5536d5f](https://github.com/coco-research/Coco-Voice/commit/5536d5fceeaba9fe3638701a8435161a72af47fe))
+* make the clean-up card download the clean-up model ([#344](https://github.com/coco-research/Coco-Voice/issues/344)) ([632b81a](https://github.com/coco-research/Coco-Voice/commit/632b81aa5b85c288ecdce96507fa9af6cf2d00af))
+* **meetings:** drop the second MeetingSegment definition ([#262](https://github.com/coco-research/Coco-Voice/issues/262)) ([413c5f1](https://github.com/coco-research/Coco-Voice/commit/413c5f17dfc03c6ddf6a16ef30fd4c9e83918e87))
+* **meetings:** keep a meeting chunk waiting out a dictation stream ([#238](https://github.com/coco-research/Coco-Voice/issues/238)) ([4fa7726](https://github.com/coco-research/Coco-Voice/commit/4fa7726717ecdc1b165bc1c9132ee23315d2f68e))
+* **meetings:** keep the tap IO thread off the pool after a stop ([#236](https://github.com/coco-research/Coco-Voice/issues/236)) ([696ac48](https://github.com/coco-research/Coco-Voice/commit/696ac48553ba23adaeb8a301c2ad0a1ca05520fc))
+* **meetings:** let the meeting planner pin the installed ONNX Parakeet ([#225](https://github.com/coco-research/Coco-Voice/issues/225)) ([f717536](https://github.com/coco-research/Coco-Voice/commit/f7175361474441191899ad2817dad1013cbf5c60))
+* **meetings:** make history re-transcribe take the meeting lock ([#239](https://github.com/coco-research/Coco-Voice/issues/239)) ([da42606](https://github.com/coco-research/Coco-Voice/commit/da42606d1fb237d14aba03ff8bd1acd36e9c858b))
+* **models:** surface typed model download failure cause and Try again ([#306](https://github.com/coco-research/Coco-Voice/issues/306)) ([6efab75](https://github.com/coco-research/Coco-Voice/commit/6efab75ac4b888cb50bc815997a778842f4e73f7))
+* open the cited meeting when you click a source in Ask ([#331](https://github.com/coco-research/Coco-Voice/issues/331)) ([9129cb7](https://github.com/coco-research/Coco-Voice/commit/9129cb7036d76dc49ecd4d7ac853707b8f1aea66))
+* report failed meeting deletes and never show sample lines as a transcript ([#327](https://github.com/coco-research/Coco-Voice/issues/327)) ([4ee81b4](https://github.com/coco-research/Coco-Voice/commit/4ee81b4257f5d033a28e3d78a9926d55e89ee2ad))
+* say "Still working" on a busy press and lock the model picker while recording ([#253](https://github.com/coco-research/Coco-Voice/issues/253)) ([409caa5](https://github.com/coco-research/Coco-Voice/commit/409caa5732a5d4e7f82e040d4bf75f0fbc0b1742)), closes [#218](https://github.com/coco-research/Coco-Voice/issues/218)
+* say Google Meet is in a call only when the tab shows a meeting code ([#326](https://github.com/coco-research/Coco-Voice/issues/326)) ([43f1153](https://github.com/coco-research/Coco-Voice/commit/43f1153f2cf6be13b3b41b31e689794cdf1c69be))
+* settings labels, the coming-up meeting status, and the frontend suite in CI ([#328](https://github.com/coco-research/Coco-Voice/issues/328)) ([8ba12cd](https://github.com/coco-research/Coco-Voice/commit/8ba12cdce6e62791c28eb268b585e4f5a0e28a61))
+* show the first try-it take once in onboarding ([#338](https://github.com/coco-research/Coco-Voice/issues/338)) ([8b37487](https://github.com/coco-research/Coco-Voice/commit/8b374873a7c8c015d1ff05626c8098f1584308ed))
+* spot a stale Accessibility entry on the permission screen ([#303](https://github.com/coco-research/Coco-Voice/issues/303)) ([97a73b3](https://github.com/coco-research/Coco-Voice/commit/97a73b34013aec1c7ee02fe08de6a1ef09f5dd40))
+* treat a permission check that can't complete as not granted ([#248](https://github.com/coco-research/Coco-Voice/issues/248)) ([3082746](https://github.com/coco-research/Coco-Voice/commit/3082746a1253fa30bddc57dce8d4e669576c7f80)), closes [#217](https://github.com/coco-research/Coco-Voice/issues/217)
+* use the chosen note template when writing meeting notes ([#333](https://github.com/coco-research/Coco-Voice/issues/333)) ([47389f5](https://github.com/coco-research/Coco-Voice/commit/47389f561be9e1bf5be5621ce4462dc5e53f11a7))
+
+
+### Miscellaneous
+
+* bring the 0.20 line to main ([fd9ea8f](https://github.com/coco-research/Coco-Voice/commit/fd9ea8f111661e6586e5a6f015034513045d6a42))
+
 ## [0.11.0](https://github.com/coco-research/Coco-Voice/compare/v0.10.1...v0.11.0) (2026-11-17)
 
 
