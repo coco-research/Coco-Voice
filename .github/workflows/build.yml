@@ -20,10 +20,6 @@ on:
         required: false
         type: string
         default: "coco-voice"
-      asset-name-pattern:
-        required: false
-        type: string
-        default: ""
       upload-artifacts:
         required: false
         type: boolean
@@ -312,19 +308,6 @@ jobs:
           echo "CERT_ID=$CERT_ID" >> "$GITHUB_ENV"
           echo "Signing macOS build as: $CERT_ID"
 
-      - name: Patch asset name pattern
-        id: patch-release-name
-        shell: bash
-        if: ${{ inputs.release-id != '' && inputs.asset-name-pattern != '' }}
-        run: |
-          platform="${{ inputs.platform }}"
-          replacement="$(echo ${platform} | sed -E 's/-latest//')"
-          patched_platform=$(echo '${{ inputs.asset-name-pattern }}' | sed -E "s/\[platform\]/${replacement}/")
-          if [[ -n "${{ inputs.asset-prefix }}" ]]; then
-            patched_platform="${{ inputs.asset-prefix }}_${patched_platform}"
-          fi
-          echo "platform=${patched_platform}" >> $GITHUB_OUTPUT
-
       # transcribe-cpp-sys cmake builds create paths that exceed Windows MAX_PATH
       # (260 chars). Shorten the target dir to keep paths under the limit.
       - name: Shorten build path (Windows)
@@ -595,6 +578,45 @@ jobs:
         shell: bash
         run: echo "VITE_MEETINGS=1" >> "$GITHUB_ENV"
 
+      - name: Clear leftover partial release assets
+        if: inputs.release-id != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ inputs.release-id }}
+        run: |
+          set -euo pipefail
+          case "${RELEASE_ID:-}" in
+            ''|*[!0-9]*)
+              echo "skip"
+              exit 0
+              ;;
+          esac
+          is_draft=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.draft' | tr -d '\r')
+          if [ "$is_draft" != "true" ]; then
+            echo "skip"
+            exit 0
+          fi
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" \
+            --jq '.[] | select(.state == "starter") | "\(.id)\t\(.name)"' | tr -d '\r' |
+            while IFS=$'\t' read -r asset_id asset_name; do
+              [ -n "$asset_id" ] || continue
+              if [ "${DRY_RUN:-0}" = "1" ]; then
+                printf '%s\n' "$asset_name"
+              else
+                if ! err=$(gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${asset_id}" 2>&1 >/dev/null); then
+                  case "$err" in
+                    *"404"*|*"Not Found"*) continue ;;
+                    *)
+                      echo "Failed to delete starter asset: $asset_name" >&2
+                      exit 1
+                      ;;
+                  esac
+                fi
+                printf '%s\n' "$asset_name"
+              fi
+            done
+
       - name: Build with Tauri
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
         env:
@@ -622,12 +644,12 @@ jobs:
           tagName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
           releaseName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
           releaseId: ${{ inputs.release-id }}
+          retryAttempts: 2
           # Unsigned macOS builds: Tauri tries to import a certificate whenever
           # APPLE_CERTIFICATE is set, even to an empty string, so drop those vars.
           # sign-macos keeps APPLE_SIGNING_IDENTITY; the APPLE_ID vars stay
           # dropped so nothing is notarized.
           tauriScript: ${{ (!inputs.sign-binaries && contains(inputs.platform, 'macos')) && format('env -u APPLE_CERTIFICATE -u APPLE_CERTIFICATE_PASSWORD{0} -u APPLE_ID -u APPLE_PASSWORD -u APPLE_TEAM_ID bun tauri', steps.macos-sign.outputs.enabled != 'true' && ' -u APPLE_SIGNING_IDENTITY' || '') || '' }}
-          assetNamePattern: ${{ steps.patch-release-name.outputs.platform }}
           args: ${{ contains(inputs.platform, 'macos') && format('--features meetings --config src-tauri/tauri.meetings.conf.json {0}', inputs.build-args) || inputs.build-args }}
 
       - name: Verify macOS dylib bundling
