@@ -232,6 +232,27 @@ fn plan_ask_pieces(segments: &[AskCitation], prompt_tokens: usize) -> Vec<Range<
     plan_pieces_within(&seg_tokens, ask_budget)
 }
 
+/// Build a multi-piece Ask merge prompt trimmed in order so its estimated token
+/// count stays within `ASK_PROMPT_BUDGET_TOKENS`. Returns `(prompt, kept_count)`
+/// for the longest prefix of `cites` that fits, or `None` when even the first
+/// citation cannot fit.
+fn build_bounded_merge_prompt(
+    question: &str,
+    cites: &[AskCitation],
+    history: &[(String, String)],
+) -> Option<(String, usize)> {
+    let mut best: Option<(String, usize)> = None;
+    for k in 1..=cites.len() {
+        let prompt = build_ask_prompt_with_history(question, &cites[..k], history);
+        if estimate_tokens(&prompt) <= ASK_PROMPT_BUDGET_TOKENS {
+            best = Some((prompt, k));
+        } else {
+            break;
+        }
+    }
+    best
+}
+
 fn ask_segments_with_model(
     question: &str,
     segments: &[AskCitation],
@@ -274,13 +295,31 @@ fn ask_segments_with_model(
     if piece_answers.len() == 1 {
         return Ok(Some((piece_answers.remove(0), merged_cites)));
     }
-    if let Ok(merge_reply) = model.generate(&build_ask_prompt_with_history(
-        question,
-        &merged_cites,
-        history,
-    )) {
-        if let Some(verified) = verify_model_reply(&merge_reply, &merged_cites, data_dir, single) {
-            return Ok(Some(verified));
+    match build_bounded_merge_prompt(question, &merged_cites, history) {
+        Some((merge_prompt, kept)) => {
+            let merge_slice = &merged_cites[..kept];
+            if kept < merged_cites.len() {
+                log::debug!(
+                    "ask merge trimmed citations to fit prompt budget: kept={} total={} budget_tokens={}",
+                    kept,
+                    merged_cites.len(),
+                    ASK_PROMPT_BUDGET_TOKENS
+                );
+            }
+            if let Ok(merge_reply) = model.generate(&merge_prompt) {
+                if let Some(verified) =
+                    verify_model_reply(&merge_reply, merge_slice, data_dir, single)
+                {
+                    return Ok(Some(verified));
+                }
+            }
+        }
+        None => {
+            log::warn!(
+                "ask merge skipped: even 1 citation exceeds prompt budget (citations={} budget_tokens={})",
+                merged_cites.len(),
+                ASK_PROMPT_BUDGET_TOKENS
+            );
         }
     }
     Ok(Some((piece_answers.join("\n"), merged_cites)))
@@ -554,6 +593,9 @@ mod tests {
         }
         fn calls(&self) -> usize {
             self.0.lock().unwrap().len()
+        }
+        fn prompts(&self) -> Vec<String> {
+            self.0.lock().unwrap().clone()
         }
     }
     impl<F: Fn(&str) -> Result<String>> LocalAskModel for RecordingModel<F> {
@@ -938,5 +980,117 @@ mod tests {
             plan_ask_pieces(&segs, prompt_tokens),
             vec![0..6, 6..12, 12..18, 18..20]
         );
+    }
+
+    #[test]
+    fn multi_piece_ask_merge_prompt_trims_citations_in_order_within_budget() {
+        let d = tempfile::tempdir().unwrap();
+        let make_seg = |tag: &str| format!("{tag}: {}", "m".repeat(1_360));
+        let s1 = make_seg("ALPHA_SEG_1");
+        let s2 = make_seg("BETA_SEG_2");
+        let s3 = make_seg("GAMMA_SEG_3");
+        let s4 = make_seg("DELTA_SEG_4");
+        seed_one_meeting(
+            d.path(),
+            "Quarterly milestones",
+            &[
+                (10_000, "others", &s1),
+                (20_000, "me", &s2),
+                (30_000, "others", &s3),
+                (40_000, "me", &s4),
+            ],
+        );
+
+        let idx = MeetingAskIndex::open(d.path()).unwrap();
+        let step = std::sync::atomic::AtomicUsize::new(0);
+        let m = RecordingModel::new(move |_| {
+            match step.fetch_add(1, std::sync::atomic::Ordering::SeqCst) {
+                0 => Ok("First milestone [1].\nSecond milestone [2].".into()),
+                1 => Ok("Third milestone [1].\nFourth milestone [2].".into()),
+                _ => Ok("Merged milestones [1] [2].".into()),
+            }
+        });
+
+        let ans = idx
+            .ask(
+                &AskScope::OneMeeting(1),
+                "what were the milestones?",
+                Some(&m),
+            )
+            .unwrap();
+        let prompts = m.prompts();
+        assert_eq!(
+            prompts.len(),
+            3,
+            "expected 2 piece calls plus 1 bounded merge call, got {}",
+            prompts.len()
+        );
+        for (i, prompt) in prompts.iter().enumerate() {
+            let tokens = estimate_tokens(prompt);
+            assert!(
+                tokens <= ASK_PROMPT_BUDGET_TOKENS,
+                "prompt {i} exceeded ASK_PROMPT_BUDGET_TOKENS: {tokens} > {ASK_PROMPT_BUDGET_TOKENS}"
+            );
+        }
+
+        // The merge prompt (3rd call) must keep citations in original order (prefix only).
+        let merge_prompt = &prompts[2];
+        let pos_alpha = merge_prompt
+            .find("ALPHA_SEG_1")
+            .expect("merge prompt must include first citation ALPHA_SEG_1");
+        let pos_beta = merge_prompt
+            .find("BETA_SEG_2")
+            .expect("merge prompt must include second citation BETA_SEG_2");
+        assert!(
+            pos_alpha < pos_beta,
+            "merge prompt must preserve citation order"
+        );
+        assert!(
+            !merge_prompt.contains("GAMMA_SEG_3") && !merge_prompt.contains("DELTA_SEG_4"),
+            "overflowing trailing citations must be trimmed in order"
+        );
+        assert_eq!(ans.citations.len(), 2);
+        assert_eq!(ans.citations[0].segment_id, 1);
+        assert_eq!(ans.citations[1].segment_id, 2);
+    }
+
+    #[test]
+    fn multi_piece_ask_skips_merge_when_even_one_citation_exceeds_budget() {
+        let d = tempfile::tempdir().unwrap();
+        // Each segment alone exceeds ASK_PROMPT_BUDGET_TOKENS once combined with the prompt template.
+        let s1 = format!("OVERSIZED_FIRST: {}", "q".repeat(4_400));
+        let s2 = format!("OVERSIZED_SECOND: {}", "r".repeat(4_400));
+        seed_one_meeting(
+            d.path(),
+            "Long monologue",
+            &[(10_000, "others", &s1), (20_000, "me", &s2)],
+        );
+
+        let idx = MeetingAskIndex::open(d.path()).unwrap();
+        let m = RecordingModel::new(|p| {
+            if p.contains("OVERSIZED_FIRST") {
+                Ok("First long point [1].".into())
+            } else {
+                Ok("Second long point [1].".into())
+            }
+        });
+
+        let ans = idx
+            .ask(
+                &AskScope::OneMeeting(1),
+                "summarize the two points",
+                Some(&m),
+            )
+            .unwrap();
+        assert_eq!(
+            m.calls(),
+            2,
+            "merge call must be skipped when even 1 citation cannot fit ASK_PROMPT_BUDGET_TOKENS"
+        );
+        assert!(ans.answer.contains("First long point [00:10]."));
+        assert!(ans.answer.contains("Second long point [00:20]."));
+        assert_eq!(ans.citations.len(), 2);
+        assert_eq!(ans.citations[0].segment_id, 1);
+        assert_eq!(ans.citations[1].segment_id, 2);
     }
 }
