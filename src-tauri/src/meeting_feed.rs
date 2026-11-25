@@ -66,12 +66,26 @@ pub(crate) struct Feed {
     pub(crate) tx: Mutex<Option<Sender<Job>>>,
     pub(crate) write_failed: AtomicBool,
     pub(crate) heard: AtomicBool,
+    pub(crate) paused: AtomicBool,
     pub(crate) warnings: Mutex<Vec<MeetingWarning>>,
     pub(crate) mic_name: Mutex<Option<String>>,
 }
 
 impl Feed {
+    pub(crate) fn push_me(&self, samples: &[f32]) {
+        if self.paused.load(Ordering::Acquire) {
+            return;
+        }
+        if !write_optional(&self.me_wav, &self.write_failed, samples) {
+            return;
+        }
+        self.push_chunker(&self.me, samples);
+    }
+
     pub(crate) fn push_others(&self, samples: &[f32]) {
+        if self.paused.load(Ordering::Acquire) {
+            return;
+        }
         if samples.iter().any(|sample| *sample != 0.0) {
             self.heard.store(true, Ordering::Relaxed);
         }

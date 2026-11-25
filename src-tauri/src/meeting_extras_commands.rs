@@ -209,7 +209,7 @@ fn resync_markdown_if_enabled(app: &AppHandle, store: &MeetingsStore, meeting_id
 // X-a: Trash, permanent delete, span delete, and single-transcript search
 // ---------------------------------------------------------------------------
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn trash_meeting(app: AppHandle, id: i64) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -219,7 +219,7 @@ pub fn trash_meeting(app: AppHandle, id: i64) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn delete_meeting_forever(app: AppHandle, id: i64) -> Result<bool, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -232,7 +232,7 @@ pub fn delete_meeting_forever(app: AppHandle, id: i64) -> Result<bool, String> {
     Ok(matches!(outcome, DeleteOutcome::DeletedAudioLeft { .. }))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn list_trashed_meetings_v2(app: AppHandle) -> Result<Vec<TrashedMeetingRowDto>, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -247,7 +247,7 @@ pub fn list_trashed_meetings_v2(app: AppHandle) -> Result<Vec<TrashedMeetingRowD
         .collect())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn restore_trashed_meeting_v2(app: AppHandle, meeting_id: i64) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -256,7 +256,7 @@ pub fn restore_trashed_meeting_v2(app: AppHandle, meeting_id: i64) -> Result<(),
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn purge_expired_trash_now(app: AppHandle) -> Result<usize, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -264,7 +264,7 @@ pub fn purge_expired_trash_now(app: AppHandle) -> Result<usize, String> {
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn delete_transcript_segments(
     app: AppHandle,
@@ -279,7 +279,7 @@ pub fn delete_transcript_segments(
     Ok(outcome)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn delete_transcript_span_secure(
     app: AppHandle,
@@ -294,7 +294,7 @@ pub fn delete_transcript_span_secure(
     Ok(outcome)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn search_meeting_transcript(
     app: AppHandle,
@@ -310,7 +310,7 @@ pub fn search_meeting_transcript(
 // X-b: Folders and note templates
 // ---------------------------------------------------------------------------
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn list_meeting_folders(app: AppHandle) -> Result<Vec<MeetingFolderViewDto>, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -344,7 +344,7 @@ pub fn list_meeting_folders(app: AppHandle) -> Result<Vec<MeetingFolderViewDto>,
     Ok(out)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn create_meeting_folder(app: AppHandle, name: String) -> Result<MeetingFolder, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -357,7 +357,7 @@ pub fn create_meeting_folder(app: AppHandle, name: String) -> Result<MeetingFold
         .ok_or_else(|| "created folder not found".to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn rename_meeting_folder(app: AppHandle, id: i64, name: String) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -366,7 +366,7 @@ pub fn rename_meeting_folder(app: AppHandle, id: i64, name: String) -> Result<()
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn delete_meeting_folder(app: AppHandle, id: i64) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -375,7 +375,7 @@ pub fn delete_meeting_folder(app: AppHandle, id: i64) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn set_meeting_folder(
     app: AppHandle,
@@ -404,14 +404,14 @@ pub fn set_meeting_folder(
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn list_meeting_templates(app: AppHandle) -> Result<Vec<MeetingTemplate>, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     store.list_templates().map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn create_meeting_template(
     app: AppHandle,
@@ -430,7 +430,7 @@ pub fn create_meeting_template(
         .ok_or_else(|| "created template not found".to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn update_meeting_template(
     app: AppHandle,
@@ -444,14 +444,14 @@ pub fn update_meeting_template(
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn delete_meeting_template(app: AppHandle, id: i64) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     store.delete_template(id).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn set_folder_last_template(
     app: AppHandle,
@@ -770,14 +770,14 @@ pub fn ask_meetings_v2(
 // X-j: Hardened offline Markdown/text import
 // ---------------------------------------------------------------------------
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn count_importable_notes(paths: Vec<String>) -> Result<ImportCountResult, String> {
     let pb: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
     count_importable_notes_paths(&pb).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn import_meeting_notes_batch(
     app: AppHandle,
