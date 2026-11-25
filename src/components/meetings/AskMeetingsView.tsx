@@ -53,6 +53,7 @@ export interface AskMeetingsSectionProps {
   scope: AskScope;
   turns: AskTurn[];
   answering?: boolean;
+  noModel?: boolean;
   voiceListening?: boolean;
   voiceError?: string | null;
   draftValue?: string;
@@ -90,6 +91,7 @@ export const AskMeetingsSection: React.FC<AskMeetingsSectionProps> = ({
   scope,
   turns,
   answering = false,
+  noModel = false,
   voiceListening = false,
   voiceError = null,
   draftValue,
@@ -344,6 +346,18 @@ export const AskMeetingsSection: React.FC<AskMeetingsSectionProps> = ({
         </p>
       ) : null}
 
+      {noModel ? (
+        <p
+          data-testid="ask-no-model-notice"
+          className="text-[12px] text-mid-gray"
+        >
+          {t(
+            "meetings.notes.reasonNoModel",
+            "No clean-up model is downloaded. Get one in Models.",
+          )}
+        </p>
+      ) : null}
+
       <p className="text-[12px] text-mid-gray">
         {t("meetings.ask.citationRule")}
       </p>
@@ -458,6 +472,44 @@ export function createAskByVoiceController(deps: AskByVoiceControllerDeps) {
   };
 }
 
+export async function executeAskRequest(
+  question: string,
+  params: ReturnType<typeof buildAskMeetingsV2Params>,
+  opts: {
+    isSingle: boolean;
+    askFn: (
+      p: ReturnType<typeof buildAskMeetingsV2Params>,
+    ) => ReturnType<typeof commands.askMeetingsV2>;
+    setAnswering: (busy: boolean) => void;
+    setNoModel: (missing: boolean) => void;
+    onTurn: (turn: AskTurn) => void;
+  },
+): Promise<void> {
+  opts.setAnswering(true);
+  try {
+    const res = await opts.askFn(params);
+    if (res.status === "ok") {
+      opts.setNoModel(Boolean(res.data.no_model));
+      opts.onTurn({
+        id: `t-${Date.now()}`,
+        question,
+        answer: res.data.answer,
+        citations: res.data.citations.map((c) => ({
+          meetingId: c.meeting_id,
+          segmentId: c.segment_id,
+          meetingTitle: opts.isSingle ? undefined : c.meeting_title,
+          meetingDate: opts.isSingle ? undefined : c.date || undefined,
+          start_ms: c.at_ms,
+        })),
+      });
+    }
+  } catch {
+    // Keep existing turns unchanged on transport error.
+  } finally {
+    opts.setAnswering(false);
+  }
+}
+
 export const AskMeetingsView: React.FC<{
   meetingId?: number;
   initialMeetingTitle?: string;
@@ -470,6 +522,7 @@ export const AskMeetingsView: React.FC<{
   );
   const [turns, setTurns] = useState<AskTurn[]>([]);
   const [answering, setAnswering] = useState(false);
+  const [noModel, setNoModel] = useState(false);
   const [listening, setListening] = useState(false);
   const [voiceErrorKey, setVoiceErrorKey] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -519,7 +572,6 @@ export const AskMeetingsView: React.FC<{
         setDraft("");
         draftRef.current = "";
       }
-      setAnswering(true);
       const params = buildAskMeetingsV2Params(trimmed, {
         isSingle,
         scope,
@@ -528,29 +580,13 @@ export const AskMeetingsView: React.FC<{
         pickedMeetingIds,
         recentTurns: turnsRef.current,
       });
-      void commands
-        .askMeetingsV2(params)
-        .then((res) => {
-          setAnswering(false);
-          if (res.status === "ok") {
-            const nextTurn: AskTurn = {
-              id: `t-${Date.now()}`,
-              question: trimmed,
-              answer: res.data.answer,
-              citations: res.data.citations.map((c) => ({
-                meetingId: c.meeting_id,
-                segmentId: c.segment_id,
-                meetingTitle: isSingle ? undefined : c.meeting_title,
-                meetingDate: isSingle ? undefined : c.date || undefined,
-                start_ms: c.at_ms,
-              })),
-            };
-            setTurns((prev) => [...prev, nextTurn]);
-          }
-        })
-        .catch(() => {
-          setAnswering(false);
-        });
+      void executeAskRequest(trimmed, params, {
+        isSingle,
+        askFn: (p) => commands.askMeetingsV2(p),
+        setAnswering,
+        setNoModel,
+        onTurn: (nextTurn) => setTurns((prev) => [...prev, nextTurn]),
+      });
     },
     [isSingle, meetingId, scope, selectedFolder, pickedMeetingIds],
   );
@@ -613,6 +649,7 @@ export const AskMeetingsView: React.FC<{
       scope={scope}
       turns={turns}
       answering={answering}
+      noModel={noModel}
       voiceListening={listening}
       voiceError={voiceErrorKey ? t(voiceErrorKey) : null}
       draftValue={draft}
