@@ -29,6 +29,15 @@ pub struct NoteLine {
     pub citations: Vec<i64>,
 }
 
+/// One parsed note line for a custom user template heading.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CustomNoteLine {
+    pub kind: String,
+    pub text: String,
+    pub owner: Option<String>,
+    pub citations: Vec<i64>,
+}
+
 /// Build the notes prompt for one meeting. No model call happens here.
 ///
 /// The prompt is, in order:
@@ -70,6 +79,200 @@ pub fn build_notes_prompt(segments: &[PromptSegment], notepad: &[String]) -> Str
     prompt.push_str("ACTION: <owner or -> | <text> [S<id>]\n");
     prompt.push_str("QUESTION: <text> [S<id>]\n");
     prompt
+}
+
+/// Build the notes prompt when the user picked a custom template with `# Headings`.
+///
+/// The template's own headings become the required line prefixes so the model
+/// writes directly under the user's sections with `[S<id>]` citations.
+pub fn build_custom_template_notes_prompt(
+    segments: &[PromptSegment],
+    notepad: &[String],
+    headings: &[String],
+) -> String {
+    let mut prompt = String::new();
+    prompt.push_str("Write the notes for this meeting from the transcript below.\n");
+    prompt.push_str("Use only the transcript and the notepad; never invent a fact.\n");
+    prompt.push_str("Never invent a decision or an owner.\n");
+    prompt.push_str("Every line must cite at least one segment as [S<id>].\n");
+    prompt.push_str("Keep every NOTE point in the notes.\n");
+
+    for segment in segments {
+        prompt.push_str(&format!(
+            "[S{}] {}: {}\n",
+            segment.id, segment.channel, segment.text
+        ));
+    }
+
+    if !notepad.is_empty() {
+        prompt.push('\n');
+        for point in notepad {
+            prompt.push_str(&format!("NOTE: {}\n", point));
+        }
+    }
+
+    prompt.push_str(
+        "\nReply with one item per line using ONLY these section prefixes and nothing else:\n",
+    );
+    for heading in headings {
+        prompt.push_str(&format!("{}: <text> [S<id>]\n", heading.trim()));
+    }
+    prompt.push_str("Leave out a section prefix if the meeting did not cover it.\n");
+    prompt
+}
+
+/// Build the merge prompt used when a long meeting was split across `> 1` pieces.
+///
+/// Reconciles piece notes chronologically so any decision reversed or superseded
+/// by a later segment keeps only the final state while preserving valid `[S<id>]`
+/// citations.
+pub fn build_merge_notes_prompt(
+    draft_lines: &[(String, Option<String>, String, Vec<i64>)],
+    notepad: &[String],
+    custom_headings: &[String],
+) -> String {
+    let mut prompt = String::new();
+    prompt.push_str(
+        "Merge these partial meeting notes from earlier and later parts of the same meeting into one clean final set of notes.\n",
+    );
+    prompt.push_str(
+        "Use ONLY facts and [S<id>] citations shown below; never invent a fact, owner, or citation.\n",
+    );
+    prompt.push_str(
+        "If an earlier decision, date, price, or plan was reversed, changed, or superseded in a later higher-numbered [S<id>] segment, KEEP ONLY the final decision and DROP the earlier superseded one.\n",
+    );
+    prompt.push_str(
+        "Remove duplicate items, never split one item across multiple owners, and drop any action that does not name a concrete follow-up commitment.\n",
+    );
+    prompt.push_str("Keep every NOTE point.\n\n");
+
+    for (kind, owner, text, citations) in draft_lines {
+        let cites: String = citations.iter().map(|id| format!("[S{id}]")).collect();
+        if custom_headings.is_empty() && kind.eq_ignore_ascii_case("action") {
+            let who = owner.as_deref().unwrap_or("-");
+            prompt.push_str(&format!("ACTION: {who} | {text} {cites}\n"));
+        } else if custom_headings.is_empty() {
+            prompt.push_str(&format!("{}: {text} {cites}\n", kind.to_uppercase()));
+        } else {
+            prompt.push_str(&format!("{kind}: {text} {cites}\n"));
+        }
+    }
+
+    if !notepad.is_empty() {
+        prompt.push('\n');
+        for point in notepad {
+            prompt.push_str(&format!("NOTE: {point}\n"));
+        }
+    }
+
+    if custom_headings.is_empty() {
+        prompt.push_str("\nReply with one item per line and nothing else:\n");
+        prompt.push_str("SUMMARY: <text> [S<id>]\n");
+        prompt.push_str("DECISION: <text> [S<id>]\n");
+        prompt.push_str("ACTION: <owner or -> | <text> [S<id>]\n");
+        prompt.push_str("QUESTION: <text> [S<id>]\n");
+    } else {
+        prompt.push_str(
+            "\nReply with one item per line using ONLY these section prefixes and nothing else:\n",
+        );
+        for heading in custom_headings {
+            prompt.push_str(&format!("{}: <text> [S<id>]\n", heading.trim()));
+        }
+        prompt.push_str("Leave out a section prefix if the meeting did not cover it.\n");
+    }
+    prompt
+}
+
+/// Parse a reply generated for custom template headings.
+///
+/// Matches each line against `headings` (case-insensitive, with tolerance for
+/// optional markdown list/bold framing and simple singular/plural prefixes) and
+/// applies the same strict `[S<id>]` citation validation as [`parse_notes_reply`].
+/// Default prefixes (`SUMMARY:`, `DECISION:`, `ACTION:`, `QUESTION:`) are also
+/// accepted as a fallback when a caller/mock emits default format.
+pub fn parse_custom_template_reply(
+    reply: &str,
+    segments: &[PromptSegment],
+    headings: &[String],
+) -> Vec<CustomNoteLine> {
+    let mut lines = Vec::new();
+    for raw in reply.lines() {
+        let cleaned = strip_line_bullet(raw.trim());
+        if let Some((heading, rest)) = split_custom_heading_prefix(cleaned, headings) {
+            let (text, citations) = split_citations(rest);
+            let text = text.trim();
+            if text.is_empty() || citations.is_empty() {
+                continue;
+            }
+            let known = citations
+                .iter()
+                .all(|id| segments.iter().any(|segment| segment.id == *id));
+            if !known {
+                continue;
+            }
+            lines.push(CustomNoteLine {
+                kind: heading.to_string(),
+                text: text.to_string(),
+                owner: None,
+                citations,
+            });
+            continue;
+        }
+        // Fallback for default-format lines (keeps default mocks & mixed replies valid).
+        for fallback in parse_notes_reply(cleaned, segments) {
+            let kind = match fallback.kind {
+                NoteKind::Summary => "summary",
+                NoteKind::Decision => "decision",
+                NoteKind::Action => "action",
+                NoteKind::Question => "question",
+            };
+            lines.push(CustomNoteLine {
+                kind: kind.to_string(),
+                text: fallback.text,
+                owner: fallback.owner,
+                citations: fallback.citations,
+            });
+        }
+    }
+    lines
+}
+
+fn strip_line_bullet(line: &str) -> &str {
+    for prefix in ["- ", "* ", "• "] {
+        if let Some(rest) = line.strip_prefix(prefix) {
+            return rest.trim_start();
+        }
+    }
+    line
+}
+
+fn split_custom_heading_prefix<'a>(
+    line: &'a str,
+    headings: &'a [String],
+) -> Option<(&'a str, &'a str)> {
+    let (raw_head, rest) = line.split_once(':')?;
+    let head = raw_head.trim().trim_matches('*').trim();
+    let head_low = head.to_lowercase();
+    if head_low.is_empty() {
+        return None;
+    }
+    // Prefer exact case-insensitive match first, then singular/plural match.
+    for h in headings {
+        let h_trim = h.trim();
+        if h_trim.eq_ignore_ascii_case(head) {
+            return Some((h_trim, rest.trim()));
+        }
+    }
+    let head_sing = head_low.strip_suffix('s').unwrap_or(&head_low);
+    for h in headings {
+        let h_trim = h.trim();
+        let h_low = h_trim.to_lowercase();
+        let h_sing = h_low.strip_suffix('s').unwrap_or(&h_low);
+        if !head_sing.is_empty() && head_sing == h_sing {
+            return Some((h_trim, rest.trim()));
+        }
+    }
+    None
 }
 
 /// Parse a notes reply into the lines that survive the citation checks.
@@ -333,5 +536,57 @@ mod tests {
             lines,
             vec![line(NoteKind::Summary, "Beta ships", None, &[2])]
         );
+    }
+
+    #[test]
+    fn custom_template_prompt_and_parser_round_trip() {
+        let headings = vec![
+            "Blockers".to_string(),
+            "Owners and dates".to_string(),
+            "Open risks".to_string(),
+        ];
+        let prompt = build_custom_template_notes_prompt(&segs(), &[], &headings);
+        assert!(prompt.contains("Blockers: <text> [S<id>]"));
+        assert!(prompt.contains("Owners and dates: <text> [S<id>]"));
+        assert!(prompt.contains("Open risks: <text> [S<id>]"));
+        assert!(!prompt.contains("SUMMARY: <text>"));
+
+        let reply = "\
+            - **Blockers**: Waiting on CI lock [S2]\n\
+            Owners and dates: Priya will send budget Friday [S1]\n\
+            Open risk: Unowned launch email [S3]\n\
+            Blockers: Uncited line dropped\n\
+            Open risks: Invented cite [S99]\n";
+        let parsed = parse_custom_template_reply(reply, &segs(), &headings);
+        assert_eq!(parsed.len(), 3);
+        assert_eq!(parsed[0].kind, "Blockers");
+        assert_eq!(parsed[0].citations, vec![2]);
+        assert_eq!(parsed[1].kind, "Owners and dates");
+        assert_eq!(parsed[1].citations, vec![1]);
+        assert_eq!(parsed[2].kind, "Open risks");
+        assert_eq!(parsed[2].citations, vec![3]);
+    }
+
+    #[test]
+    fn merge_prompt_carries_citations_and_reversal_rule() {
+        let draft = vec![
+            (
+                "decision".to_string(),
+                None,
+                "Launch June 1".to_string(),
+                vec![2],
+            ),
+            (
+                "action".to_string(),
+                Some("Priya".to_string()),
+                "Send budget".to_string(),
+                vec![1],
+            ),
+        ];
+        let prompt = build_merge_notes_prompt(&draft, &["check pricing".to_string()], &[]);
+        assert!(prompt.contains("DECISION: Launch June 1 [S2]"));
+        assert!(prompt.contains("ACTION: Priya | Send budget [S1]"));
+        assert!(prompt.contains("NOTE: check pricing"));
+        assert!(prompt.contains("KEEP ONLY the final decision"));
     }
 }

@@ -13,7 +13,7 @@ use specta::Type;
 
 use crate::managers::meetings::{MeetingSegment, MeetingsStore};
 use crate::meeting_notes::{build_notes_prompt, parse_notes_reply, NoteKind, PromptSegment};
-use crate::meeting_notes_runner::{generate_meeting_notes, NotesGenerator};
+use crate::meeting_notes_runner::{generate_meeting_notes_with_headings, NotesGenerator};
 
 pub const NOT_COVERED_LINE: &str = "Not covered in this meeting.";
 /// Minimum spoken duration in a catch-up window before summarising (`AC-X18`).
@@ -108,25 +108,45 @@ pub fn parse_template_headings(body: &str) -> Vec<String> {
         .collect()
 }
 
+fn parse_template_extra_instructions(body: &str) -> Option<String> {
+    let extra: Vec<&str> = body
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .collect();
+    if extra.is_empty() {
+        None
+    } else {
+        Some(extra.join("\n"))
+    }
+}
+
 struct GuidedGen<'a, G> {
     inner: &'a mut G,
-    template_body: Option<&'a str>,
+    extra_instructions: Option<String>,
     custom_words: &'a [String],
 }
 
 impl<G: NotesGenerator> NotesGenerator for GuidedGen<'_, G> {
+    fn context_window(&mut self) -> Result<usize> {
+        self.inner.context_window()
+    }
+
     fn generate(&mut self, prompt: &str) -> Result<String> {
+        if self.custom_words.is_empty() && self.extra_instructions.is_none() {
+            return self.inner.generate(prompt);
+        }
         let mut augmented = prompt.to_string();
         if !self.custom_words.is_empty() {
             augmented.push_str("\nPreferred spelling of meeting terms and names: ");
             augmented.push_str(&self.custom_words.join(", "));
             augmented.push('\n');
         }
-        if let Some(tpl) = self.template_body {
+        if let Some(extra) = self.extra_instructions.as_deref() {
             augmented.push_str(
                 "\nUser template instructions (keep strict [S<id>] citations; never invent decisions or owners):\n",
             );
-            augmented.push_str(tpl.trim());
+            augmented.push_str(extra);
             augmented.push('\n');
         }
         self.inner.generate(&augmented)
@@ -164,12 +184,22 @@ pub fn run_notes_with_quality_and_words<G: NotesGenerator>(
     let mut on_prog = |_| {
         first_ms.get_or_insert_with(|| started.elapsed().as_millis() as u64);
     };
+    let custom_headings: Vec<String> = template_body
+        .map(parse_template_headings)
+        .unwrap_or_default();
+    let extra_instructions = template_body.and_then(parse_template_extra_instructions);
     let mut guided = GuidedGen {
         inner: generator,
-        template_body,
+        extra_instructions,
         custom_words,
     };
-    let outcome = generate_meeting_notes(store, meeting_id, &mut guided, &mut on_prog)?;
+    let outcome = generate_meeting_notes_with_headings(
+        store,
+        meeting_id,
+        &custom_headings,
+        &mut guided,
+        &mut on_prog,
+    )?;
     let final_ms = started.elapsed().as_millis() as u64;
     mark_notes_ready(store, meeting_id)?;
 
@@ -235,15 +265,25 @@ pub fn run_notes_with_quality_and_words<G: NotesGenerator>(
     }
     let left_out = join_adjacent_left_out_spans(left_out);
 
-    let templated_sections = template_body
-        .map(parse_template_headings)
-        .unwrap_or_default()
+    let has_custom_kind = lines.iter().any(|l| {
+        !matches!(
+            l.kind.as_str(),
+            "summary" | "decision" | "action" | "question" | "notepad"
+        )
+    });
+    let templated_sections = custom_headings
         .into_iter()
         .map(|heading| {
             let hl = heading.to_lowercase();
             let matched: Vec<String> = lines
                 .iter()
-                .filter(|l| heading_matches(&hl, &l.kind, &l.text))
+                .filter(|l| {
+                    if has_custom_kind {
+                        l.kind.eq_ignore_ascii_case(&heading)
+                    } else {
+                        heading_matches(&hl, &l.kind, &l.text)
+                    }
+                })
                 .map(|l| l.text.clone())
                 .collect();
             let not_covered = matched.is_empty();
@@ -289,11 +329,16 @@ fn heading_matches(h_lower: &str, kind: &str, text: &str) -> bool {
     {
         return true;
     }
-    let text_low = text.to_lowercase();
+    let text_words: Vec<String> = text
+        .to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .map(str::to_string)
+        .collect();
     h_lower
-        .split_whitespace()
+        .split(|c: char| !c.is_alphanumeric())
         .filter(|w| w.len() > 3)
-        .any(|w| text_low.contains(w))
+        .any(|w| text_words.iter().any(|tw| tw == w))
 }
 
 pub fn is_small_talk(text: &str) -> bool {
@@ -859,5 +904,94 @@ mod tests {
         let _ = catch_up_window_v2(&store, id, 120_000, 300_000, Some(&mut gen)).unwrap();
         assert!(!gen.captured.is_empty());
         assert!(!gen.captured[0].contains("Confidential Planning Title"));
+    }
+
+    #[test]
+    fn heading_matches_whole_words_only() {
+        assert!(
+            !heading_matches(
+                "owners and dates",
+                "action",
+                "Screen 6 candidates next week"
+            ),
+            "'dates' must not match inside 'candidates'"
+        );
+        assert!(heading_matches(
+            "owners and dates",
+            "summary",
+            "Launch dates are confirmed for May 12"
+        ));
+    }
+
+    #[test]
+    fn custom_template_headings_become_prompt_prefixes_and_parse_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let id = store.start_meeting("Sprint", "parakeet").unwrap();
+        let s1 = add_seg(
+            &store,
+            id,
+            10_000,
+            "others",
+            "Waiting on legal sign-off for the contract.",
+        );
+        let s2 = add_seg(
+            &store,
+            id,
+            20_000,
+            "me",
+            "Priya will deliver the deck by Friday.",
+        );
+        let s3 = add_seg(
+            &store,
+            id,
+            30_000,
+            "others",
+            "Vendor quota might slip the pilot by a week.",
+        );
+
+        let mut gen = PromptCapturingGen {
+            captured: Vec::new(),
+            reply: format!(
+                "Blockers: Waiting on legal sign-off [S{s1}]\n\
+                 Owners and dates: Priya will deliver the deck by Friday [S{s2}]\n\
+                 Open risks: Vendor quota might slip the pilot [S{s3}]"
+            ),
+        };
+        let rep = run_notes_with_quality(
+            &store,
+            id,
+            Some("# Blockers\n# Owners and dates\n# Open risks\n"),
+            &mut gen,
+        )
+        .unwrap();
+
+        let prompt = gen.captured.first().expect("prompt captured");
+        assert!(
+            prompt.contains("Blockers:"),
+            "custom template prompt must use template heading prefix: {prompt}"
+        );
+        assert!(
+            prompt.contains("Open risks:"),
+            "custom template prompt must use template heading prefix: {prompt}"
+        );
+        let blockers = rep
+            .templated_sections
+            .iter()
+            .find(|s| s.heading == "Blockers")
+            .unwrap();
+        assert!(
+            !blockers.not_covered && blockers.lines.iter().any(|l| l.contains("legal")),
+            "Blockers section must contain parsed blocker line: {blockers:?}"
+        );
+        let risks = rep
+            .templated_sections
+            .iter()
+            .find(|s| s.heading == "Open risks")
+            .unwrap();
+        assert!(
+            !risks.not_covered && risks.lines.iter().any(|l| l.contains("Vendor quota")),
+            "Open risks section must contain parsed risk line: {risks:?}"
+        );
     }
 }

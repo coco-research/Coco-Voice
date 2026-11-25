@@ -14,7 +14,7 @@
 
 use std::num::NonZeroU32;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -67,6 +67,17 @@ static BACKEND: OnceLock<LlamaBackend> = OnceLock::new();
 /// One resident GGUF. `LlamaModel` is `Send + Sync` and does not borrow the
 /// backend, so it can live behind a static mutex.
 static CACHED_MODEL: OnceLock<ModelCache> = OnceLock::new();
+
+/// Number of times a GGUF file has been loaded from disk into `CACHED_MODEL`.
+static MODEL_LOAD_COUNT: AtomicU64 = AtomicU64::new(0);
+
+/// Total GGUF weight loads performed in this process. Dictation clean-up,
+/// meeting notes, and Ask all share `CACHED_MODEL`, so consecutive calls on
+/// the same GGUF path keep this count at 1.
+#[allow(dead_code)]
+pub(crate) fn model_load_count() -> u64 {
+    MODEL_LOAD_COUNT.load(Ordering::Acquire)
+}
 
 /// Started on the first cleanup request, never at app start or when settings open.
 static IDLE_WATCHER_STARTED: Mutex<bool> = Mutex::new(false);
@@ -150,6 +161,8 @@ fn idle_watch_loop() {
 
 /// Generate text from a prompt using a local GGUF model via llama.cpp.
 ///
+/// Dictation clean-up keeps the default 2,048-token context window.
+///
 /// If `token_tx` is provided, streams generated tokens as they are produced.
 /// Returns the full generated text on success. Returns an error when the
 /// prompt does not fit, when generation stops without an end-of-sequence token
@@ -160,6 +173,31 @@ pub async fn generate_text(
     system_prompt: &str,
     user_content: &str,
     max_tokens: i32,
+    token_tx: Option<mpsc::Sender<String>>,
+    cancel: Option<Arc<AtomicBool>>,
+) -> Result<String, LocalLlmError> {
+    generate_text_with_ctx(
+        model_path,
+        system_prompt,
+        user_content,
+        max_tokens,
+        N_CTX,
+        token_tx,
+        cancel,
+    )
+    .await
+}
+
+/// Generate text using the shared cached GGUF weights with a caller-chosen
+/// context window (`requested_n_ctx`). The actual allocated context size is
+/// read back from llama.cpp (`ctx.n_ctx()`) before checking the prompt budget.
+#[cfg_attr(not(feature = "meetings"), allow(dead_code))]
+pub async fn generate_text_with_ctx(
+    model_path: &Path,
+    system_prompt: &str,
+    user_content: &str,
+    max_tokens: i32,
+    requested_n_ctx: u32,
     token_tx: Option<mpsc::Sender<String>>,
     cancel: Option<Arc<AtomicBool>>,
 ) -> Result<String, LocalLlmError> {
@@ -175,12 +213,40 @@ pub async fn generate_text(
             &system_prompt,
             &user_content,
             max_tokens,
+            requested_n_ctx,
             token_tx,
             cancel,
         )
     })
     .await
     .map_err(|e| LocalLlmError::Other(format!("Local LLM task join error: {}", e)))?
+}
+
+/// Load or reuse the shared GGUF weights and read back the effective context
+/// size (`ctx.n_ctx()`) llama.cpp allocates for `requested_n_ctx`.
+#[cfg_attr(not(feature = "meetings"), allow(dead_code))]
+pub(crate) fn effective_context_size(
+    model_path: &Path,
+    requested_n_ctx: u32,
+) -> Result<usize, LocalLlmError> {
+    ensure_idle_watcher();
+    let cache = model_cache();
+    let mut guard = cache
+        .slot
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let (backend, model) = ensure_loaded_model(&mut guard, model_path, &|| false)?;
+    let ctx_params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(requested_n_ctx));
+    let ctx = model
+        .new_context(backend, ctx_params)
+        .map_err(|e| LocalLlmError::Other(format!("Failed to create llama context: {}", e)))?;
+    let actual_n_ctx = ctx.n_ctx() as usize;
+    drop(ctx);
+    if let Some(cached) = guard.as_mut() {
+        cached.last_used = Instant::now();
+    }
+    cache.cv.notify_all();
+    Ok(actual_n_ctx)
 }
 
 /// Drop the resident GGUF before `process::exit`.
@@ -197,18 +263,18 @@ pub fn release_model() {
 
 /// Generation length that still leaves half the context for the prompt.
 ///
-/// A caller that passes `max_tokens >= N_CTX` used to collapse the prompt
+/// A caller that passes `max_tokens >= n_ctx` used to collapse the prompt
 /// budget to one token via `saturating_sub`.
-fn clamped_max_gen(max_tokens: i32) -> usize {
+fn clamped_max_gen_for_ctx(max_tokens: i32, n_ctx: u32) -> usize {
     let requested = if max_tokens > 0 {
         max_tokens as usize
     } else {
         512
     };
-    let cap = (N_CTX as usize) / 2;
+    let cap = (n_ctx as usize) / 2;
     if requested > cap {
         warn!(
-            "Local LLM max_tokens {requested} would shrink the prompt below half of the {N_CTX} context; clamping to {cap}"
+            "Local LLM max_tokens {requested} would shrink the prompt below half of the {n_ctx} context; clamping to {cap}"
         );
         cap
     } else {
@@ -216,9 +282,19 @@ fn clamped_max_gen(max_tokens: i32) -> usize {
     }
 }
 
+#[cfg(test)]
+fn clamped_max_gen(max_tokens: i32) -> usize {
+    clamped_max_gen_for_ctx(max_tokens, N_CTX)
+}
+
 /// Prompt tokens left once `max_gen` (already clamped) is reserved for output.
+fn prompt_budget_for_ctx(n_ctx: u32, max_gen: usize) -> usize {
+    (n_ctx as usize).saturating_sub(max_gen).max(1)
+}
+
+#[cfg(test)]
 fn prompt_budget(max_gen: usize) -> usize {
-    (N_CTX as usize).saturating_sub(max_gen).max(1)
+    prompt_budget_for_ctx(N_CTX, max_gen)
 }
 
 /// `true` when the chat template plus the transcript do not fit in `budget`.
@@ -345,6 +421,7 @@ fn generate_text_blocking(
     system_prompt: &str,
     user_content: &str,
     max_tokens: i32,
+    requested_n_ctx: u32,
     token_tx: Option<mpsc::Sender<String>>,
     cancel: Option<Arc<AtomicBool>>,
 ) -> Result<String, LocalLlmError> {
@@ -361,6 +438,7 @@ fn generate_text_blocking(
         system_prompt,
         user_content,
         max_tokens,
+        requested_n_ctx,
         token_tx,
         cancel,
     );
@@ -373,23 +451,11 @@ fn generate_text_blocking(
     result
 }
 
-fn generate_with_model(
-    cache_guard: &mut Option<CachedModel>,
+fn ensure_loaded_model<'a>(
+    cache_guard: &'a mut Option<CachedModel>,
     model_path: &Path,
-    system_prompt: &str,
-    user_content: &str,
-    max_tokens: i32,
-    token_tx: Option<mpsc::Sender<String>>,
-    cancel: Option<Arc<AtomicBool>>,
-) -> Result<String, LocalLlmError> {
-    let max_gen = clamped_max_gen(max_tokens);
-    let prompt_budget = prompt_budget(max_gen);
-    let cancelled = || {
-        cancel
-            .as_ref()
-            .is_some_and(|flag| flag.load(Ordering::Acquire))
-    };
-
+    cancelled: &impl Fn() -> bool,
+) -> Result<(&'static LlamaBackend, &'a LlamaModel), LocalLlmError> {
     // All model access is serialized on the cache mutex: one resident GGUF, no race on
     // `LlamaBackend::init()` (runs once) or with the idle watcher dropping the model.
     let backend: &'static LlamaBackend = match BACKEND.get() {
@@ -419,6 +485,7 @@ fn generate_with_model(
         let params = LlamaModelParams::default().with_n_gpu_layers(999);
         let model = LlamaModel::load_from_file(backend, model_path, &params)
             .map_err(|e| LocalLlmError::Other(format!("Failed to load GGUF model: {}", e)))?;
+        MODEL_LOAD_COUNT.fetch_add(1, Ordering::AcqRel);
         *cache_guard = Some(CachedModel {
             path: model_path.to_path_buf(),
             model,
@@ -437,12 +504,38 @@ fn generate_with_model(
         .as_ref()
         .expect("model is cached after the load branch")
         .model;
+    Ok((backend, model))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn generate_with_model(
+    cache_guard: &mut Option<CachedModel>,
+    model_path: &Path,
+    system_prompt: &str,
+    user_content: &str,
+    max_tokens: i32,
+    requested_n_ctx: u32,
+    token_tx: Option<mpsc::Sender<String>>,
+    cancel: Option<Arc<AtomicBool>>,
+) -> Result<String, LocalLlmError> {
+    let cancelled = || {
+        cancel
+            .as_ref()
+            .is_some_and(|flag| flag.load(Ordering::Acquire))
+    };
+    let (backend, model) = ensure_loaded_model(cache_guard, model_path, &cancelled)?;
     let vocab = model.vocab();
 
-    let ctx_params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(N_CTX));
+    let ctx_params = LlamaContextParams::default().with_n_ctx(NonZeroU32::new(requested_n_ctx));
     let mut ctx = model
         .new_context(backend, ctx_params)
         .map_err(|e| LocalLlmError::Other(format!("Failed to create llama context: {}", e)))?;
+    // Read back the actual context and batch sizes allocated by llama.cpp so
+    // prompt budgeting and decode loops always match the live context.
+    let actual_n_ctx = ctx.n_ctx();
+    let n_batch = (ctx.n_batch() as usize).max(1);
+    let max_gen = clamped_max_gen_for_ctx(max_tokens, actual_n_ctx);
+    let prompt_budget = prompt_budget_for_ctx(actual_n_ctx, max_gen);
 
     // Tokenize the chat template and the transcript apart so a long transcript
     // cannot cut through `<|im_start|>` turn markers. BOS belongs on the prefix
@@ -476,20 +569,27 @@ fn generate_with_model(
         ));
     }
 
-    let mut batch = LlamaBatch::new(N_CTX as usize, 1);
-    let last_index = (tokens_list.len() - 1) as i32;
-    for (i, token) in tokens_list.iter().enumerate() {
-        let is_last = i as i32 == last_index;
-        batch
-            .add(*token, i as i32, &[0], is_last)
-            .map_err(|e| LocalLlmError::Other(format!("Failed to add token to batch: {}", e)))?;
-    }
-
-    ctx.decode(&mut batch)
-        .map_err(|e| LocalLlmError::Other(format!("Failed to decode prompt batch: {}", e)))?;
-    // Prompt decode is the slow step for a long transcript; check again before generating.
-    if cancelled() {
-        return Err(LocalLlmError::Cancelled);
+    // Decode prompts in slices of `n_batch` so larger contexts (e.g. 8,192 for
+    // meeting notes) never exceed llama.cpp's batch limit while short prompts
+    // still decode in a single call.
+    let mut batch = LlamaBatch::new(n_batch, 1);
+    let total_tokens = tokens_list.len();
+    for (chunk_idx, chunk) in tokens_list.chunks(n_batch).enumerate() {
+        batch.clear();
+        let base_pos = chunk_idx * n_batch;
+        for (j, token) in chunk.iter().enumerate() {
+            let pos = base_pos + j;
+            let is_last = pos + 1 == total_tokens;
+            batch.add(*token, pos as i32, &[0], is_last).map_err(|e| {
+                LocalLlmError::Other(format!("Failed to add token to batch: {}", e))
+            })?;
+        }
+        ctx.decode(&mut batch)
+            .map_err(|e| LocalLlmError::Other(format!("Failed to decode prompt batch: {}", e)))?;
+        // Prompt decode is the slow step for a long transcript; check again between chunks.
+        if cancelled() {
+            return Err(LocalLlmError::Cancelled);
+        }
     }
     let mut n_past = tokens_list.len() as i32;
 
@@ -503,7 +603,7 @@ fn generate_with_model(
     let mut sampler = LlamaSampler::greedy();
     let mut stream = token_tx.as_ref();
 
-    while tokens_generated < max_gen && n_past < N_CTX as i32 - 1 {
+    while tokens_generated < max_gen && n_past < actual_n_ctx as i32 - 1 {
         if cancelled() {
             break;
         }
@@ -588,9 +688,9 @@ fn generate_with_model(
 #[cfg(test)]
 mod tests {
     use super::{
-        chat_template_parts, clamped_max_gen, idle_should_unload, is_qwen3, prompt_budget,
-        prompt_over_budget, stop_outcome, strip_think_blocks, tokenize_prompt_parts, LocalLlmError,
-        BACKEND, N_CTX,
+        chat_template_parts, clamped_max_gen, clamped_max_gen_for_ctx, idle_should_unload,
+        is_qwen3, prompt_budget, prompt_budget_for_ctx, prompt_over_budget, stop_outcome,
+        strip_think_blocks, tokenize_prompt_parts, LocalLlmError, BACKEND, N_CTX,
     };
     use llama_cpp_2::llama_backend::LlamaBackend;
     use llama_cpp_2::model::params::LlamaModelParams;
@@ -602,6 +702,20 @@ mod tests {
         assert_eq!(clamped_max_gen(N_CTX as i32), (N_CTX as usize) / 2);
         assert_eq!(prompt_budget(clamped_max_gen(512)), N_CTX as usize - 512);
         assert_eq!(clamped_max_gen(0), 512);
+        // Larger caller-chosen contexts (e.g. 8,192 for meeting notes) expand
+        // prompt budget without changing dictation clean-up's 2,048 default.
+        assert_eq!(clamped_max_gen_for_ctx(1024, 8192), 1024);
+        assert_eq!(prompt_budget_for_ctx(8192, 1024), 7168);
+        assert!(!prompt_over_budget(
+            40,
+            3290,
+            prompt_budget_for_ctx(8192, 1024)
+        ));
+        assert!(prompt_over_budget(
+            40,
+            3290,
+            prompt_budget_for_ctx(2048, 1024)
+        ));
     }
 
     #[test]

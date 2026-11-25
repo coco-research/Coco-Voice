@@ -30,10 +30,12 @@ use crate::meeting_notes_merge::merge_pieces;
 use crate::meeting_notes_pieces::{
     estimate_tokens, is_one_shot, piece_budget, plan_pieces, SEGMENT_TAG_TOKENS,
 };
-use crate::meeting_notes_runner::{NotesGenerator, NOTEPAD_KIND};
+use crate::meeting_notes_runner::{
+    require_one_shot_pieces, NotesGenerator, DEFAULT_LOCAL_NOTES_N_CTX, NOTEPAD_KIND,
+};
 use crate::meeting_notes_v42::{
-    generate_left_out_reasons, load_left_out_spans, run_notes_with_quality_and_words,
-    save_left_out_spans,
+    generate_left_out_reasons, load_left_out_spans, parse_template_headings,
+    run_notes_with_quality_and_words, save_left_out_spans,
 };
 use crate::meeting_retention::{maybe_remove_audio_after_notes, sync_meeting_markdown_file};
 use crate::settings::{self, LOCAL_LLM_DEFAULT_MODEL_ID, LOCAL_LLM_PROVIDER_ID};
@@ -804,12 +806,15 @@ pub fn rolling_tick_once<G: NotesGenerator>(
         .map(|(_, t)| t)
         .collect();
 
+    let n_ctx = generator.context_window()?;
     let prompt_tokens = estimate_tokens(&build_notes_prompt(&[], &[]));
     let notepad_tokens =
         estimate_tokens(&build_notes_prompt(&[], &notepad_points)).saturating_sub(prompt_tokens);
     let all_seg_tokens: Vec<usize> = spoken.iter().map(|s| estimate_tokens(&s.text)).collect();
-    let all_pieces = plan_pieces(&all_seg_tokens, notepad_tokens, prompt_tokens);
-    if is_one_shot(&all_pieces) {
+    let all_pieces = plan_pieces(&all_seg_tokens, notepad_tokens, prompt_tokens, n_ctx);
+    // ponytail: ceiling = 1 piece on a 4,096 context; upgrade path = P2 decides
+    // whether map-merge comes back or is deleted.
+    if is_one_shot(&all_pieces) || require_one_shot_pieces(meeting_id, all_pieces.len()).is_err() {
         return Ok(None);
     }
 
@@ -967,12 +972,30 @@ where
             .unwrap_or_else(|| (Vec::new(), 0, DEFAULT_TOKENS_PER_SEC))
     };
 
+    let mut generator_result = generator_result;
+    let n_ctx = match &mut generator_result {
+        Ok(g) => match g.context_window() {
+            Ok(v) => v,
+            Err(_) => {
+                let _ = store.set_status(meeting_id, "notes_failed");
+                pipeline.finish_job_failed(meeting_id, NotesFailReason::Failed);
+                return Ok(AfterStopOutcome::Failed {
+                    reason: NotesFailReason::Failed,
+                });
+            }
+        },
+        Err(_) => DEFAULT_LOCAL_NOTES_N_CTX,
+    };
     let prompt_tokens = estimate_tokens(&build_notes_prompt(&[], &[]));
     let notepad_tokens =
         estimate_tokens(&build_notes_prompt(&[], &notepad_points)).saturating_sub(prompt_tokens);
     let all_seg_tokens: Vec<usize> = spoken.iter().map(|s| estimate_tokens(&s.text)).collect();
-    let all_pieces = plan_pieces(&all_seg_tokens, notepad_tokens, prompt_tokens);
+    let all_pieces = plan_pieces(&all_seg_tokens, notepad_tokens, prompt_tokens, n_ctx);
     let fits_one_shot = is_one_shot(&all_pieces);
+    let has_custom_headings = config
+        .template_body
+        .as_deref()
+        .is_some_and(|tpl| !parse_template_headings(tpl).is_empty());
 
     let tokens_left: usize = if fits_one_shot || existing_pieces.is_empty() {
         all_seg_tokens.iter().sum()
@@ -1013,11 +1036,21 @@ where
         }
     };
 
+    // ponytail: ceiling = 1 piece on a 4,096 context; upgrade path = P2 decides
+    // whether map-merge comes back or is deleted.
+    if require_one_shot_pieces(meeting_id, all_pieces.len()).is_err() {
+        let _ = store.set_status(meeting_id, "notes_failed");
+        pipeline.finish_job_failed(meeting_id, NotesFailReason::Failed);
+        return Ok(AfterStopOutcome::Failed {
+            reason: NotesFailReason::Failed,
+        });
+    }
+
     let used_rolling_pieces;
     let saved_notes: Vec<StoredNote>;
     let mut oversized_segments: Vec<i64> = Vec::new();
 
-    if fits_one_shot || existing_pieces.is_empty() {
+    if fits_one_shot || existing_pieces.is_empty() || has_custom_headings {
         used_rolling_pieces = false;
         let run = run_notes_with_quality_and_words(
             store,
@@ -1051,16 +1084,17 @@ where
                 .iter()
                 .map(|s| estimate_tokens(&s.text))
                 .collect();
-            let tail_budget = piece_budget(prompt_tokens).saturating_sub(notepad_tokens);
-            let tail_ranges: Vec<_> = plan_pieces(&tail_tokens, notepad_tokens, prompt_tokens)
-                .into_iter()
-                .filter(|r| {
-                    tail_tokens[r.clone()]
-                        .iter()
-                        .fold(0usize, |acc, n| acc.saturating_add(n + SEGMENT_TAG_TOKENS))
-                        <= tail_budget
-                })
-                .collect();
+            let tail_budget = piece_budget(n_ctx, prompt_tokens).saturating_sub(notepad_tokens);
+            let tail_ranges: Vec<_> =
+                plan_pieces(&tail_tokens, notepad_tokens, prompt_tokens, n_ctx)
+                    .into_iter()
+                    .filter(|r| {
+                        tail_tokens[r.clone()]
+                            .iter()
+                            .fold(0usize, |acc, n| acc.saturating_add(n + SEGMENT_TAG_TOKENS))
+                            <= tail_budget
+                    })
+                    .collect();
 
             let total_calls = tail_ranges.len().max(1) as u32;
             for (idx, range) in tail_ranges.iter().enumerate() {
@@ -1251,7 +1285,7 @@ fn resolve_local_notes_generator(
         .get_model_path(model_id)
         .or_else(|_| mm.get_model_path(LOCAL_LLM_DEFAULT_MODEL_ID))
         .map_err(|_| NotesFailReason::NoModel)?;
-    Ok(crate::meeting_notes_runner::LocalLlmNotes { model_path })
+    Ok(crate::meeting_notes_runner::LocalLlmNotes::new(model_path))
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -1898,13 +1932,13 @@ mod tests {
     }
 
     #[test]
-    fn rolling_yields_during_dictation_and_queue_depth_and_maps_long_meetings() {
+    fn rolling_yields_during_dictation_and_queue_depth_and_guards_multi_piece_meetings() {
         let dir = tempfile::tempdir().unwrap();
         let store = MeetingsStore::open(dir.path()).unwrap();
         let pipeline = MeetingPipelineState::new();
         let id = store.start_meeting("Meeting", "parakeet").unwrap();
 
-        // Populate enough segments to exceed one-shot budget (~7000 tokens) and span > 5 min.
+        // Populate enough segments to exceed the 4,096 one-shot budget and span > 5 min.
         let filler = "quarterly engineering roadmap milestone discussion ".repeat(16);
         for i in 0..45i64 {
             let start = i * 10_000;
@@ -1928,27 +1962,14 @@ mod tests {
         assert!(rolling_tick_once(&store, &pipeline, id, false, 3, &mut gen)
             .unwrap()
             .is_none());
+        // Under the 4,096 one-shot guard, multi-piece meetings never call the
+        // model during rolling ticks either.
+        assert!(rolling_tick_once(&store, &pipeline, id, false, 2, &mut gen)
+            .unwrap()
+            .is_none());
         assert_eq!(gen.calls, 0);
 
-        // Runs cleanly when idle and queue <= 2.
-        let so_far = rolling_tick_once(&store, &pipeline, id, false, 2, &mut gen)
-            .unwrap()
-            .expect("rolling piece produced");
-        assert!(!so_far.lines.is_empty());
-        assert_eq!(gen.calls, 1);
-
-        // Add 2 more tail segments after the rolling piece and run after-Stop.
-        store
-            .insert_segment(
-                id,
-                460_000,
-                470_000,
-                MeetingChannel::Me,
-                "Open question: who owns the checklist?",
-            )
-            .unwrap();
         store.finalise(id, false).unwrap();
-
         let out = run_after_stop_with_generator(
             &store,
             &pipeline,
@@ -1958,17 +1979,225 @@ mod tests {
             |_| {},
         )
         .unwrap();
-        match out {
-            AfterStopOutcome::Ready {
-                used_rolling_pieces,
-                title,
-                ..
-            } => {
-                assert!(used_rolling_pieces);
-                assert_eq!(title, "Engineering Roadmap Review");
+        assert_eq!(
+            out,
+            AfterStopOutcome::Failed {
+                reason: NotesFailReason::Failed
             }
-            other => panic!("expected ready: {other:?}"),
+        );
+        assert_eq!(store.meeting(id).unwrap().status, "notes_failed");
+        assert_eq!(store.segments(id).unwrap().len(), 45);
+    }
+
+    #[test]
+    fn multi_piece_meeting_never_calls_map_or_merge_on_any_of_three_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let pipeline = MeetingPipelineState::new();
+        let id = store
+            .start_meeting("Long Board Review", "parakeet")
+            .unwrap();
+
+        // 40 segments (~8,000 est. tokens, > 6 min): unambiguously multi-piece at 4,096.
+        let filler = "we reviewed platform architecture and rollout milestones ".repeat(14);
+        for i in 0..40i64 {
+            let start = i * 10_000;
+            store
+                .insert_segment(
+                    id,
+                    start,
+                    start + 9_000,
+                    MeetingChannel::Others,
+                    &format!("Turn {i}: {filler}"),
+                )
+                .unwrap();
         }
+        store.finalise(id, false).unwrap();
+
+        let recorded_prompts = Arc::new(Mutex::new(Vec::<String>::new()));
+
+        // Path 1: Rolling during recording (`rolling_tick_once`).
+        let mut rolling_gen = PromptCapturingGen {
+            inner: FakeGen::ok("Should Not Run"),
+            prompts: Arc::clone(&recorded_prompts),
+        };
+        let rolling_out =
+            rolling_tick_once(&store, &pipeline, id, false, 0, &mut rolling_gen).unwrap();
+        assert!(
+            rolling_out.is_none(),
+            "rolling_tick_once must not produce rolling pieces for a multi-piece meeting"
+        );
+        assert!(
+            recorded_prompts.lock().unwrap().is_empty(),
+            "rolling_tick_once must never reach a map or merge prompt"
+        );
+
+        // Path 2: After-Stop (`run_after_stop_with_generator`).
+        let after_stop_out = run_after_stop_with_generator(
+            &store,
+            &pipeline,
+            id,
+            &AfterStopConfig::default(),
+            Ok(PromptCapturingGen {
+                inner: FakeGen::ok("Should Not Run"),
+                prompts: Arc::clone(&recorded_prompts),
+            }),
+            |_| {},
+        )
+        .unwrap();
+        assert_eq!(
+            after_stop_out,
+            AfterStopOutcome::Failed {
+                reason: NotesFailReason::Failed
+            }
+        );
+        assert_eq!(store.meeting(id).unwrap().status, "notes_failed");
+        assert_eq!(store.segments(id).unwrap().len(), 40);
+        assert!(
+            recorded_prompts.lock().unwrap().is_empty(),
+            "after-Stop must never reach a map or merge prompt"
+        );
+
+        // Path 3: Retry (`run_after_stop_with_generator` on a `notes_failed` meeting,
+        // the exact pipeline entry point invoked by `trigger_retry_meeting_notes` /
+        // `retry_meeting_notes`), even if stale rolling pieces were present.
+        {
+            let mut jobs = pipeline.lock_jobs();
+            let entry = jobs.entry(id).or_default();
+            entry.pieces.push(vec![(
+                (NoteKind::Summary, None),
+                "stale rolling piece".to_string(),
+                vec![1],
+            )]);
+            entry.last_segment_id = 1;
+        }
+        let retry_out = run_after_stop_with_generator(
+            &store,
+            &pipeline,
+            id,
+            &AfterStopConfig::default(),
+            Ok(PromptCapturingGen {
+                inner: FakeGen::ok("Should Not Run"),
+                prompts: Arc::clone(&recorded_prompts),
+            }),
+            |_| {},
+        )
+        .unwrap();
+        assert_eq!(
+            retry_out,
+            AfterStopOutcome::Failed {
+                reason: NotesFailReason::Failed
+            }
+        );
+        assert_eq!(store.meeting(id).unwrap().status, "notes_failed");
+        assert_eq!(store.segments(id).unwrap().len(), 40);
+        assert!(store.notes(id).unwrap().is_empty());
+        assert!(
+            recorded_prompts.lock().unwrap().is_empty(),
+            "Retry must never reach a map or merge prompt"
+        );
+
+        // Direct runner entry point also returns the exact existing OverBudget reason.
+        let mut direct_gen = PromptCapturingGen {
+            inner: FakeGen::ok("Should Not Run"),
+            prompts: Arc::clone(&recorded_prompts),
+        };
+        let direct_err = crate::meeting_notes_runner::generate_meeting_notes(
+            &store,
+            id,
+            &mut direct_gen,
+            &mut |_| {},
+        )
+        .expect_err("direct runner must refuse multi-piece meeting");
+        assert!(
+            format!("{direct_err:#}")
+                .contains(crate::meeting_notes_runner::NOTES_OVER_BUDGET_REASON),
+            "expected existing OverBudget reason, got: {direct_err:#}"
+        );
+        assert!(
+            recorded_prompts.lock().unwrap().is_empty(),
+            "direct runner must never reach a map or merge prompt"
+        );
+    }
+
+    struct ContextWindowErrorGen {
+        prompts: Arc<Mutex<Vec<String>>>,
+        context_window_calls: Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    impl NotesGenerator for ContextWindowErrorGen {
+        fn context_window(&mut self) -> Result<usize> {
+            self.context_window_calls.fetch_add(1, Ordering::SeqCst);
+            Err(anyhow!("synthetic context window read error"))
+        }
+
+        fn generate(&mut self, prompt: &str) -> Result<String> {
+            self.prompts.lock().unwrap().push(prompt.to_string());
+            Ok("SUMMARY: Should not run [S1]".to_string())
+        }
+    }
+
+    #[test]
+    fn after_stop_context_window_error_fails_notes_and_keeps_transcript() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let pipeline = MeetingPipelineState::new();
+        let id = store
+            .start_meeting("Context Read Check", "parakeet")
+            .unwrap();
+        for i in 0..3i64 {
+            let start = i * 5_000;
+            store
+                .insert_segment(
+                    id,
+                    start,
+                    start + 4_000,
+                    MeetingChannel::Me,
+                    &format!("Segment {i} discussing release timing."),
+                )
+                .unwrap();
+        }
+        store.finalise(id, false).unwrap();
+
+        let recorded_prompts = Arc::new(Mutex::new(Vec::<String>::new()));
+        let context_window_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut progress_phases = Vec::<String>::new();
+
+        let out = run_after_stop_with_generator(
+            &store,
+            &pipeline,
+            id,
+            &AfterStopConfig::default(),
+            Ok(ContextWindowErrorGen {
+                prompts: Arc::clone(&recorded_prompts),
+                context_window_calls: Arc::clone(&context_window_calls),
+            }),
+            |p| progress_phases.push(p.phase),
+        )
+        .unwrap();
+
+        assert_eq!(
+            out,
+            AfterStopOutcome::Failed {
+                reason: NotesFailReason::Failed
+            }
+        );
+        assert_eq!(store.meeting(id).unwrap().status, "notes_failed");
+        assert_eq!(store.segments(id).unwrap().len(), 3);
+        assert!(store.notes(id).unwrap().is_empty());
+        assert!(
+            recorded_prompts.lock().unwrap().is_empty(),
+            "after-Stop must send 0 prompts when context_window() fails"
+        );
+        assert!(
+            progress_phases.is_empty(),
+            "after-Stop must fail before starting a finishing job when context_window() errors, got progress phases: {progress_phases:?}"
+        );
+        assert_eq!(
+            context_window_calls.load(Ordering::SeqCst),
+            1,
+            "after-Stop must fail on the initial context_window() check instead of falling back to DEFAULT_LOCAL_NOTES_N_CTX"
+        );
     }
 
     #[test]
@@ -2115,7 +2344,7 @@ mod tests {
                 .lock()
                 .unwrap()
                 .iter()
-                .any(|p| p.contains("## Their needs") && p.contains("## Follow-ups")),
+                .any(|p| p.contains("Their needs:") && p.contains("Follow-ups:")),
             "notes prompt for a meeting started with a template must include its headings"
         );
 
