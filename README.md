@@ -15,9 +15,13 @@ Private dictation and meeting notes that run on your computer. By [Coco Research
     <img
       src="assets/branding/banner-dark.png"
       width="100%"
-      alt="Coco Voice v0.20.2 by Coco Research — private dictation on macOS, Windows and Linux, and meeting notes on macOS."
+      alt="Coco Voice v0.20.2 by Coco Research — private dictation on macOS (hand-tested) and CI-built Windows and Linux builds (not yet hand-tested), plus meeting notes on macOS."
     />
   </picture>
+</p>
+
+<p align="center">
+  <sub><code>v0.20.2</code> · <code>cocoresearch.org</code> · macOS (hand-tested) · Windows x64 &amp; Linux x64/ARM64 (built by CI, not yet hand-tested)</sub>
 </p>
 
 <p align="center">
@@ -39,8 +43,8 @@ Private dictation and meeting notes that run on your computer. By [Coco Research
       src="https://img.shields.io/github/v/release/coco-research/Coco-Voice?style=flat-square&label=release&labelColor=0B0B0B&color=5b8dff"
   /></a>
   <img
-    alt="Platforms: macOS, Windows x64, Linux x64"
-    src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Windows%20x64%20%C2%B7%20Linux%20x64-5F5F58?style=flat-square&labelColor=0B0B0B"
+    alt="Platforms: macOS (hand-tested); Windows x64 and Linux x64/ARM64 (built by CI, not yet hand-tested)"
+    src="https://img.shields.io/badge/platforms-macOS%20%C2%B7%20Win%20%26%20Linux%20%28CI--built%2C%20not%20yet%20hand--tested%29-5F5F58?style=flat-square&labelColor=0B0B0B"
   />
   <a href="LICENSE"
     ><img
@@ -51,6 +55,10 @@ Private dictation and meeting notes that run on your computer. By [Coco Research
     alt="Runs on-device"
     src="https://img.shields.io/badge/runs-on--device-5b8dff?style=flat-square&labelColor=0B0B0B"
   />
+</p>
+
+<p align="center">
+  <sub>Windows and Linux builds are built by CI and have not yet been hand-tested.</sub>
 </p>
 
 ## Why it exists
@@ -97,7 +105,7 @@ Set per-app rules for tone, capitalization, punctuation, and clean-up level depe
 
 ### Choose your model, on your machine
 
-Pick from Whisper, Parakeet, Moonshine, Canary, Cohere, and other local models with Metal GPU acceleration on macOS and Vulkan on Windows x64 and Linux. Every catalog download is pinned to a commit, verified by SHA-256, and surfaces clear failure causes with **Try again**.
+Pick from Whisper, Parakeet, Moonshine, Canary, Cohere, and other local models with Metal GPU acceleration on macOS and Vulkan on Windows x64 and Linux. Every catalog download is pinned to a commit, verified by SHA-256, and surfaces clear failure causes with **Try again**. Downloaded models live in the shared Hugging Face cache; deleting a model in Coco Voice also removes it from the shared Hugging Face cache.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/0.20/V5-dark.png" />
@@ -124,7 +132,7 @@ Off by default: enable **Agents can ask you** to expose a local stdio `ask_user`
 
 ### Meetings (macOS): record with consent
 
-On macOS release builds (macOS 14.4+), Coco Voice captures your microphone and system audio locally without joining calls as a bot. Recording never starts automatically: every meeting starts only after you confirm the consent dialog, and Google Meet offers appear only on active meeting-code tabs.
+On macOS release builds (macOS 14.4+), Coco Voice records meetings from your microphone locally without joining calls as a bot. Recording never starts automatically: every meeting starts only after you confirm the consent dialog, and Google Meet offers appear only on active meeting-code tabs.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/0.20/M1-dark.png" />
@@ -133,7 +141,7 @@ On macOS release builds (macOS 14.4+), Coco Voice captures your microphone and s
 
 ### Meetings (macOS): notes with citations
 
-Take live notepad bullets while recording, then generate structured notes with clickable citations back to transcript segments, in one shot or across pieces for longer meetings. Full-text search spans all saved meetings, and deleting a meeting removes its notes and audio while reporting any file cleanup failure.
+Take live notepad bullets while recording, then generate structured notes with clickable citations back to transcript segments (in `0.20.2`, notes work on meetings up to about 5 minutes; on longer meetings, notes fail while the transcript is always kept). Full-text search spans all saved meetings, and deleting a meeting removes its notes and audio while reporting any file cleanup failure.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/0.20/M2-dark.png" />
@@ -143,7 +151,7 @@ Take live notepad bullets while recording, then generate structured notes with c
 
 ### Meetings (macOS): ask your meetings
 
-Ask questions across a single meeting or your entire local meeting archive using a local SQLite BM25 index and on-device model. Type a question or ask by voice, and jump straight to the cited transcript lines.
+Ask questions across a single meeting or your entire local meeting archive using a local SQLite BM25 index and on-device model. Type a question or ask by voice, and jump straight to the cited transcript lines (an Ask source that points to a trashed meeting opens nothing).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/readme/0.20/M3-dark.png" />
@@ -177,15 +185,22 @@ Open **Settings → About → What goes online** to inspect every host the app c
   <img src="docs/readme/0.20/T1-dark.png" width="100%" alt="Settings About What goes online disclosure listing update checks, model downloads, and opt-in cleanup hosts." />
 </picture>
 
+## Known issues
+
+- Meeting notes fail on meetings longer than about 5 minutes; the transcript is always kept.
+- Deleting a model also removes it from the shared Hugging Face cache.
+- An Ask source that points to a trashed meeting opens nothing.
+- Meetings record the microphone only.
+
 ## Install
 
-Download installers for `0.20.2` from the [latest release](https://github.com/coco-research/Coco-Voice/releases/latest). These builds are not notarized. Full steps, uninstall paths, and checksum verification are in [INSTALL.md](INSTALL.md).
+Download installers for `0.20.2` from the [latest release](https://github.com/coco-research/Coco-Voice/releases/latest). macOS builds are hand-tested; **Windows and Linux builds are built by CI and have not yet been hand-tested.** These builds are not notarized. Full steps, uninstall paths, and checksum verification are in [INSTALL.md](INSTALL.md).
 
-| Platform                          | 0.20.2 assets                                                                                                                                               | First launch                                                                                                                                                               |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **macOS** (Apple Silicon & Intel) | `Coco.Voice_0.20.2_aarch64.dmg`, `Coco.Voice_0.20.2_x64.dmg`                                                                                                | Drag **Coco Voice** to Applications, then right-click → **Open** → **Open** once. Grant Microphone and Accessibility when asked.                                           |
-| **Windows x64**                   | `Coco.Voice_0.20.2_x64-setup.exe` (per-user NSIS), `Coco.Voice_0.20.2_x64_en-US.msi`                                                                        | Run the installer. If Windows SmartScreen appears, verify `SHA256SUMS` then click **More info** → **Run anyway**.                                                          |
-| **Linux x64** (and ARM64)         | `Coco.Voice_0.20.2_amd64.AppImage`, `Coco.Voice_0.20.2_amd64.deb`, `Coco.Voice-0.20.2-1.x86_64.rpm` (ARM64: `aarch64.AppImage`, `arm64.deb`, `aarch64.rpm`) | `chmod +x` the AppImage or install with `apt` / `dnf`. Set `COCO_VOICE_NO_GTK_LAYER_SHELL=1` if your compositor lacks `gtk-layer-shell` (the legacy env name still works). |
+| Platform                                                   | 0.20.2 assets                                                                                                                                               | First launch                                                                                                                                                               |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **macOS** (Apple Silicon & Intel)                          | `Coco.Voice_0.20.2_aarch64.dmg`, `Coco.Voice_0.20.2_x64.dmg`                                                                                                | Drag **Coco Voice** to Applications, then right-click → **Open** → **Open** once. Grant Microphone and Accessibility when asked.                                           |
+| **Windows x64** _(built by CI, not yet hand-tested)_       | `Coco.Voice_0.20.2_x64-setup.exe` (per-user NSIS), `Coco.Voice_0.20.2_x64_en-US.msi`                                                                        | Run the installer. If Windows SmartScreen appears, verify `SHA256SUMS` then click **More info** → **Run anyway**.                                                          |
+| **Linux x64 & ARM64** _(built by CI, not yet hand-tested)_ | `Coco.Voice_0.20.2_amd64.AppImage`, `Coco.Voice_0.20.2_amd64.deb`, `Coco.Voice-0.20.2-1.x86_64.rpm` (ARM64: `aarch64.AppImage`, `arm64.deb`, `aarch64.rpm`) | `chmod +x` the AppImage or install with `apt` / `dnf`. Set `COCO_VOICE_NO_GTK_LAYER_SHELL=1` if your compositor lacks `gtk-layer-shell` (the legacy env name still works). |
 
 ### Verify your download
 
@@ -218,7 +233,7 @@ Yes. Once your speech model (and optional local clean-up model) is downloaded, d
 Accessibility lets Coco Voice listen for your global push-to-talk shortcut and send the paste keystroke into the focused app. You can also skip Accessibility during onboarding and use clipboard-only mode (**Don't type**). If a macOS update leaves a stale Accessibility entry, Coco Voice detects it and shows the exact reset steps.
 
 **Meetings on Windows or Linux?**  
-Not yet. Meetings currently ship in macOS release builds only (macOS 14.4+ for Core Audio process tap system-audio capture).
+Not yet. Meetings currently ship in macOS release builds only (macOS 14.4+), and in `0.20.2` record the microphone only.
 
 **How do updates work?**  
 When **Check for updates** is enabled, Coco Voice checks GitHub Releases `latest.json` and verifies update archives with minisign before installing. Portable Windows installs check manually via GitHub Releases.
@@ -228,7 +243,7 @@ When **Check for updates** is enabled, Coco Voice checks GitHub Releases `latest
 - **macOS:** `~/Library/Application Support/com.cocoresearch.cocovoice/` (logs in `~/Library/Logs/com.cocoresearch.cocovoice/`)
 - **Windows:** `%APPDATA%\com.cocoresearch.cocovoice\` (or `<install-dir>\Data\` in portable mode)
 - **Linux:** `~/.local/share/com.cocoresearch.cocovoice/` (respecting `$XDG_DATA_HOME`)
-- **Downloaded GGUF models (all OSes):** Shared Hugging Face cache (`$HF_HOME/hub`, default `~/.cache/huggingface/hub/`).
+- **Downloaded GGUF models (all OSes):** Shared Hugging Face cache (`$HF_HOME/hub`, default `~/.cache/huggingface/hub/`). Deleting a model in Coco Voice also removes it from this shared cache.
 
 **How do I uninstall?**  
 Remove the app binary/package and delete the data folder above (and optionally cached models under `~/.cache/huggingface/hub/`). Step-by-step instructions per OS are in [INSTALL.md](INSTALL.md#uninstalling).

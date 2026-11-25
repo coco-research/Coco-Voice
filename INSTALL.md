@@ -2,7 +2,7 @@
 
 Coco Voice ships native installers for **macOS** (Apple Silicon `aarch64` and Intel `x64`), **Windows x64**, and **Linux** (`x64` and `ARM64`) on [GitHub Releases](https://github.com/coco-research/Coco-Voice/releases/latest). Every release publishes `SHA256SUMS`, `latest.json`, minisign `.sig` updater signatures, and GitHub build provenance attestations.
 
-These builds are not notarized. Verify your download against `SHA256SUMS` or GitHub build provenance before opening it.
+macOS builds are hand-tested; **Windows and Linux builds are built by CI and have not yet been hand-tested.** These builds are not notarized. Verify your download against `SHA256SUMS` or GitHub build provenance before opening it.
 
 ---
 
@@ -17,11 +17,13 @@ These builds are not notarized. Verify your download against `SHA256SUMS` or Git
 2. Verify the download (see [Verify your download](#verify-your-download) below).
 3. Open the `.dmg` and drag **Coco Voice** into **Applications**.
 4. **First launch:** Because these builds are not notarized by Apple, right-click **Coco Voice** in `/Applications` → **Open** → **Open** (or choose **Open Anyway** in **System Settings → Privacy & Security**).
-5. Grant **Microphone** and **Accessibility** when prompted (or choose **Continue without typing** to use clipboard-only mode). On macOS 14.4+, starting a meeting also prompts once for **System Audio Recording Only** so the app can capture the other side of a call locally.
+5. Grant **Microphone** and **Accessibility** when prompted (or choose **Continue without typing** to use clipboard-only mode). On macOS 14.4+, starting a meeting also prompts once for **System Audio Recording Only** (requested when the app opens the Core Audio process tap, although meetings in `0.20.2` record the microphone only — see [Known issues](README.md#known-issues)), and opting into the **Coming up** calendar card prompts for **Calendars** access.
 
 ---
 
-## 2. Windows x64
+## 2. Windows x64 (built by CI, not yet hand-tested)
+
+> **Status:** Windows `0.20.2` installers are built by CI and have not yet been hand-tested.
 
 ### Per-User NSIS Setup (`.exe`) or MSI (`.msi`)
 
@@ -40,7 +42,9 @@ These builds are not notarized. Verify your download against `SHA256SUMS` or Git
 
 ---
 
-## 3. Linux (`x64` & `ARM64`)
+## 3. Linux (`x64` & `ARM64`, built by CI, not yet hand-tested)
+
+> **Status:** Linux `0.20.2` packages are built by CI and have not yet been hand-tested.
 
 All Linux packages bundle `libtranscribe.so` and the `ggml` runtime modules.
 
@@ -114,4 +118,4 @@ Replace the filename with whichever macOS, Windows, or Linux asset you downloade
 - **macOS:** Quit **Coco Voice**, move `/Applications/Coco Voice.app` to the Trash, and remove `~/Library/Application Support/com.cocoresearch.cocovoice/` and `~/Library/Logs/com.cocoresearch.cocovoice/` if you want to wipe local settings, history, and meetings.
 - **Windows:** Uninstall **Coco Voice** via **Settings → Apps → Installed apps** (or delete the portable folder), then remove `%APPDATA%\com.cocoresearch.cocovoice\` and `%LOCALAPPDATA%\com.cocoresearch.cocovoice\` if desired.
 - **Linux:** Delete the `.AppImage` or uninstall via `sudo apt remove coco-voice` / `sudo dnf remove coco-voice`, then remove `~/.local/share/com.cocoresearch.cocovoice/` if desired.
-- **Optional model cleanup (all OSes):** Remove downloaded GGUF repos from `~/.cache/huggingface/hub/` if no other local tool uses them.
+- **Optional model cleanup (all OSes):** Remove downloaded GGUF repos from `~/.cache/huggingface/hub/` if no other local tool uses them. Note: deleting a model inside Coco Voice also removes it from the shared Hugging Face cache.
