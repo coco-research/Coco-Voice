@@ -262,6 +262,12 @@ const RecordingOverlay: React.FC = () => {
             .catch(() => {});
         }
       });
+      const unlistenMeetingState = await listen<{ state?: string }>(
+        "meeting-state-changed",
+        (event) => {
+          setMeetingStopping(event.payload?.state === "stopping");
+        },
+      );
       const unlistenShow = await listen("show-overlay", async (event) => {
         setPillOutcome(null);
         const overlayState = event.payload as OverlayState;
@@ -387,6 +393,7 @@ const RecordingOverlay: React.FC = () => {
         unlistenOutcome();
         unlistenPillMode();
         unlistenMeetingPill();
+        unlistenMeetingState();
         unlistenShow();
         unlistenHide();
         unlistenAgentAsk();
@@ -411,7 +418,12 @@ const RecordingOverlay: React.FC = () => {
 
   // Drift-free local counter for the Meeting pill (counts from started_at_ms).
   useEffect(() => {
-    if (state !== "meeting" || !isVisible || meetingStartedAtMs === null) {
+    if (
+      state !== "meeting" ||
+      !isVisible ||
+      meetingStartedAtMs === null ||
+      meetingStopping
+    ) {
       return;
     }
     const update = () => {
@@ -422,7 +434,7 @@ const RecordingOverlay: React.FC = () => {
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
-  }, [state, isVisible, meetingStartedAtMs]);
+  }, [state, isVisible, meetingStartedAtMs, meetingStopping]);
 
   useLayoutEffect(() => {
     const el = capRef.current;

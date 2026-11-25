@@ -1553,7 +1553,7 @@ pub fn trigger_retry_meeting_notes(
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn rename_meeting(app: AppHandle, meeting_id: i64, title: String) -> Result<String, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;

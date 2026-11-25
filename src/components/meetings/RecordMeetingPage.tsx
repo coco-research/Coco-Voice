@@ -229,6 +229,7 @@ export const RecordMeetingSection: React.FC<RecordMeetingSectionProps> = ({
   const jumpSeqRef = useRef(0);
 
   const isPaused = status.state === "paused";
+  const isStopping = status.state === "stopping";
   const isRecording = status.state === "recording" || isPaused;
   const hasSpokenSegments = segments.some((s) => s.text.trim().length > 0);
   const notesInProgress =
@@ -296,6 +297,15 @@ export const RecordMeetingSection: React.FC<RecordMeetingSectionProps> = ({
                   </span>
                 ) : null}
               </>
+            ) : isStopping ? (
+              <span
+                role="status"
+                className="inline-flex items-center gap-1.5 rounded-full border border-mid-gray/35 bg-background px-3 py-1 text-[12.5px] font-semibold text-mid-gray"
+              >
+                <span>
+                  {t("meetings.list.finishingNotes", "Finishing notes")}
+                </span>
+              </span>
             ) : isRecording ? (
               <>
                 <MeetingFloatingPill
@@ -369,6 +379,7 @@ export const RecordMeetingSection: React.FC<RecordMeetingSectionProps> = ({
         {(!isRecording || hasNotesSoFar) && onNotepadChange ? (
           <MeetingNotesSection
             recording={isRecording}
+            stopping={isStopping}
             snapshot={notesSnapshot}
             notepadDraft={notepadDraft}
             retrying={retryingNotes}

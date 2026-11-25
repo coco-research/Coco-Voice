@@ -212,10 +212,12 @@ export const MeetingPillView: React.FC<MeetingPillProps> = ({
         {RECORD_DOT}
       </span>
       <span data-testid="meeting-pill-elapsed">
-        {t("overlay.meetingPill.recordingTime", {
-          time: formatted,
-          defaultValue: `Recording ${formatted}`,
-        })}
+        {stopping
+          ? t("meetings.list.finishingNotes", "Finishing notes")
+          : t("overlay.meetingPill.recordingTime", {
+              time: formatted,
+              defaultValue: `Recording ${formatted}`,
+            })}
       </span>
       {micOnly ? (
         <span
