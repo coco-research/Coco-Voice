@@ -7,7 +7,7 @@
 
 use crate::meeting_ask_index::TOP_K;
 pub use crate::meeting_ask_index::{format_mm_ss, AskCitation, AskScope, MeetingAskIndex};
-use crate::meeting_notes_pieces::{estimate_tokens, is_one_shot, piece_budget, plan_pieces};
+use crate::meeting_notes_pieces::{estimate_tokens, is_one_shot, plan_pieces_within};
 use anyhow::{anyhow, bail, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -223,13 +223,13 @@ fn not_found_answer(question: &str) -> AskAnswer {
     }
 }
 
-/// Reuse the notes path's shared piece planner (`meeting_notes_pieces::plan_pieces`)
-/// budgeted for Ask's local context window so chunks never exceed `local_llm` budget.
+/// Reuse the shared segment packer (`meeting_notes_pieces::plan_pieces_within`)
+/// with Ask's own prompt budget (`ASK_PROMPT_BUDGET_TOKENS - prompt_tokens`) so
+/// Ask chunks fit Ask's local context window independently of notes settings.
 fn plan_ask_pieces(segments: &[AskCitation], prompt_tokens: usize) -> Vec<Range<usize>> {
     let seg_tokens: Vec<usize> = segments.iter().map(|c| estimate_tokens(&c.quote)).collect();
     let ask_budget = ASK_PROMPT_BUDGET_TOKENS.saturating_sub(prompt_tokens);
-    let reserve = piece_budget(prompt_tokens).saturating_sub(ask_budget);
-    plan_pieces(&seg_tokens, reserve, prompt_tokens)
+    plan_pieces_within(&seg_tokens, ask_budget)
 }
 
 fn ask_segments_with_model(
@@ -833,6 +833,110 @@ mod tests {
         assert_eq!(
             (a2.answer.as_str(), a2.citations.len(), m2.calls()),
             (NO_MATCH_ANSWER, 0, 1)
+        );
+    }
+
+    #[test]
+    fn ask_plans_pieces_by_exact_ask_prompt_budget_not_notes_2k_budget() {
+        use crate::meeting_notes_pieces::{piece_budget, SEGMENT_TAG_TOKENS};
+
+        let make_cite = |sid: i64, chars: usize| AskCitation {
+            meeting_id: 1,
+            meeting_title: "Budget check".into(),
+            started_at: 1_700_000_000,
+            segment_id: sid,
+            start_ms: sid * 10_000,
+            end_ms: sid * 10_000 + 5_000,
+            timestamp: format_mm_ss(sid * 10_000),
+            channel: "others".into(),
+            quote: "a".repeat(chars),
+        };
+
+        let prompt_tokens = 152usize;
+        let ask_budget = ASK_PROMPT_BUDGET_TOKENS - prompt_tokens; // 1000
+        let notes_2k_budget = piece_budget(2048, prompt_tokens); // 664
+        assert!(ask_budget > notes_2k_budget);
+
+        // Two segments of cost 500 each (494 text tokens + 6 tag tokens) sum to 1000:
+        // one piece under Ask's 1152 - p budget, whereas an 816 - p (2048 notes) budget
+        // would split into 2 pieces.
+        let half_text_tokens = ask_budget / 2 - SEGMENT_TAG_TOKENS;
+        let exact_fit = vec![
+            make_cite(1, half_text_tokens * 4),
+            make_cite(2, half_text_tokens * 4),
+        ];
+        assert_eq!(plan_ask_pieces(&exact_fit, prompt_tokens), vec![0..2]);
+
+        // Adding 1 token pushes total to ask_budget + 1 = 1001, forcing a split into 2 pieces.
+        let one_over = vec![
+            make_cite(1, half_text_tokens * 4),
+            make_cite(2, (half_text_tokens + 1) * 4),
+        ];
+        assert_eq!(plan_ask_pieces(&one_over, prompt_tokens), vec![0..1, 1..2]);
+
+        // End-to-end through `ask()` on a meeting whose total token cost sits strictly
+        // between notes' 2048 budget (816 - p) and Ask's own budget (1152 - p).
+        let q = "what is my role";
+        let real_p = estimate_tokens(&build_ask_prompt_with_history(q, &[], &[]));
+        let seg_tokens = (ASK_PROMPT_BUDGET_TOKENS - real_p) / 2 - SEGMENT_TAG_TOKENS - 20;
+        let seg_cost_total = 2 * (seg_tokens + SEGMENT_TAG_TOKENS);
+        assert!(seg_cost_total > piece_budget(2048, real_p));
+        assert!(seg_cost_total <= ASK_PROMPT_BUDGET_TOKENS - real_p);
+
+        let d = tempfile::tempdir().unwrap();
+        let s1 = format!(
+            "You will lead the move. {}",
+            "x".repeat(seg_tokens * 4 - 24)
+        );
+        let s2 = "y".repeat(seg_tokens * 4);
+        seed_one_meeting(
+            d.path(),
+            "Budget boundary",
+            &[(10_000, "others", &s1), (20_000, "me", &s2)],
+        );
+        let idx = MeetingAskIndex::open(d.path()).unwrap();
+        let m = RecordingModel::new(|_| Ok("You will lead the move [S1].".into()));
+        let ans = idx.ask(&AskScope::OneMeeting(1), q, Some(&m)).unwrap();
+        assert_eq!(
+            m.calls(),
+            1,
+            "must stay one-shot under Ask's 1152 - p budget"
+        );
+        assert_eq!(ans.citations[0].segment_id, 1);
+    }
+
+    #[test]
+    fn ask_long_meeting_ranges_match_main_5536d5fc() {
+        // Expected ranges captured from main 5536d5fceeaba9fe3638701a8435161a72af47fe
+        // on this exact 20-segment fixture (prompt_tokens = 134, 4 pieces).
+        const SIZES: &[usize] = &[
+            120, 95, 180, 140, 210, 160, 130, 85, 240, 175, 110, 195, 150, 220, 90, 165, 200, 135,
+            145, 185,
+        ];
+        let segs: Vec<AskCitation> = SIZES
+            .iter()
+            .enumerate()
+            .map(|(i, &toks)| AskCitation {
+                meeting_id: 1,
+                meeting_title: "Long fixture".into(),
+                started_at: 1_700_000_000,
+                segment_id: (i + 1) as i64,
+                start_ms: (i as i64 + 1) * 10_000,
+                end_ms: (i as i64 + 1) * 10_000 + 5_000,
+                timestamp: format_mm_ss((i as i64 + 1) * 10_000),
+                channel: "others".into(),
+                quote: "w".repeat(toks * 4),
+            })
+            .collect();
+        let prompt_tokens = estimate_tokens(&build_ask_prompt_with_history(
+            "what is my role in the quarterly rollout?",
+            &[],
+            &[],
+        ));
+        assert_eq!(prompt_tokens, 134);
+        assert_eq!(
+            plan_ask_pieces(&segs, prompt_tokens),
+            vec![0..6, 6..12, 12..18, 18..20]
         );
     }
 }
