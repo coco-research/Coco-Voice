@@ -22,8 +22,12 @@ import {
   type TrashedMeetingItem,
 } from "../src/components/meetings/MeetingHistoryExtras";
 import {
+  AskMeetingsSection,
+  buildAskMeetingsV2Params,
+  executeAskRequest,
   loadMeetingTodos,
   MeetingTodosPanel,
+  type AskTurn,
 } from "../src/components/meetings/AskMeetingsView";
 
 const root = join(import.meta.dir, "..");
@@ -362,5 +366,76 @@ describe("meeting to-dos load error truth", () => {
     expect(html).toContain("Could not load to-dos.");
     expect(html).not.toContain("No to-dos from the last 14 days.");
     expect(html).not.toContain("<ul");
+  });
+});
+
+describe("Ask busy state and no-model notice (C3 / F10)", () => {
+  test("executeAskRequest holds busy state while pending and AskMeetingsSection renders busy state and reasonNoModel", async () => {
+    const i18n = await createTestI18n();
+    let answering = false;
+    let noModel = false;
+    const turns: AskTurn[] = [];
+    type Res = {
+      status: "ok";
+      data: { answer: string; citations: []; no_model?: boolean };
+    };
+    let resolveAsk!: (v: Res) => void;
+    const pending = new Promise<Res>((res) => {
+      resolveAsk = res;
+    });
+    const renderAsk = () =>
+      renderToStaticMarkup(
+        <I18nextProvider i18n={i18n}>
+          <AskMeetingsSection
+            singleMeetingMode
+            meetingTitle="Office move kickoff"
+            scope="this_meeting"
+            turns={turns}
+            answering={answering}
+            noModel={noModel}
+            onAsk={() => {}}
+            onToggleVoiceAsk={() => {}}
+          />
+        </I18nextProvider>,
+      );
+
+    const params = buildAskMeetingsV2Params("what is my role", {
+      isSingle: true,
+      scope: "this_meeting",
+      meetingId: 1,
+      selectedFolder: "",
+      pickedMeetingIds: [],
+      recentTurns: [],
+    });
+    const req = executeAskRequest("what is my role", params, {
+      isSingle: true,
+      askFn: () => pending,
+      setAnswering: (b) => (answering = b),
+      setNoModel: (m) => (noModel = m),
+      onTurn: (t) => turns.push(t),
+    });
+
+    expect(answering).toBe(true);
+    const pendingHtml = renderAsk();
+    expect(pendingHtml).toMatch(
+      /<button[^>]*disabled=""[^>]*>Answering…<\/button>/,
+    );
+
+    resolveAsk({
+      status: "ok",
+      data: {
+        answer: "No matching moment found in the selected meetings.",
+        citations: [],
+        no_model: true,
+      },
+    });
+    await req;
+
+    expect([answering, noModel, turns.length]).toEqual([false, true, 1]);
+    const settledHtml = renderAsk();
+    expect(settledHtml).toContain(
+      "No clean-up model is downloaded. Get one in Models.",
+    );
+    expect(settledHtml).not.toContain("Answering…");
   });
 });

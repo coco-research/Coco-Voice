@@ -76,6 +76,8 @@ pub struct AskMeetingsV2Dto {
     pub question: String,
     pub answer: String,
     pub citations: Vec<AskCitationV2Dto>,
+    #[serde(default)]
+    pub no_model: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -84,6 +86,8 @@ pub struct TrashedMeetingRowDto {
     pub title: String,
     pub deleted_at: i64,
 }
+
+const ASK_SYSTEM_PROMPT: &str = "Answer questions strictly from the provided transcript excerpts and cite [n] on every line. If the excerpts do not answer the question, reply ONLY with NOT_FOUND and no citation.";
 
 /// On-device Ask model adapter implementing Amendment 1 (`X-A1`):
 /// 1. Local clean-up model on macOS when downloaded.
@@ -148,20 +152,30 @@ impl LocalAskModel for OnDeviceAskModel {
     fn generate(&self, prompt: &str) -> anyhow::Result<String> {
         #[cfg(target_os = "macos")]
         if let Some(ref model_path) = self.local_model_path {
-            return tauri::async_runtime::block_on(crate::local_llm::generate_text(
+            let fut = crate::local_llm::generate_text(
                 model_path,
-                "Answer questions strictly from the provided transcript excerpts and cite [n] on every line.",
+                ASK_SYSTEM_PROMPT,
                 prompt,
                 512,
                 None,
                 None,
-            ))
-            .map_err(|e| anyhow::anyhow!("{e}"));
+            );
+            let res = match tokio::runtime::Handle::try_current() {
+                Ok(handle)
+                    if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread =>
+                {
+                    tokio::task::block_in_place(|| handle.block_on(fut))
+                }
+                Ok(handle) => std::thread::scope(|s| s.spawn(|| handle.block_on(fut)).join())
+                    .map_err(|_| anyhow::anyhow!("on-device ask model thread panicked"))?,
+                Err(_) => tauri::async_runtime::block_on(fut),
+            };
+            return res.map_err(|e| anyhow::anyhow!("{e}"));
         }
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         if self.use_apple_intelligence {
             return crate::apple_intelligence::process_text_with_system_prompt(
-                "Answer questions strictly from the provided transcript excerpts and cite [n] on every line.",
+                ASK_SYSTEM_PROMPT,
                 prompt,
                 512,
             )
@@ -524,7 +538,7 @@ fn resolve_ask_scope(
     }
 }
 
-fn ask_answer_to_dto(ans: AskAnswer) -> AskMeetingsV2Dto {
+fn ask_answer_to_dto(ans: AskAnswer, no_model: bool) -> AskMeetingsV2Dto {
     let citations = ans
         .citations
         .into_iter()
@@ -550,6 +564,7 @@ fn ask_answer_to_dto(ans: AskAnswer) -> AskMeetingsV2Dto {
         question: ans.question,
         answer: ans.answer,
         citations,
+        no_model,
     }
 }
 
@@ -615,7 +630,8 @@ pub fn run_ask_by_voice_take(
     )
 }
 
-#[tauri::command]
+// `async`: audio device lookup and recording lock must not block the main thread.
+#[tauri::command(async)]
 #[specta::specta]
 pub fn start_ask_by_voice(app: AppHandle) -> Result<(), String> {
     match list_input_devices() {
@@ -640,7 +656,8 @@ pub fn start_ask_by_voice(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+// `async`: waits on recording manager lock.
+#[tauri::command(async)]
 #[specta::specta]
 pub fn cancel_ask_by_voice(app: AppHandle) -> Result<(), String> {
     if !ASK_BY_VOICE_ACTIVE.swap(false, Ordering::AcqRel) {
@@ -655,7 +672,8 @@ pub fn cancel_ask_by_voice(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+// `async`: runs speech-to-text inference and waits on the transcription lock.
+#[tauri::command(async)]
 #[specta::specta]
 pub fn finish_ask_by_voice(app: AppHandle) -> Result<String, String> {
     ASK_BY_VOICE_ACTIVE.store(false, Ordering::Release);
@@ -676,7 +694,8 @@ pub fn finish_ask_by_voice(app: AppHandle) -> Result<String, String> {
     transcribe_ephemeral_take(&std::env::temp_dir(), &samples, &stt).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+// `async`: runs speech-to-text and on-device Ask model inference off the main thread.
+#[tauri::command(async)]
 #[specta::specta]
 pub fn ask_meetings_by_voice(
     app: AppHandle,
@@ -709,13 +728,15 @@ pub fn ask_meetings_by_voice(
         .ok_or_else(|| "transcription manager not available".to_string())?;
     let stt = TranscriptionManagerStt(&tm);
     let model = OnDeviceAskModel::resolve(&app);
+    let no_model = model.is_none();
     let model_ref: Option<&dyn LocalAskModel> = model.as_ref().map(|m| m as &dyn LocalAskModel);
     let ans = run_ask_by_voice_take(&idx, &ask_scope, &samples, &history_pairs, &stt, model_ref)
         .map_err(|e| e.to_string())?;
-    Ok(ask_answer_to_dto(ans))
+    Ok(ask_answer_to_dto(ans, no_model))
 }
 
-#[tauri::command]
+// `async`: syncs SQLite Ask index and runs on-device model inference off the main thread.
+#[tauri::command(async)]
 #[specta::specta]
 pub fn ask_meetings_v2(
     app: AppHandle,
@@ -736,12 +757,13 @@ pub fn ask_meetings_v2(
         .map(|turn| (turn.question, turn.answer))
         .collect();
     let model = OnDeviceAskModel::resolve(&app);
+    let no_model = model.is_none();
     let model_ref: Option<&dyn LocalAskModel> = model.as_ref().map(|m| m as &dyn LocalAskModel);
     let ans = idx
         .ask_with_history(&ask_scope, &question, &history_pairs, model_ref)
         .map_err(|e| e.to_string())?;
 
-    Ok(ask_answer_to_dto(ans))
+    Ok(ask_answer_to_dto(ans, no_model))
 }
 
 // ---------------------------------------------------------------------------
@@ -893,5 +915,48 @@ mod tests {
             wav_files_after_ok,
             wav_files_after_err
         );
+    }
+
+    #[test]
+    fn c2_c3_all_ask_commands_are_async() {
+        let extras = include_str!("meeting_extras_commands.rs");
+        let v020 = include_str!("v020_commands.rs");
+        for (file, src, sig) in [
+            (
+                "meeting_extras_commands.rs",
+                extras,
+                "pub fn start_ask_by_voice",
+            ),
+            (
+                "meeting_extras_commands.rs",
+                extras,
+                "pub fn cancel_ask_by_voice",
+            ),
+            (
+                "meeting_extras_commands.rs",
+                extras,
+                "pub fn finish_ask_by_voice",
+            ),
+            (
+                "meeting_extras_commands.rs",
+                extras,
+                "pub fn ask_meetings_by_voice",
+            ),
+            (
+                "meeting_extras_commands.rs",
+                extras,
+                "pub fn ask_meetings_v2",
+            ),
+            ("v020_commands.rs", v020, "pub fn ask_meetings("),
+        ] {
+            let pos = src
+                .find(sig)
+                .unwrap_or_else(|| panic!("missing {sig} in {file}"));
+            let prev: Vec<&str> = src[..pos].lines().rev().take(4).collect();
+            assert!(
+                prev.iter().any(|l| l.trim() == "#[tauri::command(async)]"),
+                "{sig} in {file} must use #[tauri::command(async)]; got {prev:?}"
+            );
+        }
     }
 }
