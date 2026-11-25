@@ -30,10 +30,10 @@ use crate::meeting_notes_merge::merge_pieces;
 use crate::meeting_notes_pieces::{
     estimate_tokens, is_one_shot, piece_budget, plan_pieces, SEGMENT_TAG_TOKENS,
 };
-use crate::meeting_notes_runner::{NotesGenerator, NOTEPAD_KIND};
+use crate::meeting_notes_runner::{NotesGenerator, DEFAULT_LOCAL_NOTES_N_CTX, NOTEPAD_KIND};
 use crate::meeting_notes_v42::{
-    generate_left_out_reasons, load_left_out_spans, run_notes_with_quality_and_words,
-    save_left_out_spans,
+    generate_left_out_reasons, load_left_out_spans, parse_template_headings,
+    run_notes_with_quality_and_words, save_left_out_spans,
 };
 use crate::meeting_retention::{maybe_remove_audio_after_notes, sync_meeting_markdown_file};
 use crate::settings::{self, LOCAL_LLM_DEFAULT_MODEL_ID, LOCAL_LLM_PROVIDER_ID};
@@ -804,11 +804,12 @@ pub fn rolling_tick_once<G: NotesGenerator>(
         .map(|(_, t)| t)
         .collect();
 
+    let n_ctx = generator.context_window()?;
     let prompt_tokens = estimate_tokens(&build_notes_prompt(&[], &[]));
     let notepad_tokens =
         estimate_tokens(&build_notes_prompt(&[], &notepad_points)).saturating_sub(prompt_tokens);
     let all_seg_tokens: Vec<usize> = spoken.iter().map(|s| estimate_tokens(&s.text)).collect();
-    let all_pieces = plan_pieces(&all_seg_tokens, notepad_tokens, prompt_tokens);
+    let all_pieces = plan_pieces(&all_seg_tokens, notepad_tokens, prompt_tokens, n_ctx);
     if is_one_shot(&all_pieces) {
         return Ok(None);
     }
@@ -967,12 +968,21 @@ where
             .unwrap_or_else(|| (Vec::new(), 0, DEFAULT_TOKENS_PER_SEC))
     };
 
+    let mut generator_result = generator_result;
+    let n_ctx = match &mut generator_result {
+        Ok(g) => g.context_window().unwrap_or(DEFAULT_LOCAL_NOTES_N_CTX),
+        Err(_) => DEFAULT_LOCAL_NOTES_N_CTX,
+    };
     let prompt_tokens = estimate_tokens(&build_notes_prompt(&[], &[]));
     let notepad_tokens =
         estimate_tokens(&build_notes_prompt(&[], &notepad_points)).saturating_sub(prompt_tokens);
     let all_seg_tokens: Vec<usize> = spoken.iter().map(|s| estimate_tokens(&s.text)).collect();
-    let all_pieces = plan_pieces(&all_seg_tokens, notepad_tokens, prompt_tokens);
+    let all_pieces = plan_pieces(&all_seg_tokens, notepad_tokens, prompt_tokens, n_ctx);
     let fits_one_shot = is_one_shot(&all_pieces);
+    let has_custom_headings = config
+        .template_body
+        .as_deref()
+        .is_some_and(|tpl| !parse_template_headings(tpl).is_empty());
 
     let tokens_left: usize = if fits_one_shot || existing_pieces.is_empty() {
         all_seg_tokens.iter().sum()
@@ -1017,7 +1027,7 @@ where
     let saved_notes: Vec<StoredNote>;
     let mut oversized_segments: Vec<i64> = Vec::new();
 
-    if fits_one_shot || existing_pieces.is_empty() {
+    if fits_one_shot || existing_pieces.is_empty() || has_custom_headings {
         used_rolling_pieces = false;
         let run = run_notes_with_quality_and_words(
             store,
@@ -1051,16 +1061,17 @@ where
                 .iter()
                 .map(|s| estimate_tokens(&s.text))
                 .collect();
-            let tail_budget = piece_budget(prompt_tokens).saturating_sub(notepad_tokens);
-            let tail_ranges: Vec<_> = plan_pieces(&tail_tokens, notepad_tokens, prompt_tokens)
-                .into_iter()
-                .filter(|r| {
-                    tail_tokens[r.clone()]
-                        .iter()
-                        .fold(0usize, |acc, n| acc.saturating_add(n + SEGMENT_TAG_TOKENS))
-                        <= tail_budget
-                })
-                .collect();
+            let tail_budget = piece_budget(n_ctx, prompt_tokens).saturating_sub(notepad_tokens);
+            let tail_ranges: Vec<_> =
+                plan_pieces(&tail_tokens, notepad_tokens, prompt_tokens, n_ctx)
+                    .into_iter()
+                    .filter(|r| {
+                        tail_tokens[r.clone()]
+                            .iter()
+                            .fold(0usize, |acc, n| acc.saturating_add(n + SEGMENT_TAG_TOKENS))
+                            <= tail_budget
+                    })
+                    .collect();
 
             let total_calls = tail_ranges.len().max(1) as u32;
             for (idx, range) in tail_ranges.iter().enumerate() {
@@ -1251,7 +1262,7 @@ fn resolve_local_notes_generator(
         .get_model_path(model_id)
         .or_else(|_| mm.get_model_path(LOCAL_LLM_DEFAULT_MODEL_ID))
         .map_err(|_| NotesFailReason::NoModel)?;
-    Ok(crate::meeting_notes_runner::LocalLlmNotes { model_path })
+    Ok(crate::meeting_notes_runner::LocalLlmNotes::new(model_path))
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -2115,7 +2126,7 @@ mod tests {
                 .lock()
                 .unwrap()
                 .iter()
-                .any(|p| p.contains("## Their needs") && p.contains("## Follow-ups")),
+                .any(|p| p.contains("Their needs:") && p.contains("Follow-ups:")),
             "notes prompt for a meeting started with a template must include its headings"
         );
 
