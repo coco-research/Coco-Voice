@@ -2120,6 +2120,86 @@ mod tests {
         );
     }
 
+    struct ContextWindowErrorGen {
+        prompts: Arc<Mutex<Vec<String>>>,
+        context_window_calls: Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    impl NotesGenerator for ContextWindowErrorGen {
+        fn context_window(&mut self) -> Result<usize> {
+            self.context_window_calls.fetch_add(1, Ordering::SeqCst);
+            Err(anyhow!("synthetic context window read error"))
+        }
+
+        fn generate(&mut self, prompt: &str) -> Result<String> {
+            self.prompts.lock().unwrap().push(prompt.to_string());
+            Ok("SUMMARY: Should not run [S1]".to_string())
+        }
+    }
+
+    #[test]
+    fn after_stop_context_window_error_fails_notes_and_keeps_transcript() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let pipeline = MeetingPipelineState::new();
+        let id = store
+            .start_meeting("Context Read Check", "parakeet")
+            .unwrap();
+        for i in 0..3i64 {
+            let start = i * 5_000;
+            store
+                .insert_segment(
+                    id,
+                    start,
+                    start + 4_000,
+                    MeetingChannel::Me,
+                    &format!("Segment {i} discussing release timing."),
+                )
+                .unwrap();
+        }
+        store.finalise(id, false).unwrap();
+
+        let recorded_prompts = Arc::new(Mutex::new(Vec::<String>::new()));
+        let context_window_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut progress_phases = Vec::<String>::new();
+
+        let out = run_after_stop_with_generator(
+            &store,
+            &pipeline,
+            id,
+            &AfterStopConfig::default(),
+            Ok(ContextWindowErrorGen {
+                prompts: Arc::clone(&recorded_prompts),
+                context_window_calls: Arc::clone(&context_window_calls),
+            }),
+            |p| progress_phases.push(p.phase),
+        )
+        .unwrap();
+
+        assert_eq!(
+            out,
+            AfterStopOutcome::Failed {
+                reason: NotesFailReason::Failed
+            }
+        );
+        assert_eq!(store.meeting(id).unwrap().status, "notes_failed");
+        assert_eq!(store.segments(id).unwrap().len(), 3);
+        assert!(store.notes(id).unwrap().is_empty());
+        assert!(
+            recorded_prompts.lock().unwrap().is_empty(),
+            "after-Stop must send 0 prompts when context_window() fails"
+        );
+        assert!(
+            progress_phases.is_empty(),
+            "after-Stop must fail before starting a finishing job when context_window() errors, got progress phases: {progress_phases:?}"
+        );
+        assert_eq!(
+            context_window_calls.load(Ordering::SeqCst),
+            1,
+            "after-Stop must fail on the initial context_window() check instead of falling back to DEFAULT_LOCAL_NOTES_N_CTX"
+        );
+    }
+
     #[test]
     fn user_rename_survives_after_stop_and_legacy_notepad_splits_lines() {
         let dir = tempfile::tempdir().unwrap();
