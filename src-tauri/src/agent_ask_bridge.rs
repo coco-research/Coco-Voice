@@ -735,12 +735,36 @@ mod tests {
     }
 
     #[cfg(unix)]
+    fn short_socket_tempdir() -> tempfile::TempDir {
+        tempfile::Builder::new()
+            .prefix("cv")
+            .tempdir_in("/tmp")
+            .unwrap_or_else(|_| tempfile::tempdir().expect("tempdir"))
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn short_socket_tempdir_stays_under_sun_len_and_cleans_up_on_drop() {
+        let dir = short_socket_tempdir();
+        let path = dir.path().to_path_buf();
+        let sock_path = socket_path_in(&path.join("d"));
+        assert!(
+            sock_path.as_os_str().len() < 96,
+            "socket path too long for SUN_LEN: {}",
+            sock_path.display()
+        );
+        assert!(path.exists());
+        drop(dir);
+        assert!(!path.exists(), "socket temp dir must be cleaned up on drop");
+    }
+
+    #[cfg(unix)]
     #[test]
     fn socket_created_with_0600_mode_refuses_symlinks_and_removes_on_drop() {
         use std::os::unix::fs::{symlink, PermissionsExt};
 
-        let dir = tempfile::tempdir().unwrap();
-        let sock_dir = dir.path().join("app-data");
+        let dir = short_socket_tempdir();
+        let sock_dir = dir.path().join("d");
         let state = Arc::new(Mutex::new(AgentAskBridgeState::new(true, "fn")));
 
         // 1. Refuse a pre-existing symlink at the socket path.
@@ -775,8 +799,8 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn two_agents_answered_in_fifo_order_each_on_own_connection() {
-        let dir = tempfile::tempdir().unwrap();
-        let sock_dir = dir.path().join("app-data");
+        let dir = short_socket_tempdir();
+        let sock_dir = dir.path().join("d");
         let state = Arc::new(Mutex::new(AgentAskBridgeState::new(true, "fn")));
         let seen = Arc::new(Mutex::new(Vec::<AgentAskOverlayEvent>::new()));
         let seen_cb = Arc::clone(&seen);
