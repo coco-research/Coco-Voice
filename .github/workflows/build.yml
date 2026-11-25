@@ -644,7 +644,7 @@ jobs:
           tagName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
           releaseName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
           releaseId: ${{ inputs.release-id }}
-          retryAttempts: 2
+          retryAttempts: ${{ inputs.release-id != '' && 2 || 0 }}
           # Unsigned macOS builds: Tauri tries to import a certificate whenever
           # APPLE_CERTIFICATE is set, even to an empty string, so drop those vars.
           # sign-macos keeps APPLE_SIGNING_IDENTITY; the APPLE_ID vars stay
