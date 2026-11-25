@@ -720,7 +720,9 @@
           "title": "ggml",
           "description": "OpenAI'nin Whisper otomatik konuşma tanıma modelinin yüksek performanslı çıkarımı",
           "details": "Coco Voice, hızlı ve yerel konuşmadan metne dönüştürme için ggml kullanır. Georgi Gerganov ve katkıda bulunanların harika çalışmaları için teşekkür ederiz."
-        }
+        },
+        "ccByModelDetails": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) kapsamında lisanslanmıştır.",
+        "ccByModelDetails_changed": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) kapsamında lisanslanmıştır. Değiştirildi: {{converter}} tarafından {{format}} biçimine dönüştürüldü."
       },
       "whatsNewUpdates": {
         "label": "Yenilikleri Göster",

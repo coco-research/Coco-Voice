@@ -720,7 +720,9 @@
           "title": "ggml",
           "description": "Високопродуктивний інференс моделі автоматичного розпізнавання мовлення Whisper від OpenAI",
           "details": "Coco Voice використовує ggml для швидкої локальної обробки мовлення в текст. Дякуємо за чудову роботу Георгію Герганову та контриб'юторам."
-        }
+        },
+        "ccByModelDetails": "Ліцензовано за CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).",
+        "ccByModelDetails_changed": "Ліцензовано за CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Змінено: конвертовано в {{format}} ({{converter}})."
       },
       "whatsNewUpdates": {
         "label": "Показувати новини",

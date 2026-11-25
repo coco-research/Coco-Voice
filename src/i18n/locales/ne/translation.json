@@ -724,7 +724,9 @@
           "title": "ggml",
           "description": "अन-डिभाइस मेसिन लर्निङ अनुमानका लागि उच्च-प्रदर्शन टेन्सर लाइब्रेरी",
           "details": "Coco Voice को स्थानीय स्पिच-टु-टेक्स्ट transcribe.cpp र ggml मा आधारित छ। Georgi Gerganov र योगदानकर्ताहरूको उत्कृष्ट कामका लागि धन्यवाद।"
-        }
+        },
+        "ccByModelDetails": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) अन्तर्गत इजाजतपत्र प्राप्त।",
+        "ccByModelDetails_changed": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) अन्तर्गत इजाजतपत्र प्राप्त। परिवर्तन: {{converter}} द्वारा {{format}} मा रूपान्तरित।"
       }
     },
     "online": {

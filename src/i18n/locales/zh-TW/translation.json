@@ -720,7 +720,9 @@
           "title": "ggml",
           "description": "針對 OpenAI Whisper 自動語音識別模型的高效能推理引擎",
           "details": "Coco Voice 使用 ggml 進行快速的本機語音轉文字處理。感謝 Georgi Gerganov 和貢獻者們的傑出工作"
-        }
+        },
+        "ccByModelDetails": "採用 CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) 授權。",
+        "ccByModelDetails_changed": "採用 CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) 授權。已變更：由 {{converter}} 轉換為 {{format}}。"
       },
       "whatsNewUpdates": {
         "label": "顯示新功能",

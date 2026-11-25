@@ -22,6 +22,11 @@ import {
 } from "../../whats-new/releaseNotes";
 import { WhatGoesOnline, WhatGoesOnlineSummaryCard } from "./WhatGoesOnline";
 import { SPEAKER_SPLIT_ENABLED } from "../../meetings/gate";
+import {
+  CC_BY_DISPLAY_LICENCE,
+  CC_BY_MODEL_CREDITS,
+  formatCcByCreditDetails,
+} from "./ccByModelCredits";
 
 export type ManualUpdateCheckResult =
   | { kind: "up_to_date" }
@@ -243,6 +248,39 @@ export const AboutSettings: React.FC<{
                   onClick={() => void openUrl(credit.url)}
                 >
                   {t("settings.about.sourceCode.button")}
+                </Button>
+              </div>
+            </SettingContainer>
+          ))}
+          {CC_BY_MODEL_CREDITS.map((credit) => (
+            <SettingContainer
+              key={credit.id}
+              title={`${credit.title} (${CC_BY_DISPLAY_LICENCE})`}
+              description={credit.creator}
+              descriptionMode="inline"
+              grouped={true}
+              layout="stacked"
+            >
+              <div
+                data-ccby-source={credit.publisher}
+                className="text-sm text-mid-gray flex items-start justify-between gap-3"
+              >
+                <div className="min-w-0 space-y-1">
+                  <p>{formatCcByCreditDetails(credit, t)}</p>
+                  <p className="text-xs text-mid-gray/80 break-all">
+                    {credit.url}
+                  </p>
+                  <p className="text-xs font-mono text-mid-gray/80 break-all">
+                    {credit.catalogIds.join(", ")}
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => void openUrl(credit.url)}
+                >
+                  {t("v022.about.sourceCodeButton")}
                 </Button>
               </div>
             </SettingContainer>
