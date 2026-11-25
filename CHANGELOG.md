@@ -6,6 +6,13 @@ from the conventional commit titles when a release is cut. The user-facing notes
 for each version are in [src/content/release-notes/](src/content/release-notes/)
 and on the [GitHub Release](https://github.com/coco-research/Coco-Voice/releases).
 
+## [0.20.3](https://github.com/coco-research/Coco-Voice/compare/v0.20.2...v0.20.3) (2026-11-25)
+
+
+### Fixed
+
+* write meeting notes for longer meetings and follow custom template headings ([#355](https://github.com/coco-research/Coco-Voice/issues/355)) ([e9b9794](https://github.com/coco-research/Coco-Voice/commit/e9b979456acb6213acf577380e7a81ad773eb0e7))
+
 ## [0.20.2](https://github.com/coco-research/Coco-Voice/compare/v0.11.0...v0.20.2) (2026-11-25)
 
 
