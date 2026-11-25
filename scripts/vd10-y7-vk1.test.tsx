@@ -34,6 +34,8 @@ const { WordsAndCleanupV022 } =
   await import("../src/components/settings/post-processing/PostProcessingSettings");
 
 const root = join(import.meta.dir, "..");
+const PARAKEET_ULTRA_ID =
+  "handy-computer/parakeet-ultra-gguf/parakeet-ultra-Q8_0.gguf";
 
 async function createTestI18n() {
   const instance = i18next.createInstance();
@@ -180,11 +182,10 @@ describe("V-D10 focused text formatting, Y7 privacy guards, and V-K1 seeded winn
     };
     const nextModelState = {
       loading: false,
-      currentModel:
-        "handy-computer/parakeet-ultra-gguf/parakeet-ultra-Q8_0.gguf",
+      currentModel: PARAKEET_ULTRA_ID,
       models: [
         {
-          id: "handy-computer/parakeet-ultra-gguf/parakeet-ultra-Q8_0.gguf",
+          id: PARAKEET_ULTRA_ID,
           name: "Parakeet Ultra",
           description: "Fast local speech model",
           filename: "parakeet-ultra-Q8_0.gguf",
@@ -301,7 +302,7 @@ describe("V-D10 focused text formatting, Y7 privacy guards, and V-K1 seeded winn
       "handy-computer/Qwen3-ASR-0.6B-gguf/Qwen3-ASR-0.6B-Q8_0.gguf";
 
     const makeModel = (overrides: Partial<ModelInfo>): ModelInfo => ({
-      id: "handy-computer/parakeet-ultra-gguf/parakeet-ultra-Q8_0.gguf",
+      id: PARAKEET_ULTRA_ID,
       name: "Parakeet Ultra",
       description: "Fast local speech model",
       filename: "parakeet-ultra-Q8_0.gguf",

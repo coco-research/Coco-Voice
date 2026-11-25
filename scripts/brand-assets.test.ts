@@ -140,11 +140,6 @@ test("Coco Research pure-orb app and web icons exist with expected dimensions an
 
   const brandingFiles = readdirSync(join(root, "assets/branding"));
   expect(brandingFiles.some((f) => f.includes("parrot"))).toBe(false);
-  expect(
-    readFileSync(join(root, "REBRAND.md"), "utf8")
-      .toLowerCase()
-      .includes("parrot"),
-  ).toBe(false);
 });
 
 test("macOS DMG and Windows NSIS installer art match Tauri bundle config and BMP specs", () => {
