@@ -60,7 +60,8 @@ impl MeetingAskIndex {
         let hits = self.retrieve(scope, q)?;
         let single = matches!(scope, AskScope::OneMeeting(_));
         if let Some(m) = model {
-            let candidates = if single && hits.len() < TOP_K {
+            let used_full_scope = single && hits.len() < TOP_K;
+            let candidates = if used_full_scope {
                 self.scope_segments(scope)?
             } else if !hits.is_empty() {
                 hits.clone()
@@ -84,6 +85,23 @@ impl MeetingAskIndex {
                         answer: ans,
                         citations: cites,
                     });
+                }
+                Ok(None) if single && !used_full_scope => {
+                    let full = self.scope_segments(scope)?;
+                    if full.len() <= candidates.len() {
+                        return Ok(not_found_answer(q));
+                    }
+                    match ask_segments_with_model(q, &full, history, m, &self.data_dir, single) {
+                        Ok(Some((ans, cites))) => {
+                            return Ok(AskAnswer {
+                                question: q.to_string(),
+                                answer: ans,
+                                citations: cites,
+                            });
+                        }
+                        Ok(None) => return Ok(not_found_answer(q)),
+                        Err(_) => {}
+                    }
                 }
                 Ok(None) => return Ok(not_found_answer(q)),
                 Err(_) if hits.is_empty() => return Ok(not_found_answer(q)),
@@ -722,5 +740,99 @@ mod tests {
         let _ = rtx.send(());
         let a = h.join().unwrap();
         assert!(a.answer.contains("lead the move") && a.citations[0].segment_id == 1);
+    }
+
+    #[test]
+    fn f1_one_meeting_reads_full_meeting_when_bm25_top_hits_miss_answer() {
+        let d = tempfile::tempdir().unwrap();
+        seed_one_meeting(
+            d.path(),
+            "Launch planning",
+            &[
+                (10_000, "others", "Launch checklist item one is signage."),
+                (20_000, "others", "Launch checklist item two is badges."),
+                (30_000, "others", "Launch checklist item three is catering."),
+                (40_000, "others", "Launch checklist item four is parking."),
+                (50_000, "others", "Launch checklist item five is slides."),
+                (60_000, "others", "Launch checklist item six is Wi-Fi."),
+                (
+                    70_000,
+                    "others",
+                    "We agreed you will coordinate the vendor handoff.",
+                ),
+            ],
+        );
+        let idx = MeetingAskIndex::open(d.path()).unwrap();
+        let m = RecordingModel::new(|p| {
+            if p.contains("vendor handoff") {
+                Ok("You will coordinate the vendor handoff [S7].".into())
+            } else {
+                Ok("NOT_FOUND".into())
+            }
+        });
+        let a = idx
+            .ask(
+                &AskScope::OneMeeting(1),
+                "what is my launch assignment?",
+                Some(&m),
+            )
+            .unwrap();
+        assert_eq!(m.calls(), 2);
+        assert!(a.answer.contains("vendor handoff") && a.answer.contains("[01:10]"));
+        assert_eq!(a.citations.len(), 1);
+        assert_eq!(a.citations[0].segment_id, 7);
+        assert!(a.citations[0].resolves_in(d.path()));
+    }
+
+    #[test]
+    fn f1_one_meeting_no_answer_calls_model_at_most_twice() {
+        let d = tempfile::tempdir().unwrap();
+        seed_one_meeting(
+            d.path(),
+            "Launch planning",
+            &[
+                (10_000, "others", "Launch note one about signage."),
+                (20_000, "others", "Launch note two about badges."),
+                (30_000, "others", "Launch note three about catering."),
+                (40_000, "others", "Launch note four about parking."),
+                (50_000, "others", "Launch note five about slides."),
+                (60_000, "others", "Launch note six about Wi-Fi."),
+            ],
+        );
+        let idx = MeetingAskIndex::open(d.path()).unwrap();
+        let m = RecordingModel::new(|_| Ok("NOT_FOUND".into()));
+        let a = idx
+            .ask(
+                &AskScope::OneMeeting(1),
+                "what is the launch budget?",
+                Some(&m),
+            )
+            .unwrap();
+        assert_eq!((a.answer.as_str(), a.citations.len()), (NO_MATCH_ANSWER, 0));
+        assert!(
+            m.calls() <= 2,
+            "expected at most 2 model calls, got {}",
+            m.calls()
+        );
+
+        let d2 = tempfile::tempdir().unwrap();
+        seed_one_meeting(
+            d2.path(),
+            "Short",
+            &[(10_000, "others", "Launch note one.")],
+        );
+        let idx2 = MeetingAskIndex::open(d2.path()).unwrap();
+        let m2 = RecordingModel::new(|_| Ok("NOT_FOUND".into()));
+        let a2 = idx2
+            .ask(
+                &AskScope::OneMeeting(1),
+                "what is the launch budget?",
+                Some(&m2),
+            )
+            .unwrap();
+        assert_eq!(
+            (a2.answer.as_str(), a2.citations.len(), m2.calls()),
+            (NO_MATCH_ANSWER, 0, 1)
+        );
     }
 }

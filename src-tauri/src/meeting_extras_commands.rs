@@ -88,6 +88,8 @@ pub struct TrashedMeetingRowDto {
 }
 
 const ASK_SYSTEM_PROMPT: &str = "Answer questions strictly from the provided transcript excerpts and cite [n] on every line. If the excerpts do not answer the question, reply ONLY with NOT_FOUND and no citation.";
+
+/// On-device Ask model adapter implementing Amendment 1 (`X-A1`):
 /// 1. Local clean-up model on macOS when downloaded.
 /// 2. Apple Intelligence on Apple Silicon macOS when available.
 /// 3. Never calls any cloud provider.
