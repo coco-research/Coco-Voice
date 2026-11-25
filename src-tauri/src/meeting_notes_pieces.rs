@@ -32,29 +32,18 @@ pub fn piece_budget(n_ctx: usize, prompt_tokens: usize) -> usize {
     safe_room.saturating_sub(prompt_tokens)
 }
 
-/// Plan the model calls for one meeting transcript.
+/// Pack segment token counts into consecutive non-overlapping ranges covering
+/// `0..segment_tokens.len()`, each with total cost `<= budget`, where each
+/// segment costs `segment_tokens[i] + SEGMENT_TAG_TOKENS`.
 ///
-/// `segment_tokens[i]` is the estimated text tokens of segment `i`; each
-/// segment costs `segment_tokens[i] + SEGMENT_TAG_TOKENS`. The budget is
-/// [`piece_budget`]`(n_ctx, prompt_tokens)` minus `notepad_tokens` (saturating),
-/// because the notepad goes into every piece.
-///
-/// Empty input gives an empty `Vec`. When the total cost fits the budget the
-/// result is one range `0..len` (one-shot). Otherwise segments are packed
-/// greedily, in order, into consecutive non-overlapping ranges covering
-/// `0..len`, each with total cost `<= budget`. A single segment whose cost
-/// alone exceeds the budget gets a range of its own: segments are never split.
-pub fn plan_pieces(
-    segment_tokens: &[usize],
-    notepad_tokens: usize,
-    prompt_tokens: usize,
-    n_ctx: usize,
-) -> Vec<Range<usize>> {
+/// Empty input gives an empty `Vec`. When the total cost fits `budget` the
+/// result is one range `0..len` (one-shot). A single segment whose cost alone
+/// exceeds `budget` gets a range of its own: segments are never split.
+pub fn plan_pieces_within(segment_tokens: &[usize], budget: usize) -> Vec<Range<usize>> {
     if segment_tokens.is_empty() {
         return Vec::new();
     }
     let seg_cost = |n: usize| n.saturating_add(SEGMENT_TAG_TOKENS);
-    let budget = piece_budget(n_ctx, prompt_tokens).saturating_sub(notepad_tokens);
     let total = segment_tokens
         .iter()
         .fold(0usize, |acc, &n| acc.saturating_add(seg_cost(n)));
@@ -77,6 +66,22 @@ pub fn plan_pieces(
     }
     pieces.push(start..segment_tokens.len());
     pieces
+}
+
+/// Plan the model calls for one meeting transcript.
+///
+/// `segment_tokens[i]` is the estimated text tokens of segment `i`; each
+/// segment costs `segment_tokens[i] + SEGMENT_TAG_TOKENS`. The budget is
+/// [`piece_budget`]`(n_ctx, prompt_tokens)` minus `notepad_tokens` (saturating),
+/// because the notepad goes into every piece.
+pub fn plan_pieces(
+    segment_tokens: &[usize],
+    notepad_tokens: usize,
+    prompt_tokens: usize,
+    n_ctx: usize,
+) -> Vec<Range<usize>> {
+    let budget = piece_budget(n_ctx, prompt_tokens).saturating_sub(notepad_tokens);
+    plan_pieces_within(segment_tokens, budget)
 }
 
 /// True when there is exactly one piece, so notes need no merge call.
@@ -170,5 +175,31 @@ mod tests {
         let pieces = plan_pieces(&[], 0, 200, TEST_N_CTX);
         assert!(pieces.is_empty());
         assert!(!is_one_shot(&pieces));
+    }
+
+    #[test]
+    fn plan_pieces_within_covers_empty_oneshot_exact_boundary_and_oversized() {
+        // Empty input -> empty pieces.
+        let empty = plan_pieces_within(&[], 100);
+        assert!(empty.is_empty());
+        assert!(!is_one_shot(&empty));
+
+        // Total cost (16 + 26 + 36 = 78) fits within 100 -> one-shot.
+        let one_shot = plan_pieces_within(&[10, 20, 30], 100);
+        assert_eq!(one_shot, vec![0..3]);
+        assert!(is_one_shot(&one_shot));
+
+        // Exact boundary: cost(44) = 50, so two fit exactly in 100 while 50 + 51 = 101 splits.
+        assert_eq!(plan_pieces_within(&[44, 44, 44, 44], 100), vec![0..2, 2..4]);
+        assert_eq!(
+            plan_pieces_within(&[44, 45, 44], 100),
+            vec![0..1, 1..2, 2..3]
+        );
+
+        // Oversized single segment gets its own piece without splitting.
+        assert_eq!(
+            plan_pieces_within(&[10, 200, 10], 100),
+            vec![0..1, 1..2, 2..3]
+        );
     }
 }
