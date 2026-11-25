@@ -355,7 +355,7 @@ pub fn speaker_slots(store: &MeetingsStore, meeting_id: i64) -> Result<Vec<Meeti
 }
 
 #[cfg(feature = "speaker-split")]
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn list_meeting_speakers(
     app: tauri::AppHandle,
@@ -367,7 +367,7 @@ pub fn list_meeting_speakers(
 }
 
 #[cfg(feature = "speaker-split")]
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn rename_meeting_speaker_slot(
     app: tauri::AppHandle,

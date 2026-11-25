@@ -4,7 +4,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import i18next from "i18next";
 import { initReactI18next } from "react-i18next";
 import en from "../src/i18n/locales/en/translation.json";
-import type { MeetingStatus, UpcomingEvent } from "../src/bindings.meetings";
+import type {
+  MeetingNotesSnapshot,
+  MeetingSegmentView,
+  MeetingStatus,
+  UpcomingEvent,
+} from "../src/bindings.meetings";
 
 const sample: UpcomingEvent = {
   title: "Design review",
@@ -42,6 +47,24 @@ const micOnlyStatus: MeetingStatus = {
   ...recordingStatus,
   mic_only: true,
 };
+
+const defaultNotesSnapshot: MeetingNotesSnapshot = {
+  meeting_id: 202,
+  state: "idle",
+  progress_label: null,
+  elapsed_secs: 0,
+  estimate_secs: null,
+  time_to_notes_secs: null,
+  failure_reason: null,
+  notepad_text: "",
+  lines: [],
+  oversized_count: 0,
+};
+
+let currentMeetingStatus: MeetingStatus = idleStatus;
+let currentMeetingSegments: MeetingSegmentView[] = [];
+let currentNotesSnapshot: MeetingNotesSnapshot = defaultNotesSnapshot;
+let openConsentInvokeCount = 0;
 
 let startOutcome:
   { status: "ok"; data: MeetingStatus } | { status: "error"; error: unknown } =
@@ -91,12 +114,39 @@ mock.module("react-i18next", () => ({
 }));
 
 mock.module("@tauri-apps/api/core", () => ({
-  invoke: async () => [],
+  invoke: async (cmd: string) => {
+    if (cmd === "open_meeting_consent") {
+      openConsentInvokeCount += 1;
+      currentMeetingStatus = consentOpenStatus;
+      fireEvent("meeting-state", consentOpenStatus);
+      fireEvent("meetings-open-consent");
+      return consentOpenStatus;
+    }
+    return [];
+  },
   transformCallback: () => 0,
   Channel: class {},
   Resource: class {},
   SERIALIZE_TO_IPC_FN: "__TAURI_TO_IPC_KEY__",
   convertFileSrc: (s: string) => s,
+}));
+
+mock.module("@tauri-apps/api/app", () => ({
+  getVersion: async () => "0.20.2",
+}));
+
+mock.module("@tauri-apps/plugin-process", () => ({
+  relaunch: async () => {},
+}));
+
+mock.module("@tauri-apps/plugin-os", () => ({
+  platform: () => "macos",
+  version: () => "15.0",
+}));
+
+mock.module("tauri-plugin-macos-permissions-api", () => ({
+  checkAccessibilityPermission: async () => true,
+  requestAccessibilityPermission: async () => {},
 }));
 
 mock.module("@tauri-apps/api/event", () => ({
@@ -115,27 +165,37 @@ mock.module("@tauri-apps/api/event", () => ({
     };
   },
   once: async () => () => {},
-  emit: async () => {},
+  emit: async (event: string, payload?: unknown) => {
+    fireEvent(event, payload);
+  },
   emitTo: async () => {},
   TauriEvent: {},
 }));
 
 mock.module("../src/bindings.meetings", () => ({
   commands: {
-    meetingStatus: async () => idleStatus,
-    meetingSegments: async () => ({ status: "ok", data: [] }),
+    meetingStatus: async () => currentMeetingStatus,
+    meetingSegments: async () => ({
+      status: "ok",
+      data: currentMeetingSegments,
+    }),
     currentMeetingOffer: async () => ({ status: "ok", data: null }),
     getMeetingCustomWords: async () => ({ status: "ok", data: [] }),
     setMeetingCustomWords: async () => ({ status: "ok", data: null }),
     setMeetingOfferVisible: async () => ({ status: "ok", data: null }),
     changeMeetingsEnabledSetting: async () => ({ status: "ok", data: null }),
     openMeetingConsent: async () => {
+      currentMeetingStatus = consentOpenStatus;
+      fireEvent("meeting-state", consentOpenStatus);
       fireEvent("meetings-open-consent");
       return { status: "ok", data: consentOpenStatus };
     },
     confirmMeetingStart: async () => startOutcome,
     confirmMeetingStartMicOnly: async () => micOnlyOutcome,
-    cancelMeetingConsent: async () => ({ status: "ok", data: idleStatus }),
+    cancelMeetingConsent: async () => {
+      currentMeetingStatus = idleStatus;
+      return { status: "ok", data: idleStatus };
+    },
     dismissMeetingOffer: async () => ({ status: "ok", data: null }),
     stopMeeting: async () => ({ status: "ok", data: idleStatus }),
     pauseMeeting: async () => ({ status: "ok", data: idleStatus }),
@@ -143,18 +203,7 @@ mock.module("../src/bindings.meetings", () => ({
     appendMeetingAudio: async () => ({ status: "ok", data: recordingStatus }),
     meetingNotesSnapshot: async () => ({
       status: "ok",
-      data: {
-        meeting_id: 202,
-        state: "idle",
-        progress_label: null,
-        elapsed_secs: 0,
-        estimate_secs: null,
-        time_to_notes_secs: null,
-        failure_reason: null,
-        notepad_text: "",
-        lines: [],
-        oversized_count: 0,
-      },
+      data: currentNotesSnapshot,
     }),
     saveMeetingNotepad: async () => ({ status: "ok", data: null }),
     retryMeetingNotes: async () => ({ status: "ok", data: null }),
@@ -192,6 +241,7 @@ mock.module("../src/hooks/useSettings", () => ({
 
 const { RecordMeetingPage } =
   await import("../src/components/meetings/RecordMeetingPage");
+const { HomeView } = await import("../src/components/home/HomeView");
 
 type Elem = React.ReactElement<Record<string, unknown>>;
 
@@ -472,6 +522,10 @@ describe("Coming up row started status and event hold", () => {
   beforeEach(() => {
     keptEvents.length = 0;
     eventHandlers.clear();
+    currentMeetingStatus = idleStatus;
+    currentMeetingSegments = [];
+    currentNotesSnapshot = defaultNotesSnapshot;
+    openConsentInvokeCount = 0;
     startOutcome = { status: "ok", data: recordingStatus };
     micOnlyOutcome = { status: "ok", data: micOnlyStatus };
   });
@@ -693,6 +747,173 @@ describe("Coming up row started status and event hold", () => {
       await mounted.flushAndRerender();
 
       expect(keptEvents).toEqual([]);
+    } finally {
+      mounted.unmount();
+    }
+  });
+
+  test("D2-F6: idle with old meeting_id, segments, and failed notes opens RecordMeetingPage on start screen with Start recording", async () => {
+    currentMeetingStatus = {
+      ...idleStatus,
+      meeting_id: 202,
+      title: "Finished meeting",
+    };
+    currentMeetingSegments = [
+      {
+        meeting_id: 202,
+        channel: "me",
+        start_ms: 0,
+        end_ms: 4000,
+        text: "We wrapped up the previous sync.",
+      },
+    ];
+    currentNotesSnapshot = {
+      ...defaultNotesSnapshot,
+      meeting_id: 202,
+      state: "failed",
+      failure_reason: "no_model",
+    };
+
+    const mounted = mountAppTree(() => <RecordMeetingPage />);
+    try {
+      await mounted.flushAndRerender();
+      const html = toHtml(mounted.getTree());
+      expect(html).toContain("Start recording");
+      expect(html).not.toContain('data-testid="notes-failed-card"');
+
+      const startBtns = collectElements(
+        mounted.getTree(),
+        (el) =>
+          el.type === "button" && textContent(el).includes("Start recording"),
+      );
+      expect(startBtns.length).toBeGreaterThanOrEqual(1);
+      (startBtns[0]!.props.onClick as () => void)();
+      await mounted.flushAndRerender();
+
+      expect(toHtml(mounted.getTree())).toContain(
+        'data-testid="frame-2-consent"',
+      );
+    } finally {
+      mounted.unmount();
+    }
+  });
+
+  test("D2-F6: idle with notes running keeps post-stop session view and stays put if notes fail while viewing until a Start arrives", async () => {
+    currentMeetingStatus = {
+      ...idleStatus,
+      meeting_id: 202,
+      title: "Finishing meeting",
+    };
+    currentMeetingSegments = [
+      {
+        meeting_id: 202,
+        channel: "me",
+        start_ms: 0,
+        end_ms: 4000,
+        text: "Notes are still generating.",
+      },
+    ];
+    currentNotesSnapshot = {
+      ...defaultNotesSnapshot,
+      meeting_id: 202,
+      state: "running",
+      progress_label: "Making notes",
+      progress_step: 1,
+      progress_total: 4,
+    };
+
+    const mounted = mountAppTree(() => <RecordMeetingPage />);
+    try {
+      await mounted.flushAndRerender();
+      const runningHtml = toHtml(mounted.getTree());
+      expect(runningHtml).not.toContain("Start now");
+      expect(runningHtml).toContain("Notes are still generating.");
+
+      // Notes fail while user is still viewing the page: do not flip under them.
+      currentNotesSnapshot = {
+        ...defaultNotesSnapshot,
+        meeting_id: 202,
+        state: "failed",
+        failure_reason: "no_model",
+      };
+      fireEvent("meeting-notes-failed", {
+        meeting_id: 202,
+        reason: "no_model",
+      });
+      await mounted.flushAndRerender();
+      expect(toHtml(mounted.getTree())).toContain(
+        'data-testid="notes-failed-card"',
+      );
+
+      // Menu-bar or external Start opens consent cleanly and exits the finished view.
+      currentMeetingStatus = consentOpenStatus;
+      fireEvent("meeting-state", consentOpenStatus);
+      fireEvent("meetings-open-consent");
+      await mounted.flushAndRerender();
+      const consentHtml = toHtml(mounted.getTree());
+      expect(consentHtml).toContain('data-testid="frame-2-consent"');
+      expect(consentHtml).not.toContain('data-testid="notes-failed-card"');
+    } finally {
+      mounted.unmount();
+    }
+  });
+
+  test("D2-F6: Home Start recording after a finished meeting opens the consent dialog on RecordMeetingPage", async () => {
+    currentMeetingStatus = {
+      ...idleStatus,
+      meeting_id: 202,
+      title: "Finished meeting",
+    };
+    currentMeetingSegments = [
+      {
+        meeting_id: 202,
+        channel: "me",
+        start_ms: 0,
+        end_ms: 4000,
+        text: "First meeting transcript.",
+      },
+    ];
+    currentNotesSnapshot = {
+      ...defaultNotesSnapshot,
+      meeting_id: 202,
+      state: "failed",
+      failure_reason: "no_model",
+    };
+
+    function TestHomeToRecordShell() {
+      const [section, setSection] = React.useState<"home" | "meetings-record">(
+        "home",
+      );
+      if (section === "home") {
+        return (
+          <HomeView
+            showMeetings={true}
+            onNavigate={(next) => {
+              if (next === "meetings-record") setSection("meetings-record");
+            }}
+          />
+        );
+      }
+      return <RecordMeetingPage />;
+    }
+
+    const mounted = mountAppTree(() => <TestHomeToRecordShell />);
+    try {
+      await mounted.flushAndRerender();
+      const startBtns = collectElements(
+        mounted.getTree(),
+        (el) =>
+          el.type === "button" && textContent(el).includes("Start recording"),
+      );
+      expect(startBtns.length).toBeGreaterThanOrEqual(1);
+      (startBtns[0]!.props.onClick as () => void)();
+      await mounted.flushAndRerender(8);
+
+      const afterHtml = toHtml(mounted.getTree());
+      expect(openConsentInvokeCount).toBe(1);
+      expect(afterHtml).toContain('data-testid="page-2-record-meeting"');
+      expect(afterHtml).toContain('data-testid="frame-2-consent"');
+      expect(afterHtml).not.toContain('data-testid="notes-failed-card"');
     } finally {
       mounted.unmount();
     }

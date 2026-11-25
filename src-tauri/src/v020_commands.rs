@@ -462,7 +462,7 @@ pub mod meetings_ext {
         }
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn meeting_notes_snapshot(
         app: AppHandle,
@@ -503,7 +503,7 @@ pub mod meetings_ext {
         })
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn save_meeting_notepad(
         app: AppHandle,
@@ -519,7 +519,7 @@ pub mod meetings_ext {
             .map_err(|e| e.to_string())
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn retry_meeting_notes(
         app: AppHandle,
@@ -529,7 +529,7 @@ pub mod meetings_ext {
         meeting_notes_snapshot(app, meeting_id)
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn catch_up_meeting(
         app: AppHandle,
@@ -574,19 +574,19 @@ pub mod meetings_ext {
         }
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn pause_meeting(app: AppHandle) -> Result<MeetingStatus, String> {
         Ok(crate::meeting_controller::pause_meeting_cmd(app))
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn resume_meeting(app: AppHandle) -> Result<MeetingStatus, String> {
         Ok(crate::meeting_controller::resume_meeting_cmd(app))
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn append_meeting_audio(
         app: AppHandle,
@@ -598,7 +598,7 @@ pub mod meetings_ext {
         crate::meeting_controller::confirm_append_meeting_audio(app, meeting_id, consent_token)
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn list_trashed_meetings(app: AppHandle) -> Result<Vec<TrashedMeetingDto>, String> {
         let rows = crate::meeting_extras_commands::list_trashed_meetings_v2(app)?;
@@ -612,13 +612,13 @@ pub mod meetings_ext {
             .collect())
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn restore_trashed_meeting(app: AppHandle, meeting_id: i64) -> Result<(), String> {
         crate::meeting_extras_commands::restore_trashed_meeting_v2(app, meeting_id)
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn delete_transcript_span(
         app: AppHandle,
@@ -632,7 +632,7 @@ pub mod meetings_ext {
         .map(|_| ())
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn change_transcript_delete_days_setting(
         app: AppHandle,
@@ -644,7 +644,7 @@ pub mod meetings_ext {
         Ok(crate::meeting_retention::meeting_retention_state(app))
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn import_meeting_notes(
         app: AppHandle,
@@ -661,7 +661,8 @@ pub mod meetings_ext {
         Ok(summary.imported_count)
     }
 
-    #[tauri::command]
+    // `async`: Ask may run the local model or wait on SQLite; never block the main thread.
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn ask_meetings(
         app: AppHandle,
@@ -685,7 +686,7 @@ pub mod meetings_ext {
         })
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn list_meeting_todos(app: AppHandle) -> Result<Vec<MeetingTodoDto>, String> {
         let todo_store = MeetingTodoStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -712,7 +713,7 @@ pub mod meetings_ext {
             .collect())
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn complete_meeting_todo(
         app: AppHandle,
@@ -737,7 +738,7 @@ pub mod meetings_ext {
         format_mcp_command_line(std::env::current_exe().ok().as_deref())
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn agent_access_state(app: AppHandle) -> Result<AgentAccessSnapshotDto, String> {
         let s = settings::get_settings(&app);
@@ -756,7 +757,7 @@ pub mod meetings_ext {
         })
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn set_agent_access_enabled(
         app: AppHandle,
@@ -768,7 +769,7 @@ pub mod meetings_ext {
         agent_access_state(app)
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn set_agent_access_scope(
         app: AppHandle,
@@ -788,7 +789,7 @@ pub mod meetings_ext {
         Ok(settings::get_settings(&app).meeting_custom_words)
     }
 
-    #[tauri::command]
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn set_meeting_custom_words(
         app: AppHandle,

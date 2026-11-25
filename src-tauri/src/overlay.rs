@@ -126,27 +126,45 @@ fn update_gtk_layer_shell_anchors(overlay_window: &tauri::webview::WebviewWindow
     });
 }
 
-/// Returns true when the environment variable is set to a truthy value
+/// Returns true when an environment variable value is truthy
 /// (e.g. "1", "true", "yes", "on").
 /// "0", "false", "no", "off" and empty string are treated as falsy (case-insensitive).
-/// Returns false when the variable is not set.
-#[cfg(target_os = "linux")]
-fn env_flag_enabled(name: &str) -> bool {
-    match env::var(name) {
-        Ok(v) => !matches!(
-            v.trim().to_ascii_lowercase().as_str(),
-            "" | "0" | "false" | "no" | "off"
-        ),
-        Err(_) => false,
+#[cfg(any(target_os = "linux", test))]
+fn is_truthy_env_value(value: &str) -> bool {
+    !matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "" | "0" | "false" | "no" | "off"
+    )
+}
+
+/// Resolves the GTK layer-shell disable flag: `COCO_VOICE_NO_GTK_LAYER_SHELL`
+/// takes precedence whenever set; otherwise falls back silently to the legacy
+/// variable so existing Linux setups keep working.
+#[cfg(any(target_os = "linux", test))]
+fn gtk_layer_shell_disabled_from(primary: Option<&str>, legacy: Option<&str>) -> bool {
+    match primary {
+        Some(v) => is_truthy_env_value(v),
+        None => legacy.is_some_and(is_truthy_env_value),
     }
+}
+
+#[cfg(target_os = "linux")]
+fn gtk_layer_shell_disabled() -> bool {
+    let primary = env::var("COCO_VOICE_NO_GTK_LAYER_SHELL").ok();
+    let legacy = if primary.is_none() {
+        env::var("HANDY_NO_GTK_LAYER_SHELL").ok()
+    } else {
+        None
+    };
+    gtk_layer_shell_disabled_from(primary.as_deref(), legacy.as_deref())
 }
 
 /// Initializes GTK layer shell for Linux overlay window
 /// Returns true if layer shell was successfully initialized, false otherwise
 #[cfg(target_os = "linux")]
 fn init_gtk_layer_shell(overlay_window: &tauri::webview::WebviewWindow) -> bool {
-    if env_flag_enabled("HANDY_NO_GTK_LAYER_SHELL") {
-        debug!("Skipping GTK layer shell init (HANDY_NO_GTK_LAYER_SHELL is enabled)");
+    if gtk_layer_shell_disabled() {
+        debug!("Skipping GTK layer shell init (COCO_VOICE_NO_GTK_LAYER_SHELL is enabled)");
         return false;
     }
 
@@ -883,5 +901,15 @@ mod tests {
         assert_eq!(top_y, OVERLAY_TOP_OFFSET);
         assert_eq!(bottom_y, 900.0 - OVERLAY_HEIGHT - OVERLAY_BOTTOM_OFFSET);
         assert!(top_y < bottom_y);
+    }
+
+    #[test]
+    fn gtk_layer_shell_flag_prefers_primary_and_falls_back_to_legacy() {
+        assert!(!gtk_layer_shell_disabled_from(None, None));
+        assert!(gtk_layer_shell_disabled_from(Some("1"), None));
+        assert!(gtk_layer_shell_disabled_from(None, Some("1")));
+        assert!(!gtk_layer_shell_disabled_from(Some("0"), Some("1")));
+        assert!(gtk_layer_shell_disabled_from(Some("true"), Some("0")));
+        assert!(!gtk_layer_shell_disabled_from(None, Some("false")));
     }
 }

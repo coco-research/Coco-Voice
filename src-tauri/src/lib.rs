@@ -315,10 +315,13 @@ fn initialize_core_logic(app_handle: &AppHandle) {
             Box::new(meeting_session::MeetingSession::new(app_handle.clone())),
         )));
         app_handle.manage(Arc::new(meeting_pipeline::MeetingPipelineState::new()));
-        // Open runs unfinished-row recovery. A later meeting start opens the
-        // same file again; the update is a no-op once no row is still recording.
+        // Startup-only crash sweep: recover any meeting left `recording` by a
+        // prior crash. Later `open_app` calls during a live meeting do not sweep.
         match managers::meetings::MeetingsStore::open_app(app_handle) {
             Ok(store) => {
+                if let Err(err) = store.recover_unfinished() {
+                    log::warn!("meetings store recovery failed: {err}");
+                }
                 let _ = meeting_history_ops::purge_expired_trash(
                     &store,
                     chrono::Utc::now().timestamp(),
@@ -458,7 +461,7 @@ fn initialize_core_logic(app_handle: &AppHandle) {
             "start_meeting" | "start_notes" => {
                 // Same path as the meeting shortcut: consent only, never a recording.
                 show_main_window(app);
-                let _ = crate::meeting_controller::open_meeting_consent(app.clone());
+                let _ = crate::meeting_controller::open_meeting_consent(app.clone(), None);
             }
             #[cfg(feature = "meetings")]
             "stop_meeting" => {
@@ -1204,8 +1207,8 @@ pub fn run(cli_args: CliArgs) {
             shortcut::change_ort_accelerator_setting,
             shortcut::change_transcribe_gpu_device,
             shortcut::get_available_accelerators,
-            shortcut::coco_keys::start_handy_keys_recording,
-            shortcut::coco_keys::stop_handy_keys_recording,
+            shortcut::coco_keys::start_coco_keys_recording,
+            shortcut::coco_keys::stop_coco_keys_recording,
             trigger_update_check,
             show_main_window_command,
             commands::cancel_operation,

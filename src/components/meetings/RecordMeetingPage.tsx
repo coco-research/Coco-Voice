@@ -95,6 +95,10 @@ export function normalizeMeetingWordList(
 type ClassifiedStartRefusal =
   { kind: "permission" } | { kind: "device"; code: string } | { kind: "other" };
 
+function isActiveMeetingState(state: MeetingStatus["state"]): boolean {
+  return state === "recording" || state === "paused" || state === "stopping";
+}
+
 function formatDeviceErrorCode(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "err";
@@ -159,6 +163,7 @@ export interface RecordMeetingSectionProps {
   notesSnapshot?: MeetingNotesSnapshot | null;
   notepadDraft?: string;
   retryingNotes?: boolean;
+  keepFinishedSession?: boolean;
   onNotepadChange?: (val: string) => void;
   onRetryNotes?: () => void;
   dictationShortcut?: string | null;
@@ -204,6 +209,7 @@ export const RecordMeetingSection: React.FC<RecordMeetingSectionProps> = ({
   notesSnapshot = null,
   notepadDraft = "",
   retryingNotes = false,
+  keepFinishedSession = false,
   onNotepadChange,
   onRetryNotes,
   dictationShortcut = null,
@@ -223,11 +229,18 @@ export const RecordMeetingSection: React.FC<RecordMeetingSectionProps> = ({
   const jumpSeqRef = useRef(0);
 
   const isPaused = status.state === "paused";
+  const isStopping = status.state === "stopping";
   const isRecording = status.state === "recording" || isPaused;
   const hasSpokenSegments = segments.some((s) => s.text.trim().length > 0);
+  const notesInProgress =
+    status.state === "stopping" ||
+    notesSnapshot?.state === "running" ||
+    retryingNotes;
   const hasPostStopSession =
+    status.state !== "consent_open" &&
     status.meeting_id !== null &&
-    (segments.length > 0 || notesSnapshot !== null);
+    (notesInProgress ||
+      (keepFinishedSession && (segments.length > 0 || notesSnapshot !== null)));
   const activeSession = isRecording || hasPostStopSession;
   const sessionTitle =
     meetingTitle?.trim() || t("meetings.record.defaultTitle", "Meeting");
@@ -284,6 +297,15 @@ export const RecordMeetingSection: React.FC<RecordMeetingSectionProps> = ({
                   </span>
                 ) : null}
               </>
+            ) : isStopping ? (
+              <span
+                role="status"
+                className="inline-flex items-center gap-1.5 rounded-full border border-mid-gray/35 bg-background px-3 py-1 text-[12.5px] font-semibold text-mid-gray"
+              >
+                <span>
+                  {t("meetings.list.finishingNotes", "Finishing notes")}
+                </span>
+              </span>
             ) : isRecording ? (
               <>
                 <MeetingFloatingPill
@@ -357,6 +379,7 @@ export const RecordMeetingSection: React.FC<RecordMeetingSectionProps> = ({
         {(!isRecording || hasNotesSoFar) && onNotepadChange ? (
           <MeetingNotesSection
             recording={isRecording}
+            stopping={isStopping}
             snapshot={notesSnapshot}
             notepadDraft={notepadDraft}
             retrying={retryingNotes}
@@ -651,6 +674,7 @@ export const RecordMeetingPage: React.FC = () => {
     useState<MeetingNotesSnapshot | null>(null);
   const [notepadDraft, setNotepadDraft] = useState("");
   const [retryingNotes, setRetryingNotes] = useState(false);
+  const [keepFinishedSession, setKeepFinishedSession] = useState(false);
 
   const activeMeetingIdRef = useRef<number | null>(null);
   const pendingUpcomingRef = useRef<UpcomingMeeting | null>(null);
@@ -672,6 +696,13 @@ export const RecordMeetingPage: React.FC = () => {
     }
   }, []);
 
+  const resetFinishedSessionState = useCallback(() => {
+    setKeepFinishedSession(false);
+    setSegments([]);
+    setNotesSnapshot(null);
+    setMeetingTitle("");
+  }, []);
+
   const refreshMeetingData = useCallback(async (meetingId: number) => {
     try {
       const rows =
@@ -686,6 +717,9 @@ export const RecordMeetingPage: React.FC = () => {
     const snapRes = await commands.meetingNotesSnapshot(meetingId);
     if (snapRes.status === "ok") {
       setNotesSnapshot(snapRes.data);
+      if (snapRes.data.state === "running") {
+        setKeepFinishedSession(true);
+      }
       setNotepadDraft((prev) =>
         pendingNotepadRef.current ? prev : (snapRes.data.notepad_text ?? ""),
       );
@@ -727,6 +761,9 @@ export const RecordMeetingPage: React.FC = () => {
         setStatus(current);
         activeMeetingIdRef.current = current.meeting_id;
         if (current.title) setMeetingTitle(current.title);
+        if (isActiveMeetingState(current.state)) {
+          setKeepFinishedSession(true);
+        }
       }
       if (current.meeting_id !== null) {
         const segRes = await commands.meetingSegments(current.meeting_id);
@@ -749,9 +786,12 @@ export const RecordMeetingPage: React.FC = () => {
       setStatus(ev.payload);
       if (ev.payload.state !== "consent_open") {
         setConsentOpen(false);
+      } else {
+        resetFinishedSessionState();
       }
-      if (ev.payload.state === "recording" || ev.payload.state === "paused") {
+      if (isActiveMeetingState(ev.payload.state)) {
         setStartRefusal(null);
+        setKeepFinishedSession(true);
       }
       if (ev.payload.title) {
         setMeetingTitle(ev.payload.title);
@@ -794,6 +834,7 @@ export const RecordMeetingPage: React.FC = () => {
         } else {
           pendingUpcomingRef.current = null;
         }
+        resetFinishedSessionState();
         setStartRefusal(null);
         setConsentOpen(true);
       }
@@ -805,6 +846,7 @@ export const RecordMeetingPage: React.FC = () => {
       if (cancelled || !ev.payload) return;
       if (activeMeetingIdRef.current !== ev.payload.meeting_id) return;
       setRetryingNotes(false);
+      setKeepFinishedSession(true);
       setNotesSnapshot((prev) => ({
         meeting_id: ev.payload.meeting_id,
         state: "running",
@@ -899,7 +941,7 @@ export const RecordMeetingPage: React.FC = () => {
       flushNotepad();
       for (const u of unlisteners) u();
     };
-  }, [flushNotepad, refreshMeetingData]);
+  }, [flushNotepad, refreshMeetingData, resetFinishedSessionState]);
 
   const persistWords = (next: string[]) => {
     setMeetingWords(next);
@@ -992,6 +1034,7 @@ export const RecordMeetingPage: React.FC = () => {
       onStartUpcoming={(meeting) => {
         pendingUpcomingRef.current = meeting;
         upcomingConsentRef.current = true;
+        resetFinishedSessionState();
         setStartRefusal(null);
         setConsentOpen(true);
         void commands
@@ -1017,6 +1060,7 @@ export const RecordMeetingPage: React.FC = () => {
       onOpenConsent={() => {
         upcomingConsentRef.current = false;
         pendingUpcomingRef.current = null;
+        resetFinishedSessionState();
         setStartRefusal(null);
         setConsentOpen(true);
         void commands.openMeetingConsent();
@@ -1028,6 +1072,7 @@ export const RecordMeetingPage: React.FC = () => {
           if (res.status === "ok") {
             commitPendingUpcoming();
             setStartRefusal(null);
+            setKeepFinishedSession(true);
             setStatus(res.data);
           } else {
             setStartRefusal(res.error ?? "system_audio_unavailable");
@@ -1041,6 +1086,7 @@ export const RecordMeetingPage: React.FC = () => {
           if (res.status === "ok") {
             commitPendingUpcoming();
             setStartRefusal(null);
+            setKeepFinishedSession(true);
             setStatus(res.data);
           } else {
             setStartRefusal(res.error ?? "system_audio_unavailable");
@@ -1069,6 +1115,7 @@ export const RecordMeetingPage: React.FC = () => {
       }}
       onStopMeeting={() => {
         flushNotepad();
+        setKeepFinishedSession(true);
         void commands.stopMeeting().then((res) => {
           if (res.status === "ok") setStatus(res.data);
         });
@@ -1122,6 +1169,7 @@ export const RecordMeetingPage: React.FC = () => {
       notesSnapshot={notesSnapshot}
       notepadDraft={notepadDraft}
       retryingNotes={retryingNotes}
+      keepFinishedSession={keepFinishedSession}
       onNotepadChange={handleNotepadChange}
       onRetryNotes={handleRetryNotes}
       onAddMeetingWord={(w) => {

@@ -76,6 +76,8 @@ pub struct AskMeetingsV2Dto {
     pub question: String,
     pub answer: String,
     pub citations: Vec<AskCitationV2Dto>,
+    #[serde(default)]
+    pub no_model: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -84,6 +86,8 @@ pub struct TrashedMeetingRowDto {
     pub title: String,
     pub deleted_at: i64,
 }
+
+const ASK_SYSTEM_PROMPT: &str = "Answer questions strictly from the provided transcript excerpts and cite [n] on every line. If the excerpts do not answer the question, reply ONLY with NOT_FOUND and no citation.";
 
 /// On-device Ask model adapter implementing Amendment 1 (`X-A1`):
 /// 1. Local clean-up model on macOS when downloaded.
@@ -148,20 +152,30 @@ impl LocalAskModel for OnDeviceAskModel {
     fn generate(&self, prompt: &str) -> anyhow::Result<String> {
         #[cfg(target_os = "macos")]
         if let Some(ref model_path) = self.local_model_path {
-            return tauri::async_runtime::block_on(crate::local_llm::generate_text(
+            let fut = crate::local_llm::generate_text(
                 model_path,
-                "Answer questions strictly from the provided transcript excerpts and cite [n] on every line.",
+                ASK_SYSTEM_PROMPT,
                 prompt,
                 512,
                 None,
                 None,
-            ))
-            .map_err(|e| anyhow::anyhow!("{e}"));
+            );
+            let res = match tokio::runtime::Handle::try_current() {
+                Ok(handle)
+                    if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread =>
+                {
+                    tokio::task::block_in_place(|| handle.block_on(fut))
+                }
+                Ok(handle) => std::thread::scope(|s| s.spawn(|| handle.block_on(fut)).join())
+                    .map_err(|_| anyhow::anyhow!("on-device ask model thread panicked"))?,
+                Err(_) => tauri::async_runtime::block_on(fut),
+            };
+            return res.map_err(|e| anyhow::anyhow!("{e}"));
         }
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         if self.use_apple_intelligence {
             return crate::apple_intelligence::process_text_with_system_prompt(
-                "Answer questions strictly from the provided transcript excerpts and cite [n] on every line.",
+                ASK_SYSTEM_PROMPT,
                 prompt,
                 512,
             )
@@ -195,7 +209,7 @@ fn resync_markdown_if_enabled(app: &AppHandle, store: &MeetingsStore, meeting_id
 // X-a: Trash, permanent delete, span delete, and single-transcript search
 // ---------------------------------------------------------------------------
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn trash_meeting(app: AppHandle, id: i64) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -205,7 +219,7 @@ pub fn trash_meeting(app: AppHandle, id: i64) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn delete_meeting_forever(app: AppHandle, id: i64) -> Result<bool, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -218,7 +232,7 @@ pub fn delete_meeting_forever(app: AppHandle, id: i64) -> Result<bool, String> {
     Ok(matches!(outcome, DeleteOutcome::DeletedAudioLeft { .. }))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn list_trashed_meetings_v2(app: AppHandle) -> Result<Vec<TrashedMeetingRowDto>, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -233,7 +247,7 @@ pub fn list_trashed_meetings_v2(app: AppHandle) -> Result<Vec<TrashedMeetingRowD
         .collect())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn restore_trashed_meeting_v2(app: AppHandle, meeting_id: i64) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -242,7 +256,7 @@ pub fn restore_trashed_meeting_v2(app: AppHandle, meeting_id: i64) -> Result<(),
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn purge_expired_trash_now(app: AppHandle) -> Result<usize, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -250,7 +264,7 @@ pub fn purge_expired_trash_now(app: AppHandle) -> Result<usize, String> {
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn delete_transcript_segments(
     app: AppHandle,
@@ -265,7 +279,7 @@ pub fn delete_transcript_segments(
     Ok(outcome)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn delete_transcript_span_secure(
     app: AppHandle,
@@ -280,7 +294,7 @@ pub fn delete_transcript_span_secure(
     Ok(outcome)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn search_meeting_transcript(
     app: AppHandle,
@@ -296,7 +310,7 @@ pub fn search_meeting_transcript(
 // X-b: Folders and note templates
 // ---------------------------------------------------------------------------
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn list_meeting_folders(app: AppHandle) -> Result<Vec<MeetingFolderViewDto>, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -330,7 +344,7 @@ pub fn list_meeting_folders(app: AppHandle) -> Result<Vec<MeetingFolderViewDto>,
     Ok(out)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn create_meeting_folder(app: AppHandle, name: String) -> Result<MeetingFolder, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -343,7 +357,7 @@ pub fn create_meeting_folder(app: AppHandle, name: String) -> Result<MeetingFold
         .ok_or_else(|| "created folder not found".to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn rename_meeting_folder(app: AppHandle, id: i64, name: String) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -352,7 +366,7 @@ pub fn rename_meeting_folder(app: AppHandle, id: i64, name: String) -> Result<()
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn delete_meeting_folder(app: AppHandle, id: i64) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
@@ -361,7 +375,7 @@ pub fn delete_meeting_folder(app: AppHandle, id: i64) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn set_meeting_folder(
     app: AppHandle,
@@ -390,14 +404,14 @@ pub fn set_meeting_folder(
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn list_meeting_templates(app: AppHandle) -> Result<Vec<MeetingTemplate>, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     store.list_templates().map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn create_meeting_template(
     app: AppHandle,
@@ -416,7 +430,7 @@ pub fn create_meeting_template(
         .ok_or_else(|| "created template not found".to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn update_meeting_template(
     app: AppHandle,
@@ -430,14 +444,14 @@ pub fn update_meeting_template(
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn delete_meeting_template(app: AppHandle, id: i64) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     store.delete_template(id).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn set_folder_last_template(
     app: AppHandle,
@@ -524,7 +538,7 @@ fn resolve_ask_scope(
     }
 }
 
-fn ask_answer_to_dto(ans: AskAnswer) -> AskMeetingsV2Dto {
+fn ask_answer_to_dto(ans: AskAnswer, no_model: bool) -> AskMeetingsV2Dto {
     let citations = ans
         .citations
         .into_iter()
@@ -550,6 +564,7 @@ fn ask_answer_to_dto(ans: AskAnswer) -> AskMeetingsV2Dto {
         question: ans.question,
         answer: ans.answer,
         citations,
+        no_model,
     }
 }
 
@@ -615,7 +630,8 @@ pub fn run_ask_by_voice_take(
     )
 }
 
-#[tauri::command]
+// `async`: audio device lookup and recording lock must not block the main thread.
+#[tauri::command(async)]
 #[specta::specta]
 pub fn start_ask_by_voice(app: AppHandle) -> Result<(), String> {
     match list_input_devices() {
@@ -640,7 +656,8 @@ pub fn start_ask_by_voice(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+// `async`: waits on recording manager lock.
+#[tauri::command(async)]
 #[specta::specta]
 pub fn cancel_ask_by_voice(app: AppHandle) -> Result<(), String> {
     if !ASK_BY_VOICE_ACTIVE.swap(false, Ordering::AcqRel) {
@@ -655,7 +672,8 @@ pub fn cancel_ask_by_voice(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+// `async`: runs speech-to-text inference and waits on the transcription lock.
+#[tauri::command(async)]
 #[specta::specta]
 pub fn finish_ask_by_voice(app: AppHandle) -> Result<String, String> {
     ASK_BY_VOICE_ACTIVE.store(false, Ordering::Release);
@@ -676,7 +694,8 @@ pub fn finish_ask_by_voice(app: AppHandle) -> Result<String, String> {
     transcribe_ephemeral_take(&std::env::temp_dir(), &samples, &stt).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+// `async`: runs speech-to-text and on-device Ask model inference off the main thread.
+#[tauri::command(async)]
 #[specta::specta]
 pub fn ask_meetings_by_voice(
     app: AppHandle,
@@ -709,13 +728,15 @@ pub fn ask_meetings_by_voice(
         .ok_or_else(|| "transcription manager not available".to_string())?;
     let stt = TranscriptionManagerStt(&tm);
     let model = OnDeviceAskModel::resolve(&app);
+    let no_model = model.is_none();
     let model_ref: Option<&dyn LocalAskModel> = model.as_ref().map(|m| m as &dyn LocalAskModel);
     let ans = run_ask_by_voice_take(&idx, &ask_scope, &samples, &history_pairs, &stt, model_ref)
         .map_err(|e| e.to_string())?;
-    Ok(ask_answer_to_dto(ans))
+    Ok(ask_answer_to_dto(ans, no_model))
 }
 
-#[tauri::command]
+// `async`: syncs SQLite Ask index and runs on-device model inference off the main thread.
+#[tauri::command(async)]
 #[specta::specta]
 pub fn ask_meetings_v2(
     app: AppHandle,
@@ -736,26 +757,27 @@ pub fn ask_meetings_v2(
         .map(|turn| (turn.question, turn.answer))
         .collect();
     let model = OnDeviceAskModel::resolve(&app);
+    let no_model = model.is_none();
     let model_ref: Option<&dyn LocalAskModel> = model.as_ref().map(|m| m as &dyn LocalAskModel);
     let ans = idx
         .ask_with_history(&ask_scope, &question, &history_pairs, model_ref)
         .map_err(|e| e.to_string())?;
 
-    Ok(ask_answer_to_dto(ans))
+    Ok(ask_answer_to_dto(ans, no_model))
 }
 
 // ---------------------------------------------------------------------------
 // X-j: Hardened offline Markdown/text import
 // ---------------------------------------------------------------------------
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn count_importable_notes(paths: Vec<String>) -> Result<ImportCountResult, String> {
     let pb: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
     count_importable_notes_paths(&pb).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn import_meeting_notes_batch(
     app: AppHandle,
@@ -893,5 +915,48 @@ mod tests {
             wav_files_after_ok,
             wav_files_after_err
         );
+    }
+
+    #[test]
+    fn c2_c3_all_ask_commands_are_async() {
+        let extras = include_str!("meeting_extras_commands.rs");
+        let v020 = include_str!("v020_commands.rs");
+        for (file, src, sig) in [
+            (
+                "meeting_extras_commands.rs",
+                extras,
+                "pub fn start_ask_by_voice",
+            ),
+            (
+                "meeting_extras_commands.rs",
+                extras,
+                "pub fn cancel_ask_by_voice",
+            ),
+            (
+                "meeting_extras_commands.rs",
+                extras,
+                "pub fn finish_ask_by_voice",
+            ),
+            (
+                "meeting_extras_commands.rs",
+                extras,
+                "pub fn ask_meetings_by_voice",
+            ),
+            (
+                "meeting_extras_commands.rs",
+                extras,
+                "pub fn ask_meetings_v2",
+            ),
+            ("v020_commands.rs", v020, "pub fn ask_meetings("),
+        ] {
+            let pos = src
+                .find(sig)
+                .unwrap_or_else(|| panic!("missing {sig} in {file}"));
+            let prev: Vec<&str> = src[..pos].lines().rev().take(4).collect();
+            assert!(
+                prev.iter().any(|l| l.trim() == "#[tauri::command(async)]"),
+                "{sig} in {file} must use #[tauri::command(async)]; got {prev:?}"
+            );
+        }
     }
 }

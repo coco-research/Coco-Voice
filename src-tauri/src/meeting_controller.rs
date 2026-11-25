@@ -199,6 +199,7 @@ struct MeetingInner {
     mic_name: Option<String>,
     mic_only: bool,
     warnings: Vec<MeetingWarning>,
+    pending_template_id: Option<i64>,
 }
 
 impl MeetingInner {
@@ -262,6 +263,7 @@ impl MeetingController {
                 mic_name: None,
                 mic_only: false,
                 warnings: Vec::new(),
+                pending_template_id: None,
             }),
             start_gate: Mutex::new(()),
             append_gate: crate::meeting_append::AppendConsentGate::new(),
@@ -288,6 +290,12 @@ impl MeetingController {
     /// The shortcut path. It only ever opens the dialog: an earlier accept is
     /// not remembered, and a recording meeting is left alone.
     pub fn open_consent(&self) -> MeetingStatus {
+        self.open_consent_with_template(None)
+    }
+
+    /// Open the consent dialog and remember an optional note template id until
+    /// recording confirms or consent is cancelled. A recording meeting is left alone.
+    pub fn open_consent_with_template(&self, template_id: Option<i64>) -> MeetingStatus {
         let mut inner = self.lock();
         if inner.state == MeetingState::Idle {
             inner.state = MeetingState::ConsentOpen;
@@ -299,8 +307,15 @@ impl MeetingController {
             inner.warnings.clear();
             inner.started_at = None;
             inner.recorded_elapsed = Duration::ZERO;
+            inner.pending_template_id = template_id;
+        } else if inner.state == MeetingState::ConsentOpen {
+            inner.pending_template_id = template_id;
         }
         inner.status()
+    }
+
+    pub fn take_pending_template_id(&self) -> Option<i64> {
+        self.lock().pending_template_id.take()
     }
 
     pub fn set_title(&self, title: Option<String>) {
@@ -427,6 +442,7 @@ impl MeetingController {
             inner.title = None;
             inner.attendees.clear();
             inner.mic_only = false;
+            inner.pending_template_id = None;
         }
         inner.status()
     }
@@ -477,42 +493,112 @@ impl MeetingController {
         self.lock().status()
     }
 
-    fn finish(&self, reason: MeetingEnd) -> MeetingStatus {
+    fn begin_stop(&self) -> Option<(Option<i64>, MeetingStatus)> {
         let _gate = self
             .start_gate
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
-        let meeting_id = {
-            let mut inner = self.lock();
-            // Recording or Paused moves on: a Stop or sleep that lands while another
-            // finish is flushing must not flush the same meeting twice.
-            match inner.state {
-                MeetingState::Recording | MeetingState::Paused => {
-                    if let Some(started) = inner.started_at.take() {
-                        inner.recorded_elapsed += started.elapsed();
-                    }
-                    inner.state = MeetingState::Stopping;
-                    inner.meeting_id
+        let mut inner = self.lock();
+        // Recording or Paused moves on: a Stop or sleep that lands while another
+        // finish is flushing must not flush the same meeting twice.
+        match inner.state {
+            MeetingState::Recording | MeetingState::Paused => {
+                if let Some(started) = inner.started_at.take() {
+                    inner.recorded_elapsed += started.elapsed();
                 }
-                _ => return inner.status(),
+                inner.state = MeetingState::Stopping;
+                let meeting_id = inner.meeting_id;
+                Some((meeting_id, inner.status()))
             }
-        };
+            _ => None,
+        }
+    }
 
-        let warnings = match meeting_id {
-            Some(id) => self.recorders.stop(id, reason),
-            None => Vec::new(),
-        };
-
+    fn reset_to_idle(&self, warnings: Vec<MeetingWarning>) -> MeetingStatus {
         let mut inner = self.lock();
         if inner.state == MeetingState::Stopping {
             inner.state = MeetingState::Idle;
             inner.started_at = None;
             inner.recorded_elapsed = Duration::ZERO;
+            inner.pending_template_id = None;
             if !warnings.is_empty() {
                 inner.warnings = warnings;
             }
         }
         inner.status()
+    }
+
+    fn complete_stop(&self, meeting_id: Option<i64>, reason: MeetingEnd) -> MeetingStatus {
+        let warnings = match meeting_id {
+            Some(id) => self.recorders.stop(id, reason),
+            None => Vec::new(),
+        };
+        self.reset_to_idle(warnings)
+    }
+
+    fn finish(&self, reason: MeetingEnd) -> MeetingStatus {
+        let Some((meeting_id, _)) = self.begin_stop() else {
+            return self.status();
+        };
+        self.complete_stop(meeting_id, reason)
+    }
+
+    /// Move to Stopping immediately and run the slow recorder flush off the caller thread.
+    pub fn stop_in_background<FStatus, FDone>(
+        self: &Arc<Self>,
+        on_status: FStatus,
+        on_finished: FDone,
+    ) -> MeetingStatus
+    where
+        FStatus: Fn(MeetingStatus) + Send + Sync + 'static,
+        FDone: FnOnce(Option<i64>) + Send + 'static,
+    {
+        let Some((meeting_id, stopping_status)) = self.begin_stop() else {
+            return self.status();
+        };
+        let on_status = Arc::new(on_status);
+        let on_finished = Arc::new(Mutex::new(Some(on_finished)));
+        on_status(stopping_status.clone());
+        let meeting = Arc::clone(self);
+        let bg_status = Arc::clone(&on_status);
+        let bg_finished = Arc::clone(&on_finished);
+        let work = move || {
+            let final_status = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                meeting.complete_stop(meeting_id, MeetingEnd::Stopped)
+            })) {
+                Ok(status) => status,
+                Err(_) => {
+                    log::error!("meeting-stop background thread panicked; resetting to idle");
+                    meeting.reset_to_idle(Vec::new())
+                }
+            };
+            bg_status(final_status);
+            if let Some(done) = bg_finished
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .take()
+            {
+                done(meeting_id);
+            }
+        };
+        if std::thread::Builder::new()
+            .name("meeting-stop".to_string())
+            .spawn(work)
+            .is_err()
+        {
+            log::warn!("meeting-stop thread spawn failed; finishing inline");
+            let final_status = self.complete_stop(meeting_id, MeetingEnd::Stopped);
+            on_status(final_status.clone());
+            if let Some(done) = on_finished
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .take()
+            {
+                done(meeting_id);
+            }
+            return final_status;
+        }
+        stopping_status
     }
 }
 
@@ -536,10 +622,22 @@ fn emit_status(app: &AppHandle, status: MeetingStatus) {
     let _ = app.emit(STATE_EVENT, status);
 }
 
-#[tauri::command]
+pub(crate) fn apply_pending_template(
+    meeting: &MeetingController,
+    store: &crate::managers::meetings::MeetingsStore,
+    meeting_id: i64,
+) {
+    if let Some(template_id) = meeting.take_pending_template_id() {
+        if let Err(err) = store.set_meeting_template(meeting_id, Some(template_id)) {
+            log::warn!("meeting {meeting_id}: failed to record template {template_id}: {err:#}");
+        }
+    }
+}
+
+#[tauri::command(async)]
 #[specta::specta]
-pub fn open_meeting_consent(app: AppHandle) -> MeetingStatus {
-    let status = controller(&app).open_consent();
+pub fn open_meeting_consent(app: AppHandle, template_id: Option<i64>) -> MeetingStatus {
+    let status = controller(&app).open_consent_with_template(template_id);
     emit_status(&app, status.clone());
     if status.state == MeetingState::ConsentOpen {
         // The dialog lives in the main window: surface it when the shortcut is
@@ -597,6 +695,11 @@ fn confirm_meeting_start_inner(
     })?;
     crate::tray::update_tray_menu(&app, None);
     if let Some(meeting_id) = status.meeting_id {
+        if let Ok(store) = crate::managers::meetings::MeetingsStore::open_app(&app) {
+            apply_pending_template(&meeting, &store, meeting_id);
+        } else {
+            let _ = meeting.take_pending_template_id();
+        }
         if let Some(calendar) = app.try_state::<crate::calendar_commands::CalendarState>() {
             if let Some(event) = calendar.take_started_for_notes() {
                 if let Ok(store) = crate::managers::meetings::MeetingsStore::open_app(&app) {
@@ -617,23 +720,25 @@ fn confirm_meeting_start_inner(
         }
         crate::meeting_pipeline::start_rolling_if_managed(&app, meeting_id);
         watch_for_sleep(app, meeting_id);
+    } else {
+        let _ = meeting.take_pending_template_id();
     }
     Ok(status)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn confirm_meeting_start(app: AppHandle) -> Result<MeetingStatus, MeetingRefusal> {
     confirm_meeting_start_inner(app, false)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn confirm_meeting_start_mic_only(app: AppHandle) -> Result<MeetingStatus, MeetingRefusal> {
     confirm_meeting_start_inner(app, true)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn pause_meeting_cmd(app: AppHandle) -> MeetingStatus {
     let status = controller(&app).pause();
@@ -641,7 +746,7 @@ pub fn pause_meeting_cmd(app: AppHandle) -> MeetingStatus {
     status
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn resume_meeting_cmd(app: AppHandle) -> MeetingStatus {
     let status = controller(&app).resume();
@@ -649,7 +754,7 @@ pub fn resume_meeting_cmd(app: AppHandle) -> MeetingStatus {
     status
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn request_append_meeting_consent(app: AppHandle, meeting_id: i64) -> Result<u64, String> {
     let store =
@@ -661,7 +766,7 @@ pub fn request_append_meeting_consent(app: AppHandle, meeting_id: i64) -> Result
     controller(&app).request_append_consent(meeting_id)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn confirm_append_meeting_audio(
     app: AppHandle,
@@ -679,7 +784,7 @@ pub fn confirm_append_meeting_audio(
     Ok(ctrl.status())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn cancel_meeting_consent(app: AppHandle) -> MeetingStatus {
     let status = controller(&app).cancel_consent();
@@ -687,38 +792,41 @@ pub fn cancel_meeting_consent(app: AppHandle) -> MeetingStatus {
     status
 }
 
-#[tauri::command]
+fn finish_stop_side_effects(app: &AppHandle, meeting_id: Option<i64>) {
+    overlay::hide_recording_overlay(app);
+    if let Some(tm) = app.try_state::<Arc<crate::managers::transcription::TranscriptionManager>>() {
+        tm.set_meeting_language_override(None);
+    }
+    if app
+        .try_state::<crate::tray::CurrentTrayIconState>()
+        .is_some()
+    {
+        crate::tray::update_tray_menu(app, None);
+    }
+    if let Some(meeting_id) = meeting_id {
+        crate::meeting_pipeline::stop_rolling_and_run_after_stop(app, meeting_id);
+    }
+}
+
+#[tauri::command(async)]
 #[specta::specta]
 pub fn stop_meeting(app: AppHandle) -> MeetingStatus {
     let meeting = controller(&app);
-    let was_recording = meeting.pill_visible();
-    let status = meeting.stop();
-    emit_status(&app, status.clone());
-    // State is Idle now, so the meeting guard lets this hide through. Only hide
-    // what this call ended: a stray Stop on an idle controller must not take
-    // down a dictation pill.
-    if was_recording {
-        overlay::hide_recording_overlay(&app);
-        if let Some(tm) =
-            app.try_state::<Arc<crate::managers::transcription::TranscriptionManager>>()
-        {
-            tm.set_meeting_language_override(None);
-        }
-        crate::tray::update_tray_menu(&app, None);
-        if let Some(meeting_id) = status.meeting_id {
-            crate::meeting_pipeline::stop_rolling_and_run_after_stop(&app, meeting_id);
-        }
-    }
-    status
+    let status_app = app.clone();
+    let done_app = app.clone();
+    meeting.stop_in_background(
+        move |status| emit_status(&status_app, status),
+        move |meeting_id| finish_stop_side_effects(&done_app, meeting_id),
+    )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn meeting_status(app: AppHandle) -> MeetingStatus {
     controller(&app).status()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn meeting_segments(
     app: AppHandle,
@@ -771,9 +879,12 @@ fn watch_for_sleep(app: AppHandle, meeting_id: i64) {
             let monotonic = now.1.duration_since(previous.1);
             previous = now;
             if wall.saturating_sub(monotonic) >= SLEEP_DETECT_GAP {
-                emit_status(&app, meeting.on_system_sleep());
-                overlay::hide_recording_overlay(&app);
-                crate::meeting_pipeline::stop_rolling_and_run_after_stop(&app, meeting_id);
+                let status = meeting.on_system_sleep();
+                if !status.state.pill_visible() {
+                    emit_status(&app, status);
+                    overlay::hide_recording_overlay(&app);
+                    crate::meeting_pipeline::stop_rolling_and_run_after_stop(&app, meeting_id);
+                }
                 return;
             }
         }
@@ -1172,5 +1283,179 @@ mod tests {
         assert_eq!(started_mic.state, MeetingState::Recording);
         assert!(started_mic.mic_only);
         assert_eq!(*fake_mic.mic_only_starts.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn pending_template_id_attaches_once_and_clears_on_cancel_or_default_open() {
+        let controller = MeetingController::default();
+
+        controller.open_consent_with_template(Some(17));
+        assert_eq!(controller.take_pending_template_id(), Some(17));
+        assert_eq!(controller.take_pending_template_id(), None);
+
+        controller.cancel_consent();
+        controller.open_consent_with_template(Some(23));
+        controller.cancel_consent();
+        assert_eq!(controller.take_pending_template_id(), None);
+
+        controller.open_consent_with_template(Some(29));
+        controller.open_consent();
+        assert_eq!(controller.take_pending_template_id(), None);
+    }
+
+    #[test]
+    fn stop_and_pause_never_block_caller_and_emit_stopping_then_idle() {
+        use std::sync::Condvar;
+
+        struct SlowStopState {
+            starts: Mutex<usize>,
+            stops: Mutex<usize>,
+            stop_entered: Mutex<bool>,
+            stop_entered_cv: Condvar,
+            release_stop: Mutex<bool>,
+            release_stop_cv: Condvar,
+        }
+
+        #[derive(Clone)]
+        struct SlowStopRecorders(Arc<SlowStopState>);
+
+        impl MeetingRecorders for SlowStopRecorders {
+            fn start(&self) -> Result<StartedMeeting, MeetingRefusal> {
+                let mut n = self.0.starts.lock().unwrap();
+                *n += 1;
+                Ok(StartedMeeting {
+                    id: *n as i64,
+                    mic_name: Some("Built-in".to_string()),
+                    warnings: Vec::new(),
+                    mic_only: false,
+                })
+            }
+
+            fn stop(&self, _meeting_id: i64, _reason: MeetingEnd) -> Vec<MeetingWarning> {
+                *self.0.stops.lock().unwrap() += 1;
+                {
+                    let mut entered = self.0.stop_entered.lock().unwrap();
+                    *entered = true;
+                    self.0.stop_entered_cv.notify_all();
+                }
+                let mut released = self.0.release_stop.lock().unwrap();
+                while !*released {
+                    released = self.0.release_stop_cv.wait(released).unwrap();
+                }
+                Vec::new()
+            }
+        }
+
+        let slow = Arc::new(SlowStopState {
+            starts: Mutex::new(0),
+            stops: Mutex::new(0),
+            stop_entered: Mutex::new(false),
+            stop_entered_cv: Condvar::new(),
+            release_stop: Mutex::new(false),
+            release_stop_cv: Condvar::new(),
+        });
+
+        let ctrl = Arc::new(MeetingController::new(Box::new(SlowStopRecorders(
+            Arc::clone(&slow),
+        ))));
+        ctrl.open_consent();
+        ctrl.confirm_start().unwrap();
+
+        // Pause and Resume command paths return in < 200 ms.
+        let t_pause = Instant::now();
+        let paused = ctrl.pause();
+        assert!(
+            t_pause.elapsed() < Duration::from_millis(200),
+            "pause blocked {:?}",
+            t_pause.elapsed()
+        );
+        assert_eq!(paused.state, MeetingState::Paused);
+        let resumed = ctrl.resume();
+        assert_eq!(resumed.state, MeetingState::Recording);
+
+        // Safety fallback so a blocking Stop fails fast instead of hanging the test runner.
+        let watchdog_slow = Arc::clone(&slow);
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(2_000));
+            let mut rel = watchdog_slow.release_stop.lock().unwrap();
+            if !*rel {
+                *rel = true;
+                watchdog_slow.release_stop_cv.notify_all();
+            }
+        });
+
+        let seen = Arc::new(Mutex::new(Vec::<MeetingState>::new()));
+        let seen_ref = Arc::clone(&seen);
+        let done_flag = Arc::new((Mutex::new(false), Condvar::new()));
+        let done_ref = Arc::clone(&done_flag);
+
+        let t_stop = Instant::now();
+        let stopped = ctrl.stop_in_background(
+            move |status| seen_ref.lock().unwrap().push(status.state),
+            move |_meeting_id| {
+                let (lock, cv) = &*done_ref;
+                *lock.lock().unwrap() = true;
+                cv.notify_all();
+            },
+        );
+        let stop_elapsed = t_stop.elapsed();
+        assert!(
+            stop_elapsed < Duration::from_millis(200),
+            "stop_meeting path blocked caller for {stop_elapsed:?} (limit 200 ms)"
+        );
+        assert_eq!(stopped.state, MeetingState::Stopping);
+
+        // Wait until the background thread enters recorders.stop().
+        {
+            let mut entered = slow.stop_entered.lock().unwrap();
+            while !*entered {
+                let (g, to) = slow
+                    .stop_entered_cv
+                    .wait_timeout(entered, Duration::from_secs(2))
+                    .unwrap();
+                entered = g;
+                assert!(!to.timed_out(), "background stop never started");
+            }
+        }
+
+        // While Stopping: second Stop, Pause, and Start never deadlock or start a second capture.
+        let t_second = Instant::now();
+        assert_eq!(
+            ctrl.stop_in_background(|_| {}, |_| {}).state,
+            MeetingState::Stopping
+        );
+        assert!(t_second.elapsed() < Duration::from_millis(200));
+
+        let t_pause2 = Instant::now();
+        assert_eq!(ctrl.pause().state, MeetingState::Stopping);
+        assert!(t_pause2.elapsed() < Duration::from_millis(200));
+
+        let t_start = Instant::now();
+        assert_eq!(ctrl.confirm_start(), Err(MeetingRefusal::AlreadyRecording));
+        assert!(t_start.elapsed() < Duration::from_millis(200));
+        assert_eq!(*slow.starts.lock().unwrap(), 1);
+
+        // Release slow stop and confirm Stopping -> Idle event order and single stop execution.
+        {
+            let mut rel = slow.release_stop.lock().unwrap();
+            *rel = true;
+            slow.release_stop_cv.notify_all();
+        }
+        {
+            let (lock, cv) = &*done_flag;
+            let mut finished = lock.lock().unwrap();
+            while !*finished {
+                let (g, to) = cv.wait_timeout(finished, Duration::from_secs(2)).unwrap();
+                finished = g;
+                assert!(!to.timed_out(), "background stop never completed");
+            }
+        }
+        assert_eq!(ctrl.state(), MeetingState::Idle);
+        assert_eq!(*slow.stops.lock().unwrap(), 1, "stop must run exactly once");
+        assert_eq!(*slow.starts.lock().unwrap(), 1);
+        assert_eq!(
+            *seen.lock().unwrap(),
+            vec![MeetingState::Stopping, MeetingState::Idle]
+        );
     }
 }

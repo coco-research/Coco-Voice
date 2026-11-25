@@ -232,6 +232,7 @@ export interface AskCitationV2 {
 export interface AskMeetingsV2Result {
   answer: string;
   citations: AskCitationV2[];
+  no_model?: boolean;
 }
 
 export interface ImportFailureItem {
@@ -277,7 +278,11 @@ export const commands = {
     callCmd<MeetingOffer | null>("current_meeting_offer"),
   dismissMeetingOffer: (bundleId: string) =>
     callCmd<null>("dismiss_meeting_offer", { bundleId }),
-  openMeetingConsent: () => callCmd<MeetingStatus>("open_meeting_consent"),
+  openMeetingConsent: (templateId?: number | null) =>
+    callCmd<MeetingStatus>(
+      "open_meeting_consent",
+      templateId !== undefined ? { templateId } : undefined,
+    ),
   confirmMeetingStart: () =>
     callCmd<MeetingStatus, MeetingRefusal>("confirm_meeting_start"),
   confirmMeetingStartMicOnly: () =>
