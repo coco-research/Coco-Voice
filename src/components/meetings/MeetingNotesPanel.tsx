@@ -315,15 +315,21 @@ export const MeetingNotesSection: React.FC<MeetingNotesSectionProps> = ({
     };
   }, [recording, snapshot?.state, snapshot?.meeting_id, segments]);
 
-  const renderGroup = (kind: string, headingKey: string) => {
-    const items = citedLines.filter(
-      (l) => normalizeNoteKind(l.kind) === normalizeNoteKind(kind),
+  const renderGroup = (
+    kind: string,
+    headingKey: string,
+    rawHeading = false,
+  ) => {
+    const items = citedLines.filter((l) =>
+      rawHeading
+        ? l.kind === kind
+        : normalizeNoteKind(l.kind) === normalizeNoteKind(kind),
     );
     if (items.length === 0) return null;
     return (
-      <div className="space-y-0.5">
+      <div key={kind} className="space-y-0.5">
         <h4 className="text-[12px] font-semibold text-mid-gray">
-          {t(headingKey)}
+          {rawHeading ? headingKey : t(headingKey)}
         </h4>
         <ul className="space-y-0.5 text-[12.5px] text-text">
           {items.map((item, idx) => {
@@ -375,6 +381,20 @@ export const MeetingNotesSection: React.FC<MeetingNotesSectionProps> = ({
     "question",
     "meetings.notes.openQuestions",
   );
+  const standardKinds = new Set([
+    "summary",
+    "decision",
+    "action",
+    "question",
+    "notepad",
+  ]);
+  const customGroups = Array.from(
+    new Set(
+      citedLines
+        .filter((l) => !standardKinds.has(normalizeNoteKind(l.kind)))
+        .map((l) => l.kind),
+    ),
+  ).map((heading) => renderGroup(heading, heading, true));
   const leftOutGroups = LEFT_OUT_CATEGORIES.map(([cat, labelKey]) => {
     const rows = leftOut.filter((r) =>
       cat === "small_talk"
@@ -759,6 +779,7 @@ export const MeetingNotesSection: React.FC<MeetingNotesSectionProps> = ({
               {decisionsGroup}
               {actionsGroup}
               {questionsGroup}
+              {customGroups}
               <p
                 data-testid="notes-cite-rule"
                 className="pt-0.5 text-[11px] leading-[15px] text-mid-gray"

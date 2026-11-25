@@ -146,7 +146,10 @@ pub fn extract_commitments(text: &str) -> Vec<(String, String)> {
         for lead in [
             "okay,", "okay ", "alright,", "alright ", "yes,", "yeah,", "sure,", "so ",
         ] {
-            if clause.len() > lead.len() && clause[..lead.len()].eq_ignore_ascii_case(lead) {
+            if clause.len() > lead.len()
+                && clause.is_char_boundary(lead.len())
+                && clause[..lead.len()].eq_ignore_ascii_case(lead)
+            {
                 clause = clause[lead.len()..].trim_start();
             }
         }
@@ -821,5 +824,13 @@ mod tests {
         assert!(store.list(true, None).unwrap().is_empty());
         assert!(!crate::meeting_ask_index::run_pending_ask_clean(dir.path()).unwrap());
         assert!(!crate::meeting_ask_index::any_ask_clean_pending());
+    }
+
+    #[test]
+    fn extract_commitments_handles_multibyte_char_at_lead_boundary() {
+        // "Alright" (7 bytes) + "—" (3 bytes at 7..10) must not panic when
+        // checking 8-byte lead prefixes like "alright ".
+        let out = extract_commitments("Alright—I'll send the rollout summary by Friday.");
+        assert!(out.is_empty() || !out[0].0.is_empty());
     }
 }
