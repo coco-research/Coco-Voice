@@ -25,7 +25,25 @@ pub const NOTEPAD_KIND: &str = "notepad";
 
 /// Target context window (tokens) opened for local meeting notes. Dictation
 /// clean-up keeps its own 2,048 window; both reuse the same cached GGUF weights.
-pub const DEFAULT_LOCAL_NOTES_N_CTX: usize = 8192;
+pub const DEFAULT_LOCAL_NOTES_N_CTX: usize = 4096;
+
+/// Existing `LocalLlmError::OverBudget` reason string, returned verbatim when
+/// a meeting requires more than one piece under the 4,096 one-shot guard.
+pub const NOTES_OVER_BUDGET_REASON: &str =
+    "Local LLM prompt exceeds the context budget; pasting the raw transcript";
+
+/// Enforce the one-shot guard (`piece_count <= 1`) shared across after-Stop,
+/// Retry, and rolling notes paths.
+///
+/// ponytail: ceiling = 1 piece on a 4,096 context; upgrade path = P2 decides
+/// whether map-merge comes back or is deleted.
+pub(crate) fn require_one_shot_pieces(meeting_id: i64, piece_count: usize) -> Result<()> {
+    if piece_count > 1 {
+        return Err(anyhow!(NOTES_OVER_BUDGET_REASON))
+            .with_context(|| format!("meeting {meeting_id}: notes model failed, nothing saved"));
+    }
+    Ok(())
+}
 
 /// One model call on a full notes prompt.
 pub trait NotesGenerator {
@@ -125,10 +143,13 @@ pub fn generate_meeting_notes_with_headings<G: NotesGenerator>(
             .fold(0, |acc, n| acc.saturating_add(n + SEGMENT_TAG_TOKENS))
     };
 
+    let planned = plan_pieces(&segment_tokens, notepad_tokens, prompt_tokens, n_ctx);
+    // ponytail: ceiling = 1 piece on a 4,096 context; upgrade path = P2 decides
+    // whether map-merge comes back or is deleted.
+    require_one_shot_pieces(meeting_id, planned.len())?;
+
     let (pieces, oversized): (Vec<_>, Vec<_>) =
-        plan_pieces(&segment_tokens, notepad_tokens, prompt_tokens, n_ctx)
-            .into_iter()
-            .partition(|r| cost(r) <= budget);
+        planned.into_iter().partition(|r| cost(r) <= budget);
     let oversized_segments: Vec<i64> = oversized
         .into_iter()
         .flatten()
@@ -371,14 +392,13 @@ mod tests {
 
     #[test]
     fn notes_context_budget_matches_local_llm_context() {
-        // Every piece planned for a 2,048-context generator must fit inside
-        // that generator's 1,024-token prompt budget, and multi-piece runs must
-        // invoke the merge pass to reconcile reversed decisions across pieces.
-        struct BoundedCtxGen {
+        assert_eq!(DEFAULT_LOCAL_NOTES_N_CTX, 4096);
+
+        struct RecordingBoundedGen {
             n_ctx: usize,
             prompts: Vec<String>,
         }
-        impl NotesGenerator for BoundedCtxGen {
+        impl NotesGenerator for RecordingBoundedGen {
             fn context_window(&mut self) -> Result<usize> {
                 Ok(self.n_ctx)
             }
@@ -389,26 +409,43 @@ mod tests {
                     return Err(anyhow!("prompt {est} exceeds context limit {limit}"));
                 }
                 self.prompts.push(prompt.to_string());
-                if prompt.starts_with("Merge these partial meeting notes") {
-                    return Ok("DECISION: Launch September 1 free [S12]".to_string());
-                }
-                if prompt.contains("[S1]") {
-                    Ok("DECISION: Launch June 1 paid [S1]".to_string())
-                } else {
-                    Ok("DECISION: Launch September 1 free [S12]".to_string())
-                }
+                Ok("DECISION: Launch September 1 free [S1]".to_string())
             }
         }
 
         let dir = tempfile::tempdir().unwrap();
         let store = MeetingsStore::open(dir.path()).unwrap();
-        let id = store.start_meeting("Long Sync", "turbo").unwrap();
+
+        // 1. A short meeting fits in one shot at 4,096 and runs one call.
+        let short_id = store.start_meeting("Short Sync", "turbo").unwrap();
+        store
+            .insert_segment(
+                short_id,
+                0,
+                5_000,
+                crate::managers::meetings::MeetingChannel::Me,
+                "We decided to launch September 1 free.",
+            )
+            .unwrap();
+        let mut ok_gen = RecordingBoundedGen {
+            n_ctx: DEFAULT_LOCAL_NOTES_N_CTX,
+            prompts: Vec::new(),
+        };
+        let out = generate_meeting_notes(&store, short_id, &mut ok_gen, &mut |_| {}).unwrap();
+        assert_eq!(out.calls_total, 1);
+        assert_eq!(ok_gen.prompts.len(), 1);
+        assert_eq!(out.notes.len(), 1);
+
+        // 2. A multi-piece meeting fails with the existing OverBudget reason,
+        //    never invokes the generator (no map or merge prompt), and keeps
+        //    both the transcript and any earlier saved notes intact.
+        let long_id = store.start_meeting("Long Sync", "turbo").unwrap();
         let body =
-            "We reviewed the migration schedule and deployment checklist in detail. ".repeat(10);
-        for i in 0..12 {
+            "We reviewed the migration schedule and deployment checklist in detail. ".repeat(14);
+        for i in 0..16 {
             store
                 .insert_segment(
-                    id,
+                    long_id,
                     i * 10_000,
                     i * 10_000 + 8_000,
                     crate::managers::meetings::MeetingChannel::Me,
@@ -416,19 +453,23 @@ mod tests {
                 )
                 .unwrap();
         }
-
-        let mut gen = BoundedCtxGen {
-            n_ctx: 2048,
+        let mut blocked_gen = RecordingBoundedGen {
+            n_ctx: DEFAULT_LOCAL_NOTES_N_CTX,
             prompts: Vec::new(),
         };
-        let out = generate_meeting_notes(&store, id, &mut gen, &mut |_| {}).unwrap();
+        let err = generate_meeting_notes(&store, long_id, &mut blocked_gen, &mut |_| {})
+            .expect_err("multi-piece meeting must fail under the 4,096 one-shot guard");
+        let full_err = format!("{err:#}");
         assert!(
-            out.calls_total >= 3,
-            "expected >=2 map calls + 1 merge call at 2048 ctx, got {}",
-            out.calls_total
+            full_err.contains(NOTES_OVER_BUDGET_REASON),
+            "expected existing OverBudget reason, got: {full_err}"
         );
-        assert_eq!(out.notes.len(), 1);
-        assert_eq!(out.notes[0].text, "Launch September 1 free");
-        assert_eq!(out.notes[0].citations, vec![12]);
+        assert!(
+            blocked_gen.prompts.is_empty(),
+            "multi-piece meeting must never send map or merge prompts, sent {}",
+            blocked_gen.prompts.len()
+        );
+        assert_eq!(store.segments(long_id).unwrap().len(), 16);
+        assert!(store.notes(long_id).unwrap().is_empty());
     }
 }

@@ -117,6 +117,9 @@ mod tests {
         let expected_8k =
             ((8192 - NOTES_MAX_TOKENS - CHAT_TEMPLATE_OVERHEAD_TOKENS) * 85) / 100 - 200;
         assert_eq!(piece_budget(8192, 200), expected_8k);
+        let expected_4k =
+            ((4096 - NOTES_MAX_TOKENS - CHAT_TEMPLATE_OVERHEAD_TOKENS) * 85) / 100 - 200;
+        assert_eq!(piece_budget(4096, 200), expected_4k);
         let expected_2k =
             ((2048 - NOTES_MAX_TOKENS - CHAT_TEMPLATE_OVERHEAD_TOKENS) * 85) / 100 - 200;
         assert_eq!(piece_budget(2048, 200), expected_2k);
