@@ -80,9 +80,15 @@ describe("Plan E Pill States, Meeting Pill, Hands-Free, Agent Ask & Security Gua
       <MeetingPillView elapsedSecs={768} onStop={() => {}} />,
     );
     expect(activeHtml).toContain('role="status"');
+    expect(activeHtml).toContain("●");
     expect(activeHtml).toContain("Recording 12:48");
     expect(activeHtml).toContain(">Stop<");
     expect(activeHtml).not.toContain('disabled=""');
+
+    const hourHtml = wrap(
+      <MeetingPillView elapsedSecs={3909} onStop={() => {}} />,
+    );
+    expect(hourHtml).toContain("Recording 1:05:09");
 
     const stoppingHtml = wrap(
       <MeetingPillView
@@ -92,7 +98,8 @@ describe("Plan E Pill States, Meeting Pill, Hands-Free, Agent Ask & Security Gua
         onStop={() => {}}
       />,
     );
-    expect(stoppingHtml).toContain("Recording 1:05:09");
+    expect(stoppingHtml).toContain("Finishing notes");
+    expect(stoppingHtml).not.toContain("●");
     expect(stoppingHtml).toContain("? 2 waiting");
     expect(stoppingHtml).toContain('disabled=""');
   });
