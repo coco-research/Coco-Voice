@@ -439,6 +439,39 @@ impl MeetingAskIndex {
         Ok(hits.into_iter().take(TOP_K).map(|(_, c)| c).collect())
     }
 
+    /// Return every indexed segment in `scope` in chronological order.
+    pub(crate) fn scope_segments(&self, scope: &AskScope) -> Result<Vec<AskCitation>> {
+        let ic = self.conn()?;
+        Ok(load_scoped_docs(&ic, scope)?
+            .into_iter()
+            .map(|(_, c, _)| c)
+            .collect())
+    }
+
+    /// Return up to `limit` most recent segments in `scope`, ordered chronologically.
+    pub(crate) fn recent_scope_segments(
+        &self,
+        scope: &AskScope,
+        limit: usize,
+    ) -> Result<Vec<AskCitation>> {
+        let ic = self.conn()?;
+        let mut cites: Vec<AskCitation> = load_scoped_docs(&ic, scope)?
+            .into_iter()
+            .map(|(_, c, _)| c)
+            .collect();
+        cites.sort_by(|a, b| {
+            (b.started_at, b.meeting_id, b.start_ms, b.segment_id).cmp(&(
+                a.started_at,
+                a.meeting_id,
+                a.start_ms,
+                a.segment_id,
+            ))
+        });
+        cites.truncate(limit);
+        cites.reverse();
+        Ok(cites)
+    }
+
     fn conn(&self) -> Result<Connection> {
         let c = Connection::open(&self.index_path)?;
         c.busy_timeout(Duration::from_secs(1))?;

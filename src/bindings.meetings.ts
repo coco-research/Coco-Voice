@@ -232,6 +232,7 @@ export interface AskCitationV2 {
 export interface AskMeetingsV2Result {
   answer: string;
   citations: AskCitationV2[];
+  no_model?: boolean;
 }
 
 export interface ImportFailureItem {

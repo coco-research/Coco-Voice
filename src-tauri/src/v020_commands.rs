@@ -661,7 +661,8 @@ pub mod meetings_ext {
         Ok(summary.imported_count)
     }
 
-    #[tauri::command]
+    // `async`: Ask may run the local model or wait on SQLite; never block the main thread.
+    #[tauri::command(async)]
     #[specta::specta]
     pub fn ask_meetings(
         app: AppHandle,
