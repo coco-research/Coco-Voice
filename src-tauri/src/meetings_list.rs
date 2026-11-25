@@ -119,28 +119,28 @@ pub fn delete_from_store(store: &MeetingsStore, id: i64) -> Result<MeetingDelete
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn list_meetings(app: AppHandle) -> Result<Vec<MeetingListItem>, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     list_from_store(&store)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn search_meetings(app: AppHandle, query: String) -> Result<Vec<MeetingListItem>, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     search_from_store(&store, &query)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn export_meeting_markdown(app: AppHandle, id: i64, dest_path: String) -> Result<(), String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     export_from_store(&store, id, Path::new(&dest_path))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn delete_meeting(app: AppHandle, id: i64) -> Result<MeetingDeleteResult, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;

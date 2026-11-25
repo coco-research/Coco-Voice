@@ -24,8 +24,6 @@ use crate::managers::transcription::TranscriptionManager;
 use crate::meeting_controller::{
     MeetingEnd, MeetingRecorders, MeetingRefusal, MeetingWarning, SessionPoll, StartedMeeting,
 };
-#[cfg(test)]
-use crate::meeting_feed::write_optional;
 use crate::meeting_feed::{chunker, push_warning, spawn_worker, Feed, TranscribeFn};
 
 const SILENT_AFTER_SECS: u64 = 10;
@@ -162,10 +160,7 @@ impl MeetingSession {
     #[cfg(test)]
     pub fn push_me(&self, samples: &[f32]) {
         if let Some(active) = self.active.lock().unwrap_or_else(poison).as_ref() {
-            if !write_optional(&active.feed.me_wav, &active.feed.write_failed, samples) {
-                return;
-            }
-            active.feed.push_chunker(&active.feed.me, samples);
+            active.feed.push_me(samples);
         }
     }
 
@@ -386,6 +381,25 @@ impl MeetingSession {
             write_failed,
         }
     }
+    fn pause_id(&self, id: i64) {
+        let slot = self.active.lock().unwrap_or_else(poison);
+        if let Some(active) = slot.as_ref().filter(|active| active.id == id) {
+            active.feed.paused.store(true, Ordering::Release);
+            if let Some(mic) = &active.mic {
+                mic.set_user_paused(true);
+            }
+        }
+    }
+
+    fn resume_id(&self, id: i64) {
+        let slot = self.active.lock().unwrap_or_else(poison);
+        if let Some(active) = slot.as_ref().filter(|active| active.id == id) {
+            if let Some(mic) = &active.mic {
+                mic.set_user_paused(false);
+            }
+            active.feed.paused.store(false, Ordering::Release);
+        }
+    }
 }
 
 impl MeetingRecorders for MeetingSession {
@@ -403,6 +417,14 @@ impl MeetingRecorders for MeetingSession {
 
     fn poll(&self, meeting_id: i64, elapsed_secs: u64) -> SessionPoll {
         self.poll_id(meeting_id, elapsed_secs)
+    }
+
+    fn pause(&self, meeting_id: i64) {
+        self.pause_id(meeting_id);
+    }
+
+    fn resume(&self, meeting_id: i64) {
+        self.resume_id(meeting_id);
     }
 }
 
@@ -525,7 +547,9 @@ fn arm_mic(app: &AppHandle, meeting_id: i64, feed: Arc<Feed>) -> anyhow::Result<
     let mic = MeetingMic::from_wav(dir.join("mic.wav"), selected, std::time::Instant::now())?;
     let hooked = Arc::clone(&feed);
     mic.set_on_samples(Arc::new(move |samples| {
-        hooked.push_chunker(&hooked.me, samples)
+        if !hooked.paused.load(Ordering::Acquire) {
+            hooked.push_chunker(&hooked.me, samples);
+        }
     }));
     mic.arm();
     Ok(mic)
@@ -681,6 +705,7 @@ impl MeetingSession {
             tx: Mutex::new(Some(tx)),
             write_failed: AtomicBool::new(false),
             heard: AtomicBool::new(false),
+            paused: AtomicBool::new(false),
             warnings: Mutex::new(Vec::new()),
             mic_name: Mutex::new(None),
         });
@@ -1575,5 +1600,129 @@ mod tests {
     #[ignore = "live: needs macOS say/afconvert and cached Parakeet Ultra Q8_0 GGUF"]
     fn live_meeting_cold_start_parakeet_q8() {
         run_live_meeting_cold_start(LIVE_PARAKEET_Q8_ID);
+    }
+
+    #[test]
+    fn pause_gates_mic_and_system_tap_and_resume_continues_same_meeting() {
+        let _lock = test_lock();
+        let dir = tempfile::tempdir().unwrap();
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.install_fake_engine(PARAKEET);
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let calls_ref = Arc::clone(&calls);
+        let pin_tm = Arc::clone(&tm);
+        let clear_tm = Arc::clone(&tm);
+        let session = Arc::new(MeetingSession::for_test(
+            dir.path().to_path_buf(),
+            PARAKEET,
+            vec![PARAKEET.to_string()],
+            Arc::new(move |_audio| {
+                let n = calls_ref.fetch_add(1, Ordering::SeqCst) + 1;
+                Ok(format!("seg-{n}"))
+            }),
+            Arc::new(move |model| pin_tm.pin_meeting_model(model)),
+            Arc::new(move || clear_tm.clear_meeting_pin()),
+        ));
+
+        struct PauseRecorders(Arc<MeetingSession>);
+        impl MeetingRecorders for PauseRecorders {
+            fn start(&self) -> Result<StartedMeeting, MeetingRefusal> {
+                self.0.start()
+            }
+            fn stop(&self, id: i64, reason: MeetingEnd) -> Vec<MeetingWarning> {
+                self.0.stop(id, reason)
+            }
+            fn poll(&self, id: i64, elapsed: u64) -> SessionPoll {
+                self.0.poll(id, elapsed)
+            }
+            fn pause(&self, id: i64) {
+                self.0.pause(id);
+            }
+            fn resume(&self, id: i64) {
+                self.0.resume(id);
+            }
+        }
+
+        let controller = crate::meeting_controller::MeetingController::new(Box::new(
+            PauseRecorders(Arc::clone(&session)),
+        ));
+        controller.open_consent();
+        let started = controller.confirm_start().unwrap();
+        let id = started.meeting_id.expect("meeting id");
+
+        let mut speech = vec![0.25_f32; 480 * 16];
+        speech.extend(std::iter::repeat_n(0.0_f32, 480 * 20));
+
+        // Pause immediately and push speech + silence on BOTH mic and system tap.
+        let paused = controller.pause();
+        assert_eq!(
+            paused.state,
+            crate::meeting_controller::MeetingState::Paused
+        );
+        session.push_me(&speech);
+        session.push_others(&speech);
+        // Give the worker thread a moment to process anything that mistakenly queued.
+        std::thread::sleep(std::time::Duration::from_millis(80));
+
+        let mic_path = track(dir.path(), id, "mic.wav");
+        let sys_path = track(dir.path(), id, "system.wav");
+        let me_paused_frames = read_wav_samples(&mic_path).unwrap().len();
+        let sys_paused_frames = read_wav_samples(&sys_path).unwrap().len();
+        let store = MeetingsStore::open(dir.path()).unwrap();
+        let segs_while_paused = store.segments(id).unwrap().len();
+        let transcribe_calls_while_paused = calls.load(Ordering::SeqCst);
+
+        assert_eq!(
+            me_paused_frames, 0,
+            "mic.wav received {me_paused_frames} frames while paused"
+        );
+        assert_eq!(
+            sys_paused_frames, 0,
+            "system.wav received {sys_paused_frames} frames while paused"
+        );
+        assert_eq!(
+            segs_while_paused, 0,
+            "meetings.db received {segs_while_paused} segments while paused"
+        );
+        assert_eq!(
+            transcribe_calls_while_paused, 0,
+            "transcriber ran {transcribe_calls_while_paused} time(s) while paused"
+        );
+
+        // Resume and push speech + silence on both tracks: same meeting_id, one file per source.
+        let resumed = controller.resume();
+        assert_eq!(
+            resumed.state,
+            crate::meeting_controller::MeetingState::Recording
+        );
+        assert_eq!(resumed.meeting_id, Some(id));
+        session.push_me(&speech);
+        session.push_others(&speech);
+
+        let stopped = controller.stop();
+        assert_eq!(stopped.state, crate::meeting_controller::MeetingState::Idle);
+        assert_eq!(stopped.meeting_id, Some(id));
+
+        let all_meetings = store.list_meetings().unwrap();
+        assert_eq!(all_meetings.len(), 1);
+        assert_eq!(all_meetings[0].id, id);
+
+        let mut files: Vec<String> =
+            std::fs::read_dir(dir.path().join("meetings").join(id.to_string()))
+                .unwrap()
+                .filter_map(|e| e.ok())
+                .map(|e| e.file_name().to_string_lossy().to_string())
+                .collect();
+        files.sort();
+        assert_eq!(files, vec!["mic.wav".to_string(), "system.wav".to_string()]);
+
+        assert_eq!(read_wav_samples(&mic_path).unwrap().len(), speech.len());
+        assert_eq!(read_wav_samples(&sys_path).unwrap().len(), speech.len());
+        assert_eq!(store.segments(id).unwrap().len(), 2);
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
     }
 }

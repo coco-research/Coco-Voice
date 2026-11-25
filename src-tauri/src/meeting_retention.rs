@@ -342,7 +342,7 @@ pub fn meeting_retention_state(app: AppHandle) -> MeetingRetentionState {
     state_from_settings(settings::get_settings(&app))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn change_delete_audio_after_notes_setting(
     app: AppHandle,
@@ -378,7 +378,7 @@ pub(crate) fn validate_markdown_folder_path(raw: &str) -> Result<String, String>
     Ok(trimmed.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn change_notes_markdown_folder_setting(
     app: AppHandle,
@@ -399,14 +399,14 @@ pub fn change_notes_markdown_folder_setting(
     Ok(state_from_settings(settings::get_settings(&app)))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn request_delete_all_meetings(app: AppHandle) -> Result<String, String> {
     let store = MeetingsStore::open_app(&app).map_err(|e| e.to_string())?;
     request_delete_all_confirmation(&store)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn delete_all_meetings(
     app: AppHandle,

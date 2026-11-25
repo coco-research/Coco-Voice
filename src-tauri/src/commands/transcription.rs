@@ -10,13 +10,13 @@ pub struct ModelLoadStatus {
     current_model: Option<String>,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn set_model_unload_timeout(app: AppHandle, timeout: ModelUnloadTimeout) {
     update_settings(&app, |s| s.model_unload_timeout = timeout);
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn get_model_load_status(
     transcription_manager: State<TranscriptionManager>,
@@ -27,7 +27,7 @@ pub fn get_model_load_status(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
 pub fn unload_model_manually(
     transcription_manager: State<TranscriptionManager>,

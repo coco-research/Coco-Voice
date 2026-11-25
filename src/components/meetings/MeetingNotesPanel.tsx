@@ -249,6 +249,7 @@ export interface MeetingNotesSectionProps {
   notepadDraft: string;
   initialView?: "both" | "left_out";
   retrying?: boolean;
+  stopping?: boolean;
   segments?: MeetingSegmentView[];
   hasSpokenSegments?: boolean;
   showNotesSoFarCard?: boolean;
@@ -263,6 +264,7 @@ export const MeetingNotesSection: React.FC<MeetingNotesSectionProps> = ({
   notepadDraft,
   initialView = "both",
   retrying = false,
+  stopping = false,
   segments,
   hasSpokenSegments,
   showNotesSoFarCard = false,
@@ -632,6 +634,7 @@ export const MeetingNotesSection: React.FC<MeetingNotesSectionProps> = ({
   // Empty stopped meeting (D-B4): nothing was said
   if (
     !recording &&
+    !stopping &&
     hasSpokenSegments === false &&
     (!snapshot || snapshot.state === "idle") &&
     citedLines.length === 0
@@ -769,10 +772,28 @@ export const MeetingNotesSection: React.FC<MeetingNotesSectionProps> = ({
     );
   }
 
+  const finishingLabel = (() => {
+    if (snapshot?.state !== "running") {
+      return t("meetings.list.finishingNotes", "Finishing notes");
+    }
+    if (snapshot.progress_label) {
+      return snapshot.progress_label;
+    }
+    if (snapshot.estimate_secs != null) {
+      return t("meetings.notes.finishingAbout", {
+        defaultValue: "Finishing notes: about {{seconds}} s",
+        seconds: snapshot.estimate_secs,
+      });
+    }
+    return t("meetings.notes.finishing", {
+      seconds: snapshot.elapsed_secs,
+    });
+  })();
+
   // Scene 27 (Frame 16b After Stop) or active recording notepad without notes-so-far yet
   return (
     <div className="space-y-3.5">
-      {!recording && snapshot?.state === "running" ? (
+      {!recording && (snapshot?.state === "running" || stopping) ? (
         <section
           data-testid="frame-16-progress"
           role="status"
@@ -781,17 +802,7 @@ export const MeetingNotesSection: React.FC<MeetingNotesSectionProps> = ({
           <div className="flex items-center justify-between gap-2">
             <span className="inline-flex items-center gap-2 text-[13.5px] font-semibold text-text">
               <span aria-hidden="true">{HALF_CIRCLE}</span>
-              <span>
-                {snapshot.progress_label ??
-                  (snapshot.estimate_secs != null
-                    ? t("meetings.notes.finishingAbout", {
-                        defaultValue: "Finishing notes: about {{seconds}} s",
-                        seconds: snapshot.estimate_secs,
-                      })
-                    : t("meetings.notes.finishing", {
-                        seconds: snapshot.elapsed_secs,
-                      }))}
-              </span>
+              <span>{finishingLabel}</span>
             </span>
           </div>
           <div

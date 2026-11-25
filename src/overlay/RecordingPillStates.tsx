@@ -208,14 +208,18 @@ export const MeetingPillView: React.FC<MeetingPillProps> = ({
       aria-live="polite"
       className="inline-flex items-center gap-2.5 rounded-full border border-mid-gray/35 bg-background px-3.5 py-1.5 shadow-sm text-[12.5px] font-medium text-text"
     >
-      <span aria-hidden="true" className="text-red-500">
-        {RECORD_DOT}
-      </span>
+      {!stopping ? (
+        <span aria-hidden="true" className="text-red-500">
+          {RECORD_DOT}
+        </span>
+      ) : null}
       <span data-testid="meeting-pill-elapsed">
-        {t("overlay.meetingPill.recordingTime", {
-          time: formatted,
-          defaultValue: `Recording ${formatted}`,
-        })}
+        {stopping
+          ? t("meetings.list.finishingNotes", "Finishing notes")
+          : t("overlay.meetingPill.recordingTime", {
+              time: formatted,
+              defaultValue: `Recording ${formatted}`,
+            })}
       </span>
       {micOnly ? (
         <span
