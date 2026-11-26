@@ -720,7 +720,9 @@
           "title": "ggml",
           "description": "Högpresterande inferens av OpenAI:s Whisper-modell för automatisk taligenkänning",
           "details": "Coco Voice använder ggml för snabb, lokal tal-till-text-behandling. Tack till det fantastiska arbete som utförts av Georgi Gerganov med medarbetare."
-        }
+        },
+        "ccByModelDetails": "Licensierad under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).",
+        "ccByModelDetails_changed": "Licensierad under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Ändrad: konverterad till {{format}} av {{converter}}."
       },
       "whatsNewUpdates": {
         "label": "Visa nyheter",
