@@ -6,6 +6,13 @@ from the conventional commit titles when a release is cut. The user-facing notes
 for each version are in [src/content/release-notes/](src/content/release-notes/)
 and on the [GitHub Release](https://github.com/coco-research/Coco-Voice/releases).
 
+## [0.20.4](https://github.com/coco-research/Coco-Voice/compare/v0.20.3...v0.20.4) (2026-11-26)
+
+
+### Fixed
+
+* **ci:** retry release uploads and clear leftover partial assets ([#364](https://github.com/coco-research/Coco-Voice/issues/364)) ([1e1b941](https://github.com/coco-research/Coco-Voice/commit/1e1b9417504ddc78f20e07de607aa69861509fb9))
+
 ## [0.20.3](https://github.com/coco-research/Coco-Voice/compare/v0.20.2...v0.20.3) (2026-11-25)
 
 
