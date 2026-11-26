@@ -720,7 +720,9 @@
           "title": "ggml",
           "description": "Високопроизводително изпълнение на автоматичния модел за разпознаване на реч Whisper на OpenAI",
           "details": "Coco Voice използва ggml за бързо локално реч-към-текст. Благодарности на Georgi Gerganov и сътрудниците за отличната работа."
-        }
+        },
+        "ccByModelDetails": "Лицензиран под CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).",
+        "ccByModelDetails_changed": "Лицензиран под CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Променен: преобразуван в {{format}} от {{converter}}."
       },
       "whatsNewUpdates": {
         "label": "Показвай новостите",
