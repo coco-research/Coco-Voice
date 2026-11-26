@@ -1,11 +1,5 @@
 ## Before Submitting This PR
 
-<!--
-HANDY IS UNDERGOING A FEATURE FREEZE. IF YOU ARE SUBMITTING A PR WHICH IS A NEW FEATURE THAT THE COMMUNITY HAS NOT ASKED FOR: PREPARE TO BE REJECTED. IF THE COMMUNITY HAS ASKED FOR IT, OR YOU HAVE EXPLICITLY GATHERED SUPPORT IT MAY STILL BE CONSIDERED.
-
-BUG FIXES ARE THE TOP PRIORITY. THERE ARE 60+ ISSUES TO FIX.
--->
-
 **Please confirm you have done the following:**
 
 - [ ] I have searched [existing issues](https://github.com/coco-research/Coco-Voice/issues) and [pull requests](https://github.com/coco-research/Coco-Voice/pulls) (including closed ones) to ensure this isn't a duplicate
@@ -39,15 +33,9 @@ Discussion:
 ## Community Feedback
 
 <!--
-PRs with community support are much more likely to be merged.
-
-For features: Link to a discussion where community members have expressed interest.
-For bug fixes: Link to the issue where others have confirmed the bug.
-
-If you haven't gathered feedback yet, consider starting a discussion first:
-https://github.com/coco-research/Coco-Voice/discussions
-
-It is not explicitly required to gather feedback, but it certainly helps your PR get merged.
+For larger changes or new features, linking a related issue or discussion helps reviewers understand the context.
+For bug fixes, link to the issue where the bug was reported:
+https://github.com/coco-research/Coco-Voice/issues
 -->
 
 ## Testing
