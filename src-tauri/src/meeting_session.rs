@@ -8,7 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread::JoinHandle;
 
 use tauri::{AppHandle, Manager};
@@ -37,11 +37,31 @@ fn refuse_io(err: impl std::fmt::Display) -> MeetingRefusal {
     MeetingRefusal::SystemAudioUnavailable
 }
 
+trait SessionMic: Send + Sync {
+    fn set_user_paused(&self, paused: bool);
+    fn write_failed(&self) -> bool;
+    fn stop(&self);
+}
+
+impl SessionMic for MeetingMic {
+    fn set_user_paused(&self, paused: bool) {
+        MeetingMic::set_user_paused(self, paused);
+    }
+
+    fn write_failed(&self) -> bool {
+        MeetingMic::write_failed(self)
+    }
+
+    fn stop(&self) {
+        MeetingMic::stop(self);
+    }
+}
+
 struct Active {
     id: i64,
     feed: Arc<Feed>,
     worker: Option<JoinHandle<()>>,
-    mic: Option<MeetingMic>,
+    mic: Option<Arc<dyn SessionMic>>,
     #[cfg(target_os = "macos")]
     tap: Option<crate::meetings_tap::SystemAudioSession>,
     mic_only: bool,
@@ -86,6 +106,8 @@ pub struct MeetingSession {
         Option<Arc<dyn Fn() -> Result<(), crate::meetings_tap::TapError> + Send + Sync>>,
     #[cfg(test)]
     test_mic_armed: Option<Arc<std::sync::atomic::AtomicUsize>>,
+    #[cfg(test)]
+    test_mic: Option<Arc<dyn SessionMic>>,
 }
 
 impl MeetingSession {
@@ -103,6 +125,8 @@ impl MeetingSession {
             test_tap_start: None,
             #[cfg(test)]
             test_mic_armed: None,
+            #[cfg(test)]
+            test_mic: None,
         }
     }
 
@@ -127,6 +151,7 @@ impl MeetingSession {
             #[cfg(target_os = "macos")]
             test_tap_start: None,
             test_mic_armed: None,
+            test_mic: None,
         }
     }
 
@@ -148,6 +173,12 @@ impl MeetingSession {
     #[cfg(test)]
     fn with_mic_arm_counter(mut self, counter: Arc<std::sync::atomic::AtomicUsize>) -> Self {
         self.test_mic_armed = Some(counter);
+        self
+    }
+
+    #[cfg(test)]
+    fn with_test_mic(mut self, mic: Arc<dyn SessionMic>) -> Self {
+        self.test_mic = Some(mic);
         self
     }
 
@@ -382,22 +413,32 @@ impl MeetingSession {
         }
     }
     fn pause_id(&self, id: i64) {
-        let slot = self.active.lock().unwrap_or_else(poison);
-        if let Some(active) = slot.as_ref().filter(|active| active.id == id) {
-            active.feed.paused.store(true, Ordering::Release);
-            if let Some(mic) = &active.mic {
+        let handles = {
+            let slot = self.active.lock().unwrap_or_else(poison);
+            slot.as_ref()
+                .filter(|active| active.id == id)
+                .map(|active| (Arc::clone(&active.feed), active.mic.clone()))
+        };
+        if let Some((feed, mic)) = handles {
+            feed.set_paused(true);
+            if let Some(mic) = mic {
                 mic.set_user_paused(true);
             }
         }
     }
 
     fn resume_id(&self, id: i64) {
-        let slot = self.active.lock().unwrap_or_else(poison);
-        if let Some(active) = slot.as_ref().filter(|active| active.id == id) {
-            if let Some(mic) = &active.mic {
+        let handles = {
+            let slot = self.active.lock().unwrap_or_else(poison);
+            slot.as_ref()
+                .filter(|active| active.id == id)
+                .map(|active| (Arc::clone(&active.feed), active.mic.clone()))
+        };
+        if let Some((feed, mic)) = handles {
+            if let Some(mic) = mic {
                 mic.set_user_paused(false);
             }
-            active.feed.paused.store(false, Ordering::Release);
+            feed.set_paused(false);
         }
     }
 }
@@ -547,9 +588,7 @@ fn arm_mic(app: &AppHandle, meeting_id: i64, feed: Arc<Feed>) -> anyhow::Result<
     let mic = MeetingMic::from_wav(dir.join("mic.wav"), selected, std::time::Instant::now())?;
     let hooked = Arc::clone(&feed);
     mic.set_on_samples(Arc::new(move |samples| {
-        if !hooked.paused.load(Ordering::Acquire) {
-            hooked.push_chunker(&hooked.me, samples);
-        }
+        hooked.push_me_chunker(samples);
     }));
     mic.arm();
     Ok(mic)
@@ -705,7 +744,7 @@ impl MeetingSession {
             tx: Mutex::new(Some(tx)),
             write_failed: AtomicBool::new(false),
             heard: AtomicBool::new(false),
-            paused: AtomicBool::new(false),
+            pause_gate: RwLock::new(false),
             warnings: Mutex::new(Vec::new()),
             mic_name: Mutex::new(None),
         });
@@ -713,7 +752,7 @@ impl MeetingSession {
         if let Some(hold) = hold.as_ref() {
             hold.arm(&feed);
         }
-        let mic = if live {
+        let mic: Option<Arc<dyn SessionMic>> = if live {
             match self
                 .app
                 .as_ref()
@@ -724,7 +763,7 @@ impl MeetingSession {
                         push_warning(&feed, MeetingWarning::MicFellBackToDefault);
                     }
                     *feed.mic_name.lock().unwrap_or_else(poison) = mic.mic_name();
-                    Some(mic)
+                    Some(Arc::new(mic))
                 }
                 Some(Err(err)) => {
                     rollback(&store, id, &dir);
@@ -738,7 +777,14 @@ impl MeetingSession {
             if let Some(counter) = &self.test_mic_armed {
                 counter.fetch_add(1, Ordering::SeqCst);
             }
-            None
+            #[cfg(test)]
+            {
+                self.test_mic.clone()
+            }
+            #[cfg(not(test))]
+            {
+                None
+            }
         };
         // Tracks, row, WAVs, and mic are all open; nothing past this point can refuse (M-c1, F1).
         self.load_meeting_model(id, model);
@@ -1724,5 +1770,255 @@ mod tests {
         assert_eq!(read_wav_samples(&sys_path).unwrap().len(), speech.len());
         assert_eq!(store.segments(id).unwrap().len(), 2);
         assert_eq!(calls.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn pause_drains_in_flight_push_so_no_samples_land_after_pause_returns() {
+        let _lock = test_lock();
+        let dir = tempfile::tempdir().unwrap();
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.install_fake_engine(PARAKEET);
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let calls_ref = Arc::clone(&calls);
+        let pin_tm = Arc::clone(&tm);
+        let clear_tm = Arc::clone(&tm);
+        let session = Arc::new(MeetingSession::for_test(
+            dir.path().to_path_buf(),
+            PARAKEET,
+            vec![PARAKEET.to_string()],
+            Arc::new(move |_audio| {
+                let n = calls_ref.fetch_add(1, Ordering::SeqCst) + 1;
+                Ok(format!("seg-{n}"))
+            }),
+            Arc::new(move |model| pin_tm.pin_meeting_model(model)),
+            Arc::new(move || clear_tm.clear_meeting_pin()),
+        ));
+
+        let id = session.start_for_test(true).unwrap();
+        let feed = Arc::clone(&session.active.lock().unwrap().as_ref().unwrap().feed);
+
+        let mut speech = vec![0.25_f32; 480 * 16];
+        speech.extend(std::iter::repeat_n(0.0_f32, 480 * 20));
+        let sys_path = track(dir.path(), id, "system.wav");
+
+        // Block an in-flight push between the pause check and the WAV write by holding
+        // `system_wav`. In `push_others`, `feed.heard` flips true right after the pause
+        // check and right before locking `system_wav`.
+        let wav_guard = feed.system_wav.lock().unwrap();
+        let push_feed = Arc::clone(&feed);
+        let push_speech = speech.clone();
+        let push_handle = std::thread::spawn(move || {
+            push_feed.push_others(&push_speech);
+        });
+
+        let wait_start = std::time::Instant::now();
+        while !feed.heard.load(Ordering::Acquire) {
+            assert!(
+                wait_start.elapsed() < std::time::Duration::from_secs(2),
+                "push_others never reached the write lock"
+            );
+            std::thread::yield_now();
+        }
+
+        // Run Pause on another thread while the push is blocked between check and write.
+        let (paused_tx, paused_rx) = mpsc::channel();
+        let pause_session = Arc::clone(&session);
+        let pause_handle = std::thread::spawn(move || {
+            pause_session.pause_id(id);
+            let _ = paused_tx.send(());
+        });
+
+        let pause_returned_early = paused_rx
+            .recv_timeout(std::time::Duration::from_millis(120))
+            .is_ok();
+        let wav_samples_when_pause_returned_early = if pause_returned_early {
+            read_wav_samples(&sys_path).unwrap().len()
+        } else {
+            0
+        };
+
+        drop(wav_guard);
+        push_handle.join().unwrap();
+        if !pause_returned_early {
+            paused_rx
+                .recv_timeout(std::time::Duration::from_secs(2))
+                .expect("pause_id did not complete after in-flight push finished");
+        }
+        pause_handle.join().unwrap();
+
+        {
+            feed.system_wav.lock().unwrap().flush().unwrap();
+        }
+        let samples_after_pause = read_wav_samples(&sys_path).unwrap().len();
+        assert!(
+            !pause_returned_early,
+            "pause_id returned while an in-flight push was still blocked before writing \
+             (WAV had {wav_samples_when_pause_returned_early} samples at pause return and \
+             {samples_after_pause} samples after the in-flight push wrote)"
+        );
+
+        // Once pause_id has returned, no subsequent audio may reach WAV or chunker.
+        std::thread::sleep(std::time::Duration::from_millis(80));
+        let calls_at_pause = calls.load(Ordering::SeqCst);
+        let wav_at_pause = read_wav_samples(&sys_path).unwrap().len();
+
+        session.push_others(&speech);
+        session.push_me(&speech);
+        std::thread::sleep(std::time::Duration::from_millis(80));
+        {
+            feed.system_wav.lock().unwrap().flush().unwrap();
+            if let Some(wav) = feed.me_wav.lock().unwrap().as_mut() {
+                wav.flush().unwrap();
+            }
+        }
+        assert_eq!(
+            read_wav_samples(&sys_path).unwrap().len(),
+            wav_at_pause,
+            "system.wav grew after pause_id returned"
+        );
+        assert_eq!(
+            read_wav_samples(&track(dir.path(), id, "mic.wav"))
+                .unwrap()
+                .len(),
+            0,
+            "mic.wav received samples after pause_id returned"
+        );
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            calls_at_pause,
+            "chunker/transcriber ran after pause_id returned"
+        );
+
+        session.end(MeetingEnd::Stopped);
+    }
+
+    #[test]
+    fn pause_and_resume_call_set_user_paused_outside_active_lock() {
+        let _lock = test_lock();
+        let dir = tempfile::tempdir().unwrap();
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("mock app");
+        let tm = Arc::new(TranscriptionManager::new_for_test(app.handle().clone()));
+        tm.install_fake_engine(PARAKEET);
+        let pin_tm = Arc::clone(&tm);
+        let clear_tm = Arc::clone(&tm);
+
+        struct ReentrantMicStub {
+            session: Mutex<Option<Arc<MeetingSession>>>,
+            events: Arc<Mutex<Vec<(bool, bool, bool)>>>,
+        }
+
+        impl SessionMic for ReentrantMicStub {
+            fn set_user_paused(&self, paused: bool) {
+                let session = self
+                    .session
+                    .lock()
+                    .unwrap()
+                    .clone()
+                    .expect("session wired before pause");
+                let (acquired, feed_paused) = match session.active.try_lock() {
+                    Ok(guard) => {
+                        drop(guard);
+                        // Now take a real blocking lock to prove no deadlock occurs.
+                        let active = session.active.lock().unwrap();
+                        let feed_paused =
+                            active.as_ref().map(|a| a.feed.is_paused()).unwrap_or(false);
+                        drop(active);
+                        (true, feed_paused)
+                    }
+                    Err(std::sync::TryLockError::WouldBlock) => (false, false),
+                    Err(std::sync::TryLockError::Poisoned(err)) => {
+                        drop(err.into_inner());
+                        (true, false)
+                    }
+                };
+                self.events
+                    .lock()
+                    .unwrap()
+                    .push((paused, acquired, feed_paused));
+            }
+
+            fn write_failed(&self) -> bool {
+                false
+            }
+
+            fn stop(&self) {}
+        }
+
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let stub = Arc::new(ReentrantMicStub {
+            session: Mutex::new(None),
+            events: Arc::clone(&events),
+        });
+        let session = Arc::new(
+            MeetingSession::for_test(
+                dir.path().to_path_buf(),
+                PARAKEET,
+                vec![PARAKEET.to_string()],
+                Arc::new(|_| Ok("ok".into())),
+                Arc::new(move |model| pin_tm.pin_meeting_model(model)),
+                Arc::new(move || clear_tm.clear_meeting_pin()),
+            )
+            .with_test_mic(Arc::clone(&stub) as Arc<dyn SessionMic>),
+        );
+        *stub.session.lock().unwrap() = Some(Arc::clone(&session));
+
+        let id = session.start_for_test(true).unwrap();
+
+        let (done_tx, done_rx) = mpsc::channel();
+        let worker_session = Arc::clone(&session);
+        let handle = std::thread::spawn(move || {
+            worker_session.pause_id(id);
+            worker_session.resume_id(id);
+            let _ = done_tx.send(());
+        });
+
+        done_rx
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .expect("pause_id/resume_id deadlocked when set_user_paused took active lock");
+        handle.join().unwrap();
+
+        let recorded = events.lock().unwrap().clone();
+        assert_eq!(
+            recorded.len(),
+            2,
+            "expected pause then resume calls: {recorded:?}"
+        );
+        assert!(
+            recorded[0].1,
+            "pause_id called set_user_paused(true) while holding active lock (would deadlock)"
+        );
+        assert!(
+            recorded[0].2,
+            "pause_id must pause feed before calling mic.set_user_paused(true)"
+        );
+        assert!(
+            recorded[1].1,
+            "resume_id called set_user_paused(false) while holding active lock (would deadlock)"
+        );
+        assert!(
+            recorded[1].2,
+            "resume_id must call mic.set_user_paused(false) before unpausing feed"
+        );
+        let feed_paused_after_resume = session
+            .active
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .feed
+            .is_paused();
+        assert!(
+            !feed_paused_after_resume,
+            "feed must be unpaused once resume_id returns"
+        );
+
+        session.end(MeetingEnd::Stopped);
     }
 }

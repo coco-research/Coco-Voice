@@ -19,7 +19,7 @@ use log::{info, warn};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 use tauri::AppHandle;
 
@@ -303,7 +303,7 @@ pub struct MeetingMic {
     mic_name: Mutex<Option<String>>,
     fell_back: AtomicBool,
     write_failed: Arc<AtomicBool>,
-    user_paused: Arc<AtomicBool>,
+    user_paused: Arc<RwLock<bool>>,
     on_samples: Arc<Mutex<Option<Arc<dyn Fn(&[f32]) + Send + Sync>>>>,
 }
 
@@ -350,7 +350,7 @@ impl MeetingMic {
             mic_name: Mutex::new(None),
             fell_back: AtomicBool::new(false),
             write_failed: Arc::new(AtomicBool::new(false)),
-            user_paused: Arc::new(AtomicBool::new(false)),
+            user_paused: Arc::new(RwLock::new(false)),
             on_samples: Arc::new(Mutex::new(None)),
         })
     }
@@ -392,15 +392,16 @@ impl MeetingMic {
     /// through `record_frame`; frames arrive untouched because the recorder
     /// runs `VadPolicy::Disabled`, and tests feed generated PCM here.
     pub fn set_user_paused(&self, paused: bool) {
-        self.user_paused.store(paused, Ordering::Release);
+        *self.user_paused.write().unwrap_or_else(|p| p.into_inner()) = paused;
     }
 
     pub fn is_user_paused(&self) -> bool {
-        self.user_paused.load(Ordering::Acquire)
+        *self.user_paused.read().unwrap_or_else(|p| p.into_inner())
     }
 
     pub fn push(&self, samples: &[f32]) -> Result<()> {
-        if self.user_paused.load(Ordering::Acquire) {
+        let paused = self.user_paused.read().unwrap_or_else(|p| p.into_inner());
+        if *paused {
             return Ok(());
         }
         self.track
@@ -522,7 +523,8 @@ impl MeetingMic {
         let mut recorder = AudioRecorder::new()
             .map_err(|e| anyhow!("Failed to create the meeting recorder: {e}"))?
             .with_audio_callback(move |frame: &[f32]| {
-                if user_paused.load(Ordering::Acquire) {
+                let paused = user_paused.read().unwrap_or_else(|p| p.into_inner());
+                if *paused {
                     return;
                 }
                 // Runs on the recorder's consumer thread, not the cpal callback.
@@ -856,5 +858,62 @@ mod tests {
         let unset = choose_mic(None, Ok(&listed));
         assert!(!unset.fell_back);
         assert_eq!(unset.name.as_deref(), Some("Built-in"));
+    }
+
+    #[test]
+    fn meeting_mic_pause_drains_in_flight_push() {
+        let dir = tempfile::tempdir().unwrap();
+        let mic = Arc::new(mic(dir.path()));
+        let samples = tone(0.03);
+
+        // Hold `track` so a concurrent `push` blocks between the pause check and WAV write.
+        let track_guard = mic.track.lock().unwrap();
+        let (entered_tx, entered_rx) = std::sync::mpsc::channel();
+        let push_mic = Arc::clone(&mic);
+        let push_samples = samples.clone();
+        let push_handle = std::thread::spawn(move || {
+            let _ = entered_tx.send(());
+            push_mic.push(&push_samples).unwrap();
+        });
+        entered_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("push thread started");
+        // Give the push thread time to pass the check and block on `track.lock()`.
+        std::thread::sleep(Duration::from_millis(50));
+
+        let (paused_tx, paused_rx) = std::sync::mpsc::channel();
+        let pause_mic = Arc::clone(&mic);
+        let pause_handle = std::thread::spawn(move || {
+            pause_mic.set_user_paused(true);
+            let _ = paused_tx.send(());
+        });
+
+        let pause_returned_early = paused_rx.recv_timeout(Duration::from_millis(120)).is_ok();
+        let samples_at_early_return = if pause_returned_early {
+            read_wav_samples(mic.path()).unwrap().len()
+        } else {
+            0
+        };
+
+        drop(track_guard);
+        push_handle.join().unwrap();
+        if !pause_returned_early {
+            paused_rx
+                .recv_timeout(Duration::from_secs(2))
+                .expect("set_user_paused(true) did not complete after push drained");
+        }
+        pause_handle.join().unwrap();
+
+        let samples_after_push = read_back(&mic).len();
+        assert!(
+            !pause_returned_early,
+            "set_user_paused(true) returned while an in-flight push was blocked before writing \
+             (WAV had {samples_at_early_return} samples at pause return and {samples_after_push} after)"
+        );
+
+        // Any push after set_user_paused(true) returns writes 0 samples.
+        mic.push(&samples).unwrap();
+        assert_eq!(read_back(&mic).len(), samples_after_push);
+        mic.stop();
     }
 }
