@@ -6,6 +6,13 @@ from the conventional commit titles when a release is cut. The user-facing notes
 for each version are in [src/content/release-notes/](src/content/release-notes/)
 and on the [GitHub Release](https://github.com/coco-research/Coco-Voice/releases).
 
+## [0.20.5](https://github.com/coco-research/Coco-Voice/compare/v0.20.4...v0.20.5) (2026-11-26)
+
+
+### Fixed
+
+* credit the CC-BY-4.0 speech models in Acknowledgments and README ([#371](https://github.com/coco-research/Coco-Voice/issues/371)) ([c14577e](https://github.com/coco-research/Coco-Voice/commit/c14577ed12c3ab2cfddc43502d22e635626c05a8))
+
 ## [0.20.4](https://github.com/coco-research/Coco-Voice/compare/v0.20.3...v0.20.4) (2026-11-26)
 
 
