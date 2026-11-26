@@ -6,6 +6,13 @@ from the conventional commit titles when a release is cut. The user-facing notes
 for each version are in [src/content/release-notes/](src/content/release-notes/)
 and on the [GitHub Release](https://github.com/coco-research/Coco-Voice/releases).
 
+## [0.20.6](https://github.com/coco-research/Coco-Voice/compare/v0.20.5...v0.20.6) (2026-11-26)
+
+
+### Fixed
+
+* push recent-scope segment limit into SQL query ([#375](https://github.com/coco-research/Coco-Voice/issues/375)) ([9f4dc90](https://github.com/coco-research/Coco-Voice/commit/9f4dc90e66a1536239a184b78ac32f8f0bfaf66f))
+
 ## [0.20.5](https://github.com/coco-research/Coco-Voice/compare/v0.20.4...v0.20.5) (2026-11-26)
 
 
