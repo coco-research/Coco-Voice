@@ -5515,6 +5515,119 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
+    fn delete_hf_model_same_revision_removes_only_deleted_file_and_its_blob() {
+        use std::os::unix::fs::symlink;
+
+        let hf_home = TempDir::new().unwrap();
+        let cache_root = hf_home.path().join("hub");
+        let models_dir = TempDir::new().unwrap();
+
+        let repo_id = "org/multi-quant-model";
+        let rev = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        let repo_dir = cache_root.join("models--org--multi-quant-model");
+        let blobs_dir = repo_dir.join("blobs");
+        let refs_dir = repo_dir.join("refs");
+        let snap_dir = repo_dir.join("snapshots").join(rev);
+        fs::create_dir_all(&blobs_dir).unwrap();
+        fs::create_dir_all(&refs_dir).unwrap();
+        fs::create_dir_all(&snap_dir).unwrap();
+
+        let blob_a = blobs_dir.join("blob_q4");
+        let blob_b = blobs_dir.join("blob_q8");
+        let blob_c = blobs_dir.join("blob_tokenizer");
+        fs::write(&blob_a, b"q4-weights").unwrap();
+        fs::write(&blob_b, b"q8-weights").unwrap();
+        fs::write(&blob_c, b"tokenizer-json").unwrap();
+
+        let q4_link = snap_dir.join("model-Q4.gguf");
+        let q8_link = snap_dir.join("model-Q8.gguf");
+        let tok_link = snap_dir.join("tokenizer.json");
+        symlink("../../blobs/blob_q4", &q4_link).unwrap();
+        symlink("../../blobs/blob_q8", &q8_link).unwrap();
+        symlink("../../blobs/blob_tokenizer", &tok_link).unwrap();
+
+        let ref_main = refs_dir.join("main");
+        fs::write(&ref_main, rev).unwrap();
+
+        let mut models = HashMap::new();
+        models.insert(
+            "test-hf-q4".to_string(),
+            ModelInfo {
+                id: "test-hf-q4".to_string(),
+                name: "Test Q4".to_string(),
+                description: "Same revision Q4 model".to_string(),
+                filename: "model-Q4.gguf".to_string(),
+                source: ModelSource::HuggingFace {
+                    repo_id: repo_id.to_string(),
+                    revision: rev.to_string(),
+                    sha256: None,
+                },
+                size_mb: 1,
+                is_downloaded: true,
+                is_downloading: false,
+                partial_size: 0,
+                is_directory: false,
+                engine_type: EngineType::TranscribeCpp,
+                accuracy_score: 0.5,
+                speed_score: 0.5,
+                supports_translation: false,
+                is_recommended: false,
+                measured_best: None,
+                supported_languages: vec!["en".to_string()],
+                supports_language_selection: false,
+                is_custom: false,
+                supports_streaming: false,
+                supports_language_detection: false,
+            },
+        );
+
+        let manager = ModelManager::for_test_in_dir_with_hf_cache(
+            models_dir.path().to_path_buf(),
+            cache_root,
+            models,
+        );
+        manager
+            .delete_model("test-hf-q4")
+            .expect("delete_model for Q4 must succeed");
+
+        assert!(
+            !manager
+                .get_model_info("test-hf-q4")
+                .expect("Q4 still registered")
+                .is_downloaded,
+            "Q4 must be marked not downloaded"
+        );
+        assert!(
+            fs::symlink_metadata(&q4_link).is_err(),
+            "deleted Q4 link must be removed"
+        );
+        assert!(!blob_a.exists(), "Q4 sole blob must be removed");
+
+        assert!(
+            fs::symlink_metadata(&q8_link).is_ok(),
+            "sibling Q8 quant in same revision must stay"
+        );
+        assert!(
+            fs::symlink_metadata(&tok_link).is_ok(),
+            "tokenizer.json in same revision must stay"
+        );
+        assert_eq!(fs::read(&blob_b).expect("Q8 blob must stay"), b"q8-weights");
+        assert_eq!(
+            fs::read(&blob_c).expect("tokenizer blob must stay"),
+            b"tokenizer-json"
+        );
+        assert!(
+            snap_dir.is_dir(),
+            "revision directory must stay while sibling files remain"
+        );
+        assert_eq!(
+            fs::read_to_string(&ref_main).expect("refs/main must stay while revision remains"),
+            rev
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
     fn delete_hf_model_preserves_shared_blobs_other_snapshots_foreign_files_and_external_symlinks()
     {
         use std::os::unix::fs::symlink;
@@ -5541,7 +5654,7 @@ mod tests {
         fs::create_dir_all(&our_nested).unwrap();
         fs::create_dir_all(&other_snap).unwrap();
 
-        // Blobs: sole to us, nested sole to us, shared between both snapshots, sole to other, foreign.
+        // Blobs: sole to our model file, nested extra.bin in same rev, shared tokenizer, other rev, foreign.
         let only_ours_blob = blobs_dir.join("aaaa_only_ours");
         let only_ours_nested_blob = blobs_dir.join("bbbb_only_ours_nested");
         let shared_blob = blobs_dir.join("cccc_shared_blob");
@@ -5553,14 +5666,6 @@ mod tests {
         fs::write(&other_only_blob, b"other-model-bytes").unwrap();
         fs::write(&foreign_blob, b"foreign-blob-bytes").unwrap();
 
-        // External files outside the cache root targeted by symlinks inside our snapshot.
-        let outside_file = outside.path().join("secret.txt");
-        let outside_subdir = outside.path().join("external_subdir");
-        fs::create_dir_all(&outside_subdir).unwrap();
-        let outside_nested_file = outside_subdir.join("keep.txt");
-        fs::write(&outside_file, b"outside-secret").unwrap();
-        fs::write(&outside_nested_file, b"outside-nested-secret").unwrap();
-
         // Foreign files in repo dir and cache root.
         let repo_foreign = repo_dir.join("foreign-note.txt");
         let cache_foreign = cache_root.join("foreign-cache-file.txt");
@@ -5571,7 +5676,7 @@ mod tests {
         let ref_main = refs_dir.join("main");
         fs::write(&ref_main, other_rev).unwrap();
 
-        // Our snapshot symlinks (relative blob links + external escape symlinks).
+        // Our snapshot symlinks: our model file + sibling files in same rev (must stay).
         symlink("../../blobs/aaaa_only_ours", our_snap.join(filename)).unwrap();
         symlink(
             "../../blobs/cccc_shared_blob",
@@ -5583,8 +5688,6 @@ mod tests {
             our_nested.join("extra.bin"),
         )
         .unwrap();
-        symlink(&outside_file, our_snap.join("escape_file")).unwrap();
-        symlink(&outside_subdir, our_snap.join("escape_dir")).unwrap();
 
         // Other snapshot symlinks (shares shared_blob and holds its own blob).
         symlink("../../blobs/dddd_other_only", other_snap.join("other.gguf")).unwrap();
@@ -5644,21 +5747,35 @@ mod tests {
             "model must be marked not downloaded after delete_model"
         );
 
-        // Our snapshot and blobs referenced solely by our snapshot are gone.
+        // Only our model file and its sole blob are gone.
         assert!(
-            fs::symlink_metadata(&our_snap).is_err(),
-            "pinned snapshot directory must be removed"
+            fs::symlink_metadata(our_snap.join(filename)).is_err(),
+            "deleted model file entry must be removed"
         );
         assert!(
             !only_ours_blob.exists(),
-            "blob referenced solely by our snapshot must be removed"
-        );
-        assert!(
-            !only_ours_nested_blob.exists(),
-            "nested blob referenced solely by our snapshot must be removed"
+            "blob referenced solely by deleted model file must be removed"
         );
 
-        // Shared blob, other snapshot, foreign files, and external symlink targets stay intact.
+        // Same-revision sibling files (tokenizer.json, nested/extra.bin) and their blobs stay.
+        assert!(
+            our_snap.is_dir(),
+            "revision directory must stay while sibling files remain"
+        );
+        assert!(
+            fs::symlink_metadata(our_snap.join("tokenizer.json")).is_ok(),
+            "same-revision tokenizer.json must stay"
+        );
+        assert!(
+            fs::symlink_metadata(our_nested.join("extra.bin")).is_ok(),
+            "same-revision nested/extra.bin must stay"
+        );
+        assert_eq!(
+            fs::read(&only_ours_nested_blob).expect("nested/extra.bin blob must stay"),
+            b"ours-nested-bytes"
+        );
+
+        // Shared blob, other snapshot, and foreign files stay intact.
         assert_eq!(
             fs::read(&shared_blob).expect("shared blob must stay"),
             b"shared-tokenizer-bytes"
@@ -5691,13 +5808,64 @@ mod tests {
             fs::read(&cache_foreign).expect("foreign file in cache root must stay"),
             b"do-not-delete-cache-foreign"
         );
+
+        // External symlinks: deleting a file symlink pointing outside removes only the link,
+        // and an unresolved external dir symlink in the same rev preserves external targets and blobs.
+        let outside_file = outside.path().join("secret.txt");
+        let outside_subdir = outside.path().join("external_subdir");
+        fs::create_dir_all(&outside_subdir).unwrap();
+        let outside_nested_file = outside_subdir.join("keep.txt");
+        fs::write(&outside_file, b"outside-secret").unwrap();
+        fs::write(&outside_nested_file, b"outside-nested-secret").unwrap();
+
+        let ext_repo = cache_root.join("models--org--ext-symlinks");
+        let ext_blobs = ext_repo.join("blobs");
+        let ext_snap = ext_repo.join("snapshots").join(our_rev);
+        fs::create_dir_all(&ext_blobs).unwrap();
+        fs::create_dir_all(&ext_snap).unwrap();
+        let ext_blob = ext_blobs.join("kept_due_to_escape_dir");
+        fs::write(&ext_blob, b"conservative-keep").unwrap();
+        symlink(&outside_file, ext_snap.join("escape_file.gguf")).unwrap();
+        symlink(&outside_subdir, ext_snap.join("escape_dir")).unwrap();
+        symlink(
+            "../../blobs/kept_due_to_escape_dir",
+            ext_snap.join("real.gguf"),
+        )
+        .unwrap();
+
+        let deleted_ext = delete_hf_cached_file(
+            &Cache::new(cache_root.clone()),
+            "org/ext-symlinks",
+            our_rev,
+            "escape_file.gguf",
+        )
+        .expect("deleting external file symlink must remove only link");
+        assert!(deleted_ext);
+        assert!(fs::symlink_metadata(ext_snap.join("escape_file.gguf")).is_err());
         assert_eq!(
             fs::read(&outside_file).expect("external symlink file target must stay"),
             b"outside-secret"
         );
+
+        let deleted_real = delete_hf_cached_file(
+            &Cache::new(cache_root),
+            "org/ext-symlinks",
+            our_rev,
+            "real.gguf",
+        )
+        .expect("deleting file beside external dir symlink must succeed");
+        assert!(deleted_real);
+        assert!(fs::symlink_metadata(ext_snap.join("real.gguf")).is_err());
+        assert!(fs::symlink_metadata(ext_snap.join("escape_dir")).is_ok());
         assert_eq!(
             fs::read(&outside_nested_file).expect("external symlink dir target must stay"),
             b"outside-nested-secret"
+        );
+        assert_eq!(
+            fs::read(&ext_blob).expect(
+                "blob must be conservatively preserved when same rev has unresolved symlink"
+            ),
+            b"conservative-keep"
         );
     }
 
@@ -5723,7 +5891,7 @@ mod tests {
         symlink(&external_blob_target, blobs1.join("tricky_link")).unwrap();
         symlink("../../blobs/tricky_link", snap1.join("model.gguf")).unwrap();
 
-        let deleted1 = delete_hf_cached_snapshot(
+        let deleted1 = delete_hf_cached_file(
             &Cache::new(cache_dir.path().to_path_buf()),
             "org/symlink-blob",
             rev,
@@ -5737,7 +5905,8 @@ mod tests {
             b"external-blob-secret"
         );
 
-        // Case 2: snapshots/<rev> itself is a symlink to an external directory.
+        // Case 2: snapshots/<rev> itself is a symlink to an external directory: leave the
+        // link in place and return the existing "No model files found to delete" error.
         let repo2 = cache_dir.path().join("models--org--symlink-snap");
         let snaps2 = repo2.join("snapshots");
         fs::create_dir_all(&snaps2).unwrap();
@@ -5748,22 +5917,60 @@ mod tests {
         let snap2_link = snaps2.join(rev);
         symlink(&external_snap_dir, &snap2_link).unwrap();
 
-        let deleted2 = delete_hf_cached_snapshot(
-            &Cache::new(cache_dir.path().to_path_buf()),
-            "org/symlink-snap",
-            rev,
-            "model.gguf",
-        )
-        .expect("delete of symlinked snapshot dir must succeed");
-        assert!(deleted2);
-        assert!(fs::symlink_metadata(&snap2_link).is_err());
+        let mut symlink_models = HashMap::new();
+        symlink_models.insert(
+            "symlink-snap-hf".to_string(),
+            ModelInfo {
+                id: "symlink-snap-hf".to_string(),
+                name: "Symlink Snap HF Model".to_string(),
+                description: "Symlinked snapshot dir test".to_string(),
+                filename: "model.gguf".to_string(),
+                source: ModelSource::HuggingFace {
+                    repo_id: "org/symlink-snap".to_string(),
+                    revision: rev.to_string(),
+                    sha256: None,
+                },
+                size_mb: 1,
+                is_downloaded: true,
+                is_downloading: false,
+                partial_size: 0,
+                is_directory: false,
+                engine_type: EngineType::TranscribeCpp,
+                accuracy_score: 0.5,
+                speed_score: 0.5,
+                supports_translation: false,
+                is_recommended: false,
+                measured_best: None,
+                supported_languages: vec!["en".to_string()],
+                supports_language_selection: false,
+                is_custom: false,
+                supports_streaming: false,
+                supports_language_detection: false,
+            },
+        );
+        let symlink_manager = ModelManager::for_test_in_dir_with_hf_cache(
+            models_dir.path().to_path_buf(),
+            cache_dir.path().to_path_buf(),
+            symlink_models,
+        );
+        let err = symlink_manager
+            .delete_model("symlink-snap-hf")
+            .expect_err("symlinked snapshots/<rev> must refuse delete");
+        assert!(
+            err.to_string().contains("No model files found to delete"),
+            "unexpected error for symlinked snapshot dir: {err:#}"
+        );
+        assert!(
+            fs::symlink_metadata(&snap2_link).is_ok(),
+            "symlinked snapshots/<rev> must be left in place"
+        );
         assert_eq!(
             fs::read(&external_snap_model).expect("external snapshot directory target must stay"),
             b"external-snap-secret"
         );
 
-        // Case 3: sole snapshot in a clean repo removes snapshot, sole blob, matching ref,
-        // and tidies empty repo dirs without remove_dir_all.
+        // Case 3: sole file in a clean repo removes file, sole blob, now-empty rev dir,
+        // matching ref, and tidies empty repo dirs without remove_dir_all.
         let repo3 = cache_dir.path().join("models--org--solo-model");
         let blobs3 = repo3.join("blobs");
         let refs3 = repo3.join("refs");
@@ -5816,7 +6023,103 @@ mod tests {
             .expect("delete_model on solo HF repo must succeed");
         assert!(
             !repo3.exists(),
-            "empty repo directory should be tidied once sole snapshot, blob, and matching ref are gone"
+            "empty repo directory should be tidied once sole file, blob, rev dir, and matching ref are gone"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn delete_hf_model_subpath_filename_tidies_empty_parents_up_to_rev_dir_only() {
+        use std::os::unix::fs::symlink;
+
+        let cache_dir = TempDir::new().unwrap();
+        let outside = TempDir::new().unwrap();
+        let rev = "9999999999999999999999999999999999999999";
+
+        // Case A: subpath a/b/model.gguf deleted while sibling keep.txt sits at rev root.
+        let repo_a = cache_dir.path().join("models--org--subpath-keep");
+        let blobs_a = repo_a.join("blobs");
+        let refs_a = repo_a.join("refs");
+        let snap_a = repo_a.join("snapshots").join(rev);
+        let nested_a = snap_a.join("a").join("b");
+        fs::create_dir_all(&blobs_a).unwrap();
+        fs::create_dir_all(&refs_a).unwrap();
+        fs::create_dir_all(&nested_a).unwrap();
+
+        let blob_a = blobs_a.join("sub_blob");
+        fs::write(&blob_a, b"subpath-bytes").unwrap();
+        symlink("../../../../blobs/sub_blob", nested_a.join("model.gguf")).unwrap();
+        let keep_root = snap_a.join("keep.txt");
+        fs::write(&keep_root, b"stay-in-rev").unwrap();
+        let ref_main = refs_a.join("main");
+        fs::write(&ref_main, rev).unwrap();
+
+        let deleted_a = delete_hf_cached_file(
+            &Cache::new(cache_dir.path().to_path_buf()),
+            "org/subpath-keep",
+            rev,
+            "a/b/model.gguf",
+        )
+        .expect("subpath delete must succeed");
+        assert!(deleted_a);
+        assert!(!blob_a.exists(), "sole subpath blob must be removed");
+        assert!(!nested_a.exists(), "empty leaf parent a/b must be tidied");
+        assert!(
+            !snap_a.join("a").exists(),
+            "empty intermediate parent a must be tidied"
+        );
+        assert!(
+            snap_a.is_dir(),
+            "rev dir must stay while sibling file remains"
+        );
+        assert_eq!(fs::read(&keep_root).unwrap(), b"stay-in-rev");
+        assert_eq!(fs::read_to_string(&ref_main).unwrap(), rev);
+
+        // Case B: sibling in intermediate dir a stops tidying at a.
+        let repo_b = cache_dir.path().join("models--org--subpath-sibling");
+        let snap_b = repo_b.join("snapshots").join(rev);
+        let nested_b = snap_b.join("a").join("b");
+        fs::create_dir_all(&nested_b).unwrap();
+        fs::write(nested_b.join("model.gguf"), b"plain-copy").unwrap();
+        let sibling_in_a = snap_b.join("a").join("other.txt");
+        fs::write(&sibling_in_a, b"stay-in-a").unwrap();
+
+        let deleted_b = delete_hf_cached_file(
+            &Cache::new(cache_dir.path().to_path_buf()),
+            "org/subpath-sibling",
+            rev,
+            "a/b/model.gguf",
+        )
+        .expect("subpath delete with intermediate sibling must succeed");
+        assert!(deleted_b);
+        assert!(!nested_b.exists(), "empty leaf parent a/b must be tidied");
+        assert!(
+            snap_b.join("a").is_dir(),
+            "non-empty intermediate parent a must stay"
+        );
+        assert_eq!(fs::read(&sibling_in_a).unwrap(), b"stay-in-a");
+
+        // Case C: symlinked intermediate dir a -> outside_dir must be refused without following.
+        let repo_c = cache_dir.path().join("models--org--subpath-symlink-parent");
+        let snap_c = repo_c.join("snapshots").join(rev);
+        fs::create_dir_all(&snap_c).unwrap();
+        let outside_dir = outside.path().join("outside-sub");
+        fs::create_dir_all(&outside_dir).unwrap();
+        let outside_model = outside_dir.join("model.gguf");
+        fs::write(&outside_model, b"outside-do-not-delete").unwrap();
+        symlink(&outside_dir, snap_c.join("a")).unwrap();
+
+        let deleted_c = delete_hf_cached_file(
+            &Cache::new(cache_dir.path().to_path_buf()),
+            "org/subpath-symlink-parent",
+            rev,
+            "a/model.gguf",
+        )
+        .expect("symlinked intermediate dir must return Ok(false)");
+        assert!(!deleted_c);
+        assert_eq!(
+            fs::read(&outside_model).expect("external file behind symlinked parent must stay"),
+            b"outside-do-not-delete"
         );
     }
 
@@ -5850,7 +6153,7 @@ mod tests {
         let sibling_link = snapshots_dir.join(sibling_rev);
         symlink(&external_sibling, &sibling_link).unwrap();
 
-        let deleted = delete_hf_cached_snapshot(
+        let deleted = delete_hf_cached_file(
             &Cache::new(cache_dir.path().to_path_buf()),
             "org/symlink-sibling",
             our_rev,
@@ -5901,11 +6204,11 @@ mod tests {
         symlink("../../blobs/locked_blob", snap_dir.join("model.gguf")).unwrap();
 
         // Make blobs/ read-only so unlinking the blob returns PermissionDenied (non-root),
-        // verifying that snapshot deletion still cleans up dangling refs and empty dirs.
+        // verifying that deletion still cleans up the empty rev dir, dangling refs, and empty dirs.
         fs::set_permissions(&blobs_dir, fs::Permissions::from_mode(0o555)).unwrap();
         let _guard = RestoreDirMode(blobs_dir.clone());
 
-        let deleted = delete_hf_cached_snapshot(
+        let deleted = delete_hf_cached_file(
             &Cache::new(cache_dir.path().to_path_buf()),
             "org/readonly-blobs",
             rev,
@@ -5916,7 +6219,7 @@ mod tests {
         assert!(deleted);
         assert!(
             fs::symlink_metadata(&snap_dir).is_err(),
-            "snapshot directory must be removed"
+            "empty snapshot directory must be removed"
         );
         assert!(
             !ref_main.exists(),
@@ -5960,7 +6263,7 @@ mod tests {
         fs::create_dir_all(&external_dir).unwrap();
         symlink(&external_dir, sibling_snap.join("sub")).unwrap();
 
-        let deleted = delete_hf_cached_snapshot(
+        let deleted = delete_hf_cached_file(
             &Cache::new(cache_dir.path().to_path_buf()),
             "org/sibling-symlink-subdir",
             our_rev,
@@ -5975,6 +6278,71 @@ mod tests {
                 "blob must be conservatively preserved when sibling snapshot has an unresolved symlinked subdir"
             ),
             b"keep-via-sibling-subdir"
+        );
+    }
+
+    #[test]
+    fn delete_non_hf_tarball_directory_model_removes_extracted_dir_and_preserves_siblings() {
+        let models_dir = TempDir::new().unwrap();
+        let extracted_dir = models_dir.path().join("parakeet-tdt-0.6b-v3-int8");
+        fs::create_dir_all(extracted_dir.join("nested")).unwrap();
+        fs::write(extracted_dir.join("encoder.onnx"), b"encoder-bytes").unwrap();
+        fs::write(extracted_dir.join("nested").join("vocab.txt"), b"vocab").unwrap();
+
+        let sibling_file = models_dir.path().join("other-model.bin");
+        fs::write(&sibling_file, b"keep-sibling-model").unwrap();
+
+        let model_id = "test-non-hf-tarball";
+        let mut models = HashMap::new();
+        models.insert(
+            model_id.to_string(),
+            ModelInfo {
+                id: model_id.to_string(),
+                name: "Test Tarball Model".to_string(),
+                description: "Non-HF tarball directory delete test".to_string(),
+                filename: "parakeet-tdt-0.6b-v3-int8".to_string(),
+                source: ModelSource::Url {
+                    url: "https://example.invalid/parakeet-v3-int8.tar.gz".to_string(),
+                    sha256: None,
+                },
+                size_mb: 1,
+                is_downloaded: true,
+                is_downloading: false,
+                partial_size: 0,
+                is_directory: true,
+                engine_type: EngineType::Parakeet,
+                accuracy_score: 0.8,
+                speed_score: 0.8,
+                supports_translation: false,
+                is_recommended: false,
+                measured_best: None,
+                supported_languages: vec!["en".to_string()],
+                supports_language_selection: false,
+                is_custom: false,
+                supports_streaming: false,
+                supports_language_detection: false,
+            },
+        );
+
+        let manager = ModelManager::for_test_in_dir(models_dir.path().to_path_buf(), models);
+        manager
+            .delete_model(model_id)
+            .expect("delete_model on non-HF tarball directory must succeed");
+
+        assert!(
+            !manager
+                .get_model_info(model_id)
+                .expect("model still registered")
+                .is_downloaded,
+            "non-HF tarball model must be marked not downloaded"
+        );
+        assert!(
+            !extracted_dir.exists(),
+            "extracted non-HF tarball directory must be removed"
+        );
+        assert_eq!(
+            fs::read(&sibling_file).expect("sibling model in models_dir must stay"),
+            b"keep-sibling-model"
         );
     }
 }
