@@ -724,7 +724,9 @@
           "title": "ggml",
           "description": "Krachtige tensorbibliotheek voor lokale AI-verwerking",
           "details": "Coco Voice's lokale spraak-naar-tekst is gebouwd op transcribe.cpp en ggml. Met dank aan het geweldige werk van Georgi Gerganov en alle bijdragers."
-        }
+        },
+        "ccByModelDetails": "Gelicentieerd onder CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).",
+        "ccByModelDetails_changed": "Gelicentieerd onder CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Gewijzigd: geconverteerd naar {{format}} door {{converter}}."
       }
     },
     "online": {

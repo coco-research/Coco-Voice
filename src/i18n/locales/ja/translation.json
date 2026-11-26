@@ -720,7 +720,9 @@
           "title": "ggml",
           "description": "オンデバイス機械学習推論のための高性能テンソルライブラリ",
           "details": "Coco Voice のローカルの音声からテキストへの文字起こしは transcribe.cpp と ggml を基盤としています。Georgi Gerganov 氏と貢献者の皆様の素晴らしい仕事に感謝します。"
-        }
+        },
+        "ccByModelDetails": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) の下でライセンスされています。",
+        "ccByModelDetails_changed": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) の下でライセンスされています。変更点: {{converter}} により {{format}} に変換。"
       },
       "whatsNewUpdates": {
         "label": "新機能を表示",

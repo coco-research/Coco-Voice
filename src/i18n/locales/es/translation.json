@@ -720,7 +720,9 @@
           "title": "ggml",
           "description": "Inferencia de alto rendimiento del modelo de reconocimiento automático de voz Whisper de OpenAI",
           "details": "Coco Voice usa ggml para procesamiento de voz a texto rápido y local. Gracias al increíble trabajo de Georgi Gerganov y colaboradores."
-        }
+        },
+        "ccByModelDetails": "Con licencia CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).",
+        "ccByModelDetails_changed": "Con licencia CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Modificado: convertido a {{format}} por {{converter}}."
       },
       "whatsNewUpdates": {
         "label": "Mostrar novedades",

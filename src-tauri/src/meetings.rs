@@ -812,11 +812,31 @@ mod tests {
         let _ = macos::snapshot();
     }
 
+    struct MeetingRecordingGuard {
+        _lock: std::sync::MutexGuard<'static, ()>,
+    }
+
+    impl MeetingRecordingGuard {
+        fn acquire() -> Self {
+            let _lock = crate::managers::meetings::test_lock();
+            set_meeting_recording(false);
+            Self { _lock }
+        }
+    }
+
+    impl Drop for MeetingRecordingGuard {
+        fn drop(&mut self) {
+            set_meeting_recording(false);
+        }
+    }
+
     #[test]
     fn recording_controller_emits_no_offer_and_clears_active_offer() {
         use crate::meeting_controller::{MeetingController, MeetingState};
         use std::sync::Arc;
         use tauri::Listener;
+
+        let _recording_guard = MeetingRecordingGuard::acquire();
 
         let mock = tauri::test::mock_builder()
             .build(tauri::test::mock_context(tauri::test::noop_assets()))
