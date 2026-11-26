@@ -18,6 +18,7 @@ export const SHELL_ROUTES = [
     "meetings",
     "sidebar.foldersAndTemplates",
   ),
+  route("meetings-agent", "meetings", "meetings", "sidebar.agentAccess"),
   route("voice-history", "voice", "voice", "sidebar.dictationHistory"),
   route("voice-profiles", "voice", "voice", "sidebar.perAppProfiles"),
   route("voice-words", "voice", "voice", "sidebar.wordsAndCleanup"),
