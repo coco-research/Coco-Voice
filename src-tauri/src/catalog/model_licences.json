@@ -17,13 +17,25 @@
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/canary-180m-flash",
       "revision": "b12ab418510d093e83890178fd0e8b0d0f7918a6",
-      "url": "https://huggingface.co/nvidia/canary-180m-flash/tree/b12ab418510d093e83890178fd0e8b0d0f7918a6"
+      "url": "https://huggingface.co/nvidia/canary-180m-flash/tree/b12ab418510d093e83890178fd0e8b0d0f7918a6",
+      "title": "Canary 180M Flash",
+      "creator": "NVIDIA NeMo",
+      "notice": "",
+      "changed": true,
+      "format": "ONNX",
+      "converter": "istupakov/onnx-asr"
     },
     "canary-1b-v2": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/canary-1b-v2",
       "revision": "87bc52657add533cd0156b3fc1aef027280754bf",
-      "url": "https://huggingface.co/nvidia/canary-1b-v2/tree/87bc52657add533cd0156b3fc1aef027280754bf"
+      "url": "https://huggingface.co/nvidia/canary-1b-v2/tree/87bc52657add533cd0156b3fc1aef027280754bf",
+      "title": "Canary 1B v2",
+      "creator": "NVIDIA",
+      "notice": "",
+      "changed": true,
+      "format": "ONNX",
+      "converter": "istupakov/onnx-asr"
     },
     "cohere-int8": {
       "licence": "Apache-2.0",
@@ -77,25 +89,49 @@
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/canary-180m-flash",
       "revision": "b12ab418510d093e83890178fd0e8b0d0f7918a6",
-      "url": "https://huggingface.co/nvidia/canary-180m-flash/tree/b12ab418510d093e83890178fd0e8b0d0f7918a6"
+      "url": "https://huggingface.co/nvidia/canary-180m-flash/tree/b12ab418510d093e83890178fd0e8b0d0f7918a6",
+      "title": "Canary 180M Flash",
+      "creator": "NVIDIA NeMo",
+      "notice": "",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/canary-1b-flash-gguf": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/canary-1b-flash",
       "revision": "a9a55e0295e7dd50d0c8c2a19491900a0daf24f3",
-      "url": "https://huggingface.co/nvidia/canary-1b-flash/tree/a9a55e0295e7dd50d0c8c2a19491900a0daf24f3"
+      "url": "https://huggingface.co/nvidia/canary-1b-flash/tree/a9a55e0295e7dd50d0c8c2a19491900a0daf24f3",
+      "title": "Canary 1B Flash",
+      "creator": "NVIDIA NeMo",
+      "notice": "",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/canary-1b-v2-gguf": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/canary-1b-v2",
       "revision": "87bc52657add533cd0156b3fc1aef027280754bf",
-      "url": "https://huggingface.co/nvidia/canary-1b-v2/tree/87bc52657add533cd0156b3fc1aef027280754bf"
+      "url": "https://huggingface.co/nvidia/canary-1b-v2/tree/87bc52657add533cd0156b3fc1aef027280754bf",
+      "title": "Canary 1B v2",
+      "creator": "NVIDIA",
+      "notice": "",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/canary-qwen-2.5b-gguf": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/canary-qwen-2.5b",
       "revision": "b1469e1bba1cfe140205529c79c434ca47180960",
-      "url": "https://huggingface.co/nvidia/canary-qwen-2.5b/tree/b1469e1bba1cfe140205529c79c434ca47180960"
+      "url": "https://huggingface.co/nvidia/canary-qwen-2.5b/tree/b1469e1bba1cfe140205529c79c434ca47180960",
+      "title": "Canary-Qwen-2.5B",
+      "creator": "NVIDIA NeMo",
+      "notice": "Copyright NVIDIA \"Canary-1B-Flash\" - CC-BY-4.0 License; Copyright 2025 Alibaba Cloud (Qwen3-1.7B, Apache-2.0).",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/cohere-transcribe-03-2026-gguf": {
       "licence": "Apache-2.0",
@@ -185,61 +221,121 @@
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/parakeet-ctc-0.6b",
       "revision": "ad09ba1cc62743fbc9814de5d2016fca9096485a",
-      "url": "https://huggingface.co/nvidia/parakeet-ctc-0.6b/tree/ad09ba1cc62743fbc9814de5d2016fca9096485a"
+      "url": "https://huggingface.co/nvidia/parakeet-ctc-0.6b/tree/ad09ba1cc62743fbc9814de5d2016fca9096485a",
+      "title": "Parakeet CTC 0.6B (en)",
+      "creator": "NVIDIA NeMo and Suno.ai",
+      "notice": "",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/parakeet-ctc-1.1b-gguf": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/parakeet-ctc-1.1b",
       "revision": "a707e818195cb97c8f7da2fc36b221a29f69a5db",
-      "url": "https://huggingface.co/nvidia/parakeet-ctc-1.1b/tree/a707e818195cb97c8f7da2fc36b221a29f69a5db"
+      "url": "https://huggingface.co/nvidia/parakeet-ctc-1.1b/tree/a707e818195cb97c8f7da2fc36b221a29f69a5db",
+      "title": "Parakeet CTC 1.1B (en)",
+      "creator": "NVIDIA NeMo and Suno.ai",
+      "notice": "",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/parakeet-rnnt-0.6b-gguf": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/parakeet-rnnt-0.6b",
       "revision": "c0c1f09fdc3f18b0b2ddbeafd5d6684f1b38078f",
-      "url": "https://huggingface.co/nvidia/parakeet-rnnt-0.6b/tree/c0c1f09fdc3f18b0b2ddbeafd5d6684f1b38078f"
+      "url": "https://huggingface.co/nvidia/parakeet-rnnt-0.6b/tree/c0c1f09fdc3f18b0b2ddbeafd5d6684f1b38078f",
+      "title": "Parakeet RNNT 0.6B (en)",
+      "creator": "NVIDIA NeMo and Suno.ai",
+      "notice": "",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/parakeet-rnnt-1.1b-gguf": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/parakeet-rnnt-1.1b",
       "revision": "a07b19e98a26c1873a3f2622c446a4a1ca6316cb",
-      "url": "https://huggingface.co/nvidia/parakeet-rnnt-1.1b/tree/a07b19e98a26c1873a3f2622c446a4a1ca6316cb"
+      "url": "https://huggingface.co/nvidia/parakeet-rnnt-1.1b/tree/a07b19e98a26c1873a3f2622c446a4a1ca6316cb",
+      "title": "Parakeet RNNT 1.1B (en)",
+      "creator": "NVIDIA NeMo and Suno.ai",
+      "notice": "",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/parakeet-tdt-0.6b-v2-gguf": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/parakeet-tdt-0.6b-v2",
       "revision": "1b149a3589351c96ddb101709fe7dd9c7069572f",
-      "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2/tree/1b149a3589351c96ddb101709fe7dd9c7069572f"
+      "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2/tree/1b149a3589351c96ddb101709fe7dd9c7069572f",
+      "title": "Parakeet TDT 0.6B V2 (En)",
+      "creator": "NVIDIA",
+      "notice": "",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/parakeet-tdt-0.6b-v3-gguf": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/parakeet-tdt-0.6b-v3",
       "revision": "6d590f77001d318fb17a0b5bf7ee329a91b52598",
-      "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3/tree/6d590f77001d318fb17a0b5bf7ee329a91b52598"
+      "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3/tree/6d590f77001d318fb17a0b5bf7ee329a91b52598",
+      "title": "parakeet-tdt-0.6b-v3",
+      "creator": "NVIDIA",
+      "notice": "",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/parakeet-ultra-gguf": {
       "licence": "CC-BY-4.0",
       "publisher": "moondream/parakeet-ultra",
       "revision": "73175eb7aeb0d82f1e2a6b53b3aabc10a90bcd0b",
-      "url": "https://huggingface.co/moondream/parakeet-ultra/tree/73175eb7aeb0d82f1e2a6b53b3aabc10a90bcd0b"
+      "url": "https://huggingface.co/moondream/parakeet-ultra/tree/73175eb7aeb0d82f1e2a6b53b3aabc10a90bcd0b",
+      "title": "Moondream Parakeet Ultra",
+      "creator": "Moondream (based on NVIDIA parakeet-tdt-0.6b-v3)",
+      "notice": "",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/parakeet-tdt-1.1b-gguf": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/parakeet-tdt-1.1b",
       "revision": "53276c6469d1f17a1352e30c4d11be3d0d7e9575",
-      "url": "https://huggingface.co/nvidia/parakeet-tdt-1.1b/tree/53276c6469d1f17a1352e30c4d11be3d0d7e9575"
+      "url": "https://huggingface.co/nvidia/parakeet-tdt-1.1b/tree/53276c6469d1f17a1352e30c4d11be3d0d7e9575",
+      "title": "Parakeet TDT 1.1B (en)",
+      "creator": "NVIDIA NeMo and Suno.ai",
+      "notice": "",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/parakeet-tdt_ctc-1.1b-gguf": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/parakeet-tdt_ctc-1.1b",
       "revision": "675e78684c83ae21e2a8fb042726b66d91b9ba3d",
-      "url": "https://huggingface.co/nvidia/parakeet-tdt_ctc-1.1b/tree/675e78684c83ae21e2a8fb042726b66d91b9ba3d"
+      "url": "https://huggingface.co/nvidia/parakeet-tdt_ctc-1.1b/tree/675e78684c83ae21e2a8fb042726b66d91b9ba3d",
+      "title": "Parakeet TDT-CTC 1.1B PnC(en)",
+      "creator": "NVIDIA NeMo and Suno.ai",
+      "notice": "",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/parakeet-tdt_ctc-110m-gguf": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/parakeet-tdt_ctc-110m",
       "revision": "431a349f3051ab85c22b9b7a2741b5fe77065665",
-      "url": "https://huggingface.co/nvidia/parakeet-tdt_ctc-110m/tree/431a349f3051ab85c22b9b7a2741b5fe77065665"
+      "url": "https://huggingface.co/nvidia/parakeet-tdt_ctc-110m/tree/431a349f3051ab85c22b9b7a2741b5fe77065665",
+      "title": "Parakeet TDT-CTC 110M PnC(en)",
+      "creator": "NVIDIA NeMo and Suno.ai",
+      "notice": "",
+      "changed": true,
+      "format": "GGUF",
+      "converter": "handy-computer"
     },
     "handy-computer/whisper-base-gguf": {
       "licence": "Apache-2.0",
@@ -353,13 +449,25 @@
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/parakeet-tdt-0.6b-v2",
       "revision": "1b149a3589351c96ddb101709fe7dd9c7069572f",
-      "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2/tree/1b149a3589351c96ddb101709fe7dd9c7069572f"
+      "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2/tree/1b149a3589351c96ddb101709fe7dd9c7069572f",
+      "title": "Parakeet TDT 0.6B V2 (En)",
+      "creator": "NVIDIA",
+      "notice": "",
+      "changed": true,
+      "format": "ONNX",
+      "converter": "istupakov/onnx-asr"
     },
     "parakeet-tdt-0.6b-v3": {
       "licence": "CC-BY-4.0",
       "publisher": "nvidia/parakeet-tdt-0.6b-v3",
       "revision": "6d590f77001d318fb17a0b5bf7ee329a91b52598",
-      "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3/tree/6d590f77001d318fb17a0b5bf7ee329a91b52598"
+      "url": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3/tree/6d590f77001d318fb17a0b5bf7ee329a91b52598",
+      "title": "parakeet-tdt-0.6b-v3",
+      "creator": "NVIDIA",
+      "notice": "",
+      "changed": true,
+      "format": "ONNX",
+      "converter": "istupakov/onnx-asr"
     },
     "small": {
       "licence": "Apache-2.0",
