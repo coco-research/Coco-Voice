@@ -232,27 +232,6 @@ fn plan_ask_pieces(segments: &[AskCitation], prompt_tokens: usize) -> Vec<Range<
     plan_pieces_within(&seg_tokens, ask_budget)
 }
 
-/// Build a multi-piece Ask merge prompt trimmed in order so its estimated token
-/// count stays within `ASK_PROMPT_BUDGET_TOKENS`. Returns `(prompt, kept_count)`
-/// for the longest prefix of `cites` that fits, or `None` when even the first
-/// citation cannot fit.
-fn build_bounded_merge_prompt(
-    question: &str,
-    cites: &[AskCitation],
-    history: &[(String, String)],
-) -> Option<(String, usize)> {
-    let mut best: Option<(String, usize)> = None;
-    for k in 1..=cites.len() {
-        let prompt = build_ask_prompt_with_history(question, &cites[..k], history);
-        if estimate_tokens(&prompt) <= ASK_PROMPT_BUDGET_TOKENS {
-            best = Some((prompt, k));
-        } else {
-            break;
-        }
-    }
-    best
-}
-
 fn ask_segments_with_model(
     question: &str,
     segments: &[AskCitation],
@@ -295,32 +274,23 @@ fn ask_segments_with_model(
     if piece_answers.len() == 1 {
         return Ok(Some((piece_answers.remove(0), merged_cites)));
     }
-    match build_bounded_merge_prompt(question, &merged_cites, history) {
-        Some((merge_prompt, kept)) => {
-            let merge_slice = &merged_cites[..kept];
-            if kept < merged_cites.len() {
-                log::debug!(
-                    "ask merge trimmed citations to fit prompt budget: kept={} total={} budget_tokens={}",
-                    kept,
-                    merged_cites.len(),
-                    ASK_PROMPT_BUDGET_TOKENS
-                );
-            }
-            if let Ok(merge_reply) = model.generate(&merge_prompt) {
-                if let Some(verified) =
-                    verify_model_reply(&merge_reply, merge_slice, data_dir, single)
-                {
-                    return Ok(Some(verified));
-                }
+    let merge_prompt = build_ask_prompt_with_history(question, &merged_cites, history);
+    let estimated_tokens = estimate_tokens(&merge_prompt);
+    if estimated_tokens <= ASK_PROMPT_BUDGET_TOKENS {
+        if let Ok(merge_reply) = model.generate(&merge_prompt) {
+            if let Some(verified) =
+                verify_model_reply(&merge_reply, &merged_cites, data_dir, single)
+            {
+                return Ok(Some(verified));
             }
         }
-        None => {
-            log::warn!(
-                "ask merge skipped: even 1 citation exceeds prompt budget (citations={} budget_tokens={})",
-                merged_cites.len(),
-                ASK_PROMPT_BUDGET_TOKENS
-            );
-        }
+    } else {
+        log::warn!(
+            "ask merge skipped: merge prompt exceeds budget (citations={} estimated_tokens={} budget={})",
+            merged_cites.len(),
+            estimated_tokens,
+            ASK_PROMPT_BUDGET_TOKENS
+        );
     }
     Ok(Some((piece_answers.join("\n"), merged_cites)))
 }
@@ -983,7 +953,7 @@ mod tests {
     }
 
     #[test]
-    fn multi_piece_ask_merge_prompt_trims_citations_in_order_within_budget() {
+    fn multi_piece_ask_skips_merge_when_full_merge_prompt_exceeds_budget() {
         let d = tempfile::tempdir().unwrap();
         let make_seg = |tag: &str| format!("{tag}: {}", "m".repeat(1_360));
         let s1 = make_seg("ALPHA_SEG_1");
@@ -1001,7 +971,18 @@ mod tests {
             ],
         );
 
+        let question = "what were the milestones?";
         let idx = MeetingAskIndex::open(d.path()).unwrap();
+        idx.sync().unwrap();
+        let full_cites = idx.scope_segments(&AskScope::OneMeeting(1)).unwrap();
+        assert_eq!(full_cites.len(), 4);
+        let full_merge_prompt = build_ask_prompt_with_history(question, &full_cites, &[]);
+        let full_merge_tokens = estimate_tokens(&full_merge_prompt);
+        assert!(
+            full_merge_tokens > ASK_PROMPT_BUDGET_TOKENS,
+            "fixture full merge prompt must exceed ASK_PROMPT_BUDGET_TOKENS ({full_merge_tokens} <= {ASK_PROMPT_BUDGET_TOKENS})"
+        );
+
         let step = std::sync::atomic::AtomicUsize::new(0);
         let m = RecordingModel::new(move |_| {
             match step.fetch_add(1, std::sync::atomic::Ordering::SeqCst) {
@@ -1012,17 +993,65 @@ mod tests {
         });
 
         let ans = idx
-            .ask(
-                &AskScope::OneMeeting(1),
-                "what were the milestones?",
-                Some(&m),
-            )
+            .ask(&AskScope::OneMeeting(1), question, Some(&m))
+            .unwrap();
+        assert_eq!(
+            m.calls(),
+            2,
+            "over-budget merge call must be skipped (expected 2 piece calls, got {})",
+            m.calls()
+        );
+        assert!(ans.answer.contains("First milestone [00:10]."));
+        assert!(ans.answer.contains("Second milestone [00:20]."));
+        assert!(ans.answer.contains("Third milestone [00:30]."));
+        assert!(ans.answer.contains("Fourth milestone [00:40]."));
+        let seg_ids: Vec<i64> = ans.citations.iter().map(|c| c.segment_id).collect();
+        assert_eq!(
+            seg_ids,
+            vec![1, 2, 3, 4],
+            "all 4 merged citations must be preserved in original order"
+        );
+    }
+
+    #[test]
+    fn multi_piece_ask_runs_merge_when_full_merge_prompt_fits_budget() {
+        let d = tempfile::tempdir().unwrap();
+        let filler_1 = format!("FILLER_ONE: {}", "a".repeat(2_600));
+        let filler_2 = format!("FILLER_TWO: {}", "b".repeat(2_600));
+        seed_one_meeting(
+            d.path(),
+            "Launch handoff",
+            &[
+                (10_000, "others", "ALPHA_LAUNCH: The launch date is Friday."),
+                (20_000, "me", &filler_1),
+                (30_000, "others", &filler_2),
+                (
+                    40_000,
+                    "me",
+                    "DELTA_OWNER: Alex owns the rollout checklist.",
+                ),
+            ],
+        );
+
+        let question = "when is the launch and who owns the rollout?";
+        let idx = MeetingAskIndex::open(d.path()).unwrap();
+        let step = std::sync::atomic::AtomicUsize::new(0);
+        let m = RecordingModel::new(move |_| {
+            match step.fetch_add(1, std::sync::atomic::Ordering::SeqCst) {
+                0 => Ok("Launch date is Friday [1].".into()),
+                1 => Ok("Alex owns the rollout checklist [2].".into()),
+                _ => Ok("Merged answer: launch is Friday [1] and Alex owns rollout [2].".into()),
+            }
+        });
+
+        let ans = idx
+            .ask(&AskScope::OneMeeting(1), question, Some(&m))
             .unwrap();
         let prompts = m.prompts();
         assert_eq!(
             prompts.len(),
             3,
-            "expected 2 piece calls plus 1 bounded merge call, got {}",
+            "expected 2 piece calls plus 1 under-budget merge call, got {}",
             prompts.len()
         );
         for (i, prompt) in prompts.iter().enumerate() {
@@ -1032,26 +1061,16 @@ mod tests {
                 "prompt {i} exceeded ASK_PROMPT_BUDGET_TOKENS: {tokens} > {ASK_PROMPT_BUDGET_TOKENS}"
             );
         }
-
-        // The merge prompt (3rd call) must keep citations in original order (prefix only).
-        let merge_prompt = &prompts[2];
-        let pos_alpha = merge_prompt
-            .find("ALPHA_SEG_1")
-            .expect("merge prompt must include first citation ALPHA_SEG_1");
-        let pos_beta = merge_prompt
-            .find("BETA_SEG_2")
-            .expect("merge prompt must include second citation BETA_SEG_2");
         assert!(
-            pos_alpha < pos_beta,
-            "merge prompt must preserve citation order"
+            prompts[2].contains("ALPHA_LAUNCH") && prompts[2].contains("DELTA_OWNER"),
+            "merge prompt must contain both cited excerpts"
         );
-        assert!(
-            !merge_prompt.contains("GAMMA_SEG_3") && !merge_prompt.contains("DELTA_SEG_4"),
-            "overflowing trailing citations must be trimmed in order"
+        assert_eq!(
+            ans.answer,
+            "Merged answer: launch is Friday [00:10] and Alex owns rollout [00:40]."
         );
-        assert_eq!(ans.citations.len(), 2);
-        assert_eq!(ans.citations[0].segment_id, 1);
-        assert_eq!(ans.citations[1].segment_id, 2);
+        let seg_ids: Vec<i64> = ans.citations.iter().map(|c| c.segment_id).collect();
+        assert_eq!(seg_ids, vec![1, 4]);
     }
 
     #[test]
