@@ -274,14 +274,23 @@ fn ask_segments_with_model(
     if piece_answers.len() == 1 {
         return Ok(Some((piece_answers.remove(0), merged_cites)));
     }
-    if let Ok(merge_reply) = model.generate(&build_ask_prompt_with_history(
-        question,
-        &merged_cites,
-        history,
-    )) {
-        if let Some(verified) = verify_model_reply(&merge_reply, &merged_cites, data_dir, single) {
-            return Ok(Some(verified));
+    let merge_prompt = build_ask_prompt_with_history(question, &merged_cites, history);
+    let estimated_tokens = estimate_tokens(&merge_prompt);
+    if estimated_tokens <= ASK_PROMPT_BUDGET_TOKENS {
+        if let Ok(merge_reply) = model.generate(&merge_prompt) {
+            if let Some(verified) =
+                verify_model_reply(&merge_reply, &merged_cites, data_dir, single)
+            {
+                return Ok(Some(verified));
+            }
         }
+    } else {
+        log::warn!(
+            "ask merge skipped: merge prompt exceeds budget (citations={} estimated_tokens={} budget={})",
+            merged_cites.len(),
+            estimated_tokens,
+            ASK_PROMPT_BUDGET_TOKENS
+        );
     }
     Ok(Some((piece_answers.join("\n"), merged_cites)))
 }
@@ -554,6 +563,9 @@ mod tests {
         }
         fn calls(&self) -> usize {
             self.0.lock().unwrap().len()
+        }
+        fn prompts(&self) -> Vec<String> {
+            self.0.lock().unwrap().clone()
         }
     }
     impl<F: Fn(&str) -> Result<String>> LocalAskModel for RecordingModel<F> {
@@ -938,5 +950,166 @@ mod tests {
             plan_ask_pieces(&segs, prompt_tokens),
             vec![0..6, 6..12, 12..18, 18..20]
         );
+    }
+
+    #[test]
+    fn multi_piece_ask_skips_merge_when_full_merge_prompt_exceeds_budget() {
+        let d = tempfile::tempdir().unwrap();
+        let make_seg = |tag: &str| format!("{tag}: {}", "m".repeat(1_360));
+        let s1 = make_seg("ALPHA_SEG_1");
+        let s2 = make_seg("BETA_SEG_2");
+        let s3 = make_seg("GAMMA_SEG_3");
+        let s4 = make_seg("DELTA_SEG_4");
+        seed_one_meeting(
+            d.path(),
+            "Quarterly milestones",
+            &[
+                (10_000, "others", &s1),
+                (20_000, "me", &s2),
+                (30_000, "others", &s3),
+                (40_000, "me", &s4),
+            ],
+        );
+
+        let question = "what were the milestones?";
+        let idx = MeetingAskIndex::open(d.path()).unwrap();
+        idx.sync().unwrap();
+        let full_cites = idx.scope_segments(&AskScope::OneMeeting(1)).unwrap();
+        assert_eq!(full_cites.len(), 4);
+        let full_merge_prompt = build_ask_prompt_with_history(question, &full_cites, &[]);
+        let full_merge_tokens = estimate_tokens(&full_merge_prompt);
+        assert!(
+            full_merge_tokens > ASK_PROMPT_BUDGET_TOKENS,
+            "fixture full merge prompt must exceed ASK_PROMPT_BUDGET_TOKENS ({full_merge_tokens} <= {ASK_PROMPT_BUDGET_TOKENS})"
+        );
+
+        let step = std::sync::atomic::AtomicUsize::new(0);
+        let m = RecordingModel::new(move |_| {
+            match step.fetch_add(1, std::sync::atomic::Ordering::SeqCst) {
+                0 => Ok("First milestone [1].\nSecond milestone [2].".into()),
+                1 => Ok("Third milestone [1].\nFourth milestone [2].".into()),
+                _ => Ok("Merged milestones [1] [2].".into()),
+            }
+        });
+
+        let ans = idx
+            .ask(&AskScope::OneMeeting(1), question, Some(&m))
+            .unwrap();
+        assert_eq!(
+            m.calls(),
+            2,
+            "over-budget merge call must be skipped (expected 2 piece calls, got {})",
+            m.calls()
+        );
+        assert!(ans.answer.contains("First milestone [00:10]."));
+        assert!(ans.answer.contains("Second milestone [00:20]."));
+        assert!(ans.answer.contains("Third milestone [00:30]."));
+        assert!(ans.answer.contains("Fourth milestone [00:40]."));
+        let seg_ids: Vec<i64> = ans.citations.iter().map(|c| c.segment_id).collect();
+        assert_eq!(
+            seg_ids,
+            vec![1, 2, 3, 4],
+            "all 4 merged citations must be preserved in original order"
+        );
+    }
+
+    #[test]
+    fn multi_piece_ask_runs_merge_when_full_merge_prompt_fits_budget() {
+        let d = tempfile::tempdir().unwrap();
+        let filler_1 = format!("FILLER_ONE: {}", "a".repeat(2_600));
+        let filler_2 = format!("FILLER_TWO: {}", "b".repeat(2_600));
+        seed_one_meeting(
+            d.path(),
+            "Launch handoff",
+            &[
+                (10_000, "others", "ALPHA_LAUNCH: The launch date is Friday."),
+                (20_000, "me", &filler_1),
+                (30_000, "others", &filler_2),
+                (
+                    40_000,
+                    "me",
+                    "DELTA_OWNER: Alex owns the rollout checklist.",
+                ),
+            ],
+        );
+
+        let question = "when is the launch and who owns the rollout?";
+        let idx = MeetingAskIndex::open(d.path()).unwrap();
+        let step = std::sync::atomic::AtomicUsize::new(0);
+        let m = RecordingModel::new(move |_| {
+            match step.fetch_add(1, std::sync::atomic::Ordering::SeqCst) {
+                0 => Ok("Launch date is Friday [1].".into()),
+                1 => Ok("Alex owns the rollout checklist [2].".into()),
+                _ => Ok("Merged answer: launch is Friday [1] and Alex owns rollout [2].".into()),
+            }
+        });
+
+        let ans = idx
+            .ask(&AskScope::OneMeeting(1), question, Some(&m))
+            .unwrap();
+        let prompts = m.prompts();
+        assert_eq!(
+            prompts.len(),
+            3,
+            "expected 2 piece calls plus 1 under-budget merge call, got {}",
+            prompts.len()
+        );
+        for (i, prompt) in prompts.iter().enumerate() {
+            let tokens = estimate_tokens(prompt);
+            assert!(
+                tokens <= ASK_PROMPT_BUDGET_TOKENS,
+                "prompt {i} exceeded ASK_PROMPT_BUDGET_TOKENS: {tokens} > {ASK_PROMPT_BUDGET_TOKENS}"
+            );
+        }
+        assert!(
+            prompts[2].contains("ALPHA_LAUNCH") && prompts[2].contains("DELTA_OWNER"),
+            "merge prompt must contain both cited excerpts"
+        );
+        assert_eq!(
+            ans.answer,
+            "Merged answer: launch is Friday [00:10] and Alex owns rollout [00:40]."
+        );
+        let seg_ids: Vec<i64> = ans.citations.iter().map(|c| c.segment_id).collect();
+        assert_eq!(seg_ids, vec![1, 4]);
+    }
+
+    #[test]
+    fn multi_piece_ask_skips_merge_when_even_one_citation_exceeds_budget() {
+        let d = tempfile::tempdir().unwrap();
+        // Each segment alone exceeds ASK_PROMPT_BUDGET_TOKENS once combined with the prompt template.
+        let s1 = format!("OVERSIZED_FIRST: {}", "q".repeat(4_400));
+        let s2 = format!("OVERSIZED_SECOND: {}", "r".repeat(4_400));
+        seed_one_meeting(
+            d.path(),
+            "Long monologue",
+            &[(10_000, "others", &s1), (20_000, "me", &s2)],
+        );
+
+        let idx = MeetingAskIndex::open(d.path()).unwrap();
+        let m = RecordingModel::new(|p| {
+            if p.contains("OVERSIZED_FIRST") {
+                Ok("First long point [1].".into())
+            } else {
+                Ok("Second long point [1].".into())
+            }
+        });
+
+        let ans = idx
+            .ask(
+                &AskScope::OneMeeting(1),
+                "summarize the two points",
+                Some(&m),
+            )
+            .unwrap();
+        assert_eq!(
+            m.calls(),
+            2,
+            "merge call must be skipped when even 1 citation cannot fit ASK_PROMPT_BUDGET_TOKENS"
+        );
+        assert!(ans.answer.contains("First long point [00:10]."));
+        assert!(ans.answer.contains("Second long point [00:20]."));
+        assert_eq!(ans.citations.len(), 2);
+        assert_eq!(ans.citations[0].segment_id, 1);
+        assert_eq!(ans.citations[1].segment_id, 2);
     }
 }

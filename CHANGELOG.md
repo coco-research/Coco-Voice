@@ -6,6 +6,20 @@ from the conventional commit titles when a release is cut. The user-facing notes
 for each version are in [src/content/release-notes/](src/content/release-notes/)
 and on the [GitHub Release](https://github.com/coco-research/Coco-Voice/releases).
 
+## [0.20.8](https://github.com/coco-research/Coco-Voice/compare/v0.20.7...v0.20.8) (2026-11-26)
+
+
+### Fixed
+
+* enforce prompt token budget when merging multi-piece meeting ask answers ([#374](https://github.com/coco-research/Coco-Voice/issues/374)) ([df1aca0](https://github.com/coco-research/Coco-Voice/commit/df1aca00720b06b15d0cd9da8f47cd9ef3356f98))
+
+## [0.20.7](https://github.com/coco-research/Coco-Voice/compare/v0.20.6...v0.20.7) (2026-11-26)
+
+
+### Fixed
+
+* serialize meeting pause with capture writes and enforce lock order ([#380](https://github.com/coco-research/Coco-Voice/issues/380)) ([cd0eec9](https://github.com/coco-research/Coco-Voice/commit/cd0eec9b591fbdfa508b2e78aa32f5a14356081e))
+
 ## [0.20.6](https://github.com/coco-research/Coco-Voice/compare/v0.20.5...v0.20.6) (2026-11-26)
 
 

@@ -3328,6 +3328,16 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "meetings")]
+    struct ResetMeetingActive;
+
+    #[cfg(feature = "meetings")]
+    impl Drop for ResetMeetingActive {
+        fn drop(&mut self) {
+            crate::managers::meetings::set_meeting_active(false);
+        }
+    }
+
     /// T-mc2 (M-c1, manager part): on `new_for_test` with no engine loaded,
     /// `start_meeting_model_load(id, pinned)` has `is_loading` true when it returns,
     /// performs exactly one load call for the pinned id, writes the warn line once,
@@ -3335,6 +3345,8 @@ mod tests {
     #[cfg(feature = "meetings")]
     #[test]
     fn t_mc2_manager_cold_start_loads_once_logs_warn_and_clears_flags() {
+        let _lock = crate::managers::meetings::test_lock();
+        let _reset_active = ResetMeetingActive;
         let app = tauri::test::mock_builder()
             .plugin(tauri_plugin_store::Builder::default().build())
             .build(tauri::test::mock_context(tauri::test::noop_assets()))
@@ -3436,6 +3448,8 @@ mod tests {
     #[cfg(feature = "meetings")]
     #[test]
     fn t_mc7_meeting_load_while_another_load_is_in_flight() {
+        let _lock = crate::managers::meetings::test_lock();
+        let _reset_active = ResetMeetingActive;
         let pinned = "handy-computer/parakeet-ultra-gguf/parakeet-ultra-Q8_0.gguf";
 
         // Case 1: held guard -> start_meeting_model_load returns immediately with
@@ -3453,12 +3467,12 @@ mod tests {
                 .try_start_loading()
                 .expect("acquire simulated in-flight dictation/switch LoadingGuard");
 
-            let t0 = Instant::now();
+            // Structural proof that start_meeting_model_load does not block: this thread
+            // still holds `held_guard`, so a blocking call could never return.
             tm.start_meeting_model_load(101, pinned);
             assert!(
-                t0.elapsed() < Duration::from_millis(100),
-                "start_meeting_model_load must return immediately, took {:?}",
-                t0.elapsed()
+                tm.is_loading_now(),
+                "held load guard must remain active when start_meeting_model_load returns"
             );
             assert!(tm.is_meeting_load_pending());
 
@@ -3610,14 +3624,18 @@ mod tests {
             assert!(tm.should_wait_for_meeting_load(true));
             assert!(!tm.should_wait_for_meeting_load(false));
 
-            let t0 = Instant::now();
+            // Structural proof that dictation does not wait on `meeting_load_pending`:
+            // nothing clears the flag until below on this thread, so waiting on the
+            // condvar would block instead of returning `Ok` while the flag is still true.
             let res = tm.transcribe(vec![0.1_f32; 160]);
             assert!(
-                t0.elapsed() < Duration::from_millis(100),
-                "dictation must not wait on meeting_load_pending, took {:?}",
-                t0.elapsed()
+                tm.is_meeting_load_pending(),
+                "meeting_load_pending must still be set when dictation returns"
             );
-            assert!(res.is_ok(), "dictation should succeed immediately: {res:?}");
+            assert!(
+                res.is_ok(),
+                "dictation should succeed without waiting on meeting_load_pending: {res:?}"
+            );
 
             let _g = tm.is_loading.lock().unwrap();
             tm.meeting_load_pending.store(false, Ordering::Release);
