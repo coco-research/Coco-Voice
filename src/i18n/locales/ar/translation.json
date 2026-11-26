@@ -698,7 +698,9 @@
           "title": "ggml",
           "description": "استنتاج عالي الأداء لنموذج التعرف التلقائي على الكلام Whisper من OpenAI",
           "details": ".يستخدم Coco Voice برنامج ggml لمعالجة سريعة ومحلية لتحويل الكلام إلى نص. شكراً للعمل الرائع الذي قام به Georgi Gerganov والمساهمون"
-        }
+        },
+        "ccByModelDetails": "مرخّص بموجب CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).",
+        "ccByModelDetails_changed": "مرخّص بموجب CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). تم التعديل: حُوّل إلى {{format}} بواسطة {{converter}}."
       },
       "whatsNewUpdates": {
         "label": "إظهار الجديد",

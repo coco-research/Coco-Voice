@@ -6,7 +6,8 @@
 // ponytail: ceiling = local SQLite BM25 index (<100k segments); upgrade path = quantized local vector ANN when recall drops.
 
 use anyhow::Result;
-use rusqlite::{params, Connection, OpenFlags};
+use rusqlite::types::Value;
+use rusqlite::{params, params_from_iter, Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -220,7 +221,9 @@ impl MeetingAskIndex {
              CREATE TABLE IF NOT EXISTS ask_folders (meeting_id INTEGER PRIMARY KEY, folder TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS indexed_meetings (meeting_id INTEGER PRIMARY KEY, title TEXT NOT NULL, folder TEXT, started_at INTEGER NOT NULL, fingerprint TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS ask_docs (doc_id INTEGER PRIMARY KEY, meeting_id INTEGER NOT NULL, segment_id INTEGER NOT NULL, start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL, channel TEXT NOT NULL, text TEXT NOT NULL, token_len INTEGER NOT NULL);
-             CREATE TABLE IF NOT EXISTS ask_terms (term TEXT NOT NULL, doc_id INTEGER NOT NULL, tf INTEGER NOT NULL, PRIMARY KEY (term, doc_id));",
+             CREATE TABLE IF NOT EXISTS ask_terms (term TEXT NOT NULL, doc_id INTEGER NOT NULL, tf INTEGER NOT NULL, PRIMARY KEY (term, doc_id));
+             CREATE INDEX IF NOT EXISTS indexed_meetings_recent ON indexed_meetings(started_at DESC, meeting_id DESC);
+             CREATE INDEX IF NOT EXISTS ask_docs_recent ON ask_docs(meeting_id, start_ms DESC, segment_id DESC);",
         )?;
         #[cfg(unix)]
         {
@@ -454,20 +457,27 @@ impl MeetingAskIndex {
         scope: &AskScope,
         limit: usize,
     ) -> Result<Vec<AskCitation>> {
+        let Some((sql, bind_params)) = recent_scope_query(scope, limit) else {
+            return Ok(Vec::new());
+        };
         let ic = self.conn()?;
-        let mut cites: Vec<AskCitation> = load_scoped_docs(&ic, scope)?
-            .into_iter()
-            .map(|(_, c, _)| c)
-            .collect();
-        cites.sort_by(|a, b| {
-            (b.started_at, b.meeting_id, b.start_ms, b.segment_id).cmp(&(
-                a.started_at,
-                a.meeting_id,
-                a.start_ms,
-                a.segment_id,
-            ))
-        });
-        cites.truncate(limit);
+        let mut st = ic.prepare(&sql)?;
+        let mut cites: Vec<AskCitation> = st
+            .query_map(params_from_iter(bind_params.iter()), |r| {
+                let s_ms: i64 = r.get(4)?;
+                Ok(AskCitation {
+                    meeting_id: r.get(0)?,
+                    meeting_title: r.get(1)?,
+                    started_at: r.get(2)?,
+                    segment_id: r.get(3)?,
+                    start_ms: s_ms,
+                    end_ms: r.get(5)?,
+                    timestamp: format_mm_ss(s_ms),
+                    channel: r.get(6)?,
+                    quote: r.get(7)?,
+                })
+            })?
+            .collect::<rusqlite::Result<_>>()?;
         cites.reverse();
         Ok(cites)
     }
@@ -522,6 +532,56 @@ fn purge(tx: &rusqlite::Transaction<'_>, id: i64) -> Result<()> {
     tx.execute("DELETE FROM ask_docs WHERE meeting_id = ?1", [id])?;
     tx.execute("DELETE FROM indexed_meetings WHERE meeting_id = ?1", [id])?;
     Ok(())
+}
+
+fn recent_scope_query(scope: &AskScope, limit: usize) -> Option<(String, Vec<Value>)> {
+    if limit == 0 {
+        return None;
+    }
+    let sql_limit = i64::try_from(limit).unwrap_or(i64::MAX);
+    const SELECT_PREFIX: &str =
+        "SELECT d.meeting_id, m.title, m.started_at, d.segment_id, d.start_ms, d.end_ms, d.channel, d.text \
+         FROM indexed_meetings m JOIN ask_docs d ON d.meeting_id = m.meeting_id";
+    const ORDER_BY: &str =
+        "ORDER BY m.started_at DESC, d.meeting_id DESC, d.start_ms DESC, d.segment_id DESC";
+
+    match scope {
+        AskScope::AllMeetings => Some((
+            format!("{SELECT_PREFIX} {ORDER_BY} LIMIT ?1"),
+            vec![Value::Integer(sql_limit)],
+        )),
+        AskScope::OneMeeting(mid) => Some((
+            format!("{SELECT_PREFIX} WHERE d.meeting_id = ?1 {ORDER_BY} LIMIT ?2"),
+            vec![Value::Integer(*mid), Value::Integer(sql_limit)],
+        )),
+        AskScope::Folder(folder) => Some((
+            format!("{SELECT_PREFIX} WHERE m.folder = ?1 COLLATE NOCASE {ORDER_BY} LIMIT ?2"),
+            vec![
+                Value::Text(folder.trim().to_string()),
+                Value::Integer(sql_limit),
+            ],
+        )),
+        AskScope::PickedSet(ids) => {
+            let mut seen = HashSet::with_capacity(ids.len());
+            let unique: Vec<i64> = ids.iter().copied().filter(|id| seen.insert(*id)).collect();
+            if unique.is_empty() {
+                return None;
+            }
+            let placeholders = (1..=unique.len())
+                .map(|i| format!("?{i}"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let limit_idx = unique.len() + 1;
+            let mut params: Vec<Value> = unique.into_iter().map(Value::Integer).collect();
+            params.push(Value::Integer(sql_limit));
+            Some((
+                format!(
+                    "{SELECT_PREFIX} WHERE d.meeting_id IN ({placeholders}) {ORDER_BY} LIMIT ?{limit_idx}"
+                ),
+                params,
+            ))
+        }
+    }
 }
 
 fn load_scoped_docs(ic: &Connection, scope: &AskScope) -> Result<Vec<(i64, AskCitation, i64)>> {
@@ -788,5 +848,158 @@ pub(crate) mod tests {
         sync_or_defer(dir.path(), true, "delete_meeting");
         assert!(!dir.path().join("meetings/ask_index.db").exists());
         assert!(!any_ask_clean_pending());
+    }
+
+    fn reference_recent_scope_segments(
+        ic: &Connection,
+        scope: &AskScope,
+        limit: usize,
+    ) -> Vec<AskCitation> {
+        let mut cites: Vec<AskCitation> = load_scoped_docs(ic, scope)
+            .unwrap()
+            .into_iter()
+            .map(|(_, c, _)| c)
+            .collect();
+        cites.sort_by(|a, b| {
+            (b.started_at, b.meeting_id, b.start_ms, b.segment_id).cmp(&(
+                a.started_at,
+                a.meeting_id,
+                a.start_ms,
+                a.segment_id,
+            ))
+        });
+        cites.truncate(limit);
+        cites.reverse();
+        cites
+    }
+
+    #[test]
+    fn recent_scope_segments_sql_limit_matches_full_load_over_3000_segments() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path();
+        fs::create_dir_all(p.join("meetings")).unwrap();
+        let mut mc = Connection::open(p.join("meetings/meetings.db")).unwrap();
+        mc.execute_batch(
+            "CREATE TABLE meetings (id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, ended_at INTEGER, title TEXT NOT NULL, status TEXT NOT NULL, model_id TEXT NOT NULL, saved INTEGER NOT NULL DEFAULT 0);
+             CREATE TABLE meeting_segments (id INTEGER PRIMARY KEY, meeting_id INTEGER NOT NULL, start_ms INTEGER NOT NULL, end_ms INTEGER NOT NULL, channel TEXT NOT NULL, text TEXT NOT NULL);",
+        )
+        .unwrap();
+
+        // Seed 60 meetings x 55 segments = 3,300 segments with non-monotonic started_at,
+        // tied started_at across meetings, and tied start_ms within a meeting so every
+        // ORDER BY tie-breaker (started_at, meeting_id, start_ms, segment_id) is exercised.
+        let tx = mc.transaction().unwrap();
+        let mut seg_id: i64 = 1;
+        for m in 1i64..=60 {
+            let started_at = 1_700_000_000 + ((m * 17) % 20) * 3600;
+            tx.execute(
+                "INSERT INTO meetings VALUES (?1, ?2, ?3, ?4, 'notes_ready', 'whisper-small', 0)",
+                params![m, started_at, started_at + 1800, format!("Meeting {m}")],
+            )
+            .unwrap();
+            for s in 0i64..55 {
+                let start_ms = (s / 2) * 1000;
+                tx.execute(
+                    "INSERT INTO meeting_segments VALUES (?1, ?2, ?3, ?4, 'me', ?5)",
+                    params![seg_id, m, start_ms, start_ms + 900, format!("m{m} s{s}")],
+                )
+                .unwrap();
+                seg_id += 1;
+            }
+        }
+        tx.commit().unwrap();
+
+        let idx = MeetingAskIndex::open(p).unwrap();
+        for m in 1i64..=60 {
+            match m % 3 {
+                0 => idx.set_folder(m, Some("Product")).unwrap(),
+                1 => idx.set_folder(m, Some("Engineering")).unwrap(),
+                _ => {}
+            }
+        }
+        assert_eq!(idx.sync().unwrap(), 60);
+
+        let ic = idx.conn().unwrap();
+        let total_docs: i64 = ic
+            .query_row("SELECT COUNT(*) FROM ask_docs", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(total_docs, 3_300);
+
+        let scopes = [
+            AskScope::AllMeetings,
+            AskScope::OneMeeting(42),
+            AskScope::Folder(" product ".into()),
+            AskScope::Folder("ENGINEERING".into()),
+            AskScope::PickedSet(vec![5, 19, 19, 42, 60]),
+            AskScope::PickedSet(vec![]),
+        ];
+
+        for scope in &scopes {
+            let expected = reference_recent_scope_segments(&ic, scope, 30);
+            let actual = idx.recent_scope_segments(scope, 30).unwrap();
+            assert_eq!(actual, expected, "mismatch for scope {scope:?}");
+            if !matches!(scope, AskScope::PickedSet(v) if v.is_empty()) {
+                assert_eq!(actual.len(), 30, "expected 30 rows for scope {scope:?}");
+                let (sql, bind_params) = recent_scope_query(scope, 30).unwrap();
+                let mut st = ic.prepare(&sql).unwrap();
+                let sql_rows = st
+                    .query_map(params_from_iter(bind_params.iter()), |r| r.get::<_, i64>(0))
+                    .unwrap()
+                    .count();
+                assert_eq!(
+                    sql_rows, 30,
+                    "SQL cursor must yield at most 30 rows for scope {scope:?}"
+                );
+            } else {
+                assert!(recent_scope_query(scope, 30).is_none());
+            }
+            for pair in actual.windows(2) {
+                let lhs = (
+                    pair[0].started_at,
+                    pair[0].meeting_id,
+                    pair[0].start_ms,
+                    pair[0].segment_id,
+                );
+                let rhs = (
+                    pair[1].started_at,
+                    pair[1].meeting_id,
+                    pair[1].start_ms,
+                    pair[1].segment_id,
+                );
+                assert!(lhs < rhs, "expected oldest-first order for scope {scope:?}");
+            }
+        }
+
+        assert!(idx
+            .recent_scope_segments(&AskScope::AllMeetings, 0)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn recent_scope_segments_bounds_sql_load_with_order_by_limit() {
+        let src = include_str!("meeting_ask_index.rs");
+        let start = src
+            .find("pub(crate) fn recent_scope_segments(")
+            .expect("recent_scope_segments definition must exist");
+        let rest = &src[start..];
+        let end = rest
+            .find("\n    fn conn(")
+            .expect("fn conn marker after recent_scope_segments");
+        let body = &rest[..end];
+        assert!(
+            !body.contains("load_scoped_docs"),
+            "recent_scope_segments must not full-load via load_scoped_docs"
+        );
+        let prod = src
+            .split("\n#[cfg(test)]")
+            .next()
+            .expect("production module code before #[cfg(test)]");
+        assert!(
+            prod.contains(
+                "ORDER BY m.started_at DESC, d.meeting_id DESC, d.start_ms DESC, d.segment_id DESC"
+            ) && prod.contains("LIMIT ?"),
+            "production query must bound rows in SQL with ORDER BY ... DESC LIMIT ?"
+        );
     }
 }
