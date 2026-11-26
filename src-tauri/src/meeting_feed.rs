@@ -2,7 +2,7 @@
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread::{self, JoinHandle};
 
 use tauri::{AppHandle, Emitter, Manager};
@@ -66,14 +66,24 @@ pub(crate) struct Feed {
     pub(crate) tx: Mutex<Option<Sender<Job>>>,
     pub(crate) write_failed: AtomicBool,
     pub(crate) heard: AtomicBool,
-    pub(crate) paused: AtomicBool,
+    pub(crate) pause_gate: RwLock<bool>,
     pub(crate) warnings: Mutex<Vec<MeetingWarning>>,
     pub(crate) mic_name: Mutex<Option<String>>,
 }
 
 impl Feed {
+    pub(crate) fn set_paused(&self, paused: bool) {
+        *self.pause_gate.write().unwrap_or_else(poison) = paused;
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_paused(&self) -> bool {
+        *self.pause_gate.read().unwrap_or_else(poison)
+    }
+
     pub(crate) fn push_me(&self, samples: &[f32]) {
-        if self.paused.load(Ordering::Acquire) {
+        let paused = self.pause_gate.read().unwrap_or_else(poison);
+        if *paused {
             return;
         }
         if !write_optional(&self.me_wav, &self.write_failed, samples) {
@@ -82,8 +92,17 @@ impl Feed {
         self.push_chunker(&self.me, samples);
     }
 
+    pub(crate) fn push_me_chunker(&self, samples: &[f32]) {
+        let paused = self.pause_gate.read().unwrap_or_else(poison);
+        if *paused {
+            return;
+        }
+        self.push_chunker(&self.me, samples);
+    }
+
     pub(crate) fn push_others(&self, samples: &[f32]) {
-        if self.paused.load(Ordering::Acquire) {
+        let paused = self.pause_gate.read().unwrap_or_else(poison);
+        if *paused {
             return;
         }
         if samples.iter().any(|sample| *sample != 0.0) {
