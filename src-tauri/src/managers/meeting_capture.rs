@@ -878,8 +878,22 @@ mod tests {
         entered_rx
             .recv_timeout(Duration::from_secs(2))
             .expect("push thread started");
-        // Give the push thread time to pass the check and block on `track.lock()`.
-        std::thread::sleep(Duration::from_millis(50));
+        // Wait until the push thread holds the `user_paused` read guard (and is blocked
+        // on `track.lock()`). Never keep the write lock while polling: drop any `Ok` guard
+        // immediately and yield.
+        let wait_start = Instant::now();
+        loop {
+            match mic.user_paused.try_write() {
+                Err(std::sync::TryLockError::WouldBlock) => break,
+                Ok(guard) => drop(guard),
+                Err(std::sync::TryLockError::Poisoned(err)) => drop(err.into_inner()),
+            }
+            assert!(
+                wait_start.elapsed() < Duration::from_secs(2),
+                "push thread did not acquire user_paused read guard within 2s"
+            );
+            std::thread::yield_now();
+        }
 
         let (paused_tx, paused_rx) = std::sync::mpsc::channel();
         let pause_mic = Arc::clone(&mic);
