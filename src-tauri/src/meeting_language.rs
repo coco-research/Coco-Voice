@@ -207,6 +207,7 @@ mod tests {
 
     #[test]
     fn default_meeting_language_is_auto_and_independent_of_dictation() {
+        let _lock = crate::managers::meetings::test_lock();
         let mut settings = crate::settings::get_default_settings();
         assert_eq!(settings.meeting_language, "auto");
         settings.selected_language = "fr".to_string();
