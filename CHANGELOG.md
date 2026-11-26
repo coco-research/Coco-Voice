@@ -6,6 +6,13 @@ from the conventional commit titles when a release is cut. The user-facing notes
 for each version are in [src/content/release-notes/](src/content/release-notes/)
 and on the [GitHub Release](https://github.com/coco-research/Coco-Voice/releases).
 
+## [0.20.9](https://github.com/coco-research/Coco-Voice/compare/v0.20.8...v0.20.9) (2026-11-26)
+
+
+### Fixed
+
+* delete only the removed model's file from the Hugging Face cache ([#373](https://github.com/coco-research/Coco-Voice/issues/373)) ([069bfef](https://github.com/coco-research/Coco-Voice/commit/069bfefadabb2bb06b7e0ec28b51f32ebfe5dc1f))
+
 ## [0.20.8](https://github.com/coco-research/Coco-Voice/compare/v0.20.7...v0.20.8) (2026-11-26)
 
 
