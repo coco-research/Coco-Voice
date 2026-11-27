@@ -379,6 +379,8 @@ function App() {
           description: "text-mid-gray",
           actionButton:
             "cursor-pointer shrink-0 rounded-md border border-mid-gray/20 px-2 py-1 text-xs font-medium",
+          cancelButton:
+            "cursor-pointer shrink-0 whitespace-nowrap rounded-md border border-mid-gray/20 px-2 py-1 text-xs font-medium",
         },
       }}
     />
