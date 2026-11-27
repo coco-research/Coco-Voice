@@ -6,6 +6,14 @@ from the conventional commit titles when a release is cut. The user-facing notes
 for each version are in [src/content/release-notes/](src/content/release-notes/)
 and on the [GitHub Release](https://github.com/coco-research/Coco-Voice/releases).
 
+## [0.20.10](https://github.com/coco-research/Coco-Voice/compare/v0.20.9...v0.20.10) (2026-11-27)
+
+
+### Fixed
+
+* keep notice descriptions readable in Light appearance ([#392](https://github.com/coco-research/Coco-Voice/issues/392)) ([db07c4a](https://github.com/coco-research/Coco-Voice/commit/db07c4a91d893fc600a0096545fad3d0ce408a1f))
+* keep the Try again button in the shortcut notice on one line ([#389](https://github.com/coco-research/Coco-Voice/issues/389)) ([06a2fc9](https://github.com/coco-research/Coco-Voice/commit/06a2fc9e916ec3c79ce23d58970ab25a7e99fd18))
+
 ## [0.20.9](https://github.com/coco-research/Coco-Voice/compare/v0.20.8...v0.20.9) (2026-11-26)
 
 
