@@ -376,7 +376,7 @@ function App() {
           toast:
             "bg-background border border-mid-gray/20 rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 text-sm",
           title: "font-medium",
-          description: "text-mid-gray",
+          description: "text-mid-gray!",
           actionButton:
             "cursor-pointer shrink-0 rounded-md border border-mid-gray/20 px-2 py-1 text-xs font-medium",
           cancelButton:
